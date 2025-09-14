@@ -1,0 +1,24 @@
+- version: 0.0.1
+
+- config:
+  - name: thermostat automata
+  - type: folder
+  - location: "."
+
+- automata:
+  - initial_state: Idle
+  - states:
+    Idle:
+      - inputs: [temp]
+      - outputs: [cooler_on]
+    Cooling:
+      - inputs: [temp]
+      - outputs: [cooler_on]
+  - transitions:
+    StartCooling:
+      - from: Idle
+      - to: Cooling
+    StopCooling:
+      - from: Cooling
+      - to: Idle
+
