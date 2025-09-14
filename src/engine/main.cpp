@@ -1,10 +1,12 @@
-#include <iostream>
+#define RYML_SINGLE_HDR_DEFINE_NOW
+#include "argparser.hpp"
 
 int main(int argc, char *argv[]) {
-  int x = 5;
-  int abcd;
-  int y = abcd + 5;
-  int z = abcd + x + y;
-  std::cout << "Hello world"<< z;
+  bool success = ArgParser::parse(argc, argv);
+  
+  if (!success) {
+    return -1;
+  }
+
   return 0;
 }
