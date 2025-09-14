@@ -1,0 +1,4 @@
+# Intentionally invalid YAML content
+version: [not, a, string
+automata:
+  - states: {}
