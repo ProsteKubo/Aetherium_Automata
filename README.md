@@ -32,6 +32,12 @@ IoT networks need **visual, extensible automata engines** for adaptive behavior 
 5. **Configurable size** for different iot devices where certain features can be turned off for space savings 
 ---
 
+## Documentation
+- Automata YAML format: see `docs/Automata_YAML_Spec.md` for the current spec, examples (inline and folder layouts), and validation rules.
+- Lua Runtime API: see `docs/Lua_Runtime_API.md` for available helpers (`check`, `value`, `setVal`, etc.) and valid script entry points.
+
+---
+
 ## Milestones
 
 ### Milestone 1: Core Automata Engine
@@ -115,4 +121,3 @@ IoT networks need **visual, extensible automata engines** for adaptive behavior 
 4. Parallel execution
 5. Petri net
 6. WFST
-
