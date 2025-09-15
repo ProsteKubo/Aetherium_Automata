@@ -33,17 +33,16 @@ if(AETHERIUM_FETCH_RYML)
   include(FetchContent)
 
   FetchContent_Declare(
-    rapidyaml
+    ryml
     GIT_REPOSITORY https://github.com/biojppm/rapidyaml.git
     GIT_TAG        v0.9.0
     GIT_SHALLOW FALSE
 
   )
-  FetchContent_MakeAvailable(rapidyaml)
+  FetchContent_MakeAvailable(ryml)
 
-  add_library(yaml_backend INTERFACE)
   if(TARGET aetherium_engine)
-    target_link_libraries(aetherium_engine PRIVATE yaml_backend)
+    target_link_libraries(aetherium_engine PRIVATE ryml::ryml)
   endif()
 endif()
 

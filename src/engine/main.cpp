@@ -1,4 +1,4 @@
-#define RYML_SINGLE_HDR_DEFINE_NOW
+#include "automata.hpp"
 #include "argparser.hpp"
 
 int main(int argc, char *argv[]) {
@@ -6,6 +6,16 @@ int main(int argc, char *argv[]) {
   
   if (!success) {
     return -1;
+  }
+
+  if (ArgParser::automataFile != "") {
+    if (ArgParser::validateAutomataFlag) {
+
+    }
+
+    if (ArgParser::runFlag) {
+      
+    }
   }
 
   return 0;
