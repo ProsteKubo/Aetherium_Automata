@@ -1,6 +1,7 @@
 #ifndef AETHERIUM_ARGPARSER_HPP
 #define AETHERIUM_ARGPARSER_HPP
 #include <string>
+
 enum EngineMode{
     detached,
     network

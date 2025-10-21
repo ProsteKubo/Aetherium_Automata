@@ -43,9 +43,9 @@ bool ArgParser::parse(int argc, char* argv[]) {
                 break;
             
             case 'm':
-                if (strcmp(optarg, "network") == 0) {
+                if (std::string(optarg).compare("network") == 0) {
                     ArgParser::mode = network;
-                } else if (strcmp(optarg, "detached") == 0) {
+                } else if (std::string(optarg).compare("detached") == 0) {
                     ArgParser::mode = detached;
                 } else {
                     ArgParser::printHelp();
