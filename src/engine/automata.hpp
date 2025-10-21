@@ -25,6 +25,11 @@ enum VariableType {
     VOID
 };
 
+enum AutomataType {
+    FOLDER,
+    INLINE
+};
+
 // empty class for NULL not sure if other variant is possible, right now this is useless 
 class Void {
 
@@ -67,7 +72,7 @@ private:
 class Code : Node<Code> {
 public:
     std::string code;
-    VariableType reutrnType;
+    VariableType returnType;
 
     Code parse(ryml::ConstNodeRef node) override;
     std::string toString() override;
@@ -103,8 +108,12 @@ public:
     std::vector<State> states;
     std::vector<Transition> transitions;
     std::vector<Variable> variables;
+    std::string version;
+    std::string name;
+    AutomataType type;
+    std::string rootPath;
 
-    explicit Automata(std::string path);
+    explicit Automata(const std::string& path);
 private:
     Automata parse(ryml::ConstNodeRef node) override;
     std::string toString() override;
