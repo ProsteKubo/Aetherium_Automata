@@ -4,10 +4,10 @@
 #include <filesystem>
 
 bool ArgParser::parse(int argc, char* argv[]) {
-    const char* const short_opts = "hvr:m::c:";
+    const auto short_opts = "hvr:m::c:";
     int verbose_flag = 0;
     int debug_flag = 0;
-    option long_opts[] = {
+    const option long_opts[] = {
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
         {"debug", no_argument, &debug_flag, 1},
@@ -23,32 +23,32 @@ bool ArgParser::parse(int argc, char* argv[]) {
     while ((opt = getopt_long(argc, argv, short_opts, long_opts, NULL)) != -1) {
         switch (opt) {
             case 'h':
-                ArgParser::printHelp();
-                ArgParser::helpFlag = true;
+                printHelp();
+                helpFlag = true;
                 break;
 
             case 'v':
-                ArgParser::printVersion();
-                ArgParser::versionFlag = true;
+                printVersion();
+                versionFlag = true;
                 break;
 
             case 'r':
                 if (!std::filesystem::exists(optarg)) {
                     std::cout << "File not found: " << optarg << std::endl;
-                    ArgParser::printHelp();
+                    printHelp();
                     return false;
                 }
-                ArgParser::automataFile = optarg;
-                ArgParser::runFlag = true;
+                automataFile = optarg;
+                runFlag = true;
                 break;
             
             case 'm':
-                if (std::string(optarg).compare("network") == 0) {
-                    ArgParser::mode = network;
-                } else if (std::string(optarg).compare("detached") == 0) {
-                    ArgParser::mode = detached;
+                if (std::string(optarg) == "network") {
+                    mode = network;
+                } else if (std::string(optarg) == "detached") {
+                    mode = detached;
                 } else {
-                    ArgParser::printHelp();
+                    printHelp();
                     return false;
                 }
                 break;
@@ -56,31 +56,31 @@ bool ArgParser::parse(int argc, char* argv[]) {
             case 'c':
                 if (!std::filesystem::exists(optarg)) {
                         std::cout << "File not found: " << optarg << std::endl;
-                        ArgParser::printHelp();
+                        printHelp();
                         return false;
                     }
-                ArgParser::configFile = optarg;
-                ArgParser::configProvidedFlag = true;
+                configFile = optarg;
+                configProvidedFlag = true;
                 break;
             
             case 1: // validate
                 if (!std::filesystem::exists(optarg)) {
                         std::cout << "File not found: " << optarg << std::endl;
-                        ArgParser::printHelp();
+                        printHelp();
                         return false;
                     }
-                ArgParser::automataFile = optarg;
-                ArgParser::validateAutomataFlag = true;
+                automataFile = optarg;
+                validateAutomataFlag = true;
                 break;
             
             default:
-                ArgParser::printHelp();
+                printHelp();
                 return false;
         }
     }
 
-    ArgParser::debugFlag = debug_flag;
-    ArgParser::verboseFlag = verbose_flag;
+    debugFlag = debug_flag;
+    verboseFlag = verbose_flag;
 
     return true;
 }
@@ -90,7 +90,7 @@ void ArgParser::printHelp() {
         "Usage:\n"
         "  engine [options] \n\n"
         "Options:\n"
-        "  --help                       Show this help and exit\n"
+        "  --help                       Show help and exit\n"
         "  --version                    Show version and exit\n"
         "  --validate <file>            Validate an automata YAML and exit\n"
         "  --verbose                    Enable verbose logging\n"

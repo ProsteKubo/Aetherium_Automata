@@ -10,8 +10,12 @@
 
 template <class T>
 class Node {
-    virtual T parse(ryml::ConstNodeRef node);
-    virtual std::string toString();
+public:
+    virtual ~Node() = default;
+
+private:
+    virtual T parse(ryml::ConstNodeRef node) = 0;
+    virtual std::string toString() = 0;
 };
 
 enum VariableType {
@@ -35,14 +39,14 @@ public:
     explicit Variable(bool v) : data_(v) {}
     explicit Variable(int v) : data_(v) {}
     explicit Variable(std::string v) : data_(v) {}
-    Variable(const char* s) : data_(std::string(s)) {}
+    explicit Variable(const char* s) : data_(std::string(s)) {}
 
-    VariableType type() const {
+    [[nodiscard]] VariableType type() const {
         return static_cast<VariableType>(data_.index());
     }
 
     template <class T>
-    bool is() const { return std::holds_alternative<T>(data_); }
+    [[nodiscard]] bool is() const { return std::holds_alternative<T>(data_); }
 
     template <class T>
     T& get() { return std::get<T>(data_); }
@@ -53,6 +57,9 @@ public:
     template <class T>
     void set(T&& v) { data_ = std::forward<T>(v); };
 
+    Variable parse(ryml::ConstNodeRef node) override;
+    std::string toString() override;
+
 private:
     Value data_;
 };
@@ -61,6 +68,9 @@ class Code : Node<Code> {
 public:
     std::string code;
     VariableType reutrnType;
+
+    Code parse(ryml::ConstNodeRef node) override;
+    std::string toString() override;
 };
 
 class State : Node<State> {
@@ -71,6 +81,9 @@ public:
     Code on_enter;
     Code on_exit;
     Code body; // TODO: body will be implemented later, or fully dropped
+
+    State parse(ryml::ConstNodeRef node) override;
+    std::string toString() override;
 };
 
 class Transition : Node<Transition> {
@@ -80,6 +93,9 @@ public:
     Code condition;
     Code triggered;
     Code body; // TODO: body will be implemented later, or fully dropped
+
+    Transition parse(ryml::ConstNodeRef node) override;
+    std::string toString() override;
 };
 
 class Automata : Node<Automata> {
@@ -87,6 +103,11 @@ public:
     std::vector<State> states;
     std::vector<Transition> transitions;
     std::vector<Variable> variables;
+
+    explicit Automata(std::string path);
+private:
+    Automata parse(ryml::ConstNodeRef node) override;
+    std::string toString() override;
 };
 
 #endif // AETHERIUM_AUTOMATA_HPP
