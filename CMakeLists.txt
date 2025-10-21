@@ -6,7 +6,7 @@ project(AetheriumAutomata
   LANGUAGES CXX)
 
 option(AETHERIUM_BUILD_ENGINE "Build the engine executable" ON)
-option(AETHERIUM_ENABLE_TESTS "Enable tests" ON)
+option(AETHERIUM_ENABLE_TESTS "Enable tests" OFF)
 option(AETHERIUM_FETCH_RYML "Automatically fetch rapidyaml + c4core" ON)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -18,7 +18,8 @@ if(AETHERIUM_BUILD_ENGINE)
     src/engine/main.cpp
     src/engine/argparser.cpp
     src/engine/engine.cpp
-    src/engine/automata_parser.cpp)
+    src/engine/automata_parser.cpp
+    src/engine/automata_validator.cpp)
 
   target_compile_features(aetherium_engine PRIVATE cxx_std_17)
   target_include_directories(aetherium_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
@@ -39,10 +40,19 @@ if(AETHERIUM_FETCH_RYML)
     GIT_SHALLOW FALSE
 
   )
+
+  # Ensure c4core is built
+  set(RYML_WITH_TAB_TOKENS ON CACHE INTERNAL "")
+  set(RYML_DEFAULT_CALLBACKS ON CACHE INTERNAL "")
+
   FetchContent_MakeAvailable(ryml)
 
   if(TARGET aetherium_engine)
     target_link_libraries(aetherium_engine PRIVATE ryml::ryml)
+
+    if(TARGET c4core)
+      target_link_libraries(aetherium_engine PRIVATE c4core)
+    endif()
   endif()
 endif()
 
