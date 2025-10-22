@@ -30,7 +30,19 @@ Variable Variable::parse(ryml::ConstNodeRef node) {
 }
 
 std::string Variable::toString() {
-    return "";
+    std::string return_string =  this->name + "/" + ":";
+
+    if (this->is<bool>()) {
+        return_string += std::to_string(this->get<bool>());
+    } else if (this->is<int>()) {
+        return_string += std::to_string(this->get<int>());
+    } else if (this->is<std::string>()) {
+        return_string += this->get<std::string>();
+    } else if (this->is<Void>()) {
+        return_string += " ";
+    }
+
+    return return_string;
 }
 
 Code Code::parse(ryml::ConstNodeRef node) {

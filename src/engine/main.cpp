@@ -20,7 +20,7 @@ int main(const int argc, char *argv[]) {
 
     if (ArgParser::runFlag) {
       Engine engine;
-      const Automata automata(ArgParser::automataFile);
+      Automata automata(ArgParser::automataFile);
       engine.run(automata);
     }
   }

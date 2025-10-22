@@ -4,7 +4,7 @@
 
 class Engine{
 public:
-    int run(Automata automata);
+    int run(Automata& automata);
 };
 
 #endif //AETHERIUM_ENGINE_HPP
