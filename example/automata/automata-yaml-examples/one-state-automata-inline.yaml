@@ -8,9 +8,11 @@ automata:
   states:
     State1:
       inputs:
-        - in1
-        - in2
+        - in1:string
+        - in2:int
+        - in3:bool
       outputs:
+        # type string is implicit
         - out1
         - out2
       variables:

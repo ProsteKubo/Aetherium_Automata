@@ -6,8 +6,6 @@
 #include <vector>
 #include <ryml.hpp>
 
-// TODO: add toString as inherent for every class so printing whole automata is easy, add printing for automata as well
-
 template <class T>
 class Node {
 public:
@@ -22,7 +20,8 @@ enum VariableType {
     BOOL,
     INT,
     STRING,
-    VOID
+    VOID,
+    NOT_SET
 };
 
 enum AutomataType {
@@ -39,12 +38,14 @@ class Variable : Node<Variable> {
 public:
     using Value = std::variant<bool, int, std::string, Void>;
 
-    Variable() = default;
-    explicit Variable(Void v) : data_(v) {}
-    explicit Variable(bool v) : data_(v) {}
-    explicit Variable(int v) : data_(v) {}
-    explicit Variable(std::string v) : data_(v) {}
-    explicit Variable(const char* s) : data_(std::string(s)) {}
+    Variable() : data_(Void()), type_(NOT_SET) {};
+    explicit Variable(Void v) : data_(v), type_(VOID) {}
+    explicit Variable(bool v) : data_(v), type_(BOOL) {}
+    explicit Variable(int v) : data_(v), type_(INT) {}
+    explicit Variable(std::string v) : data_(v), type_(STRING) {}
+    explicit Variable(const char* s) : data_(std::string(s)), type_(STRING) {}
+
+    std::string name;
 
     [[nodiscard]] VariableType type() const {
         return static_cast<VariableType>(data_.index());
@@ -60,13 +61,33 @@ public:
     const T& get() const { return std::get<T>(data_); }
 
     template <class T>
-    void set(T&& v) { data_ = std::forward<T>(v); };
+    void set(T&& v) {
+        VariableType expected_type;
+        if constexpr (std::is_same_v<T, bool>) {
+            expected_type = BOOL;
+        } else if constexpr (std::is_same_v<T, int>) {
+            expected_type = INT;
+        } else if constexpr (std::is_same_v<T, std::string>) {
+            expected_type = STRING;
+        } else if constexpr (std::is_same_v<T, Void>) {
+            expected_type = VOID;
+        } else {
+            expected_type = NOT_SET;
+        }
+
+        if (expected_type != type_ && type_ != NOT_SET) {
+            throw std::runtime_error("type mismatch");
+        }
+        data_ = std::forward<T>(v);
+        type_ = expected_type;
+    };
 
     Variable parse(ryml::ConstNodeRef node) override;
     std::string toString() override;
 
 private:
     Value data_;
+    VariableType type_;
 };
 
 class Code : Node<Code> {
@@ -83,9 +104,10 @@ public:
     std::vector<Variable> inputs;
     std::vector<Variable> outputs;
     std::vector<Variable> variables;
+    std::string name;
     Code on_enter;
     Code on_exit;
-    Code body; // TODO: body will be implemented later, or fully dropped
+    Code body;
 
     State parse(ryml::ConstNodeRef node) override;
     std::string toString() override;
