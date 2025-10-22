@@ -5,6 +5,27 @@
 #include "automata.hpp"
 
 Variable Variable::parse(ryml::ConstNodeRef node) {
+    const c4::csubstr keyName = node.val();
+    std::string s;
+    s.assign(keyName.str, keyName.size());
+    const unsigned long pos = s.find(':');
+    if (pos != std::string::npos) {
+        const std::string var_name = s.substr(0, pos);
+        const std::string var_type = s.substr(pos + 1);
+        this->name = var_name;
+
+        // TODO: if this will be useful later extract to helper function
+        if (var_type == "int") {
+            this->set<int>(0);
+        } else if (var_type == "bool") {
+            this->set<bool>(false);
+        } else if (var_type == "string") {
+            this->set<std::string>("");
+        }
+    } else {
+        this->name = s;
+        this->set<std::string>("");
+    }
     return *this;
 }
 
@@ -20,7 +41,35 @@ std::string Code::toString() {
     return "";
 }
 
-State State::parse(ryml::ConstNodeRef node) {
+State State::parse(const ryml::ConstNodeRef node) {
+    const c4::csubstr keySubstring = node.key();
+    this->name.assign(keySubstring.str, keySubstring.size());
+
+    const auto inputs_node = node["inputs"];
+    const auto outputs_node = node["outputs"];
+    const auto code_node = node["code"];
+    const auto variables_node = node["variables"];
+
+    for (int i = 0; i < inputs_node.num_children(); i++) {
+        Variable v;
+        this->inputs.push_back(v.parse(inputs_node[i]));
+    }
+
+    for (int i = 0; i < outputs_node.num_children(); i++) {
+        Variable v;
+        this->outputs.push_back(v.parse(outputs_node[i]));
+    }
+
+    for (int i = 0; i < variables_node.num_children(); i++) {
+        Variable v;
+        this->variables.push_back(v.parse(variables_node[i]));
+    }
+
+    Code code;
+    this->body = code.parse(code_node);
+
+    // TODO: add examples for on_enter and on_exit for inline yaml example
+
     return *this;
 }
 
@@ -75,15 +124,15 @@ Automata Automata::parse(ryml::ConstNodeRef node) {
     }
 
     if (node["automata"].is_map()) {
-        auto states_node = node["automata"]["states"];
-        auto transitions_node = node["automata"]["transitions"];
+        const auto states_node = node["automata"]["states"];
+        const auto transitions_node = node["automata"]["transitions"];
 
-        for (auto state : states_node.children()) {
+        for (const auto state : states_node.children()) {
             State s;
             this->states.push_back(s.parse(state));
         }
 
-        for (auto transition : transitions_node.children()) {
+        for (const auto transition : transitions_node.children()) {
             Transition t;
             this->transitions.push_back(t.parse(transition));
         }
