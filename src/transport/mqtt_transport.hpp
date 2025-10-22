@@ -1,0 +1,13 @@
+//
+// Created by kubino on 10/22/25.
+//
+
+#ifndef AETHERIUMAUTOMATA_MQTT_TRANSPORT_HPP
+#define AETHERIUMAUTOMATA_MQTT_TRANSPORT_HPP
+
+
+class mqtt_transport {
+};
+
+
+#endif //AETHERIUMAUTOMATA_MQTT_TRANSPORT_HPP
