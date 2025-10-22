@@ -34,7 +34,7 @@ class Void {
 
 };
 
-class Variable : Node<Variable> {
+class Variable final : Node<Variable> {
 public:
     using Value = std::variant<bool, int, std::string, Void>;
 
@@ -63,6 +63,7 @@ public:
     template <class T>
     void set(T&& v) {
         VariableType expected_type;
+        // TODO: add support for implicit conversion(int -> float etc)
         if constexpr (std::is_same_v<T, bool>) {
             expected_type = BOOL;
         } else if constexpr (std::is_same_v<T, int>) {
@@ -90,7 +91,7 @@ private:
     VariableType type_;
 };
 
-class Code : Node<Code> {
+class Code final : Node<Code> {
 public:
     std::string code;
     VariableType returnType;
@@ -99,7 +100,7 @@ public:
     std::string toString() override;
 };
 
-class State : Node<State> {
+class State final : Node<State> {
 public:
     std::vector<Variable> inputs;
     std::vector<Variable> outputs;
@@ -113,19 +114,20 @@ public:
     std::string toString() override;
 };
 
-class Transition : Node<Transition> {
+class Transition final : Node<Transition> {
 public:
-    State from;
-    State to;
+    State* from;
+    State* to;
     Code condition;
     Code triggered;
     Code body; // TODO: body will be implemented later, or fully dropped
-
+    std::string name;
     Transition parse(ryml::ConstNodeRef node) override;
     std::string toString() override;
+
 };
 
-class Automata : Node<Automata> {
+class Automata final : Node<Automata> {
 public:
     std::vector<State> states;
     std::vector<Transition> transitions;
