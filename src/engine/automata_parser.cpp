@@ -34,6 +34,8 @@ std::string Variable::toString() {
 }
 
 Code Code::parse(ryml::ConstNodeRef node) {
+    node >> this->code;
+    this->returnType = VOID;
     return *this;
 }
 
@@ -78,6 +80,18 @@ std::string State::toString() {
 }
 
 Transition Transition::parse(ryml::ConstNodeRef node) {
+    const c4::csubstr keySubstring = node.key();
+    this->name.assign(keySubstring.str, keySubstring.size());
+    Code c;
+    c.parse(node["condition"]);
+    c.returnType = BOOL;
+    this->condition = c;
+
+    if (node.has_child("body")) {
+        Code t;
+        this->triggered = t.parse(node["body"]);
+    }
+
     return *this;
 }
 
@@ -134,7 +148,24 @@ Automata Automata::parse(ryml::ConstNodeRef node) {
 
         for (const auto transition : transitions_node.children()) {
             Transition t;
-            this->transitions.push_back(t.parse(transition));
+            t.parse(transition);
+            std::string from_state_name;
+            transition["from"] >> from_state_name;
+            std::string to_state_name;
+            transition["to"] >> to_state_name;
+
+            // TODO: optimize this, this is only for fast prototyping
+            // copying state and looping through em all each time is pointless
+            // something like map should work just fine for this usecase
+            for (auto& state : this->states) {
+                if (state.name == from_state_name) {
+                    t.from = &state;
+                }
+                if (state.name == to_state_name) {
+                    t.to = &state;
+                }
+            }
+            this->transitions.push_back(t);
         }
     }
 
