@@ -7,7 +7,7 @@ type CodeEditorProps = {
   readOnly?: boolean;
 };
 
-export function CodeEditor({ value, onChange, language = 'lua', readOnly = false }: CodeEditorProps) {
+export function CodeEditor({ value, onChange, readOnly = false }: CodeEditorProps) {
   const [localValue, setLocalValue] = useState(value);
 
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -16,34 +16,7 @@ export function CodeEditor({ value, onChange, language = 'lua', readOnly = false
     onChange(newValue);
   };
 
-  // Simple syntax highlighting for Lua keywords
-  const getHighlightedCode = (code: string) => {
-    const keywords = ['function', 'end', 'if', 'then', 'else', 'elseif', 'for', 'while', 'do', 'return', 'local', 'true', 'false', 'nil', 'and', 'or', 'not'];
-    const builtins = ['check', 'value', 'setVal', 'emit', 'log', 'now', 'rand', 'clamp', 'changed'];
-    
-    let highlighted = code;
-    
-    // Highlight keywords
-    keywords.forEach(keyword => {
-      const regex = new RegExp(`\\b${keyword}\\b`, 'g');
-      highlighted = highlighted.replace(regex, `<span class="text-[#569cd6]">${keyword}</span>`);
-    });
-    
-    // Highlight built-in functions
-    builtins.forEach(builtin => {
-      const regex = new RegExp(`\\b${builtin}\\b`, 'g');
-      highlighted = highlighted.replace(regex, `<span class="text-[#dcdcaa]">${builtin}</span>`);
-    });
-    
-    // Highlight strings
-    highlighted = highlighted.replace(/"([^"]*)"/g, '<span class="text-[#ce9178]">"$1"</span>');
-    highlighted = highlighted.replace(/'([^']*)'/g, '<span class="text-[#ce9178]">\'$1\'</span>');
-    
-    // Highlight comments
-    highlighted = highlighted.replace(/--([^\n]*)/g, '<span class="text-[#6a9955]">--$1</span>');
-    
-    return highlighted;
-  };
+
 
   const lines = value.split('\n');
 

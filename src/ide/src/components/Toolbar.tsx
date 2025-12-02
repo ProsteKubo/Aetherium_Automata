@@ -1,4 +1,4 @@
-import { Play, Save, FolderOpen, FileText, GitBranch, Settings, Layout, Code, Pause, RotateCcw, Network, ChevronLeft, ChevronRight, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, PanelBottomClose, PanelBottomOpen } from 'lucide-react';
+import { Play, Save, GitBranch, Settings, Layout, Code, Network, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen, PanelBottomClose, PanelBottomOpen } from 'lucide-react';
 
 type ToolbarProps = {
   onRunSimulation: () => void;

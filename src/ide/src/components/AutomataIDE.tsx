@@ -8,7 +8,6 @@ import { Toolbar } from './Toolbar';
 import { NetworkView } from './NetworkView';
 import { TimelineView } from './TimelineView';
 import { ResizablePanel } from './ResizablePanel';
-import { Menu, Play, Settings, Save, FolderOpen, FileText, GitBranch } from 'lucide-react';
 
 export type State = {
   id: string;
@@ -79,6 +78,10 @@ export type ExecutionSnapshot = {
     type: 'transition' | 'input' | 'output' | 'variable' | 'state_enter' | 'state_exit' | 'error';
     description: string;
     details?: any;
+    name?: string;
+    value?: any;
+    from?: string;
+    to?: string;
   };
   stackTrace?: string[];
 };
@@ -306,7 +309,14 @@ export function AutomataIDE() {
     });
 
     // Simulate some state transitions
-    const events = [
+    const events: {
+      delay: number;
+      type: 'input' | 'transition' | 'variable' | 'output';
+      name?: string;
+      value?: any;
+      from?: string;
+      to?: string;
+    }[] = [
       { delay: 500, type: 'input', name: 'trigger', value: true },
       { delay: 1000, type: 'transition', from: 'Idle', to: 'Active' },
       { delay: 1500, type: 'variable', name: 'counter', value: 1 },
@@ -322,8 +332,8 @@ export function AutomataIDE() {
     let inputs: Record<string, any> = {};
     let outputs: Record<string, any> = {};
 
-    events.forEach((event, i) => {
-      if (event.type === 'input') {
+    events.forEach((event) => {
+      if (event.type === 'input' && event.name) {
         inputs = { ...inputs, [event.name]: event.value };
         snapshots.push({
           timestamp: baseTime + event.delay,
@@ -339,7 +349,7 @@ export function AutomataIDE() {
           stackTrace: [`main() -> ${currentState} -> on_input(${event.name})`]
         });
         setConsoleOutput(prev => [...prev, `[Simulation] Input: ${event.name} = ${event.value}`]);
-      } else if (event.type === 'output') {
+      } else if (event.type === 'output' && event.name) {
         outputs = { ...outputs, [event.name]: event.value };
         snapshots.push({
           timestamp: baseTime + event.delay,
@@ -355,7 +365,7 @@ export function AutomataIDE() {
           stackTrace: [`main() -> ${currentState} -> emit(${event.name})`]
         });
         setConsoleOutput(prev => [...prev, `[Simulation] Output: ${event.name} = ${event.value}`]);
-      } else if (event.type === 'variable') {
+      } else if (event.type === 'variable' && event.name) {
         vars = { ...vars, [event.name]: event.value };
         snapshots.push({
           timestamp: baseTime + event.delay,
@@ -370,7 +380,7 @@ export function AutomataIDE() {
           },
           stackTrace: [`main() -> ${currentState} -> setVal(${event.name})`]
         });
-      } else if (event.type === 'transition') {
+      } else if (event.type === 'transition' && event.to) {
         const prevState = currentState;
         currentState = event.to;
         snapshots.push({
