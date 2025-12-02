@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import type { State, Transition } from './AutomataIDE';
-import { Code, Settings, Info, Plus, X } from 'lucide-react';
+import { Code, Settings, Plus, X } from 'lucide-react';
 import { CodeEditor } from './CodeEditor';
 
 type PropertiesPanelProps = {
