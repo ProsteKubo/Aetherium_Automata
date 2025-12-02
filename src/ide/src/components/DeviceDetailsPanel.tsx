@@ -53,7 +53,7 @@ export function DeviceDetailsPanel({ device, availableAutomata, onFlash, onClose
   };
 
   return (
-    <div className="w-96 bg-[#252526] border-l border-[#3e3e42] flex flex-col">
+    <div className="w-80 bg-[#252526] border-l border-[#3e3e42] flex flex-col shrink-0">
       {/* Header */}
       <div className="px-4 py-3 border-b border-[#3e3e42] flex items-center justify-between">
         <div>
