@@ -304,7 +304,7 @@ export function PropertiesPanel({
               <div className="p-4 space-y-4">
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">State Code</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '200px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
                     <CodeEditor
                       value={selectedState.code || ''}
                       onChange={(value) => onStateUpdate({ code: value })}
@@ -314,7 +314,7 @@ export function PropertiesPanel({
                 </div>
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">On Enter (optional)</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '100px' }}>
                     <CodeEditor
                       value={selectedState.onEnter || ''}
                       onChange={(value) => onStateUpdate({ onEnter: value })}
@@ -324,7 +324,7 @@ export function PropertiesPanel({
                 </div>
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">On Exit (optional)</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '100px' }}>
                     <CodeEditor
                       value={selectedState.onExit || ''}
                       onChange={(value) => onStateUpdate({ onExit: value })}
@@ -339,7 +339,7 @@ export function PropertiesPanel({
               <div className="p-4 space-y-4">
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">Condition</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '100px' }}>
                     <CodeEditor
                       value={selectedTransition.condition || 'true'}
                       onChange={(value) => onTransitionUpdate({ condition: value })}
@@ -349,7 +349,7 @@ export function PropertiesPanel({
                 </div>
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">Body</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '100px' }}>
                     <CodeEditor
                       value={selectedTransition.body || ''}
                       onChange={(value) => onTransitionUpdate({ body: value })}
@@ -359,7 +359,7 @@ export function PropertiesPanel({
                 </div>
                 <div>
                   <label className="block text-[#cccccc] text-sm mb-2">Triggered (optional)</label>
-                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '150px' }}>
+                  <div className="border border-[#3e3e42] rounded overflow-hidden" style={{ height: '100px' }}>
                     <CodeEditor
                       value={selectedTransition.triggered || ''}
                       onChange={(value) => onTransitionUpdate({ triggered: value })}

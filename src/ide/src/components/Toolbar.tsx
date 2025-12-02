@@ -36,7 +36,7 @@ export function Toolbar({
         <div className="ml-4 flex items-center gap-1">
           <button
             onClick={() => onViewChange('visual')}
-            className={`px-3 py-1.5 text-sm rounded flex items-center gap-2 transition-colors ${
+            className={`px-2.5 py-1.5 text-sm rounded flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeView === 'visual'
                 ? 'bg-[#007acc] text-white'
                 : 'text-[#cccccc] hover:bg-[#3e3e42]'
@@ -47,7 +47,7 @@ export function Toolbar({
           </button>
           <button
             onClick={() => onViewChange('yaml')}
-            className={`px-3 py-1.5 text-sm rounded flex items-center gap-2 transition-colors ${
+            className={`px-2.5 py-1.5 text-sm rounded flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeView === 'yaml'
                 ? 'bg-[#007acc] text-white'
                 : 'text-[#cccccc] hover:bg-[#3e3e42]'
@@ -58,7 +58,7 @@ export function Toolbar({
           </button>
           <button
             onClick={() => onViewChange('network')}
-            className={`px-3 py-1.5 text-sm rounded flex items-center gap-2 transition-colors ${
+            className={`px-2.5 py-1.5 text-sm rounded flex items-center gap-2 transition-colors whitespace-nowrap ${
               activeView === 'network'
                 ? 'bg-[#007acc] text-white'
                 : 'text-[#cccccc] hover:bg-[#3e3e42]'

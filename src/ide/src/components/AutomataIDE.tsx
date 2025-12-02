@@ -93,9 +93,9 @@ export function AutomataIDE() {
   const [selectedState, setSelectedState] = useState<string | null>(null);
   const [selectedTransition, setSelectedTransition] = useState<string | null>(null);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([]);
-  const [sidebarWidth, setSidebarWidth] = useState(256);
-  const [rightPanelWidth, setRightPanelWidth] = useState(320);
-  const [consoleHeight, setConsoleHeight] = useState(192);
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [rightPanelWidth, setRightPanelWidth] = useState(280);
+  const [consoleHeight, setConsoleHeight] = useState(160);
   const [bottomPanelCollapsed, setBottomPanelCollapsed] = useState(false);
   
   // Time travel debugging state
@@ -636,7 +636,7 @@ export function AutomataIDE() {
           <ResizablePanel
             initialWidth={sidebarWidth}
             onResize={setSidebarWidth}
-            minWidth={200}
+            minWidth={180}
             maxWidth={600}
             side="right"
           >
@@ -691,7 +691,7 @@ export function AutomataIDE() {
             <ResizablePanel
               initialWidth={consoleHeight}
               onResize={setConsoleHeight}
-              minWidth={100}
+              minWidth={80}
               maxWidth={600}
               side="top"
             >
@@ -752,7 +752,7 @@ export function AutomataIDE() {
           <ResizablePanel
             initialWidth={rightPanelWidth}
             onResize={setRightPanelWidth}
-            minWidth={250}
+            minWidth={220}
             maxWidth={600}
             side="left"
           >
