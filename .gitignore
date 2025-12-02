@@ -45,3 +45,5 @@
 
 
 build/
+
+src/ide/node_modules/
