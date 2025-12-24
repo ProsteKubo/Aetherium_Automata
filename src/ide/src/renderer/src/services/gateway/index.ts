@@ -4,3 +4,4 @@
 
 export * from './IGatewayService';
 export * from './MockGatewayService';
+export * from './PhoenixGatewayService';

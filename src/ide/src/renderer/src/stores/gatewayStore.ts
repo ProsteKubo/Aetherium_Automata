@@ -14,7 +14,7 @@ import type {
   ServerId,
   DeviceId,
 } from '../types';
-import { IGatewayService, MockGatewayService } from '../services/gateway';
+import { IGatewayService, MockGatewayService, PhoenixGatewayService } from '../services/gateway';
 
 // ============================================================================
 // State Types
@@ -38,6 +38,7 @@ interface GatewayState {
   
   // Service instance
   service: IGatewayService;
+  useMockService: boolean;
 }
 
 interface GatewayActions {
@@ -56,6 +57,9 @@ interface GatewayActions {
   // Server operations
   updateServer: (serverId: ServerId, updates: Partial<Server>) => void;
   
+  // Service switching
+  setUseMockService: (useMock: boolean) => void;
+  
   // Utility
   reset: () => void;
 }
@@ -66,7 +70,7 @@ type GatewayStore = GatewayState & GatewayActions;
 // Initial State
 // ============================================================================
 
-const initialState: Omit<GatewayState, 'service'> = {
+const initialState: Omit<GatewayState, 'service' | 'useMockService'> = {
   status: 'disconnected',
   config: null,
   sessionId: null,
@@ -85,7 +89,8 @@ const initialState: Omit<GatewayState, 'service'> = {
 export const useGatewayStore = create<GatewayStore>()(
   immer((set, get) => ({
     ...initialState,
-    service: new MockGatewayService(),
+    service: new PhoenixGatewayService(), // Use Phoenix by default
+    useMockService: false,
     
     // ========================================================================
     // Connection
@@ -263,6 +268,25 @@ export const useGatewayStore = create<GatewayStore>()(
         if (server) {
           Object.assign(server, updates);
         }
+      });
+    },
+    
+    // ========================================================================
+    // Service Switching
+    // ========================================================================
+    
+    setUseMockService: (useMock: boolean) => {
+      const currentStatus = get().status;
+      
+      // Don't switch if connected
+      if (currentStatus === 'connected') {
+        console.warn('Cannot switch service while connected. Disconnect first.');
+        return;
+      }
+      
+      set((state) => {
+        state.useMockService = useMock;
+        state.service = useMock ? new MockGatewayService() : new PhoenixGatewayService();
       });
     },
     

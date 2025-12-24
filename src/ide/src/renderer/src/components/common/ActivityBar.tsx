@@ -12,6 +12,7 @@ import {
   IconAutomata,
   IconDevice,
   IconNetwork,
+  IconGateway,
   IconTimeTravel,
   IconConsole,
   IconSettings,
@@ -65,6 +66,11 @@ export const ActivityBar: React.FC = () => {
           icon={<IconDevice size={22} />}
           panelId="devices"
           label="Devices"
+        />
+        <ActivityBarItem
+          icon={<IconGateway size={22} />}
+          panelId="gateway"
+          label="Gateway Connection"
         />
         <ActivityBarItem
           icon={<IconNetwork size={22} />}
