@@ -20,6 +20,7 @@ import {
   TimeTravelPanel,
   DevicesPanel,
   NetworkPanel,
+  AutomataOverviewPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
 import './styles/index.css';
@@ -162,18 +163,24 @@ const App: React.FC = () => {
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
   
   // Get panel visibility from layout
-  const explorerVisible = layout.panels.explorer?.isVisible ?? true;
+  const explorerVisible = layout.panels.explorer?.isVisible ?? false;
   const propertiesVisible = layout.panels.properties?.isVisible ?? false;
   const consoleVisible = layout.panels.console?.isVisible ?? false;
   const networkVisible = layout.panels.network?.isVisible ?? false;
+  const automataOverviewVisible = layout.panels.automata?.isVisible ?? false;
+  const devicesVisible = layout.panels.devices?.isVisible ?? false;
+  const timetravelVisible = layout.panels.timetravel?.isVisible ?? false;
   
-  // Determine which sidebar panel to show
-  const getActiveSidebarPanel = (): string => {
-    if (layout.panels.explorer?.isVisible) return 'explorer';
-    if (layout.panels.devices?.isVisible) return 'devices';
-    if (layout.panels.timetravel?.isVisible) return 'timetravel';
-    return 'explorer';
+  // Determine which sidebar panel to show (only one can be active due to togglePanel logic)
+  const getActiveSidebarPanel = (): string | null => {
+    if (explorerVisible) return 'explorer';
+    if (devicesVisible) return 'devices';
+    return null;
   };
+  
+  // Check if any sidebar panel is active
+  const activeSidebarPanel = getActiveSidebarPanel();
+  const hasSidebarPanel = activeSidebarPanel !== null;
   
   return (
     <div className="app-container">
@@ -188,18 +195,26 @@ const App: React.FC = () => {
         {/* Main layout */}
         <div className="app-content">
           {/* Left sidebar panel */}
-          {!sidebarCollapsed && explorerVisible && (
+          {!sidebarCollapsed && hasSidebarPanel && activeSidebarPanel && (
             <div className="panel-left" style={{ width: layout.sidebarWidth }}>
-              <PanelContent panelId={getActiveSidebarPanel()} />
+              <PanelContent panelId={activeSidebarPanel} />
             </div>
           )}
           
           {/* Center area with editor and bottom panel */}
           <div className="panel-center">
-            {/* Network panel or Editor tabs and content */}
-            {networkVisible ? (
+            {/* Network panel, Time Travel, Automata Overview, or Editor tabs and content */}
+            {timetravelVisible ? (
+              <div className="timetravel-view-container">
+                <TimeTravelPanel />
+              </div>
+            ) : networkVisible ? (
               <div className="network-view-container">
                 <NetworkPanel />
+              </div>
+            ) : automataOverviewVisible ? (
+              <div className="overview-view-container">
+                <AutomataOverviewPanel />
               </div>
             ) : (
               <div className="editor-area">
