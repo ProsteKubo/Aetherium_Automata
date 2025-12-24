@@ -342,12 +342,13 @@ export interface Server {
 export type GatewayStatus = 'connected' | 'disconnected' | 'connecting' | 'error';
 
 export interface GatewayConfig {
-  address: string;
+  host: string; // Changed from 'address' to 'host' for WebSocket URL
   port: number;
-  reconnectInterval: number;
-  heartbeatInterval: number;
-  timeout: number;
-  useTLS: boolean;
+  password?: string; // Added for authentication
+  reconnectInterval?: number;
+  heartbeatInterval?: number;
+  timeout?: number;
+  useTLS?: boolean;
 }
 
 export interface GatewayConnection {
@@ -364,7 +365,7 @@ export interface GatewayConnection {
 // ============================================================================
 
 export type EditorMode = 'visual' | 'code' | 'split';
-export type PanelId = 'automata' | 'devices' | 'network' | 'timetravel' | 'properties' | 'console' | 'explorer';
+export type PanelId = 'automata' | 'devices' | 'network' | 'timetravel' | 'properties' | 'console' | 'explorer' | 'gateway';
 
 export interface EditorTab {
   id: string;

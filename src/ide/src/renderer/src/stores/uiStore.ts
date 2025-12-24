@@ -142,6 +142,13 @@ const defaultLayout: LayoutConfig = {
       position: 'right',
       isCollapsed: false,
     },
+    gateway: {
+      id: 'gateway',
+      isVisible: false,
+      size: 400,
+      position: 'left',
+      isCollapsed: true,
+    },
     network: {
       id: 'network',
       isVisible: false,
@@ -220,7 +227,7 @@ export const useUIStore = create<UIStore>()(
             panel.isVisible = willBeVisible;
             
             // If enabling a sidebar panel, disable other sidebar panels
-            const sidebarPanels: PanelId[] = ['explorer', 'devices'];
+            const sidebarPanels: PanelId[] = ['explorer', 'devices', 'gateway'];
             if (willBeVisible && sidebarPanels.includes(panelId)) {
               sidebarPanels.forEach((id) => {
                 if (id !== panelId && state.layout.panels[id]) {

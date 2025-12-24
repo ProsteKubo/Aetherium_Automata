@@ -4,14 +4,15 @@
  * Root component that assembles the complete IDE layout.
  */
 
-import React from 'react';
-import { useUIStore, useAutomataStore } from './stores';
+import React, { useState, useEffect } from 'react';
+import { useUIStore, useAutomataStore, useGatewayStore } from './stores';
 import {
   AppHeader,
   ActivityBar,
   StatusBar,
   TabBar,
   NotificationToasts,
+  GatewaySettings,
 } from './components/common';
 import {
   ExplorerPanel,
@@ -21,6 +22,7 @@ import {
   DevicesPanel,
   NetworkPanel,
   AutomataOverviewPanel,
+  GatewayPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
 import './styles/index.css';
@@ -32,6 +34,8 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
       return <ExplorerPanel />;
     case 'devices':
       return <DevicesPanel />;
+    case 'gateway':
+      return <GatewayPanel />;
     case 'timetravel':
       return <TimeTravelPanel />;
     case 'properties':
@@ -158,6 +162,57 @@ const EditorContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
+  // Gateway connection state
+  const [showGatewaySettings, setShowGatewaySettings] = useState(false);
+  const connect = useGatewayStore((state) => state.connect);
+  const setUseMockService = useGatewayStore((state) => state.setUseMockService);
+  
+  // Check if we should show settings on first load
+  useEffect(() => {
+    const hasShownSettings = localStorage.getItem('gateway_settings_shown');
+    if (!hasShownSettings) {
+      setShowGatewaySettings(true);
+    }
+  }, []);
+  
+  const handleGatewayConnect = async (host: string, port: string) => {
+    // Validate inputs
+    if (!host || !port) {
+      alert('Please enter both host and port');
+      return;
+    }
+    
+    const portNum = parseInt(port);
+    if (isNaN(portNum) || portNum <= 0 || portNum > 65535) {
+      alert('Please enter a valid port number (1-65535)');
+      return;
+    }
+    
+    console.log('[App] Attempting to connect to gateway:', { host, port: portNum });
+    
+    try {
+      await connect({
+        host,
+        port: portNum,
+      });
+      localStorage.setItem('gateway_settings_shown', 'true');
+      setShowGatewaySettings(false);
+      console.log('[App] Successfully connected to gateway');
+    } catch (error) {
+      console.error('[App] Failed to connect to gateway:', error);
+      const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+      alert(`Failed to connect to gateway:\n${errorMsg}\n\nPlease check that:\n- Gateway server is running\n- Host and port are correct\n- Network connection is available`);
+      // Don't close dialog on error - let user try again
+    }
+  };
+  
+  const handleSkipGateway = () => {
+    // Use mock service for everything
+    setUseMockService(true);
+    localStorage.setItem('gateway_settings_shown', 'true');
+    setShowGatewaySettings(false);
+  };
+  
   // UI state
   const layout = useUIStore((state) => state.layout);
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
@@ -170,11 +225,13 @@ const App: React.FC = () => {
   const automataOverviewVisible = layout.panels.automata?.isVisible ?? false;
   const devicesVisible = layout.panels.devices?.isVisible ?? false;
   const timetravelVisible = layout.panels.timetravel?.isVisible ?? false;
+  const gatewayVisible = layout.panels.gateway?.isVisible ?? false;
   
   // Determine which sidebar panel to show (only one can be active due to togglePanel logic)
   const getActiveSidebarPanel = (): string | null => {
     if (explorerVisible) return 'explorer';
     if (devicesVisible) return 'devices';
+    if (gatewayVisible) return 'gateway';
     return null;
   };
   
@@ -184,6 +241,14 @@ const App: React.FC = () => {
   
   return (
     <div className="app-container">
+      {/* Gateway Settings Dialog */}
+      {showGatewaySettings && (
+        <GatewaySettings
+          onConnect={handleGatewayConnect}
+          onSkip={handleSkipGateway}
+        />
+      )}
+      
       {/* Header */}
       <AppHeader />
       

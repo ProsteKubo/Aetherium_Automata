@@ -16,6 +16,7 @@ import type {
   TransitionId,
 } from '../types';
 import { useGatewayStore } from './gatewayStore';
+import { MockGatewayService } from '../services/gateway';
 
 // ============================================================================
 // State Types
@@ -126,18 +127,19 @@ export const useAutomataStore = create<AutomataStore>()(
     // ========================================================================
     
     fetchAutomata: async () => {
-      const gatewayStore = useGatewayStore.getState();
+      // Use MockGatewayService for automata operations since backend doesn't support it yet
+      const mockService = new MockGatewayService();
       
       set((state) => {
         state.isLoading = true;
       });
       
       try {
-        const response = await gatewayStore.service.listAutomata();
+        const response = await mockService.listAutomata();
         
-        // Load full details for each automata
+        // Load each automata in detail
         for (const item of response.automata) {
-          const fullResponse = await gatewayStore.service.getAutomata(item.id);
+          const fullResponse = await mockService.getAutomata(item.id);
           set((state) => {
             state.automata.set(item.id, fullResponse.automata);
           });
@@ -155,14 +157,15 @@ export const useAutomataStore = create<AutomataStore>()(
     },
     
     loadAutomata: async (automataId: AutomataId) => {
-      const gatewayStore = useGatewayStore.getState();
+      // Use MockGatewayService for automata operations since backend doesn't support it yet
+      const mockService = new MockGatewayService();
       
       set((state) => {
         state.isLoading = true;
       });
       
       try {
-        const response = await gatewayStore.service.getAutomata(automataId);
+        const response = await mockService.getAutomata(automataId);
         
         set((state) => {
           state.automata.set(automataId, response.automata);
@@ -206,7 +209,9 @@ export const useAutomataStore = create<AutomataStore>()(
         transitions: {},
       };
       
-      const created = await gatewayStore.service.createAutomata(newAutomata);
+      // Use MockGatewayService for automata operations since backend doesn't support it yet
+      const mockService = new MockGatewayService();
+      const created = await mockService.createAutomata(newAutomata);
       
       set((state) => {
         state.automata.set(created.id, created);
@@ -226,7 +231,9 @@ export const useAutomataStore = create<AutomataStore>()(
       });
       
       try {
-        await gatewayStore.service.updateAutomata(automataId, automata);
+        // Use MockGatewayService for automata operations since backend doesn't support it yet
+        const mockService = new MockGatewayService();
+        await mockService.updateAutomata(automataId, automata);
         
         set((state) => {
           const a = state.automata.get(automataId);
@@ -244,9 +251,9 @@ export const useAutomataStore = create<AutomataStore>()(
     },
     
     deleteAutomata: async (automataId: AutomataId) => {
-      const gatewayStore = useGatewayStore.getState();
-      
-      await gatewayStore.service.deleteAutomata(automataId);
+      // Use MockGatewayService for automata operations since backend doesn't support it yet
+      const mockService = new MockGatewayService();
+      await mockService.deleteAutomata(automataId);
       
       set((state) => {
         state.automata.delete(automataId);
