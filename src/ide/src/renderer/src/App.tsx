@@ -19,6 +19,7 @@ import {
   OutputPanel,
   TimeTravelPanel,
   DevicesPanel,
+  NetworkPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
 import './styles/index.css';
@@ -36,6 +37,8 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
       return <PropertiesPanel />;
     case 'console':
       return <OutputPanel />;
+    case 'network':
+      return <NetworkPanel />;
     default:
       return null;
   }
@@ -162,6 +165,7 @@ const App: React.FC = () => {
   const explorerVisible = layout.panels.explorer?.isVisible ?? true;
   const propertiesVisible = layout.panels.properties?.isVisible ?? false;
   const consoleVisible = layout.panels.console?.isVisible ?? false;
+  const networkVisible = layout.panels.network?.isVisible ?? false;
   
   // Determine which sidebar panel to show
   const getActiveSidebarPanel = (): string => {
@@ -192,13 +196,19 @@ const App: React.FC = () => {
           
           {/* Center area with editor and bottom panel */}
           <div className="panel-center">
-            {/* Editor tabs and content */}
-            <div className="editor-area">
-              <TabBar />
-              <div className="editor-content">
-                <EditorContent />
+            {/* Network panel or Editor tabs and content */}
+            {networkVisible ? (
+              <div className="network-view-container">
+                <NetworkPanel />
               </div>
-            </div>
+            ) : (
+              <div className="editor-area">
+                <TabBar />
+                <div className="editor-content">
+                  <EditorContent />
+                </div>
+              </div>
+            )}
             
             {/* Bottom panel */}
             {consoleVisible && (
