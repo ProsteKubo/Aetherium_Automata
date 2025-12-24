@@ -1,11 +1,34 @@
+# ide
 
-  # Add IDE UI for Automata
+An Electron application with React and TypeScript
 
-  This is a code bundle for Add IDE UI for Automata. The original project is available at https://www.figma.com/design/QdupdqkFBzmmkdWSBbtXwT/Add-IDE-UI-for-Automata.
+## Recommended IDE Setup
 
-  ## Running the code
+- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 
-  Run `npm i` to install the dependencies.
+## Project Setup
 
-  Run `npm run dev` to start the development server.
-  
+### Install
+
+```bash
+$ npm install
+```
+
+### Development
+
+```bash
+$ npm run dev
+```
+
+### Build
+
+```bash
+# For windows
+$ npm run build:win
+
+# For macOS
+$ npm run build:mac
+
+# For Linux
+$ npm run build:linux
+```

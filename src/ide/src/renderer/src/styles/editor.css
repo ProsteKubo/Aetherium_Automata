@@ -1,0 +1,487 @@
+/**
+ * Aetherium Automata - Editor Styles
+ * 
+ * Styles for the visual automata editor and code editor.
+ */
+
+/* =============================================================================
+   Visual Editor - ReactFlow
+   ============================================================================= */
+
+.automata-editor {
+  width: 100%;
+  height: 100%;
+  background: var(--color-bg-base);
+}
+
+.automata-editor .react-flow__background {
+  background: var(--color-bg-base);
+}
+
+.automata-editor .react-flow__controls {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-lg);
+}
+
+.automata-editor .react-flow__controls-button {
+  background: var(--color-bg-surface);
+  border: none;
+  color: var(--color-text-secondary);
+  width: 28px;
+  height: 28px;
+}
+
+.automata-editor .react-flow__controls-button:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-primary);
+}
+
+.automata-editor .react-flow__controls-button svg {
+  fill: currentColor;
+}
+
+.automata-editor .react-flow__minimap {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-md);
+}
+
+/* =============================================================================
+   State Nodes
+   ============================================================================= */
+
+.state-node {
+  background: var(--color-bg-elevated);
+  border: 2px solid var(--color-border-emphasis);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-3);
+  min-width: 150px;
+  max-width: 250px;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.state-node:hover {
+  border-color: var(--color-primary-400);
+  box-shadow: 0 0 20px rgba(0, 212, 255, 0.2);
+}
+
+.state-node.selected {
+  border-color: var(--color-primary-500);
+  box-shadow: 
+    0 0 0 2px var(--color-bg-base),
+    0 0 0 4px var(--color-primary-500),
+    0 0 30px rgba(0, 212, 255, 0.3);
+}
+
+.state-node.active {
+  border-color: var(--color-success);
+  box-shadow: 0 0 30px rgba(0, 255, 136, 0.4);
+}
+
+.state-node.executing {
+  animation: pulse-glow 1.5s ease-in-out infinite;
+}
+
+.state-node.initial {
+  border-color: var(--color-secondary-500);
+}
+
+.state-node.final {
+  border-color: var(--color-warning);
+  border-style: double;
+  border-width: 4px;
+}
+
+.state-node.composite {
+  border-style: dashed;
+  background: linear-gradient(
+    135deg,
+    var(--color-bg-elevated) 0%,
+    var(--color-bg-overlay) 100%
+  );
+}
+
+.state-node-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+.state-node-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.state-node-description {
+  margin-top: var(--spacing-2);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-tertiary);
+  line-height: 1.4;
+}
+
+.state-node-code-indicator {
+  position: absolute;
+  top: var(--spacing-1);
+  right: var(--spacing-1);
+}
+
+.code-dot {
+  display: block;
+  width: 6px;
+  height: 6px;
+  background: var(--color-secondary);
+  border-radius: 50%;
+}
+
+.state-node-execution {
+  position: absolute;
+  inset: -8px;
+  pointer-events: none;
+}
+
+.pulse-ring {
+  position: absolute;
+  inset: 0;
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  animation: pulse-ring 1.5s ease-out infinite;
+}
+
+@keyframes pulse-ring {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.3);
+  }
+}
+
+/* State handles */
+.state-handle {
+  width: 10px !important;
+  height: 10px !important;
+  background: var(--color-bg-overlay) !important;
+  border: 2px solid var(--color-primary-500) !important;
+  transition: all var(--transition-fast);
+}
+
+.state-handle:hover {
+  background: var(--color-primary-500) !important;
+  transform: scale(1.3);
+}
+
+/* =============================================================================
+   Transition Edges
+   ============================================================================= */
+
+.transition-edge {
+  stroke: var(--color-border-emphasis);
+  stroke-width: 2;
+  fill: none;
+  transition: stroke var(--transition-fast);
+}
+
+.transition-edge.selected {
+  stroke: var(--color-primary-500);
+  stroke-width: 3;
+}
+
+.transition-edge.active {
+  stroke: var(--color-success);
+  animation: flow-animation 1s linear infinite;
+}
+
+.transition-edge.animating {
+  stroke-dasharray: 5, 5;
+  animation: dash-animation 0.5s linear infinite;
+}
+
+.transition-edge.fuzzy {
+  stroke-dasharray: 8, 4;
+}
+
+.transition-edge.probabilistic {
+  stroke: var(--color-warning);
+}
+
+@keyframes dash-animation {
+  to {
+    stroke-dashoffset: -10;
+  }
+}
+
+.edge-flow-dot {
+  fill: var(--color-primary);
+  filter: drop-shadow(0 0 4px var(--color-primary));
+}
+
+/* Transition labels */
+.transition-label {
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-emphasis);
+  border-radius: var(--radius-sm);
+  padding: var(--spacing-1) var(--spacing-2);
+  font-size: var(--font-size-xs);
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  cursor: grab;
+  transition: all var(--transition-fast);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  z-index: 10;
+}
+
+.transition-label:hover {
+  border-color: var(--color-primary-400);
+  background: var(--color-bg-overlay);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.transition-label.selected {
+  border-color: var(--color-primary-500);
+  background: var(--color-bg-active);
+  box-shadow: 0 0 0 2px var(--color-primary-400), 0 4px 12px rgba(0, 0, 0, 0.5);
+}
+
+.transition-event {
+  color: var(--color-secondary-400);
+  font-weight: var(--font-weight-medium);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+.transition-guard {
+  color: var(--color-info);
+  font-size: 10px;
+}
+
+.transition-fuzzy {
+  color: var(--color-warning);
+  font-style: italic;
+}
+
+.transition-probability {
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+/* =============================================================================
+   Editor Toolbar
+   ============================================================================= */
+
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2);
+}
+
+.toolbar-divider {
+  width: 1px;
+  height: 20px;
+  background: var(--color-border);
+}
+
+/* Editor info panel */
+.editor-info {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--spacing-2) var(--spacing-3);
+  display: flex;
+  gap: var(--spacing-4);
+  font-size: var(--font-size-xs);
+}
+
+.info-stat {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.info-stat .info-label {
+  color: var(--color-text-tertiary);
+}
+
+.info-stat .info-value {
+  color: var(--color-primary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* =============================================================================
+   Code Editor
+   ============================================================================= */
+
+.code-editor {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-bg-base);
+}
+
+.code-editor-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--spacing-2) var(--spacing-3);
+  background: var(--color-bg-surface);
+  border-bottom: 1px solid var(--color-border-default);
+}
+
+.code-editor-title {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.code-editor-tabs {
+  display: flex;
+  gap: var(--spacing-1);
+}
+
+.code-tab {
+  padding: var(--spacing-1) var(--spacing-2);
+  border: none;
+  background: transparent;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
+}
+
+.code-tab:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text-secondary);
+}
+
+.code-tab.active {
+  background: rgba(0, 188, 212, 0.15);
+  color: var(--color-primary-400);
+}
+
+.code-editor-content {
+  flex: 1;
+  overflow: hidden;
+}
+
+.code-editor-empty,
+.editor-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-base);
+}
+
+/* =============================================================================
+   Welcome Screen
+   ============================================================================= */
+
+.editor-welcome {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  background: var(--color-background);
+}
+
+.welcome-content {
+  text-align: center;
+  max-width: 500px;
+}
+
+.welcome-logo {
+  margin-bottom: var(--spacing-6);
+  animation: float 6s ease-in-out infinite;
+}
+
+.welcome-logo svg {
+  filter: drop-shadow(0 0 30px var(--color-primary));
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+.welcome-title {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  background: linear-gradient(135deg, var(--color-primary), var(--color-secondary));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: var(--spacing-2);
+}
+
+.welcome-subtitle {
+  color: var(--color-text-tertiary);
+  margin-bottom: var(--spacing-8);
+}
+
+.welcome-actions {
+  display: flex;
+  justify-content: center;
+  gap: var(--spacing-4);
+  margin-bottom: var(--spacing-8);
+}
+
+.welcome-shortcuts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-sm);
+}
+
+.shortcut-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-2);
+}
+
+.shortcut-item kbd {
+  display: inline-block;
+  padding: var(--spacing-1) var(--spacing-2);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+}
+
+.editor-unsupported,
+.editor-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+}
+
+.editor-error {
+  color: var(--color-error);
+}
+
+.code-editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-tertiary);
+  background: var(--color-bg-base);
+}
