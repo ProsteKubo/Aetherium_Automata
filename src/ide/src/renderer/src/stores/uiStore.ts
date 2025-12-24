@@ -216,7 +216,28 @@ export const useUIStore = create<UIStore>()(
         set((state) => {
           const panel = state.layout.panels[panelId];
           if (panel) {
-            panel.isVisible = !panel.isVisible;
+            const willBeVisible = !panel.isVisible;
+            panel.isVisible = willBeVisible;
+            
+            // If enabling a sidebar panel, disable other sidebar panels
+            const sidebarPanels: PanelId[] = ['explorer', 'devices'];
+            if (willBeVisible && sidebarPanels.includes(panelId)) {
+              sidebarPanels.forEach((id) => {
+                if (id !== panelId && state.layout.panels[id]) {
+                  state.layout.panels[id]!.isVisible = false;
+                }
+              });
+            }
+            
+            // If enabling a center view panel (network, automata, timetravel), disable the others
+            const centerViewPanels: PanelId[] = ['network', 'automata', 'timetravel'];
+            if (willBeVisible && centerViewPanels.includes(panelId)) {
+              centerViewPanels.forEach((id) => {
+                if (id !== panelId && state.layout.panels[id]) {
+                  state.layout.panels[id]!.isVisible = false;
+                }
+              });
+            }
           }
         });
       },
