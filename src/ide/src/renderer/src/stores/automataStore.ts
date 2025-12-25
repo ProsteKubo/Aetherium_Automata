@@ -15,7 +15,6 @@ import type {
   Transition,
   TransitionId,
 } from '../types';
-import { useGatewayStore } from './gatewayStore';
 import { MockGatewayService } from '../services/gateway';
 
 // ============================================================================
@@ -180,8 +179,6 @@ export const useAutomataStore = create<AutomataStore>()(
     },
     
     createAutomata: async (name: string, description?: string) => {
-      const gatewayStore = useGatewayStore.getState();
-      
       const newAutomata: Omit<Automata, 'id'> = {
         version: '0.0.1',
         config: {
@@ -221,7 +218,6 @@ export const useAutomataStore = create<AutomataStore>()(
     },
     
     saveAutomata: async (automataId: AutomataId) => {
-      const gatewayStore = useGatewayStore.getState();
       const automata = get().automata.get(automataId);
       
       if (!automata) return;

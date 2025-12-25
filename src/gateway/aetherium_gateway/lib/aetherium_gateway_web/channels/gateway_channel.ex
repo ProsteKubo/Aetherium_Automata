@@ -9,6 +9,7 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
     if token == "dev_secret_token" do
       socket = assign(socket, :ui_session_id, generate_session_id())
       send(self(), :send_device_list)
+      send(self(), :send_server_list)
       {:ok, socket}
     else
       {:error, %{reason: "invalid_token"}}
@@ -32,6 +33,11 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
 
   def handle_in("list_devices", _payload, socket) do
     send(self(), :send_device_list)
+    {:noreply, socket}
+  end
+
+  def handle_in("list_servers", _payload, socket) do
+    send(self(), :send_server_list)
     {:noreply, socket}
   end
 
@@ -88,10 +94,13 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
   end
 
   def handle_info(:send_device_list, socket) do
-    # Get fake device list (replace with real registry later)
-    devices = get_fake_device_list()
-
+    devices = AetheriumGateway.ServerTracker.list_devices_flat()
     push(socket, "device_list", %{devices: devices})
+    {:noreply, socket}
+  end
+
+  def handle_info(:send_server_list, socket) do
+    push(socket, "server_list", %{servers: AetheriumGateway.ServerTracker.list_servers()})
     {:noreply, socket}
   end
 
@@ -103,15 +112,6 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
       timestamp: DateTime.utc_now(),
       ui_session: socket.assigns.ui_session_id
     })
-  end
-
-  # Fake device data for now
-  defp get_fake_device_list do
-    [
-      %{id: "dev_001", status: "online", last_seen: DateTime.utc_now(), temp: 23.5},
-      %{id: "dev_002", status: "offline", last_seen: DateTime.add(DateTime.utc_now(), -300), temp: nil},
-      %{id: "dev_003", status: "error", last_seen: DateTime.utc_now(), error: "lua_timeout"}
-    ]
   end
 
   defp generate_session_id do

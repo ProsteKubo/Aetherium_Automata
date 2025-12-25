@@ -181,15 +181,31 @@ export const DevicesPanel: React.FC = () => {
                   </span>
                 </div>
                 <div className="detail-row">
-                  <span className="detail-label">Status:</span>
-                  <span className="detail-value">{selectedDevice.status}</span>
-                </div>
-                <div className="detail-row">
                   <span className="detail-label">Server:</span>
                   <span className="detail-value">
                     {servers.find((s) => s.id === selectedDevice.serverId)?.name || 'Unknown'}
                   </span>
                 </div>
+                {selectedDevice.lastSeen && (
+                  <div className="detail-row">
+                    <span className="detail-label">Last Seen:</span>
+                    <span className="detail-value">{selectedDevice.lastSeen}</span>
+                  </div>
+                )}
+                {selectedDevice.temperature !== undefined && (
+                  <div className="detail-row">
+                    <span className="detail-label">Temperature:</span>
+                    <span className="detail-value">
+                      {selectedDevice.temperature === null ? '—' : `${selectedDevice.temperature}°C`}
+                    </span>
+                  </div>
+                )}
+                {selectedDevice.error && (
+                  <div className="detail-row">
+                    <span className="detail-label">Error:</span>
+                    <span className="detail-value">{selectedDevice.error}</span>
+                  </div>
+                )}
                 <div className="detail-row">
                   <span className="detail-label">Engine Version:</span>
                   <span className="detail-value">{selectedDevice.engineVersion}</span>
