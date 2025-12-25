@@ -286,7 +286,10 @@ export interface Device {
   
   // Status
   status: DeviceStatus;
-  metrics?: DeviceMetrics;
+  metrics?: Partial<DeviceMetrics> & Record<string, any>;
+  lastSeen?: string;
+  temperature?: number | null;
+  error?: string | null;
   
   // Capabilities
   capabilities: DeviceCapability[];
@@ -295,6 +298,7 @@ export interface Device {
   // Assigned automata
   assignedAutomataId?: AutomataId;
   deployedVersion?: string;
+  currentState?: string;
   
   // Metadata
   tags: string[];

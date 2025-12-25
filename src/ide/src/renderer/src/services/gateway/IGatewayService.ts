@@ -47,6 +47,7 @@ import type {
 export type ConnectionEventHandler = (status: GatewayStatus, error?: string) => void;
 export type DeviceStatusEventHandler = (event: DeviceStatusEvent) => void;
 export type DeviceMetricsEventHandler = (event: DeviceMetricsEvent) => void;
+export type DeviceListEventHandler = (devices: Device[]) => void;
 export type ExecutionSnapshotEventHandler = (event: ExecutionSnapshotEvent) => void;
 export type ExecutionTransitionEventHandler = (event: ExecutionTransitionEvent) => void;
 export type ExecutionErrorEventHandler = (event: ExecutionErrorEvent) => void;
@@ -54,6 +55,7 @@ export type ServerStatusEventHandler = (event: ServerStatusEvent) => void;
 
 export interface GatewayEventHandlers {
   onConnectionChange?: ConnectionEventHandler;
+  onDeviceList?: DeviceListEventHandler;
   onDeviceStatus?: DeviceStatusEventHandler;
   onDeviceMetrics?: DeviceMetricsEventHandler;
   onExecutionSnapshot?: ExecutionSnapshotEventHandler;

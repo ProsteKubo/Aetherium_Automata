@@ -37,25 +37,6 @@ const originalPlacementByEdgeId = new Map<string, {
 }>();
 const ignoreNextPlaceMouseDownByEdgeId = new Map<string, boolean>();
 
-const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
-
-const getSignedDistanceToLine = (
-  point: { x: number; y: number },
-  a: { x: number; y: number },
-  b: { x: number; y: number },
-) => {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  const len = Math.sqrt(dx * dx + dy * dy);
-  if (len === 0) return 0;
-  // Unit normal (left-hand)
-  const nx = -dy / len;
-  const ny = dx / len;
-  const apx = point.x - a.x;
-  const apy = point.y - a.y;
-  return apx * nx + apy * ny;
-};
-
 // Helper to get handle direction vector
 const getHandleDirection = (position: Position) => {
   switch (position) {
@@ -283,39 +264,6 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
     startPlacingAt(event.clientX, event.clientY, 'dblclick');
     selectTransition(id);
   }, [id, selectTransition, startPlacingAt]);
-
-  const onMouseDown = useCallback((event: React.MouseEvent) => {
-    if (isSelfLoop) return;
-    if (isPlacing) return;
-    if (justStoppedDraggingRef.current) return;
-    
-    // Prevent default to avoid text selection or other side effects
-    event.preventDefault();
-    event.stopPropagation();
-    
-    // Manually select the transition since we stopped propagation
-    selectTransition(id);
-
-    addLog({
-      level: 'debug',
-      source: 'Editor.Edge',
-      message: 'start label-drag',
-      data: { id, source, target, clientX: event.clientX, clientY: event.clientY },
-    });
-    
-    const mousePos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-    const isReversed = source > target;
-    const defaultOffset = isReversed ? -30 : 30;
-    const currentOffset = data?.pathOffset ?? defaultOffset;
-    
-    currentOffsetRef.current = currentOffset;
-    dragStartRef.current = { x: mousePos.x, y: mousePos.y, offset: currentOffset };
-    hasDragged.current = false;
-    setIsDragging(true);
-    
-    // Set cursor to grabbing globally
-    document.body.style.cursor = 'grabbing';
-  }, [addLog, isSelfLoop, isPlacing, screenToFlowPosition, source, target, data?.pathOffset, selectTransition, id]);
 
   useEffect(() => {
     if (!isPlacing) return;
@@ -553,7 +501,7 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
       setTimeout(() => { justStoppedDraggingRef.current = false; }, 100);
     };
 
-    const onMouseDown = (event: MouseEvent) => {
+    const onMouseDown = () => {
       // Click anywhere to commit
       stopDragging(true);
     };

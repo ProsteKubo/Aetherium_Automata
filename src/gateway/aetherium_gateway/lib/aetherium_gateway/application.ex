@@ -13,6 +13,7 @@ defmodule AetheriumGateway.Application do
       {Phoenix.PubSub, name: AetheriumGateway.PubSub},
       # Start a worker by calling: AetheriumGateway.Worker.start_link(arg)
       # {AetheriumGateway.Worker, arg},
+      AetheriumGateway.ServerTracker,
       # Start to serve requests, typically the last entry
       AetheriumGatewayWeb.Endpoint
     ]

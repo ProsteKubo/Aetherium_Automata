@@ -1,0 +1,5 @@
+%{
+  "jason": {:hex, :jason, "1.4.4", "b9226785a9aa77b6857ca22832cffa5d5011a667207eb2a0ad56adb5db443b8a", [:mix], [{:decimal, "~> 1.0 or ~> 2.0", [hex: :decimal, repo: "hexpm", optional: true]}], "hexpm", "c5eb0cab91f094599f94d55bc63409236a8ec69a21a67814529e8d5f6cc90b3b"},
+  "phoenix_client": {:hex, :phoenix_client, "0.11.1", "b64de69050a3a435438a2545d6f3afcd5fa105b74110bb5212364e2f3ce96a46", [:mix], [{:jason, "~> 1.0", [hex: :jason, repo: "hexpm", optional: true]}, {:websocket_client, "~> 1.3", [hex: :websocket_client, repo: "hexpm", optional: false]}], "hexpm", "07edd8a87725b0158abe35711aeaf857e8f8c3c17727725b9324533d5abdf880"},
+  "websocket_client": {:hex, :websocket_client, "1.6.1", "115b33bf65727129224d3a602830c532481eeda667d37181abf326913473733f", [:rebar3], [], "hexpm", "d2623c48cfcdb41cf4d6b926ff042c2f505c56bada36048eb3bbe251ca4f4ad9"},
+}

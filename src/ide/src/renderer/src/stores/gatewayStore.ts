@@ -113,6 +113,15 @@ export const useGatewayStore = create<GatewayStore>()(
             if (error) state.error = error;
           });
         });
+
+        service.on('onDeviceList', (devices) => {
+          set((state) => {
+            state.devices.clear();
+            devices.forEach((device) => {
+              state.devices.set(device.id, device);
+            });
+          });
+        });
         
         service.on('onDeviceStatus', (event) => {
           set((state) => {

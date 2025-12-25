@@ -95,8 +95,8 @@ export const ExplorerPanel: React.FC = () => {
   useEffect(() => {
     if (!isConnected) {
       connect({
-        address: 'localhost',
-        port: 8080,
+        host: 'localhost',
+        port: 4000,
         reconnectInterval: 5000,
         heartbeatInterval: 30000,
         timeout: 10000,

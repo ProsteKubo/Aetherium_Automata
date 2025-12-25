@@ -91,7 +91,51 @@ export class PhoenixGatewayService implements IGatewayService {
   // Logs and alerts storage
   private logs: LogEvent[] = [];
   private alerts: AlertEvent[] = [];
-  private devices: Map<string, any> = new Map();
+  private devices: Map<string, Device> = new Map();
+
+  private static readonly DEFAULT_SERVER_ID: ServerId = 'default_server' as ServerId;
+
+  private emit<K extends keyof GatewayEventHandlers>(
+    event: K,
+    ...args: Parameters<NonNullable<GatewayEventHandlers[K]>>
+  ): void {
+    const handlers = this.eventHandlers.get(event);
+    if (!handlers) return;
+    handlers.forEach((handler) => {
+      (handler as any)(...args);
+    });
+  }
+
+  private normalizeDevice(raw: DeviceListEvent['devices'][number] | Record<string, any>): Device {
+    const id = String((raw as any).id);
+    const status = ((raw as any).status ?? 'unknown') as Device['status'];
+
+    const previous = this.devices.get(id);
+
+    const base: Device = {
+      id,
+      name: (raw as any).name ?? previous?.name ?? id,
+      status,
+      serverId: PhoenixGatewayService.DEFAULT_SERVER_ID,
+      address: previous?.address ?? 'unknown',
+      port: previous?.port ?? 0,
+      capabilities: previous?.capabilities ?? [],
+      engineVersion: previous?.engineVersion ?? 'unknown',
+      tags: previous?.tags ?? [],
+    };
+
+    const lastSeen = (raw as any).last_seen ?? (raw as any).lastSeen ?? previous?.lastSeen;
+    const temperature = (raw as any).temp ?? (raw as any).temperature ?? previous?.temperature;
+    const error = (raw as any).error ?? previous?.error;
+
+    return {
+      ...previous,
+      ...base,
+      ...(lastSeen !== undefined ? { lastSeen: String(lastSeen) } : null),
+      ...(temperature !== undefined ? { temperature } : null),
+      ...(error !== undefined ? { error } : null),
+    } as Device;
+  }
   
   // Connection Management
   // ========================================================================
@@ -258,16 +302,34 @@ export class PhoenixGatewayService implements IGatewayService {
       
       // Update device status if applicable
       if (payload.device_id) {
-        const device = this.devices.get(payload.device_id);
-        if (device) {
-          if (payload.type === 'device_disconnect') {
-            device.status = 'offline';
-          } else if (payload.type === 'device_crash' || payload.type === 'lua_error') {
-            device.status = 'error';
-            device.error = payload.message;
-          }
-          this.devices.set(payload.device_id, device);
+        const prev = this.devices.get(payload.device_id);
+        const prevStatus = prev?.status ?? 'unknown';
+
+        const next = this.normalizeDevice({
+          id: payload.device_id,
+          status:
+            payload.type === 'device_disconnect'
+              ? 'offline'
+              : payload.type === 'device_crash' || payload.type === 'lua_error'
+                ? 'error'
+                : prevStatus,
+          error:
+            payload.type === 'device_crash' || payload.type === 'lua_error' ? payload.message : prev?.error,
+          last_seen: payload.timestamp,
+        });
+
+        this.devices.set(payload.device_id, next);
+
+        if (next.status !== prevStatus) {
+          this.emit('onDeviceStatus', {
+            deviceId: payload.device_id,
+            previousStatus: prevStatus,
+            currentStatus: next.status,
+            reason: payload.message,
+          });
         }
+
+        this.emit('onDeviceList', Array.from(this.devices.values()));
       }
       
       // TODO: Emit to UI handlers
@@ -276,28 +338,35 @@ export class PhoenixGatewayService implements IGatewayService {
     // Device list updates
     this.channel.on('device_list', (payload: DeviceListEvent) => {
       console.log('[Gateway] Device list update:', payload.devices);
-      
-      // Update internal device map
-      payload.devices.forEach((device) => {
+
+      const normalized = payload.devices.map((d) => this.normalizeDevice(d));
+      normalized.forEach((device) => {
         this.devices.set(device.id, device);
       });
-      
-      // TODO: Emit to UI handlers
+
+      this.emit('onDeviceList', Array.from(this.devices.values()));
     });
     
     // Device telemetry
     this.channel.on('device_telemetry', (payload: DeviceTelemetryEvent) => {
       console.log(`[Gateway] Telemetry from ${payload.device_id}:`, payload.metrics);
-      
-      // Update device with latest metrics
-      const device = this.devices.get(payload.device_id);
-      if (device) {
-        device.metrics = payload.metrics;
-        device.last_seen = payload.timestamp;
-        this.devices.set(payload.device_id, device);
-      }
-      
-      // TODO: Emit to UI handlers
+
+      const prev = this.devices.get(payload.device_id);
+      const next = this.normalizeDevice({
+        id: payload.device_id,
+        status: prev?.status ?? 'unknown',
+        last_seen: payload.timestamp,
+      });
+
+      next.metrics = payload.metrics;
+      this.devices.set(payload.device_id, next);
+
+      this.emit('onDeviceMetrics', {
+        deviceId: payload.device_id,
+        metrics: payload.metrics,
+      });
+
+      this.emit('onDeviceList', Array.from(this.devices.values()));
     });
     
     // Automata state changes
@@ -307,7 +376,7 @@ export class PhoenixGatewayService implements IGatewayService {
       // Update device current state
       const device = this.devices.get(payload.device_id);
       if (device) {
-        device.current_state = payload.new_state;
+        device.currentState = payload.new_state;
         this.devices.set(payload.device_id, device);
       }
       
@@ -347,13 +416,8 @@ export class PhoenixGatewayService implements IGatewayService {
   
   private setStatus(status: GatewayStatus, error?: string): void {
     this.status = status;
-    
-    const handlers = this.eventHandlers.get('onConnectionChange');
-    if (handlers) {
-      handlers.forEach((handler) => {
-        (handler as any)(status, error);
-      });
-    }
+
+    this.emit('onConnectionChange', status, error);
   }
   
   // Commands Implementation
@@ -370,15 +434,17 @@ export class PhoenixGatewayService implements IGatewayService {
   /**
    * List devices command
    */
-  async listDevicesCommand(): Promise<{ devices: any[] }> {
+  async listDevicesCommand(): Promise<{ devices: Device[] }> {
     const result = await this.sendCommand<{ devices: any[] }>('list_devices', {});
-    
-    // Update internal device map
-    result.devices.forEach((device) => {
+
+    const normalized = result.devices.map((d) => this.normalizeDevice(d));
+    normalized.forEach((device) => {
       this.devices.set(device.id, device);
     });
-    
-    return result;
+
+    this.emit('onDeviceList', Array.from(this.devices.values()));
+
+    return { devices: normalized };
   }
   
   /**
@@ -397,30 +463,43 @@ export class PhoenixGatewayService implements IGatewayService {
   // These will be implemented as the backend adds more commands
   
   async listServers(): Promise<ServerListResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const server: Server = {
+      id: PhoenixGatewayService.DEFAULT_SERVER_ID,
+      name: 'Gateway',
+      description: 'Phoenix gateway (serverless mode)',
+      address: this.config?.host ?? 'unknown',
+      port: this.config?.port ?? 0,
+      status: this.status === 'connected' ? 'connected' : 'disconnected',
+      deviceIds: Array.from(this.devices.keys()) as any,
+      maxDevices: 10_000,
+      lastSeen: Date.now(),
+      latency: 0,
+      tags: [],
+    };
+
+    return {
+      servers: [server],
+      totalCount: 1,
+    };
   }
   
   async getServer(_serverId: ServerId): Promise<Server> {
-    throw new Error('Not implemented yet - use Mock service');
+    const response = await this.listServers();
+    return response.servers[0];
   }
   
   async listDevices(_serverId?: ServerId): Promise<DeviceListResponse> {
     // For now, use the list_devices command
     const result = await this.listDevicesCommand();
-    
+
+    let devices = result.devices;
+    if (_serverId) {
+      devices = devices.filter((d) => d.serverId === _serverId);
+    }
+
     return {
-      devices: result.devices.map((d) => ({
-        id: d.id,
-        name: d.id,
-        status: d.status as any,
-        serverId: 'default_server' as ServerId,
-        address: 'unknown',
-        port: 0,
-        capabilities: [],
-        engineVersion: 'unknown',
-        tags: [],
-      })),
-      totalCount: result.devices.length,
+      devices,
+      totalCount: devices.length,
     };
   }
   
@@ -432,17 +511,7 @@ export class PhoenixGatewayService implements IGatewayService {
     }
     
     return {
-      device: {
-        id: device.id,
-        name: device.id,
-        status: device.status,
-        serverId: 'default_server' as ServerId,
-        address: 'unknown',
-        port: 0,
-        capabilities: [],
-        engineVersion: 'unknown',
-        tags: [],
-      },
+      device,
     };
   }
   

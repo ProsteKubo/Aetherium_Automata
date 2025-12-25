@@ -256,6 +256,24 @@ export const GatewayPanel: React.FC = () => {
                             Location: {device.location}
                           </div>
                         )}
+
+                        {'lastSeen' in device && (device as any).lastSeen && (
+                          <div className="device-meta">
+                            Last seen: {(device as any).lastSeen}
+                          </div>
+                        )}
+
+                        {'temperature' in device && (device as any).temperature !== undefined && (
+                          <div className="device-meta">
+                            Temp: {(device as any).temperature === null ? '—' : `${(device as any).temperature}°C`}
+                          </div>
+                        )}
+
+                        {'error' in device && (device as any).error && (
+                          <div className="device-meta">
+                            Error: {(device as any).error}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

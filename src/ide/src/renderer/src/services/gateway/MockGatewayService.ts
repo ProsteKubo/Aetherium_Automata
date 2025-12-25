@@ -327,6 +327,9 @@ export class MockGatewayService implements IGatewayService {
     if (serverId) {
       devices = devices.filter((d) => d.serverId === serverId);
     }
+
+    this.handlers.onDeviceList?.(devices);
+
     return {
       devices,
       totalCount: devices.length,
@@ -370,6 +373,8 @@ export class MockGatewayService implements IGatewayService {
     if (server) {
       server.deviceIds.push(newDevice.id);
     }
+
+    this.handlers.onDeviceList?.(Array.from(this.devices.values()));
     
     return [newDevice];
   }
