@@ -92,6 +92,7 @@ export class PhoenixGatewayService implements IGatewayService {
   private logs: LogEvent[] = [];
   private alerts: AlertEvent[] = [];
   private devices: Map<string, Device> = new Map();
+  private servers: Map<string, Server> = new Map();
 
   private static readonly DEFAULT_SERVER_ID: ServerId = 'default_server' as ServerId;
 
@@ -107,16 +108,18 @@ export class PhoenixGatewayService implements IGatewayService {
   }
 
   private normalizeDevice(raw: DeviceListEvent['devices'][number] | Record<string, any>): Device {
-    const id = String((raw as any).id);
+    const id = String((raw as any).id ?? (raw as any).device_id ?? (raw as any).deviceId);
     const status = ((raw as any).status ?? 'unknown') as Device['status'];
 
     const previous = this.devices.get(id);
+
+    const serverIdFromRaw = (raw as any).server_id ?? (raw as any).serverId ?? previous?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID;
 
     const base: Device = {
       id,
       name: (raw as any).name ?? previous?.name ?? id,
       status,
-      serverId: PhoenixGatewayService.DEFAULT_SERVER_ID,
+      serverId: serverIdFromRaw,
       address: previous?.address ?? 'unknown',
       port: previous?.port ?? 0,
       capabilities: previous?.capabilities ?? [],
@@ -135,6 +138,32 @@ export class PhoenixGatewayService implements IGatewayService {
       ...(temperature !== undefined ? { temperature } : null),
       ...(error !== undefined ? { error } : null),
     } as Device;
+  }
+
+  private normalizeServer(raw: Record<string, any>): Server {
+    const id = String(raw.server_id ?? raw.serverId ?? raw.id);
+    const statusRaw = raw.status ?? 'disconnected';
+    const status: Server['status'] = statusRaw === 'online' ? 'connected' : (statusRaw as Server['status']);
+
+    const lastHeartbeat = raw.last_heartbeat ?? raw.lastHeartbeat ?? raw.lastSeen ?? raw.connected_at ?? raw.connectedAt;
+    const lastSeen = lastHeartbeat ? (typeof lastHeartbeat === 'string' ? Date.parse(lastHeartbeat) : (lastHeartbeat instanceof Date ? lastHeartbeat.getTime() : Date.now())) : Date.now();
+
+    const deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === id).map(d => d.id as any);
+
+    return {
+      id,
+      name: raw.name ?? id,
+      description: raw.description ?? '',
+      address: this.config?.host ?? 'unknown',
+      port: this.config?.port ?? 0,
+      status,
+      deviceIds,
+      maxDevices: raw.max_devices ?? raw.maxDevices ?? 10000,
+      lastSeen,
+      latency: raw.latency ?? 0,
+      region: raw.region,
+      tags: raw.tags ?? [],
+    };
   }
   
   // Connection Management
@@ -340,6 +369,30 @@ export class PhoenixGatewayService implements IGatewayService {
       console.log('[Gateway] Device list update:', payload.devices);
 
       const normalized = payload.devices.map((d) => this.normalizeDevice(d));
+      
+      // Collect incoming device IDs
+      const incomingIds = new Set(normalized.map(d => d.id));
+      
+      // Find devices that are no longer in the list (disconnected)
+      const prevIds = Array.from(this.devices.keys());
+      const removedIds = prevIds.filter(id => !incomingIds.has(id));
+      
+      // Emit device status events for removed devices and remove them
+      removedIds.forEach((id) => {
+        const prev = this.devices.get(id);
+        if (prev) {
+          this.emit('onDeviceStatus', {
+            deviceId: id,
+            previousStatus: prev.status,
+            currentStatus: 'offline',
+            reason: 'Removed from gateway device list',
+          });
+          
+          this.devices.delete(id);
+        }
+      });
+      
+      // Add/update remaining devices
       normalized.forEach((device) => {
         this.devices.set(device.id, device);
       });
@@ -366,6 +419,77 @@ export class PhoenixGatewayService implements IGatewayService {
         metrics: payload.metrics,
       });
 
+      this.emit('onDeviceList', Array.from(this.devices.values()));
+    });
+
+    // Server list updates
+    this.channel.on('server_list', (payload: { servers: any[] }) => {
+      const incoming = payload.servers || [];
+      incoming.forEach((raw) => {
+        const id = raw.server_id ?? raw.serverId ?? raw.id;
+        if (!id) return;
+
+        const previous = this.servers.get(id);
+        const server = this.normalizeServer(raw);
+
+        // Update deviceIds using current devices map
+        server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any);
+
+        this.servers.set(server.id, server);
+
+        if (!previous || previous.status !== server.status) {
+          this.emit('onServerStatus', {
+            serverId: server.id,
+            previousStatus: previous?.status ?? (previous ? previous.status : 'disconnected'),
+            currentStatus: server.status,
+            affectedDevices: server.deviceIds,
+          });
+        }
+      });
+
+      // Ensure consumers get updated device list too
+      this.emit('onDeviceList', Array.from(this.devices.values()));
+    });
+
+    // Devices updated for a specific server (streamed from server processes)
+    this.channel.on('devices_updated', (payload: { server_id?: string; serverId?: string; devices?: any[]; timestamp?: string }) => {
+      const serverId = payload.server_id ?? payload.serverId;
+      const devices = payload.devices || [];
+
+      // Normalize incoming devices and collect their ids
+      const incomingNormalized = devices.map((d) => this.normalizeDevice({ ...d, server_id: serverId }));
+      const incomingIds = new Set(incomingNormalized.map(d => d.id));
+
+      // Remove devices that used to belong to this server but are not in the new list
+      const prevIds = Array.from(this.devices.values()).filter(d => d.serverId === serverId).map(d => d.id);
+      const removedIds = prevIds.filter(id => !incomingIds.has(id));
+
+      removedIds.forEach((id) => {
+        const prev = this.devices.get(id);
+        if (prev) {
+          // Emit a device status event so consumers can react to removal
+          this.emit('onDeviceStatus', {
+            deviceId: id,
+            previousStatus: prev.status,
+            currentStatus: 'offline',
+            reason: 'Removed from server device list',
+          } as any);
+
+          this.devices.delete(id);
+        }
+      });
+
+      // Upsert incoming devices
+      incomingNormalized.forEach((n) => this.devices.set(n.id, n));
+
+      // Update server deviceIds
+      const server = this.servers.get(serverId as string);
+      if (server) {
+        server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === serverId).map(d => d.id as any);
+        this.servers.set(server.id, server);
+      }
+
+      // Emit updated device list for consumers to replace local caches
       this.emit('onDeviceList', Array.from(this.devices.values()));
     });
     
@@ -438,6 +562,29 @@ export class PhoenixGatewayService implements IGatewayService {
     const result = await this.sendCommand<{ devices: any[] }>('list_devices', {});
 
     const normalized = result.devices.map((d) => this.normalizeDevice(d));
+    
+    // Handle device removals: find devices that are no longer reported by the gateway
+    const incomingIds = new Set(normalized.map(d => d.id));
+    const prevIds = Array.from(this.devices.keys());
+    const removedIds = prevIds.filter(id => !incomingIds.has(id));
+    
+    // Emit device status events for removed devices
+    removedIds.forEach((id) => {
+      const prev = this.devices.get(id);
+      if (prev) {
+        this.emit('onDeviceStatus', {
+          deviceId: id,
+          previousStatus: prev.status,
+          currentStatus: 'offline',
+          reason: 'Device not found in command response',
+        });
+        
+        this.devices.delete(id);
+      }
+    });
+    
+    // Update devices map with current devices
+    this.devices.clear();
     normalized.forEach((device) => {
       this.devices.set(device.id, device);
     });
@@ -457,35 +604,81 @@ export class PhoenixGatewayService implements IGatewayService {
     
     return result;
   }
-  
-  // Placeholder implementations for IGatewayService interface
-  // ========================================================================
-  // These will be implemented as the backend adds more commands
-  
+
+  async listServersCommand(): Promise<{ servers: Server[] }> {
+    const result = await this.sendCommand<{ servers: any[] }>('list_servers', {});
+
+    const normalized = result.servers.map((s) => this.normalizeServer(s));
+    
+    // Handle server removals
+    const incomingIds = new Set(normalized.map(s => s.id));
+    const prevIds = Array.from(this.servers.keys());
+    const removedIds = prevIds.filter(id => !incomingIds.has(id));
+    
+    // Emit server status events for removed servers
+    removedIds.forEach((id) => {
+      const prev = this.servers.get(id);
+      if (prev) {
+        this.emit('onServerStatus', {
+          serverId: id,
+          previousStatus: prev.status,
+          currentStatus: 'disconnected',
+          affectedDevices: prev.deviceIds,
+        });
+        
+        this.servers.delete(id);
+      }
+    });
+    
+    // Update servers map
+    normalized.forEach((server) => {
+      // Update deviceIds using current devices map
+      server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any);
+      this.servers.set(server.id, server);
+    });
+
+    return { servers: normalized };
+  }
+
   async listServers(): Promise<ServerListResponse> {
-    const server: Server = {
-      id: PhoenixGatewayService.DEFAULT_SERVER_ID,
-      name: 'Gateway',
-      description: 'Phoenix gateway (serverless mode)',
-      address: this.config?.host ?? 'unknown',
-      port: this.config?.port ?? 0,
-      status: this.status === 'connected' ? 'connected' : 'disconnected',
-      deviceIds: Array.from(this.devices.keys()) as any,
-      maxDevices: 10_000,
-      lastSeen: Date.now(),
-      latency: 0,
-      tags: [],
-    };
+    const servers = Array.from(this.servers.values());
+
+    // If there are no tracked servers, fall back to a default gateway server
+    if (servers.length === 0) {
+      const server: Server = {
+        id: PhoenixGatewayService.DEFAULT_SERVER_ID,
+        name: 'Gateway',
+        description: 'Phoenix gateway (serverless mode)',
+        address: this.config?.host ?? 'unknown',
+        port: this.config?.port ?? 0,
+        status: this.status === 'connected' ? 'connected' : 'disconnected',
+        deviceIds: Array.from(this.devices.keys()) as any,
+        maxDevices: 10_000,
+        lastSeen: Date.now(),
+        latency: 0,
+        tags: [],
+      };
+
+      return {
+        servers: [server],
+        totalCount: 1,
+      };
+    }
 
     return {
-      servers: [server],
-      totalCount: 1,
+      servers,
+      totalCount: servers.length,
     };
   }
   
   async getServer(_serverId: ServerId): Promise<Server> {
-    const response = await this.listServers();
-    return response.servers[0];
+    const server = this.servers.get(_serverId);
+    if (!server) {
+      // fall back to default
+      const response = await this.listServers();
+      return response.servers[0];
+    }
+    return server;
   }
   
   async listDevices(_serverId?: ServerId): Promise<DeviceListResponse> {

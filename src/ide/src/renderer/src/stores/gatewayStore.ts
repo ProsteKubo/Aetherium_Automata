@@ -128,6 +128,27 @@ export const useGatewayStore = create<GatewayStore>()(
             const device = state.devices.get(event.deviceId);
             if (device) {
               device.status = event.currentStatus;
+              // Also update other relevant fields based on the event
+              if (event.reason) {
+                device.error = event.currentStatus === 'error' ? event.reason : null;
+              }
+            } else if (event.currentStatus === 'offline') {
+              // Create a minimal device entry for offline devices if they don't exist
+              // This ensures the UI can show devices that have disconnected
+              const offlineDevice: Device = {
+                id: event.deviceId,
+                name: event.deviceId,
+                status: event.currentStatus,
+                serverId: 'default_server' as ServerId,
+                address: 'unknown',
+                port: 0,
+                capabilities: [],
+                engineVersion: 'unknown',
+                tags: [],
+                error: event.reason || null,
+                lastSeen: new Date().toISOString(),
+              };
+              state.devices.set(event.deviceId, offlineDevice);
             }
           });
         });
@@ -142,11 +163,33 @@ export const useGatewayStore = create<GatewayStore>()(
         });
         
         service.on('onServerStatus', (event) => {
-          set((state) => {
-            const server = state.servers.get(event.serverId);
-            if (server) {
-              server.status = event.currentStatus;
-            }
+          // Try to fetch full server info from the service (if available) and upsert into store.
+          service.getServer(event.serverId).then((srv) => {
+            set((state) => {
+              state.servers.set(srv.id, srv);
+            });
+          }).catch(() => {
+            // Fallback: ensure we at least create/update a minimal server record
+            set((state) => {
+              const server = state.servers.get(event.serverId);
+              if (server) {
+                server.status = event.currentStatus;
+              } else {
+                state.servers.set(event.serverId, {
+                  id: event.serverId,
+                  name: event.serverId,
+                  description: '',
+                  address: state.config?.host ?? 'unknown',
+                  port: state.config?.port ?? 0,
+                  status: event.currentStatus,
+                  deviceIds: event.affectedDevices ?? [],
+                  maxDevices: 10000,
+                  lastSeen: Date.now(),
+                  latency: 0,
+                  tags: [],
+                });
+              }
+            });
           });
         });
         
