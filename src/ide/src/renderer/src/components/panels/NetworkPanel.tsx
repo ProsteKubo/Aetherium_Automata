@@ -145,6 +145,21 @@ export const NetworkPanel: React.FC = () => {
   const fetchServers = useGatewayStore((state) => state.fetchServers);
   const addNotification = useUIStore((state) => state.addNotification);
   
+  // Periodic refresh to ensure UI stays in sync
+  useEffect(() => {
+    if (!isConnected) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        await Promise.all([fetchServers(), fetchDevices()]);
+      } catch (error) {
+        console.warn('[NetworkPanel] Periodic refresh failed:', error);
+      }
+    }, 30000); // Refresh every 30 seconds
+    
+    return () => clearInterval(interval);
+  }, [isConnected, fetchDevices, fetchServers]);
+  
   // Memoize array conversions
   const servers = useMemo(() => Array.from(serversMap.values()), [serversMap]);
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
