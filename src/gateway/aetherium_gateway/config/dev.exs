@@ -9,15 +9,11 @@ import Config
 config :aetherium_gateway, AetheriumGatewayWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
-  http: [ip: {127, 0, 0, 1}],
+  http: [ip: {0,0,0,0}],
   check_origin: false,
   code_reloader: true,
   debug_errors: true,
-  secret_key_base: "rq8QIUQijAPf71XBrLMnNLNhusCzshDdHv6CEGqb3T+OLlMrxjiM60d39OBGLfPY",
-  watchers: [
-    esbuild: {Esbuild, :install_and_run, [:aetherium_gateway, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:aetherium_gateway, ~w(--watch)]}
-  ]
+  secret_key_base: "rq8QIUQijAPf71XBrLMnNLNhusCzshDdHv6CEGqb3T+OLlMrxjiM60d39OBGLfPY"
 
 # ## SSL Support
 #

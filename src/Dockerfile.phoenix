@@ -1,0 +1,27 @@
+FROM docker.io/elixir:1.19-alpine
+
+# Install Node.js for Phoenix assets (if using default pipeline)
+RUN apk add --no-cache inotify-tools git
+
+WORKDIR /app
+
+# Install hex/rebar
+RUN mix local.hex --force && mix local.rebar --force
+
+# Copy dependency files
+COPY mix.exs mix.lock ./
+COPY config config/
+
+# Install dependencies
+RUN mix deps.get
+
+# Copy source code
+COPY . .
+
+# Compile project
+RUN mix compile
+
+EXPOSE 4000
+
+# Run Phoenix server with live reloading
+CMD ["mix", "phx.server"]
