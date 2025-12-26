@@ -1,0 +1,96 @@
+services:
+  gateway:
+    build:
+      context: ./gateway/aetherium_gateway
+      dockerfile: ../../Dockerfile.phoenix
+    container_name: elixir-gateway
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.10
+    ports:
+      - "8080:4000"
+    volumes:
+      - ./gateway/aetherium_gateway:/app:cached
+      - gateway_deps:/app/deps
+      - gateway_build:/app/_build
+      - gateway_node:/app/assets/node_modules
+    environment:
+      - MIX_ENV=dev
+      - PHX_HOST=0.0.0.0
+      - PHX_PORT=4000
+      - SKIP_ASSETS=true
+    command: ["sh", "-c", "mix deps.compile && mix compile && mix phx.server"]
+
+  server1:
+    build:
+      context: ./server/aetherium_server
+      dockerfile: ../../Dockerfile.elixir
+    container_name: elixir-server-1
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.21
+    volumes:
+      - ./server/aetherium_server:/app
+      - server_deps:/app/deps
+      - server_build:/app/_build
+    environment:
+      - MIX_ENV=dev
+      - BIND_IP=0.0.0.0
+      - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
+      - GATEWAY_AUTH_TOKEN=server_secret_token
+      - SERVER_ID=svr_01
+      - HEARTBEAT_INTERVAL=30000
+
+  server2:
+    build:
+      context: ./server/aetherium_server
+      dockerfile: ../../Dockerfile.elixir
+    container_name: elixir-server-2
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.22
+    volumes:
+      - ./server/aetherium_server:/app
+      - server_deps:/app/deps
+      - server_build:/app/_build
+    environment:
+      - MIX_ENV=dev
+      - BIND_IP=0.0.0.0
+      - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
+      - GATEWAY_AUTH_TOKEN=server_secret_token
+      - SERVER_ID=svr_02
+      - HEARTBEAT_INTERVAL=30000
+
+  server3:
+    build:
+      context: ./server/aetherium_server
+      dockerfile: ../../Dockerfile.elixir
+    container_name: elixir-server-3
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.23
+    volumes:
+      - ./server/aetherium_server:/app
+      - server_deps:/app/deps
+      - server_build:/app/_build
+    environment:
+      - MIX_ENV=dev
+      - BIND_IP=0.0.0.0
+      - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
+      - GATEWAY_AUTH_TOKEN=server_secret_token
+      - SERVER_ID=svr_03
+      - HEARTBEAT_INTERVAL=30000
+
+networks:
+  elixir-net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  gateway_deps:
+  gateway_build:
+  gateway_node:
+  server_deps:
+  server_build:

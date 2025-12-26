@@ -1,0 +1,20 @@
+FROM docker.io/elixir:1.19-alpine
+
+RUN apk add --no-cache inotify-tools
+
+WORKDIR /app
+
+RUN mix local.hex --force && mix local.rebar --force
+
+COPY mix.exs mix.lock ./
+COPY config config/
+
+RUN mix deps.get
+
+COPY . .
+
+RUN mix compile
+
+EXPOSE 4000
+
+CMD ["mix", "run", "--no-halt"]
