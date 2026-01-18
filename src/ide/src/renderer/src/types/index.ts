@@ -4,3 +4,5 @@
 
 export * from './automata';
 export * from './protocol';
+export * from './project';
+export * from './transitions';

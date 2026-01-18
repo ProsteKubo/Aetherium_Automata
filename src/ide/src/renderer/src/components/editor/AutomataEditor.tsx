@@ -2,6 +2,7 @@
  * Aetherium Automata - Visual Editor Component
  * 
  * ReactFlow-based visual editor for automata states and transitions.
+ * Enhanced with keyboard shortcuts and quick creation tools.
  */
 
 import React, { useCallback, useMemo, useRef, useEffect, useState } from 'react';
@@ -18,12 +19,15 @@ import ReactFlow, {
   Edge,
   NodeChange,
   EdgeChange,
+  useReactFlow,
+  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
 import { StateNode } from './StateNode';
 import { TransitionEdge } from './TransitionEdge';
 import { TransitionDialog } from './TransitionDialog';
+import { EnhancedTransitionDialog } from './EnhancedTransitionDialog';
 import { useAutomataStore, useUIStore } from '../../stores';
 import {
   IconPlus,
@@ -50,7 +54,9 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [showTransitionDialog, setShowTransitionDialog] = useState(false);
+  const [useEnhancedDialog, setUseEnhancedDialog] = useState(true); // Use new enhanced dialog
   const [editingTransitionId, setEditingTransitionId] = useState<string | undefined>(undefined);
+  const [showGrid, setShowGrid] = useState(true);
   
   // Store hooks - select specific parts to ensure reactivity
   const automata = useAutomataStore((state) => state.automata.get(automataId));
@@ -64,6 +70,8 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const setSelectedTransitions = useAutomataStore((state) => state.setSelectedTransitions);
   const addState = useAutomataStore((state) => state.addState);
   const updateState = useAutomataStore((state) => state.updateState);
+  const deleteState = useAutomataStore((state) => state.deleteState);
+  const deleteTransition = useAutomataStore((state) => state.deleteTransition);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const openTab = useUIStore((state) => state.openTab);
   
@@ -72,23 +80,79 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
     setActiveAutomata(automataId);
   }, [automataId, setActiveAutomata]);
   
-  // Keyboard shortcut for creating transitions (T key)
+  // Comprehensive keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // Don't trigger if typing in an input
-        if (document.activeElement?.tagName === 'INPUT' || 
-            document.activeElement?.tagName === 'TEXTAREA') {
-          return;
-        }
+      // Don't trigger if typing in an input
+      if (document.activeElement?.tagName === 'INPUT' || 
+          document.activeElement?.tagName === 'TEXTAREA') {
+        return;
+      }
+      
+      const isMod = e.metaKey || e.ctrlKey;
+      
+      // T - Create transition
+      if (e.key === 't' && !isMod && !e.altKey) {
         setEditingTransitionId(undefined);
         setShowTransitionDialog(true);
+        e.preventDefault();
+      }
+      
+      // N - Create state
+      if (e.key === 'n' && !isMod && !e.altKey && !e.shiftKey) {
+        handleAddState('normal');
+        e.preventDefault();
+      }
+      
+      // Shift+N - Create initial state
+      if (e.key === 'N' && e.shiftKey && !isMod && !e.altKey) {
+        handleAddState('initial');
+        e.preventDefault();
+      }
+      
+      // Alt+N - Create final state
+      if (e.key === 'n' && e.altKey && !isMod) {
+        handleAddState('final');
+        e.preventDefault();
+      }
+      
+      // L - Toggle lock
+      if (e.key === 'l' && !isMod && !e.altKey) {
+        setIsLocked((prev) => !prev);
+        e.preventDefault();
+      }
+      
+      // # - Toggle grid
+      if (e.key === '#' || (e.key === '3' && e.shiftKey)) {
+        setShowGrid((prev) => !prev);
+        e.preventDefault();
+      }
+      
+      // Delete/Backspace - Delete selected elements
+      if ((e.key === 'Delete' || e.key === 'Backspace') && !isMod) {
+        if (selectedStateIds.length > 0) {
+          selectedStateIds.forEach((id) => deleteState(id));
+          setSelectedStates([]);
+        }
+        if (selectedTransitionIds.length > 0) {
+          selectedTransitionIds.forEach((id) => deleteTransition(id));
+          setSelectedTransitions([]);
+        }
+        e.preventDefault();
+      }
+      
+      // Escape - Deselect all
+      if (e.key === 'Escape') {
+        setSelectedStates([]);
+        setSelectedTransitions([]);
+        setShowTransitionDialog(false);
+        e.preventDefault();
       }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [selectedStateIds, selectedTransitionIds, deleteState, deleteTransition, setSelectedStates, setSelectedTransitions]);
   
   // Handler for clicking on transition label to edit
   const handleTransitionClick = useCallback((transitionId: string) => {
@@ -252,19 +316,25 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   }, [onEdgesChange, edges, setSelectedTransitions]);
   
   // Add new state at center
-  const handleAddState = useCallback(() => {
+  const handleAddState = useCallback((type: 'normal' | 'initial' | 'final' = 'normal') => {
     const wrapper = reactFlowWrapper.current;
     const bounds = wrapper?.getBoundingClientRect();
     
+    // Add some randomness so multiple quick additions don't stack
+    const offsetX = Math.random() * 100 - 50;
+    const offsetY = Math.random() * 100 - 50;
+    
     const position = {
-      x: (bounds?.width || 400) / 2 - 75,
-      y: (bounds?.height || 300) / 2 - 30,
+      x: (bounds?.width || 400) / 2 - 75 + offsetX,
+      y: (bounds?.height || 300) / 2 - 30 + offsetY,
     };
     
     const stateCount = automata ? Object.keys(automata.states).length : 0;
+    const isInitial = type === 'initial';
+    const isFinal = type === 'final';
     
     addState({
-      name: `State ${stateCount + 1}`,
+      name: isInitial ? 'Initial' : isFinal ? 'Final' : `State ${stateCount + 1}`,
       inputs: [],
       outputs: [],
       variables: [],
@@ -272,6 +342,7 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
       hooks: {},
       isComposite: false,
       position,
+      // Additional state properties for initial/final could be added here
     });
   }, [addState, automata]);
   
@@ -308,12 +379,14 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
         proOptions={{ hideAttribution: true }}
       >
         {/* Background grid */}
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={16}
-          size={1}
-          color="var(--color-border)"
-        />
+        {showGrid && (
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={16}
+            size={1}
+            color="var(--color-border)"
+          />
+        )}
         
         {/* Minimap */}
         <MiniMap
@@ -335,8 +408,8 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
         <Panel position="top-left" className="editor-toolbar">
           <button
             className="btn btn-ghost btn-icon"
-            onClick={handleAddState}
-            title="Add State (S)"
+            onClick={() => handleAddState('normal')}
+            title="Add State (N)"
           >
             <IconPlus size={16} />
           </button>
@@ -354,7 +427,7 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
           <button
             className={`btn btn-ghost btn-icon ${isLocked ? 'active' : ''}`}
             onClick={() => setIsLocked(!isLocked)}
-            title={isLocked ? 'Unlock editing' : 'Lock editing'}
+            title={isLocked ? 'Unlock editing (L)' : 'Lock editing (L)'}
           >
             {isLocked ? <IconLock size={16} /> : <IconUnlock size={16} />}
           </button>
@@ -373,16 +446,28 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
         </Panel>
       </ReactFlow>
       
-      {/* Transition Dialog */}
-      <TransitionDialog
-        automataId={automataId}
-        isOpen={showTransitionDialog}
-        onClose={() => {
-          setShowTransitionDialog(false);
-          setEditingTransitionId(undefined);
-        }}
-        editTransitionId={editingTransitionId}
-      />
+      {/* Transition Dialog - Use Enhanced or Basic based on preference */}
+      {useEnhancedDialog ? (
+        <EnhancedTransitionDialog
+          automataId={automataId}
+          isOpen={showTransitionDialog}
+          onClose={() => {
+            setShowTransitionDialog(false);
+            setEditingTransitionId(undefined);
+          }}
+          editTransitionId={editingTransitionId}
+        />
+      ) : (
+        <TransitionDialog
+          automataId={automataId}
+          isOpen={showTransitionDialog}
+          onClose={() => {
+            setShowTransitionDialog(false);
+            setEditingTransitionId(undefined);
+          }}
+          editTransitionId={editingTransitionId}
+        />
+      )}
     </div>
   );
 };

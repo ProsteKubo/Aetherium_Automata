@@ -2,12 +2,236 @@
  * Aetherium Automata - Properties Panel Component
  * 
  * Shows and edits properties of selected automata, states, or transitions.
+ * Includes full transition type information and probabilistic grouping.
  */
 
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import { useAutomataStore } from '../../stores';
 import { IconSettings, IconAutomata, IconState, IconTransition } from '../common/Icons';
+import { IOVariablesPanel } from './IOVariablesPanel';
 import type { State, Transition } from '../../types';
+
+// ============================================================================
+// Transition Type Icons
+// ============================================================================
+
+const GuardIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 1L2 3v5c0 4 2.5 6 6 7 3.5-1 6-3 6-7V3L8 1zm0 1.3l5 1.6v4.6c0 3.2-2 4.8-5 5.8-3-.9-5-2.6-5-5.8V3.9l5-1.6z"/>
+  </svg>
+);
+
+const TimerIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M8 2a6 6 0 100 12A6 6 0 008 2zM1 8a7 7 0 1114 0A7 7 0 011 8z"/>
+    <path d="M8 4v4.5l3 1.5-.5 1L7 9V4h1z"/>
+  </svg>
+);
+
+const EventIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M1 8h2l2-4 2 8 2-4 2 2 2-1 2 1V8h1v2l-3 1-2-2-2 4-2-8-2 4H1V8z"/>
+  </svg>
+);
+
+const DiceIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M2 2h12v12H2V2zm1 1v10h10V3H3z"/>
+    <circle cx="5" cy="5" r="1"/>
+    <circle cx="11" cy="5" r="1"/>
+    <circle cx="8" cy="8" r="1"/>
+    <circle cx="5" cy="11" r="1"/>
+    <circle cx="11" cy="11" r="1"/>
+  </svg>
+);
+
+const LightningIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/>
+  </svg>
+);
+
+// ============================================================================
+// Helper Functions
+// ============================================================================
+
+type TransitionTypeLabel = 'classic' | 'timed' | 'event' | 'probabilistic' | 'immediate';
+
+function inferTransitionType(transition: Transition): TransitionTypeLabel {
+  if (transition.condition === 'true' || transition.condition === '') {
+    return 'immediate';
+  }
+  if (transition.condition?.includes('after(') || 
+      transition.condition?.includes('timeout(') ||
+      transition.condition?.includes('elapsed(')) {
+    return 'timed';
+  }
+  if (transition.condition?.includes('check(') ||
+      transition.condition?.includes('input(') ||
+      transition.condition?.includes('signal(')) {
+    return 'event';
+  }
+  if (transition.probabilistic?.enabled || (transition.weight && transition.weight !== 1)) {
+    return 'probabilistic';
+  }
+  return 'classic';
+}
+
+function getTransitionTypeColor(type: TransitionTypeLabel): string {
+  switch (type) {
+    case 'classic': return 'var(--color-success)';
+    case 'timed': return 'var(--color-info)';
+    case 'event': return 'var(--color-warning)';
+    case 'probabilistic': return 'var(--color-accent)';
+    case 'immediate': return 'var(--color-danger)';
+  }
+}
+
+function getTransitionTypeIcon(type: TransitionTypeLabel): React.ReactNode {
+  switch (type) {
+    case 'classic': return <GuardIcon />;
+    case 'timed': return <TimerIcon />;
+    case 'event': return <EventIcon />;
+    case 'probabilistic': return <DiceIcon />;
+    case 'immediate': return <LightningIcon />;
+  }
+}
+
+// ============================================================================
+// Probabilistic Group Component
+// ============================================================================
+
+interface ProbabilisticGroupProps {
+  transitions: Transition[];
+  selectedTransitionId: string;
+  stateNames: Record<string, string>;
+}
+
+const ProbabilisticGroup: React.FC<ProbabilisticGroupProps> = ({ 
+  transitions, 
+  selectedTransitionId,
+  stateNames,
+}) => {
+  const totalWeight = transitions.reduce((sum, t) => sum + (t.weight || 1), 0);
+  
+  return (
+    <div style={{
+      marginTop: 'var(--spacing-3)',
+      padding: 'var(--spacing-3)',
+      backgroundColor: 'var(--color-bg-tertiary)',
+      borderRadius: 'var(--radius-md)',
+      border: '1px solid var(--color-accent)',
+    }}>
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        marginBottom: 'var(--spacing-2)',
+        gap: 'var(--spacing-2)',
+      }}>
+        <DiceIcon size={14} />
+        <span style={{ fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>
+          Probabilistic Group
+        </span>
+        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
+          ({transitions.length} transitions)
+        </span>
+      </div>
+      
+      <div style={{
+        display: 'flex',
+        height: 20,
+        borderRadius: 'var(--radius-sm)',
+        overflow: 'hidden',
+        marginBottom: 'var(--spacing-2)',
+      }}>
+        {transitions.map((t, i) => {
+          const weight = t.weight || 1;
+          const percent = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+          const isSelected = t.id === selectedTransitionId;
+          
+          return (
+            <div
+              key={t.id}
+              style={{
+                width: `${percent}%`,
+                backgroundColor: isSelected ? 'var(--color-primary)' : `hsl(${i * 60}, 60%, 50%)`,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 'var(--font-size-xs)',
+                color: 'white',
+                fontWeight: 500,
+                borderRight: i < transitions.length - 1 ? '1px solid var(--color-bg-primary)' : 'none',
+              }}
+              title={`${t.name}: ${percent.toFixed(1)}%`}
+            >
+              {percent >= 10 ? `${percent.toFixed(0)}%` : ''}
+            </div>
+          );
+        })}
+      </div>
+      
+      <div style={{ fontSize: 'var(--font-size-xs)' }}>
+        {transitions.map((t, i) => {
+          const weight = t.weight || 1;
+          const percent = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
+          const isSelected = t.id === selectedTransitionId;
+          
+          return (
+            <div
+              key={t.id}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                padding: 'var(--spacing-1) 0',
+                opacity: isSelected ? 1 : 0.7,
+                fontWeight: isSelected ? 500 : 400,
+              }}
+            >
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: '50%',
+                  backgroundColor: isSelected ? 'var(--color-primary)' : `hsl(${i * 60}, 60%, 50%)`,
+                  marginRight: 'var(--spacing-2)',
+                }}
+              />
+              <span style={{ flex: 1 }}>→ {stateNames[t.to] || t.to}</span>
+              <span style={{ color: 'var(--color-text-tertiary)' }}>{percent.toFixed(1)}%</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+// ============================================================================
+// Transition Type Badge
+// ============================================================================
+
+const TransitionTypeBadge: React.FC<{ type: TransitionTypeLabel }> = ({ type }) => (
+  <div style={{
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 'var(--spacing-1)',
+    padding: 'var(--spacing-1) var(--spacing-2)',
+    backgroundColor: getTransitionTypeColor(type),
+    borderRadius: 'var(--radius-sm)',
+    fontSize: 'var(--font-size-xs)',
+    color: 'white',
+    fontWeight: 500,
+    textTransform: 'capitalize',
+  }}>
+    {getTransitionTypeIcon(type)}
+    <span>{type}</span>
+  </div>
+);
+
+// ============================================================================
+// Main Panel Component
+// ============================================================================
 
 export const PropertiesPanel: React.FC = () => {
   const activeAutomata = useAutomataStore((state) => {
@@ -18,8 +242,8 @@ export const PropertiesPanel: React.FC = () => {
   const selectedTransitionIds = useAutomataStore((state) => state.selectedTransitionIds);
   const updateState = useAutomataStore((state) => state.updateState);
   const updateTransition = useAutomataStore((state) => state.updateTransition);
+  const normalizeProbabilities = useAutomataStore((state) => state.normalizeProbabilities);
   
-  // Get selected items from Record
   const selectedState: State | undefined = activeAutomata && selectedStateIds.length === 1
     ? activeAutomata.states[selectedStateIds[0]]
     : undefined;
@@ -27,6 +251,30 @@ export const PropertiesPanel: React.FC = () => {
   const selectedTransition: Transition | undefined = activeAutomata && selectedTransitionIds.length === 1
     ? activeAutomata.transitions[selectedTransitionIds[0]]
     : undefined;
+  
+  // Get probabilistic group for selected transition
+  const probabilisticGroup = useMemo(() => {
+    if (!activeAutomata || !selectedTransition) return null;
+    const siblings = Object.values(activeAutomata.transitions).filter(
+      (t) => t.from === selectedTransition.from
+    );
+    const hasProbabilistic = siblings.some(
+      (t) => t.probabilistic?.enabled || (t.weight && t.weight !== 1)
+    );
+    if (hasProbabilistic && siblings.length > 1) {
+      return siblings;
+    }
+    return null;
+  }, [activeAutomata, selectedTransition]);
+  
+  const stateNames = useMemo(() => {
+    if (!activeAutomata) return {};
+    const names: Record<string, string> = {};
+    Object.values(activeAutomata.states).forEach((s) => {
+      names[s.id] = s.name;
+    });
+    return names;
+  }, [activeAutomata]);
   
   // Show state properties
   if (selectedState && activeAutomata) {
@@ -124,6 +372,7 @@ export const PropertiesPanel: React.FC = () => {
   // Show transition properties
   if (selectedTransition && activeAutomata) {
     const stateEntries = Object.entries(activeAutomata.states);
+    const transitionType = inferTransitionType(selectedTransition);
     
     return (
       <div className="properties-panel">
@@ -133,6 +382,11 @@ export const PropertiesPanel: React.FC = () => {
         </div>
         
         <div className="properties-content">
+          {/* Transition Type Badge */}
+          <div className="property-group">
+            <TransitionTypeBadge type={transitionType} />
+          </div>
+          
           <div className="property-group">
             <label className="property-label">Name</label>
             <input
@@ -169,33 +423,90 @@ export const PropertiesPanel: React.FC = () => {
             </select>
           </div>
           
+          {/* Guard Condition */}
           <div className="property-group">
-            <label className="property-label">Priority</label>
-            <input
-              type="number"
-              className="property-input"
-              value={selectedTransition.priority || 0}
-              min={0}
-              onChange={(e) => updateTransition(selectedTransition.id, { 
-                priority: parseInt(e.target.value) || 0 
-              })}
+            <label className="property-label">Guard Condition</label>
+            <textarea
+              className="property-textarea"
+              value={selectedTransition.condition || ''}
+              onChange={(e) => updateTransition(selectedTransition.id, { condition: e.target.value })}
+              rows={2}
+              placeholder="e.g., check('input1') and value('temp') > 30"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)' }}
+            />
+          </div>
+          
+          {/* Action Body */}
+          <div className="property-group">
+            <label className="property-label">Action (Lua)</label>
+            <textarea
+              className="property-textarea"
+              value={selectedTransition.body || ''}
+              onChange={(e) => updateTransition(selectedTransition.id, { body: e.target.value })}
+              rows={3}
+              placeholder="-- Code to execute on transition"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)' }}
             />
           </div>
           
           <div className="property-group">
-            <label className="property-label">Weight (Probabilistic)</label>
+            <label className="property-label">Priority: {selectedTransition.priority || 0}</label>
             <input
-              type="number"
-              className="property-input"
-              value={selectedTransition.weight || 1}
-              min={0}
-              max={1}
-              step={0.1}
+              type="range"
+              min={-10}
+              max={10}
+              value={selectedTransition.priority || 0}
               onChange={(e) => updateTransition(selectedTransition.id, { 
-                weight: parseFloat(e.target.value) || 1 
+                priority: parseInt(e.target.value) || 0 
               })}
+              style={{ width: '100%' }}
             />
+            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
+              Lower values = higher priority
+            </span>
           </div>
+          
+          <div className="property-group">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <label className="property-label" style={{ marginBottom: 0 }}>
+                Weight: {((selectedTransition.weight || 1) * 100).toFixed(0)}%
+              </label>
+              {probabilisticGroup && probabilisticGroup.length > 1 && (
+                <button
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => normalizeProbabilities(selectedTransition.from)}
+                  title="Normalize all weights from this state to 100%"
+                  style={{ fontSize: 'var(--font-size-xs)' }}
+                >
+                  Normalize to 100%
+                </button>
+              )}
+            </div>
+            <input
+              type="range"
+              min={1}
+              max={100}
+              value={Math.round((selectedTransition.weight || 1) * 100)}
+              onChange={(e) => updateTransition(selectedTransition.id, { 
+                weight: parseInt(e.target.value) / 100
+              })}
+              style={{ width: '100%' }}
+            />
+            {probabilisticGroup && probabilisticGroup.length > 1 && (
+              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
+                Total from this state: {Math.round(probabilisticGroup.reduce((sum, t) => sum + (t.weight || 1), 0) * 100)}%
+              </span>
+            )}
+          </div>
+          
+          {/* Probabilistic Group Visualization */}
+          {probabilisticGroup && (
+            <ProbabilisticGroup
+              transitions={probabilisticGroup}
+              selectedTransitionId={selectedTransition.id}
+              stateNames={stateNames}
+            />
+          )}
           
           <div className="property-group">
             <label className="property-label">Description</label>
@@ -320,6 +631,15 @@ export const PropertiesPanel: React.FC = () => {
                 {new Date(activeAutomata.config.modified || Date.now()).toLocaleDateString()}
               </span>
             </div>
+          </div>
+          
+          {/* Integrated I/O & Variables Section */}
+          <div style={{ 
+            marginTop: 'var(--spacing-4)',
+            borderTop: '1px solid var(--color-border)',
+            paddingTop: 'var(--spacing-3)',
+          }}>
+            <IOVariablesPanel embedded />
           </div>
         </div>
       </div>

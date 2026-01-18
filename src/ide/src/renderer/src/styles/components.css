@@ -1010,3 +1010,34 @@
   height: 38px;
   color: var(--color-primary-400);
 }
+
+/* ============================================================================
+   File Menu Dropdown
+   ============================================================================ */
+
+.menu-item {
+  transition: background-color var(--transition-fast);
+}
+
+.menu-item:hover:not(:disabled) {
+  background-color: var(--color-bg-hover) !important;
+}
+
+.menu-item:active:not(:disabled) {
+  background-color: var(--color-bg-active) !important;
+}
+
+.dropdown-menu {
+  animation: fadeIn 0.1s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -14,8 +14,15 @@ import type {
   StateId,
   Transition,
   TransitionId,
+  VariableSpec,
 } from '../types';
 import { MockGatewayService } from '../services/gateway';
+
+// Lazy getter to avoid circular dependency
+let projectStoreGetter: (() => any) | null = null;
+export const setProjectStoreGetter = (getter: () => any) => {
+  projectStoreGetter = getter;
+};
 
 // ============================================================================
 // State Types
@@ -53,12 +60,18 @@ interface AutomataActions {
   // CRUD operations
   fetchAutomata: () => Promise<void>;
   loadAutomata: (automataId: AutomataId) => Promise<void>;
-  createAutomata: (name: string, description?: string) => Promise<Automata>;
+  createAutomata: (name: string, description?: string, parentId?: AutomataId) => Promise<Automata>;
   saveAutomata: (automataId: AutomataId) => Promise<void>;
   deleteAutomata: (automataId: AutomataId) => Promise<void>;
   
   // Active automata
   setActiveAutomata: (automataId: AutomataId | null) => void;
+  
+  // Automata-level I/O
+  updateAutomataIO: (automataId: AutomataId, updates: { inputs?: string[]; outputs?: string[]; variables?: VariableSpec[] }) => void;
+  
+  // Probabilistic normalization
+  normalizeProbabilities: (sourceStateId: StateId) => void;
   
   // State operations
   addState: (state: Omit<State, 'id'>) => StateId;
@@ -90,6 +103,7 @@ interface AutomataActions {
   
   // Utility
   markDirty: (automataId: AutomataId) => void;
+  setAutomataMap: (automataMap: Map<AutomataId, Automata>) => void;
   reset: () => void;
 }
 
@@ -178,7 +192,7 @@ export const useAutomataStore = create<AutomataStore>()(
       }
     },
     
-    createAutomata: async (name: string, description?: string) => {
+    createAutomata: async (name: string, description?: string, parentId?: AutomataId) => {
       const newAutomata: Omit<Automata, 'id'> = {
         version: '0.0.1',
         config: {
@@ -188,6 +202,8 @@ export const useAutomataStore = create<AutomataStore>()(
           description,
           tags: [],
           version: '1.0.0',
+          created: Date.now(),
+          modified: Date.now(),
         },
         initialState: 'Initial',
         states: {
@@ -204,6 +220,12 @@ export const useAutomataStore = create<AutomataStore>()(
           },
         },
         transitions: {},
+        // Automata-level I/O for inter-automata communication
+        inputs: [],
+        outputs: [],
+        // Nested automata support
+        parentAutomataId: parentId,
+        nestedAutomataIds: [],
       };
       
       // Use MockGatewayService for automata operations since backend doesn't support it yet
@@ -212,9 +234,63 @@ export const useAutomataStore = create<AutomataStore>()(
       
       set((state) => {
         state.automata.set(created.id, created);
+        
+        // If this is a nested automata, update parent's nestedAutomataIds
+        if (parentId) {
+          const parent = state.automata.get(parentId);
+          if (parent) {
+            if (!parent.nestedAutomataIds) {
+              parent.nestedAutomataIds = [];
+            }
+            parent.nestedAutomataIds.push(created.id);
+          }
+        }
       });
       
       return created;
+    },
+    
+    // Update automata-level I/O
+    updateAutomataIO: (automataId: AutomataId, updates: { inputs?: string[]; outputs?: string[]; variables?: VariableSpec[] }) => {
+      set((state) => {
+        const automata = state.automata.get(automataId);
+        if (!automata) return;
+        
+        if (updates.inputs !== undefined) {
+          automata.inputs = updates.inputs;
+        }
+        if (updates.outputs !== undefined) {
+          automata.outputs = updates.outputs;
+        }
+        automata.isDirty = true;
+      });
+    },
+    
+    // Normalize probabilities so they sum to 100%
+    normalizeProbabilities: (sourceStateId: StateId) => {
+      set((state) => {
+        const automata = state.activeAutomataId ? state.automata.get(state.activeAutomataId) : null;
+        if (!automata) return;
+        
+        // Find all transitions from this state
+        const transitions = Object.values(automata.transitions).filter(
+          (t) => t.from === sourceStateId
+        );
+        
+        if (transitions.length === 0) return;
+        
+        // Calculate total weight
+        const totalWeight = transitions.reduce((sum, t) => sum + (t.weight || 1), 0);
+        
+        // Normalize each transition's weight to sum to 1
+        transitions.forEach((t) => {
+          const currentWeight = t.weight || 1;
+          const normalizedWeight = currentWeight / totalWeight;
+          automata.transitions[t.id].weight = normalizedWeight;
+        });
+        
+        automata.isDirty = true;
+      });
     },
     
     saveAutomata: async (automataId: AutomataId) => {
@@ -295,6 +371,15 @@ export const useAutomataStore = create<AutomataStore>()(
         }
       });
       
+      // Mark project as dirty
+      if (projectStoreGetter) {
+        try {
+          projectStoreGetter().markDirty();
+        } catch (err) {
+          console.warn('[AutomataStore] Failed to mark project dirty:', err);
+        }
+      }
+      
       return stateId;
     },
     
@@ -311,6 +396,14 @@ export const useAutomataStore = create<AutomataStore>()(
           automata.isDirty = true;
         }
       });
+      
+      // Mark project as dirty
+      try {
+        // Use projectStoreGetter
+        projectStoreGetter()?.markDirty();
+      } catch {
+        // Project store might not be available
+      }
     },
     
     deleteState: (stateId: StateId) => {
@@ -337,6 +430,14 @@ export const useAutomataStore = create<AutomataStore>()(
           if (automata.initialState === stateId) {
             const remainingStates = Object.keys(automata.states);
             automata.initialState = remainingStates[0] || '';
+      
+      // Mark project as dirty
+      try {
+        // Use projectStoreGetter
+        projectStoreGetter()?.markDirty();
+      } catch {
+        // Project store might not be available
+      }
           }
           
           automata.isDirty = true;
@@ -362,6 +463,14 @@ export const useAutomataStore = create<AutomataStore>()(
       set((state) => {
         const automata = state.automata.get(activeAutomataId);
         if (automata) {
+      // Mark project as dirty
+      try {
+        // Use projectStoreGetter
+        projectStoreGetter()?.markDirty();
+      } catch {
+        // Project store might not be available
+      }
+      
           automata.transitions[transitionId] = {
             ...transitionData,
             id: transitionId,
@@ -386,6 +495,14 @@ export const useAutomataStore = create<AutomataStore>()(
           automata.isDirty = true;
         }
       });
+      
+      // Mark project as dirty
+      try {
+        // Use projectStoreGetter
+        projectStoreGetter()?.markDirty();
+      } catch {
+        // Project store might not be available
+      }
     },
     
     deleteTransition: (transitionId: TransitionId) => {
@@ -406,6 +523,14 @@ export const useAutomataStore = create<AutomataStore>()(
           );
         }
       });
+      
+      // Mark project as dirty
+      try {
+        // Use projectStoreGetter
+        projectStoreGetter()?.markDirty();
+      } catch {
+        // Project store might not be available
+      }
     },
     
     // ========================================================================
@@ -638,6 +763,16 @@ export const useAutomataStore = create<AutomataStore>()(
         const automata = state.automata.get(automataId);
         if (automata) {
           automata.isDirty = true;
+        }
+      });
+    },
+    
+    setAutomataMap: (automataMap: Map<AutomataId, Automata>) => {
+      set((state) => {
+        state.automata = automataMap;
+        // Set first automata as active if none is active
+        if (!state.activeAutomataId && automataMap.size > 0) {
+          state.activeAutomataId = automataMap.keys().next().value;
         }
       });
     },

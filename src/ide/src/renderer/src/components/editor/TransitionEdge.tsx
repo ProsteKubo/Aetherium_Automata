@@ -26,7 +26,26 @@ interface TransitionEdgeData extends Omit<Transition, 'id' | 'from' | 'to'> {
   __placing?: boolean;
   // Provided by AutomataEditor in controlled mode
   setEdgeData?: (edgeId: string, updates: Record<string, unknown>) => void;
+  // Probabilistic group info (computed by parent)
+  probabilisticInfo?: {
+    isInGroup: boolean;
+    groupSize: number;
+    normalizedWeight: number; // 0-1
+    groupColor: string;
+  };
 }
+
+// Dice icon for probabilistic transitions
+const DiceIcon: React.FC<{ size?: number }> = ({ size = 12 }) => (
+  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
+    <path d="M2 2h12v12H2V2zm1 1v10h10V3H3z"/>
+    <circle cx="5" cy="5" r="1"/>
+    <circle cx="11" cy="5" r="1"/>
+    <circle cx="8" cy="8" r="1"/>
+    <circle cx="5" cy="11" r="1"/>
+    <circle cx="11" cy="11" r="1"/>
+  </svg>
+);
 
 // NOTE: ReactFlow may remount edge components during selection updates.
 // Keep double-click tracking outside component so it survives remounts.
@@ -278,30 +297,39 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
       });
     }
 
-    const onMouseMove = (event: MouseEvent) => {
-      const mousePos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-
-      currentControlPointRef.current = mousePos;
-
-      const now = Date.now();
-      if (now - lastPlaceMoveLogAtRef.current > 250) {
-        lastPlaceMoveLogAtRef.current = now;
-        addLog({
-          level: 'trace',
-          source: 'Editor.Edge',
-          message: 'placing move',
-          data: { id, x: Math.round(mousePos.x), y: Math.round(mousePos.y) },
-        });
-      }
-
-      setEdgeData({
-        controlPoint: mousePos,
-        pathOffset: undefined,
-        __placing: true,
+    // Idle timeout - auto-commit if no activity for 5 seconds
+    let idleTimeout: ReturnType<typeof setTimeout> | null = null;
+    // Max timeout - force commit after 30 seconds regardless
+    const maxTimeout = setTimeout(() => {
+      addLog({
+        level: 'info',
+        source: 'Editor.Edge',
+        message: 'placing mode max timeout reached, auto-committing',
+        data: { id },
       });
+      commitPlacing();
+    }, 30000);
+
+    const resetIdleTimeout = () => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      idleTimeout = setTimeout(() => {
+        addLog({
+          level: 'info',
+          source: 'Editor.Edge',
+          message: 'placing mode idle timeout, auto-committing',
+          data: { id },
+        });
+        commitPlacing();
+      }, 5000);
     };
 
+    // Start idle timer immediately
+    resetIdleTimeout();
+
     const commitPlacing = () => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      clearTimeout(maxTimeout);
+      
       const latest = currentControlPointRef.current;
       if (latest) {
         addLog({
@@ -333,6 +361,9 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
     };
 
     const cancelPlacing = () => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      clearTimeout(maxTimeout);
+      
       addLog({
         level: 'debug',
         source: 'Editor.Edge',
@@ -368,6 +399,32 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
       setTimeout(() => { justStoppedDraggingRef.current = false; }, 100);
     };
 
+    const onMouseMove = (event: MouseEvent) => {
+      // Reset idle timeout on mouse movement
+      resetIdleTimeout();
+      
+      const mousePos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+
+      currentControlPointRef.current = mousePos;
+
+      const now = Date.now();
+      if (now - lastPlaceMoveLogAtRef.current > 250) {
+        lastPlaceMoveLogAtRef.current = now;
+        addLog({
+          level: 'trace',
+          source: 'Editor.Edge',
+          message: 'placing move',
+          data: { id, x: Math.round(mousePos.x), y: Math.round(mousePos.y) },
+        });
+      }
+
+      setEdgeData({
+        controlPoint: mousePos,
+        pathOffset: undefined,
+        __placing: true,
+      });
+    };
+
     const onMouseDown = () => {
       if (ignoreNextPlaceMouseDownByEdgeId.get(id)) return;
       commitPlacing();
@@ -380,16 +437,46 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
         cancelPlacing();
       }
     };
+    
+    // Handle visibility change (user switched tabs)
+    const onVisibilityChange = () => {
+      if (document.hidden) {
+        addLog({
+          level: 'info',
+          source: 'Editor.Edge',
+          message: 'tab hidden during placing mode, auto-committing',
+          data: { id },
+        });
+        commitPlacing();
+      }
+    };
+    
+    // Handle window blur (user clicked outside browser)
+    const onBlur = () => {
+      addLog({
+        level: 'info',
+        source: 'Editor.Edge',
+        message: 'window blur during placing mode, auto-committing',
+        data: { id },
+      });
+      commitPlacing();
+    };
 
     window.addEventListener('mousemove', onMouseMove);
     // Capture-phase so label handlers can't swallow the commit click.
     window.addEventListener('mousedown', onMouseDown, { capture: true });
     window.addEventListener('keydown', onKeyDown);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('blur', onBlur);
 
     return () => {
+      if (idleTimeout) clearTimeout(idleTimeout);
+      clearTimeout(maxTimeout);
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mousedown', onMouseDown, { capture: true } as any);
       window.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('blur', onBlur);
       document.body.style.cursor = '';
       document.documentElement.style.cursor = '';
       hasLoggedPlacingActiveRef.current = false;
@@ -597,16 +684,28 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
     targetPosition,
   ]);
   
+  // Check if this is a probabilistic edge
+  const isProbabilistic = data?.probabilisticInfo?.isInGroup || 
+    (data?.weight && data.weight !== 1) || 
+    data?.probabilistic?.enabled;
+  
   const getEdgeClass = () => {
     let className = 'transition-edge';
     if (selected) className += ' selected';
     if (data?.isActive) className += ' active';
     if (data?.isAnimating) className += ' animating';
     if (data?.fuzzyGuard) className += ' fuzzy';
-    if (data?.probabilistic) className += ' probabilistic';
+    if (isProbabilistic) className += ' probabilistic';
     if (isSelfLoop) className += ' self-loop';
     return className;
   };
+  
+  // Calculate probability percentage for display
+  const probabilityPercent = data?.probabilisticInfo?.normalizedWeight 
+    ? Math.round(data.probabilisticInfo.normalizedWeight * 100)
+    : data?.weight 
+      ? Math.round(data.weight * 100) 
+      : null;
   
   return (
     <>
@@ -616,8 +715,10 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
         d={edgePath}
         className={getEdgeClass()}
         style={{
-          strokeWidth: selected ? 3 : 2,
+          strokeWidth: selected ? 3 : isProbabilistic ? 2.5 : 2,
           fill: 'none',
+          strokeDasharray: isProbabilistic ? '8,4' : undefined,
+          stroke: data?.probabilisticInfo?.groupColor || undefined,
           ...style,
         }}
         markerEnd={typeof markerEnd === 'string' ? markerEnd : undefined}
@@ -716,10 +817,33 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
             data?.onClick?.(id);
           }}
         >
+          {/* Probabilistic indicator - dice icon and percentage */}
+          {isProbabilistic && probabilityPercent !== null && (
+            <span 
+              className="transition-probability-badge"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '2px',
+                backgroundColor: data?.probabilisticInfo?.groupColor || 'var(--color-accent)',
+                color: 'white',
+                padding: '1px 4px',
+                borderRadius: '8px',
+                fontSize: '10px',
+                fontWeight: 600,
+                marginRight: '4px',
+              }}
+              title={`Probabilistic: ${probabilityPercent}% chance`}
+            >
+              <DiceIcon size={10} />
+              {probabilityPercent}%
+            </span>
+          )}
+          
           <span className="transition-event">{data?.label || data?.name || 'transition'}</span>
           
           {/* Show guard condition if exists */}
-          {data?.condition && (
+          {data?.condition && data?.condition !== 'true' && (
             <span className="transition-guard" title={`Condition: ${data.condition}`}>
               [C]
             </span>
@@ -729,13 +853,6 @@ export const TransitionEdge = memo<EdgeProps<TransitionEdgeData>>(({
           {data?.fuzzyGuard && data?.fuzzyGuard.enabled && (
             <span className="transition-fuzzy" title="Fuzzy logic enabled">
               ~
-            </span>
-          )}
-          
-          {/* Show probability */}
-          {data?.probabilistic && (
-            <span className="transition-probability">
-              {(data.probabilistic.weight * 100).toFixed(0)}%
             </span>
           )}
         </div>
