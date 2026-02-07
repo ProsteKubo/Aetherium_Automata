@@ -14,6 +14,13 @@ export const GatewayPanel: React.FC = () => {
   const [password, setPassword] = useState('');
   const [pingResult, setPingResult] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
+
+  // Command console state
+  const [cmdChannel, setCmdChannel] = useState<'gateway' | 'automata'>('gateway');
+  const [cmdName, setCmdName] = useState('ping');
+  const [cmdPayload, setCmdPayload] = useState('{}');
+  const [cmdResult, setCmdResult] = useState<string | null>(null);
+  const [cmdSending, setCmdSending] = useState(false);
   
   // Gateway store state
   const status = useGatewayStore((state) => state.status);
@@ -96,6 +103,51 @@ export const GatewayPanel: React.FC = () => {
       }
     } catch (error) {
       setCommandError(error instanceof Error ? error.message : 'Restart failed');
+    }
+  };
+
+  // Send arbitrary command to gateway or automata channel
+  const handleSendCommand = async () => {
+    setCmdSending(true);
+    setCmdResult(null);
+    setCommandError(null);
+
+    let payload: Record<string, any>;
+    try {
+      payload = JSON.parse(cmdPayload);
+    } catch {
+      setCommandError('Invalid JSON payload');
+      setCmdSending(false);
+      return;
+    }
+
+    try {
+      // Access the internal channels via the service (PhoenixGatewayService exposes them)
+      const svc = service as any;
+      const channel = cmdChannel === 'gateway' ? svc.channel : svc.automataChannel;
+
+      if (!channel) {
+        throw new Error(`${cmdChannel} channel not connected`);
+      }
+
+      console.log(`[CMD] Sending "${cmdName}" to ${cmdChannel}:control`, payload);
+
+      const result = await new Promise<any>((resolve, reject) => {
+        channel
+          .push(cmdName, payload, 10_000)
+          .receive('ok', (resp: any) => resolve(resp))
+          .receive('error', (err: any) => reject(new Error(JSON.stringify(err))))
+          .receive('timeout', () => reject(new Error('timeout')));
+      });
+
+      console.log(`[CMD] Response:`, result);
+      setCmdResult(JSON.stringify(result, null, 2));
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`[CMD] Error:`, msg);
+      setCommandError(msg);
+    } finally {
+      setCmdSending(false);
     }
   };
   
@@ -280,6 +332,64 @@ export const GatewayPanel: React.FC = () => {
                 </div>
               </>
             )}
+
+            {/* Command Console */}
+            <div className="section-divider" />
+
+            <div className="commands-section">
+              <h3>Command Console</h3>
+              <p style={{ fontSize: '12px', color: 'var(--color-text-muted)', marginBottom: '8px' }}>
+                Send raw commands to channels. Watch DevTools → Network → WS → Messages.
+              </p>
+
+              <div className="form-group">
+                <label>Channel</label>
+                <select
+                  value={cmdChannel}
+                  onChange={(e) => setCmdChannel(e.target.value as 'gateway' | 'automata')}
+                  style={{ width: '100%', padding: '6px' }}
+                >
+                  <option value="gateway">gateway:control</option>
+                  <option value="automata">automata:control</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label>Command</label>
+                <input
+                  type="text"
+                  value={cmdName}
+                  onChange={(e) => setCmdName(e.target.value)}
+                  placeholder="e.g. ping, list_devices, deploy"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Payload (JSON)</label>
+                <textarea
+                  value={cmdPayload}
+                  onChange={(e) => setCmdPayload(e.target.value)}
+                  rows={4}
+                  style={{ width: '100%', fontFamily: 'monospace', fontSize: '12px' }}
+                  placeholder='{"device_id": "device_cpp_01"}'
+                />
+              </div>
+
+              <button
+                className="btn btn-primary"
+                onClick={handleSendCommand}
+                disabled={cmdSending}
+                style={{ marginBottom: '8px' }}
+              >
+                {cmdSending ? 'Sending...' : 'Send Command'}
+              </button>
+
+              {cmdResult && (
+                <pre style={{ background: '#1e1e1e', padding: '8px', fontSize: '11px', overflow: 'auto', maxHeight: '200px', borderRadius: '4px' }}>
+                  {cmdResult}
+                </pre>
+              )}
+            </div>
           </>
         )}
       </div>

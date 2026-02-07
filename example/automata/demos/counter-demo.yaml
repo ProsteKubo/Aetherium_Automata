@@ -1,0 +1,73 @@
+# ============================================================================
+# Counter Demo - Standalone Automata (No Server Required)
+# ============================================================================
+#
+# A simple counter that increments until it reaches 10, then stops.
+# Demonstrates:
+#   - Variable manipulation with Lua
+#   - Conditional transitions
+#   - Proper state machine flow
+#
+# Run with:
+#   ./aetherium_engine --verbose --run example/automata/demos/counter-demo.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Counter Demo
+  type: inline
+  description: Simple counter that counts to 10 then stops
+  author: Aetherium Team
+  tags:
+    - demo
+    - standalone
+    - counter
+
+variables:
+  - name: count
+    type: int
+    direction: internal
+    default: 0
+    description: Current count value
+    
+  - name: target
+    type: int
+    direction: input
+    default: 10
+    description: Target value to count to
+
+automata:
+  initial_state: Counting
+  
+  states:
+    Counting:
+      description: Incrementing the counter
+      on_enter: |
+        count = (count or 0) + 1
+        log("info", "Counter: " .. count .. " / " .. (target or 10))
+      
+      code: |
+        -- Empty body, nothing to do each tick
+
+    Done:
+      description: Counter has reached target
+      on_enter: |
+        log("info", "🎉 Counting complete! Final value: " .. count)
+
+  transitions:
+    increment:
+      from: Counting
+      to: Counting
+      type: classic
+      condition: count < target
+      description: Keep counting while under target
+      
+    complete:
+      from: Counting
+      to: Done
+      type: classic
+      condition: count >= target
+      priority: 1
+      description: Stop when target reached

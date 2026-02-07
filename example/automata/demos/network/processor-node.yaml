@@ -1,0 +1,129 @@
+# ============================================================================
+# Processor Node - Networked Automata (Requires Server)
+# ============================================================================
+#
+# Receives temperature readings from sensor nodes and processes them.
+# Part of a 3-node demo: sensor -> processor -> display
+#
+# Run with:
+#   1. Start the Aetherium Server and Gateway
+#   2. ./aetherium_engine --mode network --verbose --max-transitions 50 \
+#        --run example/automata/demos/network/processor-node.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Temperature Data Processor
+  type: inline
+  description: Processes temperature data from sensor nodes
+  author: Aetherium Team
+  tags:
+    - demo
+    - network
+    - processor
+
+variables:
+  - name: last_temp
+    type: float
+    direction: input
+    default: 20.0
+    description: Last received temperature
+    
+  - name: sum_temp
+    type: float
+    direction: internal
+    default: 0.0
+    description: Sum of all temperatures
+    
+  - name: sample_count
+    type: int
+    direction: internal
+    default: 0
+    description: Number of samples received
+    
+  - name: average_temp
+    type: float
+    direction: output
+    default: 0.0
+    description: Running average temperature
+    
+  - name: alert_status
+    type: string
+    direction: output
+    default: "normal"
+    description: Current alert status
+
+automata:
+  initial_state: Waiting
+  
+  states:
+    Waiting:
+      description: Waiting for new temperature data
+      on_enter: |
+        log("debug", "[Processor] Waiting for sensor data...")
+      
+      code: |
+        -- Simulate receiving data
+
+    Processing:
+      description: Processing received temperature data
+      on_enter: |
+        -- Simulate receiving random temperature
+        local temp = 20.0 + (math.random() - 0.5) * 15
+        setVal("last_temp", temp)
+        
+        local count = value("sample_count") or 0
+        local sum = value("sum_temp") or 0.0
+        
+        count = count + 1
+        sum = sum + temp
+        local avg = sum / count
+        
+        setVal("sample_count", count)
+        setVal("sum_temp", sum)
+        setVal("average_temp", avg)
+        
+        log("info", "[Processor] Sample #" .. count)
+        log("info", "  Current: " .. string.format("%.1f", temp) .. "°C")
+        log("info", "  Average: " .. string.format("%.1f", avg) .. "°C")
+
+    CheckingAlert:
+      description: Checking if temperature triggers alert
+      on_enter: |
+        local temp = value("last_temp") or 20.0
+        local status = "normal"
+        
+        if temp > 28.0 or temp < 12.0 then
+          status = "critical"
+          log("warning", "[Processor] ⚠️ CRITICAL: " .. string.format("%.1f", temp) .. "°C!")
+        elseif temp > 25.0 or temp < 15.0 then
+          status = "warning"
+          log("warning", "[Processor] ⚡ WARNING: " .. string.format("%.1f", temp) .. "°C")
+        else
+          log("info", "[Processor] ✓ Temperature normal")
+        end
+        
+        setVal("alert_status", status)
+
+  transitions:
+    receive_data:
+      from: Waiting
+      to: Processing
+      type: timed
+      timed:
+        delay_ms: 2500
+      description: Simulate receiving data every 2.5 seconds
+    
+    check_alert:
+      from: Processing
+      to: CheckingAlert
+      type: immediate
+      description: Check for alerts after processing
+    
+    return_waiting:
+      from: CheckingAlert
+      to: Waiting
+      type: immediate
+      description: Return to waiting state

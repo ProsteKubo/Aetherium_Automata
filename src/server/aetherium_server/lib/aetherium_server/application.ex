@@ -8,9 +8,14 @@ defmodule AetheriumServer.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: AetheriumServer.Worker.start_link(arg)
-      # {AetheriumServer.Worker, arg}
-      AetheriumServer.GatewayConnection
+      # Registry for runtime processes
+      {Registry, keys: :unique, name: AetheriumServer.RuntimeRegistry},
+      # Dynamic supervisor for automata runtimes
+      {DynamicSupervisor, name: AetheriumServer.RuntimeSupervisor, strategy: :one_for_one},
+      # Core services
+      AetheriumServer.DeviceManager,
+      AetheriumServer.GatewayConnection,
+      AetheriumServer.DeviceListener
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

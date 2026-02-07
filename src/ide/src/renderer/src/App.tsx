@@ -23,6 +23,9 @@ import {
   NetworkPanel,
   AutomataOverviewPanel,
   GatewayPanel,
+  TransitionGroupPanel,
+  VariableManagementPanel,
+  AutomataConnectionsPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
 import './styles/index.css';
@@ -44,6 +47,12 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
       return <OutputPanel />;
     case 'network':
       return <NetworkPanel />;
+    case 'transitions':
+      return <TransitionGroupPanel />;
+    case 'variables':
+      return <VariableManagementPanel />;
+    case 'connections':
+      return <AutomataConnectionsPanel />;
     default:
       return null;
   }

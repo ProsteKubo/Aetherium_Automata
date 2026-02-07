@@ -1,0 +1,126 @@
+# Aetherium Automata - Weighted Transitions Example
+# 
+# This example demonstrates probabilistic/weighted transitions.
+# When a > 5, the automata randomly chooses between S2 and S3
+# based on the specified weights (70% S2, 30% S3).
+
+version: 0.0.1
+
+config:
+  name: Weighted Transitions Demo
+  type: inline
+  description: Demonstrates weighted probabilistic transitions
+  author: Aetherium Team
+  tags:
+    - example
+    - weighted
+    - probabilistic
+
+# Global variables accessible to all states
+variables:
+  - name: a
+    type: int
+    direction: input
+    description: Primary input variable for transition conditions
+  
+  - name: selected_path
+    type: string
+    direction: output
+    description: Which path was selected (S2 or S3)
+  
+  - name: selection_count_s2
+    type: int
+    direction: internal
+    description: Counter for times S2 was selected
+  
+  - name: selection_count_s3
+    type: int
+    direction: internal
+    description: Counter for times S3 was selected
+
+automata:
+  initial_state: S1
+  
+  states:
+    S1:
+      description: Initial waiting state
+      inputs:
+        - a:int
+      outputs:
+        - selected_path:string
+      code: |
+        -- Waiting for input a > 5
+        log("info", "Waiting in S1, a = " .. value("a"))
+      on_enter: |
+        setVal("selected_path", "waiting")
+
+    S2:
+      description: High probability target (70%)
+      variables:
+        - selection_count_s2:int
+      code: |
+        log("info", "In S2 - high probability path")
+      on_enter: |
+        local count = value("selection_count_s2") or 0
+        setVal("selection_count_s2", count + 1)
+        setVal("selected_path", "S2")
+        emit("selected_path", "S2")
+
+    S3:
+      description: Low probability target (30%)
+      variables:
+        - selection_count_s3:int
+      code: |
+        log("info", "In S3 - low probability path")
+      on_enter: |
+        local count = value("selection_count_s3") or 0
+        setVal("selection_count_s3", count + 1)
+        setVal("selected_path", "S3")
+        emit("selected_path", "S3")
+
+  transitions:
+    # Both T1 and T2 have the SAME condition (a > 5)
+    # They form a weighted transition group
+    
+    T1_to_S2:
+      from: S1
+      to: S2
+      type: classic
+      condition: value("a") > 5
+      weight: 0.7  # 70% probability
+      priority: 0
+      body: |
+        log("info", "Transitioning to S2 (high prob)")
+      description: High probability path to S2
+
+    T2_to_S3:
+      from: S1
+      to: S3
+      type: classic
+      condition: value("a") > 5
+      weight: 0.3  # 30% probability
+      priority: 0  # Same priority as T1 - they compete
+      body: |
+        log("info", "Transitioning to S3 (low prob)")
+      description: Low probability path to S3
+
+    # Return transitions (deterministic)
+    T3_return_from_S2:
+      from: S2
+      to: S1
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 2000
+      body: |
+        log("info", "Returning to S1 from S2")
+
+    T4_return_from_S3:
+      from: S3
+      to: S1
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 2000
+      body: |
+        log("info", "Returning to S1 from S3")

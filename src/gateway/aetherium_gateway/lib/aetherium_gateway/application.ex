@@ -11,9 +11,10 @@ defmodule AetheriumGateway.Application do
       AetheriumGatewayWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:aetherium_gateway, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: AetheriumGateway.PubSub},
-      # Start a worker by calling: AetheriumGateway.Worker.start_link(arg)
-      # {AetheriumGateway.Worker, arg},
+      # Core gateway services
       AetheriumGateway.ServerTracker,
+      AetheriumGateway.AutomataRegistry,
+      AetheriumGateway.ConnectionManager,
       # Start to serve requests, typically the last entry
       AetheriumGatewayWeb.Endpoint
     ]

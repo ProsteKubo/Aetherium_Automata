@@ -10,6 +10,7 @@ defmodule AetheriumGatewayWeb.UserSocket do
 
   channel "gateway:control", AetheriumGatewayWeb.GatewayChannel
   channel "server:gateway", AetheriumGatewayWeb.ServerChannel
+  channel "automata:control", AetheriumGatewayWeb.AutomataChannel
 
   # Socket params are passed from the client and can
   # be used to verify and authenticate a user. After

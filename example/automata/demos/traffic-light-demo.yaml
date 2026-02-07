@@ -1,0 +1,88 @@
+# ============================================================================
+# Traffic Light Demo - Standalone Automata (No Server Required)
+# ============================================================================
+#
+# Simulates a traffic light cycling through Red -> Green -> Yellow -> Red
+# Demonstrates:
+#   - Timed transitions
+#   - Cyclic state machine
+#   - Simple state visualization
+#
+# Run with:
+#   ./aetherium_engine --verbose --max-transitions 12 --run example/automata/demos/traffic-light-demo.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Traffic Light Demo
+  type: inline
+  description: Traffic light cycling through colors
+  author: Aetherium Team
+  tags:
+    - demo
+    - standalone
+    - timed
+
+variables:
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+    description: Number of complete red->green->yellow cycles
+    
+  - name: current_color
+    type: string
+    direction: output
+    default: "red"
+    description: Current light color
+
+automata:
+  initial_state: Red
+  
+  states:
+    Red:
+      description: Red light - stop
+      on_enter: |
+        log("info", "🔴 RED - STOP")
+        current_color = "red"
+
+    Green:
+      description: Green light - go
+      on_enter: |
+        log("info", "🟢 GREEN - GO")
+        current_color = "green"
+
+    Yellow:
+      description: Yellow light - caution
+      on_enter: |
+        log("info", "🟡 YELLOW - CAUTION")
+        current_color = "yellow"
+        cycle_count = (cycle_count or 0) + 1
+        log("info", "Completed cycle #" .. cycle_count)
+
+  transitions:
+    red_to_green:
+      from: Red
+      to: Green
+      type: timed
+      timed:
+        delay_ms: 3000
+      description: Change to green after 3 seconds
+    
+    green_to_yellow:
+      from: Green
+      to: Yellow
+      type: timed
+      timed:
+        delay_ms: 4000
+      description: Change to yellow after 4 seconds
+      
+    yellow_to_red:
+      from: Yellow
+      to: Red
+      type: timed
+      timed:
+        delay_ms: 1000
+      description: Change to red after 1 second

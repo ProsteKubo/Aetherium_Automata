@@ -1,0 +1,148 @@
+# ============================================================================
+# Display Node - Networked Automata (Requires Server)
+# ============================================================================
+#
+# Displays temperature data received from the processor.
+# Part of a 3-node demo: sensor -> processor -> display
+#
+# Run with:
+#   1. Start the Aetherium Server and Gateway
+#   2. ./aetherium_engine --mode network --verbose --max-transitions 30 \
+#        --run example/automata/demos/network/display-node.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Temperature Display Node
+  type: inline
+  description: Displays temperature data and alerts
+  author: Aetherium Team
+  tags:
+    - demo
+    - network
+    - display
+
+variables:
+  - name: display_temp
+    type: float
+    direction: input
+    default: 20.0
+    description: Temperature to display
+    
+  - name: refresh_count
+    type: int
+    direction: internal
+    default: 0
+    description: Number of screen refreshes
+
+automata:
+  initial_state: DisplayOff
+  
+  states:
+    DisplayOff:
+      description: Display is off/standby
+      on_enter: |
+        log("info", "[Display] 📴 Screen OFF")
+      
+      code: |
+        -- Display sleeping
+
+    ShowingNormal:
+      description: Showing normal temperature display
+      on_enter: |
+        local count = value("refresh_count") or 0
+        setVal("refresh_count", count + 1)
+        
+        local temp = 20.0 + (math.random() - 0.5) * 5
+        
+        log("info", "")
+        log("info", "╔══════════════════════════════╗")
+        log("info", "║     TEMPERATURE MONITOR      ║")
+        log("info", "╠══════════════════════════════╣")
+        log("info", "║  Current: " .. string.format("%6.1f", temp) .. " °C          ║")
+        log("info", "║  Status:  ✓ NORMAL           ║")
+        log("info", "║  Refresh: #" .. string.format("%-3d", count + 1) .. "              ║")
+        log("info", "╚══════════════════════════════╝")
+        log("info", "")
+
+    ShowingWarning:
+      description: Showing warning alert
+      on_enter: |
+        local temp = 26.0 + math.random() * 3
+        
+        log("info", "")
+        log("warning", "╔══════════════════════════════╗")
+        log("warning", "║  ⚡⚡⚡ WARNING ⚡⚡⚡         ║")
+        log("warning", "╠══════════════════════════════╣")
+        log("warning", "║  Temperature: " .. string.format("%5.1f", temp) .. " °C       ║")
+        log("warning", "║  Status: APPROACHING LIMIT   ║")
+        log("warning", "╚══════════════════════════════╝")
+        log("info", "")
+
+    ShowingCritical:
+      description: Showing critical alert
+      on_enter: |
+        local temp = 30.0 + math.random() * 5
+        
+        log("info", "")
+        log("error", "╔══════════════════════════════╗")
+        log("error", "║  🚨🚨🚨 CRITICAL 🚨🚨🚨       ║")
+        log("error", "╠══════════════════════════════╣")
+        log("error", "║  Temperature: " .. string.format("%5.1f", temp) .. " °C       ║")
+        log("error", "║  ACTION REQUIRED!            ║")
+        log("error", "╚══════════════════════════════╝")
+        log("info", "")
+
+  transitions:
+    power_on:
+      from: DisplayOff
+      to: ShowingNormal
+      type: timed
+      timed:
+        delay_ms: 1000
+      description: Power on after 1 second
+    
+    normal_refresh:
+      from: ShowingNormal
+      to: ShowingNormal
+      type: timed
+      timed:
+        delay_ms: 3000
+      condition: value("refresh_count") < 3
+      description: Refresh normal display
+    
+    to_warning:
+      from: ShowingNormal
+      to: ShowingWarning
+      type: timed
+      timed:
+        delay_ms: 3000
+      condition: value("refresh_count") >= 3 and value("refresh_count") < 5
+      description: Show warning state
+    
+    warning_to_normal:
+      from: ShowingWarning
+      to: ShowingNormal
+      type: timed
+      timed:
+        delay_ms: 2000
+      description: Return to normal
+    
+    to_critical:
+      from: ShowingNormal
+      to: ShowingCritical
+      type: timed
+      timed:
+        delay_ms: 3000
+      condition: value("refresh_count") >= 5 and value("refresh_count") < 7
+      description: Show critical state
+    
+    critical_to_normal:
+      from: ShowingCritical
+      to: ShowingNormal
+      type: timed
+      timed:
+        delay_ms: 2000
+      description: Return to normal

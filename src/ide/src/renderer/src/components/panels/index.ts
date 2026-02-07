@@ -12,3 +12,8 @@ export { DevicesPanel } from './DevicesPanel';
 export { NetworkPanel } from './NetworkPanel';
 export { AutomataOverviewPanel } from './AutomataOverviewPanel';
 export { GatewayPanel } from './GatewayPanel';
+
+// New visual improvement panels
+export { TransitionGroupPanel } from './TransitionGroupPanel';
+export { VariableManagementPanel } from './VariableManagementPanel';
+export { AutomataConnectionsPanel } from './AutomataConnectionsPanel';

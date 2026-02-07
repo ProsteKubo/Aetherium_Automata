@@ -505,6 +505,21 @@ export class MockGatewayService implements IGatewayService {
     
     return finalSnapshot;
   }
+
+  async setVariable(_deviceId: DeviceId, _name: string, _value: unknown): Promise<{ status: string }> {
+    await this.delay(50);
+    return { status: 'sent' };
+  }
+
+  async triggerEvent(_deviceId: DeviceId, _event: string, _data?: unknown): Promise<{ status: string }> {
+    await this.delay(50);
+    return { status: 'sent' };
+  }
+
+  async forceTransition(_deviceId: DeviceId, _toState: string): Promise<{ status: string }> {
+    await this.delay(50);
+    return { status: 'sent' };
+  }
   
   // ==========================================================================
   // Execution Control

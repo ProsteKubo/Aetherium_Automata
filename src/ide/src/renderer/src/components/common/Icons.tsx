@@ -482,3 +482,47 @@ export const IconArrowRight: React.FC<IconProps> = ({ size = 20, className }) =>
     <polyline points="12,5 19,12 12,19" />
   </svg>
 );
+
+// New icons for visual improvement panels
+export const IconTransitions: React.FC<IconProps> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <circle cx="5" cy="12" r="3" />
+    <circle cx="19" cy="12" r="3" />
+    <path d="M8 12h8" />
+    <polyline points="13,9 16,12 13,15" />
+  </svg>
+);
+
+export const IconVariables: React.FC<IconProps> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M4 7h16" />
+    <path d="M4 12h16" />
+    <path d="M4 17h16" />
+    <circle cx="8" cy="7" r="2" fill="currentColor" />
+    <circle cx="14" cy="12" r="2" fill="currentColor" />
+    <circle cx="10" cy="17" r="2" fill="currentColor" />
+  </svg>
+);
+
+export const IconConnections: React.FC<IconProps> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <rect x="3" y="3" width="6" height="6" rx="1" />
+    <rect x="15" y="15" width="6" height="6" rx="1" />
+    <rect x="15" y="3" width="6" height="6" rx="1" />
+    <rect x="3" y="15" width="6" height="6" rx="1" />
+    <path d="M9 6h6" />
+    <path d="M9 18h6" />
+    <path d="M6 9v6" />
+    <path d="M18 9v6" />
+  </svg>
+);
+
+export const IconWeight: React.FC<IconProps> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M12 3v18" />
+    <path d="M5 8l7-5 7 5" />
+    <circle cx="5" cy="16" r="3" />
+    <circle cx="19" cy="12" r="3" />
+  </svg>
+);
+
