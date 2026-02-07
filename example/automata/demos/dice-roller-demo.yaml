@@ -1,0 +1,156 @@
+# ============================================================================
+# Dice Roller Demo - Standalone Automata (No Server Required)
+# ============================================================================
+#
+# Simulates rolling dice with weighted/probabilistic transitions.
+# Demonstrates:
+#   - Probabilistic transitions
+#   - Weighted random selection
+#   - Variable tracking
+#
+# Run with:
+#   ./aetherium_engine --verbose --max-transitions 30 --run example/automata/demos/dice-roller-demo.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Dice Roller Demo
+  type: inline
+  description: Roll dice and track results
+  author: Aetherium Team
+  tags:
+    - demo
+    - standalone
+    - probabilistic
+
+variables:
+  - name: roll_count
+    type: int
+    direction: internal
+    default: 0
+    
+  - name: last_roll
+    type: int
+    direction: output
+    default: 0
+    
+  - name: total
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Rolling
+  
+  states:
+    Rolling:
+      description: Ready to roll
+      on_enter: |
+        local rolls = value("roll_count") or 0
+        setVal("roll_count", rolls + 1)
+        log("info", "🎲 Roll #" .. (rolls + 1) .. " - rolling...")
+      code: |
+        -- Just waiting for transition
+
+    Result_Low:
+      description: Rolled 1-2
+      on_enter: |
+        local roll = math.random(1, 2)
+        setVal("last_roll", roll)
+        local t = (value("total") or 0) + roll
+        setVal("total", t)
+        log("info", "  Rolled: " .. roll .. " (low) - Total: " .. t)
+
+    Result_Mid:
+      description: Rolled 3-4
+      on_enter: |
+        local roll = math.random(3, 4)
+        setVal("last_roll", roll)
+        local t = (value("total") or 0) + roll
+        setVal("total", t)
+        log("info", "  Rolled: " .. roll .. " (mid) - Total: " .. t)
+
+    Result_High:
+      description: Rolled 5-6
+      on_enter: |
+        local roll = math.random(5, 6)
+        setVal("last_roll", roll)
+        local t = (value("total") or 0) + roll
+        setVal("total", t)
+        log("info", "  Rolled: " .. roll .. " (high) - Total: " .. t)
+
+    Summary:
+      description: Show final results
+      on_enter: |
+        log("info", "")
+        log("info", "=== DICE ROLL SUMMARY ===")
+        log("info", "Total rolls: " .. (value("roll_count") or 0))
+        log("info", "Total score: " .. (value("total") or 0))
+        local avg = (value("total") or 0) / math.max(1, (value("roll_count") or 1))
+        log("info", "Average: " .. string.format("%.2f", avg))
+
+  transitions:
+    # From Rolling - 33% each
+    roll_low:
+      from: Rolling
+      to: Result_Low
+      type: probabilistic
+      probabilistic:
+        weight: 3333
+      
+    roll_mid:
+      from: Rolling
+      to: Result_Mid
+      type: probabilistic
+      probabilistic:
+        weight: 3333
+      
+    roll_high:
+      from: Rolling
+      to: Result_High
+      type: probabilistic
+      probabilistic:
+        weight: 3334
+    
+    # Continue rolling if under 10 rolls
+    continue_low:
+      from: Result_Low
+      to: Rolling
+      type: classic
+      condition: value("roll_count") < 10
+      
+    continue_mid:
+      from: Result_Mid
+      to: Rolling
+      type: classic
+      condition: value("roll_count") < 10
+      
+    continue_high:
+      from: Result_High
+      to: Rolling
+      type: classic
+      condition: value("roll_count") < 10
+    
+    # Stop after 10 rolls
+    stop_low:
+      from: Result_Low
+      to: Summary
+      type: classic
+      condition: value("roll_count") >= 10
+      priority: 1
+      
+    stop_mid:
+      from: Result_Mid
+      to: Summary
+      type: classic
+      condition: value("roll_count") >= 10
+      priority: 1
+      
+    stop_high:
+      from: Result_High
+      to: Summary
+      type: classic
+      condition: value("roll_count") >= 10
+      priority: 1

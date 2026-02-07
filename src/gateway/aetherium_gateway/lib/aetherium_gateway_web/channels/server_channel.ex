@@ -84,6 +84,187 @@ defmodule AetheriumGatewayWeb.ServerChannel do
     {:noreply, socket}
   end
 
+  # ============================================================================
+  # Automata Protocol Handlers
+  # ============================================================================
+
+  # State change notification from device
+  def handle_in("state_changed", payload, socket) do
+    server_id = socket.assigns.server_id
+
+    device_id = payload["device_id"]
+
+    # Update registry (current state + variables snapshot optional)
+    AetheriumGateway.AutomataRegistry.update_device_state(device_id, payload["to_state"], payload["variables"] || %{})
+
+    # Record transition
+    AetheriumGateway.AutomataRegistry.record_transition(
+      device_id,
+      payload["from_state"],
+      payload["to_state"],
+      payload["transition_id"],
+      %{"weight_used" => payload["weight_used"]}
+    )
+
+    # Broadcast to UI
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "state_changed",
+      Map.put(payload, "server_id", server_id)
+    )
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "state_changed",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  # Variable update from device
+  def handle_in("variable_updated", payload, socket) do
+    # Handle output propagation
+    if payload["direction"] == "output" do
+      AetheriumGateway.ConnectionManager.propagate_output(
+        payload["automata_id"],
+        payload["name"],
+        payload["value"]
+      )
+    end
+
+    # Broadcast to UI
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "variable_updated",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  # Transition fired event (with weight info for probabilistic)
+  def handle_in("transition_fired", payload, socket) do
+    # Record for statistics
+    AetheriumGateway.AutomataRegistry.record_transition(
+      payload["device_id"],
+      payload["from"],
+      payload["to"],
+      payload["transition_id"],
+      %{"weight_used" => payload["weight_used"]}
+    )
+
+    # Broadcast to UI
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "transition_fired",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  # Deployment status update
+  def handle_in("deployment_status", payload, socket) do
+    status = String.to_atom(payload["status"])
+
+    if payload["automata_id"] && payload["device_id"] do
+      AetheriumGateway.AutomataRegistry.update_deployment_status(
+        payload["automata_id"],
+        payload["device_id"],
+        status,
+        %{current_state: payload["current_state"], error: payload["error"]}
+      )
+    end
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "deployment_status",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  # ==========================================================================
+  # Gateway -> Server control-plane forwarding
+  #
+  # The UI talks to the gateway via "automata:control". The gateway then sends
+  # internal messages to the server channel pid stored in ServerTracker.
+  # These handlers forward those messages over the active server:gateway socket.
+  # ==========================================================================
+
+  @impl true
+  def handle_info({:deploy_automata, automata, device_id}, socket) do
+    automata_id = Map.get(automata, :id) || Map.get(automata, "id")
+
+    push(socket, "deploy_automata", %{
+      "automata_id" => automata_id,
+      "device_id" => device_id,
+      "automata" => automata
+    })
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:stop_automata, deployment_id}, socket) do
+    push(socket, "stop_automata", %{"deployment_id" => deployment_id})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:set_variable, device_id, name, value}, socket) do
+    # Server currently handles this as a set_input command.
+    push(socket, "set_input", %{"device_id" => device_id, "input" => name, "value" => value})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:trigger_event, device_id, event, data}, socket) do
+    push(socket, "trigger_event", %{"device_id" => device_id, "event" => event, "data" => data})
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_info({:force_transition, device_id, to_state}, socket) do
+    push(socket, "force_state", %{"device_id" => device_id, "state_id" => to_state})
+    {:noreply, socket}
+  end
+
+  # Device log
+  def handle_in("device_log", payload, socket) do
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "device_log",
+      Map.put(payload, "server_id", socket.assigns.server_id)
+    )
+
+    {:noreply, socket}
+  end
+
+  # Deployment error
+  def handle_in("deployment_error", payload, socket) do
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "deployment_error",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  # Output changed (for connection propagation)
+  def handle_in("output_changed", payload, socket) do
+    AetheriumGateway.ConnectionManager.propagate_output(
+      payload["automata_id"],
+      payload["output"],
+      payload["value"]
+    )
+
+    {:noreply, socket}
+  end
+
   # Handle server disconnect
   def terminate(_reason, socket) do
     server_id = socket.assigns[:server_id]

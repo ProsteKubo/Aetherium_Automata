@@ -1,0 +1,105 @@
+# ============================================================================
+# Sensor Node - Networked Automata (Requires Server)
+# ============================================================================
+#
+# Simulates a temperature sensor that sends readings to the server.
+# Part of a 3-node demo: sensor -> processor -> display
+#
+# Run with:
+#   1. Start the Aetherium Server and Gateway
+#   2. ./aetherium_engine --mode network --verbose --max-transitions 20 \
+#        --run example/automata/demos/network/sensor-node.yaml
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Temperature Sensor Node
+  type: inline
+  description: Simulates a temperature sensor publishing to network
+  author: Aetherium Team
+  tags:
+    - demo
+    - network
+    - sensor
+
+variables:
+  - name: temperature
+    type: float
+    direction: output
+    default: 20.0
+    description: Current temperature reading
+    
+  - name: reading_count
+    type: int
+    direction: internal
+    default: 0
+    description: Number of readings taken
+    
+  - name: sensor_id
+    type: string
+    direction: output
+    default: "SENSOR_01"
+    description: Unique sensor identifier
+
+automata:
+  initial_state: Idle
+  
+  states:
+    Idle:
+      description: Waiting to take next reading
+      on_enter: |
+        log("debug", "[Sensor] Idle, waiting for next reading cycle")
+      code: |
+        -- Sensor is idle
+
+    Reading:
+      description: Taking a temperature reading
+      on_enter: |
+        local count = value("reading_count") or 0
+        setVal("reading_count", count + 1)
+        
+        -- Simulate temperature with some variation (20°C ±5°C)
+        local base = 20.0
+        local variation = (math.random() - 0.5) * 10.0
+        local temp = base + variation
+        setVal("temperature", temp)
+        
+        log("info", "[Sensor " .. (value("sensor_id") or "?") .. "] Reading #" .. (count + 1) .. ": " .. string.format("%.1f", temp) .. "°C")
+      
+      code: |
+        -- Reading complete
+
+    Publishing:
+      description: Publishing reading to network
+      on_enter: |
+        local temp = value("temperature") or 0
+        local id = value("sensor_id") or "unknown"
+        log("info", "[Sensor " .. id .. "] Publishing temperature: " .. string.format("%.1f", temp) .. "°C")
+      
+      code: |
+        log("debug", "[Sensor] Waiting for publish confirmation...")
+
+  transitions:
+    start_reading:
+      from: Idle
+      to: Reading
+      type: timed
+      timed:
+        delay_ms: 2000
+      description: Take reading every 2 seconds
+    
+    publish_reading:
+      from: Reading
+      to: Publishing
+      type: immediate
+      description: Publish as soon as reading is taken
+    
+    return_to_idle:
+      from: Publishing
+      to: Idle
+      type: timed
+      timed:
+        delay_ms: 500
+      description: Return to idle after publishing

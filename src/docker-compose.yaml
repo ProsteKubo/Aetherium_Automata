@@ -29,6 +29,8 @@ services:
     networks:
       elixir-net:
         ipv4_address: 172.20.0.21
+    ports:
+      - "8081:4000"
     volumes:
       - ./server/aetherium_server:/app
       - server_deps:/app/deps
@@ -80,6 +82,25 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_03
       - HEARTBEAT_INTERVAL=30000
+      - AETHERIUM_DUMP_DEPLOY_YAML=1
+    command: ["sh", "-c", "mix deps.compile && mix compile && mix run --no-halt"]
+
+  device1:
+    build:
+      context: ..
+      dockerfile: Dockerfile.cpp
+    container_name: cpp-device-1
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.31
+    environment:
+      - DEVICE_ID=device_cpp_01
+    command: [
+      "--verbose",
+      "--run", "-",
+      "--mode", "network",
+      "--server", "ws://172.20.0.23:4000/socket/device/websocket"
+    ]
 
 networks:
   elixir-net:

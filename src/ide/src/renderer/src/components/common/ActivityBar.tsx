@@ -16,6 +16,9 @@ import {
   IconTimeTravel,
   IconConsole,
   IconSettings,
+  IconTransitions,
+  IconVariables,
+  IconConnections,
 } from './Icons';
 
 interface ActivityBarItemProps {
@@ -81,6 +84,21 @@ export const ActivityBar: React.FC = () => {
           icon={<IconTimeTravel size={22} />}
           panelId="timetravel"
           label="Time Travel Debugger"
+        />
+        <ActivityBarItem
+          icon={<IconTransitions size={22} />}
+          panelId="transitions"
+          label="Transition Groups"
+        />
+        <ActivityBarItem
+          icon={<IconVariables size={22} />}
+          panelId="variables"
+          label="Variable Management"
+        />
+        <ActivityBarItem
+          icon={<IconConnections size={22} />}
+          panelId="connections"
+          label="Automata Connections"
         />
       </div>
       

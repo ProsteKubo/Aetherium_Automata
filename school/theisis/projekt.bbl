@@ -1,0 +1,56 @@
+\makeatletter
+\makeatother
+\begin{thebibliography}{1}
+
+\bibitem{AetheriumYAMLSpec}
+{\sc\bgroup}{Aetherium Automata Project}{\egroup}.
+\newblock {\em Aetherium Automata YAML Format (repository documentation)}
+  online.
+\newblock 2025.
+\newblock Available at: ~{\small\url{https://github.com/}}.
+\newblock [cit. 2026-01-17].
+\newblock Repository-local documentation: docs/Automata\_YAML\_Spec.md (URL
+  placeholder if unpublished).
+
+\bibitem{AlurDillTA}
+{\sc\bgroup}Alur{\egroup}, R. and~{\sc\bgroup}Dill{\egroup}, D.~L.
+\newblock {\em A Theory of Timed Automata} journal article, Theoretical
+  Computer Science 126(2):183--235.
+\newblock 1994.
+\newblock Available at:
+  ~{\small\url{https://doi.org/10.1016/0304-3975(94)90010-8}}.
+\newblock [cit. 2026-01-17].
+
+\bibitem{IEC61499}
+{\sc\bgroup}{International Electrotechnical Commission}{\egroup}.
+\newblock {\em IEC 61499-1: Function blocks -- Part 1: Architecture} standard.
+\newblock 2012.
+\newblock Available at:
+  ~{\small\url{https://webstore.iec.ch/searchform?q=61499-1}}.
+\newblock [cit. 2026-01-17].
+\newblock IEC standard. Access may require purchase.
+
+\bibitem{MicroROS}
+{\sc\bgroup}{micro-ROS community}{\egroup}.
+\newblock {\em Micro-ROS} online.
+\newblock 2026.
+\newblock Available at: ~{\small\url{https://micro.ros.org/}}.
+\newblock [cit. 2026-01-17].
+
+\bibitem{ROS2}
+{\sc\bgroup}{Open Robotics}{\egroup}.
+\newblock {\em ROS 2 Documentation} online.
+\newblock 2026.
+\newblock Available at: ~{\small\url{https://docs.ros.org/en/rolling/}}.
+\newblock [cit. 2026-01-17].
+
+\bibitem{ZeiglerDEVS}
+{\sc\bgroup}Zeigler{\egroup}, B.~P.; {\sc\bgroup}Praehofer{\egroup}, H.
+  and~{\sc\bgroup}Kim{\egroup}, T.~G.
+\newblock {\em Theory of Modeling and Simulation: Integrating Discrete Event
+  and Continuous Complex Dynamic Systems}.
+\newblock 2nd ed.
+\newblock Academic Press, 2000.
+\newblock ISBN 978-0127784557.
+
+\end{thebibliography}

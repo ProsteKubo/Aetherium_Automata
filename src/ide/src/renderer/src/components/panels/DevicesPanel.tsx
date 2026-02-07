@@ -24,6 +24,12 @@ import {
 export const DevicesPanel: React.FC = () => {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+
+  const [varName, setVarName] = useState<string>('');
+  const [varValue, setVarValue] = useState<string>('');
+  const [eventName, setEventName] = useState<string>('');
+  const [eventData, setEventData] = useState<string>('');
+  const [forceState, setForceState] = useState<string>('');
   
   // Store data - get raw Maps and memoize array conversion
   const serversMap = useGatewayStore((state) => state.servers);
@@ -31,6 +37,7 @@ export const DevicesPanel: React.FC = () => {
   const isConnected = useGatewayStore((state) => state.status === 'connected');
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const fetchServers = useGatewayStore((state) => state.fetchServers);
+  const gatewayService = useGatewayStore((state) => state.service);
   const deviceExecutions = useExecutionStore((state) => state.deviceExecutions);
   const addNotification = useUIStore((state) => state.addNotification);
   
@@ -86,6 +93,59 @@ export const DevicesPanel: React.FC = () => {
   const handleOTAUpdate = async (deviceId: string) => {
     // TODO: Implement OTA update
     addNotification('info', 'OTA Update', `Initiating OTA update for device ${deviceId}`);
+  };
+
+  const parseJsonOrString = (text: string): unknown => {
+    const trimmed = text.trim();
+    if (!trimmed) return '';
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+      return trimmed;
+    }
+  };
+
+  const handleSendVariable = async (deviceId: string) => {
+    if (!varName.trim()) {
+      addNotification('warning', 'Set Variable', 'Variable name is required');
+      return;
+    }
+
+    try {
+      await gatewayService.setVariable(deviceId, varName.trim(), parseJsonOrString(varValue));
+      addNotification('success', 'Set Variable', `Sent ${varName.trim()} to ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Set Variable', err instanceof Error ? err.message : 'Failed to send');
+    }
+  };
+
+  const handleTriggerEvent = async (deviceId: string) => {
+    if (!eventName.trim()) {
+      addNotification('warning', 'Trigger Event', 'Event name is required');
+      return;
+    }
+
+    try {
+      const data = eventData.trim() ? parseJsonOrString(eventData) : undefined;
+      await gatewayService.triggerEvent(deviceId, eventName.trim(), data);
+      addNotification('success', 'Trigger Event', `Triggered ${eventName.trim()} on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Trigger Event', err instanceof Error ? err.message : 'Failed to send');
+    }
+  };
+
+  const handleForceTransition = async (deviceId: string) => {
+    if (!forceState.trim()) {
+      addNotification('warning', 'Force Transition', 'Target state is required');
+      return;
+    }
+
+    try {
+      await gatewayService.forceTransition(deviceId, forceState.trim());
+      addNotification('success', 'Force Transition', `Forced ${deviceId} to ${forceState.trim()}`);
+    } catch (err) {
+      addNotification('error', 'Force Transition', err instanceof Error ? err.message : 'Failed to send');
+    }
   };
   
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
@@ -210,6 +270,13 @@ export const DevicesPanel: React.FC = () => {
                   <span className="detail-label">Engine Version:</span>
                   <span className="detail-value">{selectedDevice.engineVersion}</span>
                 </div>
+
+                {selectedDevice.currentState && (
+                  <div className="detail-row">
+                    <span className="detail-label">Current State:</span>
+                    <span className="detail-value">{selectedDevice.currentState}</span>
+                  </div>
+                )}
                 {selectedDevice.location && (
                   <div className="detail-row">
                     <span className="detail-label">Location:</span>
@@ -275,6 +342,79 @@ export const DevicesPanel: React.FC = () => {
                   >
                     <IconSettings size={12} />
                   </button>
+                </div>
+
+                {/* Runtime Control (works when a deployment exists on the device) */}
+                <div className="detail-section">
+                  <label className="section-label">Runtime Control</label>
+
+                  <div className="detail-row" style={{ gap: 'var(--spacing-2)' }}>
+                    <span className="detail-label">Set Variable</span>
+                    <input
+                      className="input"
+                      placeholder="name"
+                      value={varName}
+                      onChange={(e) => setVarName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      className="input"
+                      placeholder='value (json or text)'
+                      value={varValue}
+                      onChange={(e) => setVarValue(e.target.value)}
+                      style={{ flex: 2 }}
+                    />
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleSendVariable(selectedDevice.id)}
+                      disabled={selectedDevice.status !== 'online'}
+                    >
+                      Send
+                    </button>
+                  </div>
+
+                  <div className="detail-row" style={{ gap: 'var(--spacing-2)' }}>
+                    <span className="detail-label">Trigger Event</span>
+                    <input
+                      className="input"
+                      placeholder="event"
+                      value={eventName}
+                      onChange={(e) => setEventName(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <input
+                      className="input"
+                      placeholder='data (optional json/text)'
+                      value={eventData}
+                      onChange={(e) => setEventData(e.target.value)}
+                      style={{ flex: 2 }}
+                    />
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleTriggerEvent(selectedDevice.id)}
+                      disabled={selectedDevice.status !== 'online'}
+                    >
+                      Send
+                    </button>
+                  </div>
+
+                  <div className="detail-row" style={{ gap: 'var(--spacing-2)' }}>
+                    <span className="detail-label">Force State</span>
+                    <input
+                      className="input"
+                      placeholder="state id"
+                      value={forceState}
+                      onChange={(e) => setForceState(e.target.value)}
+                      style={{ flex: 1 }}
+                    />
+                    <button
+                      className="btn btn-danger btn-sm"
+                      onClick={() => handleForceTransition(selectedDevice.id)}
+                      disabled={selectedDevice.status !== 'online'}
+                    >
+                      Force
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

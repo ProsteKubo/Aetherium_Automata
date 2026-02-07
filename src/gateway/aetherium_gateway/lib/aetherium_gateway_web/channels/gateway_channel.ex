@@ -32,13 +32,13 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
   end
 
   def handle_in("list_devices", _payload, socket) do
-    send(self(), :send_device_list)
-    {:noreply, socket}
+    devices = AetheriumGateway.ServerTracker.list_devices_flat()
+    {:reply, {:ok, %{devices: devices}}, socket}
   end
 
   def handle_in("list_servers", _payload, socket) do
-    send(self(), :send_server_list)
-    {:noreply, socket}
+    servers = AetheriumGateway.ServerTracker.list_servers()
+    {:reply, {:ok, %{servers: servers}}, socket}
   end
 
   # Handle internal alerts

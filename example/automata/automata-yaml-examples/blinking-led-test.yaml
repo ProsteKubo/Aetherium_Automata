@@ -1,0 +1,84 @@
+# ============================================================================
+# Simple Blinking LED Automata - For Testing
+# ============================================================================
+#
+# A simple automata that toggles between ON and OFF states.
+# Perfect for testing because:
+#   1. Simple 2-state FSM
+#   2. Uses timed transitions (blinks every 2 seconds)
+#   3. Produces log output on each state change
+#   4. Counter variable shows progress
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Blinking LED Test
+  type: inline
+  description: Simple 2-state automata for testing - blinks every 2 seconds
+  author: Aetherium Team
+  tags:
+    - test
+    - simple
+    - timed
+
+variables:
+  - name: blink_count
+    type: int
+    direction: output
+    default: 0
+    description: Number of times LED has toggled
+    
+  - name: current_state_name
+    type: string
+    direction: output
+    default: "off"
+    description: Current state name for monitoring
+
+automata:
+  initial_state: LED_OFF
+  
+  states:
+    LED_OFF:
+      description: LED is off, waiting to turn on
+      on_enter: |
+        log("info", "💡 LED is now OFF - blink count: " .. value("blink_count"))
+        setVal("current_state_name", "off")
+      
+      on_tick: |
+        -- Tick every 100ms while in this state
+        log("debug", "LED_OFF tick")
+
+    LED_ON:
+      description: LED is on, waiting to turn off  
+      on_enter: |
+        local count = value("blink_count") + 1
+        setVal("blink_count", count)
+        setVal("current_state_name", "on")
+        log("info", "💡 LED is now ON - blink count: " .. count)
+        
+        -- Simulated output
+        if count % 5 == 0 then
+          log("warning", "🎉 Milestone! 5 blinks completed!")
+        end
+      
+      on_tick: |
+        log("debug", "LED_ON tick")
+
+  transitions:
+    # OFF -> ON after 2 seconds
+    - id: turn_on
+      from: LED_OFF
+      to: LED_ON
+      type: timed
+      after: 2000   # milliseconds
+      description: Turn LED on after 2 seconds
+    
+    # ON -> OFF after 2 seconds  
+    - id: turn_off
+      from: LED_ON
+      to: LED_OFF
+      type: timed
+      after: 2000   # milliseconds
+      description: Turn LED off after 2 seconds

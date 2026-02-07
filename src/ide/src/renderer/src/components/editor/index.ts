@@ -14,3 +14,6 @@ export { EnhancedTransitionDialog } from './EnhancedTransitionDialog';
 
 // Toolbars
 export { QuickCreationToolbar, RadialContextMenu, useRadialMenu } from './QuickCreationToolbar';
+
+// Visual overlays
+export { WeightedTransitionGroup, WeightedTransitionGroupsOverlay } from './WeightedTransitionGroup';

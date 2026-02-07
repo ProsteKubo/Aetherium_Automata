@@ -25,10 +25,13 @@ export type ServerId = string;
 export type VariableType = 'number' | 'string' | 'bool' | 'any' | 'table';
 
 export interface VariableDefinition {
+  id?: string;
   name: VariableId;
   type: VariableType;
   initial?: unknown;
   description?: string;
+  direction?: 'input' | 'output' | 'internal';
+  default?: unknown;
 }
 
 export type VariableSpec = VariableId | VariableDefinition;
@@ -67,7 +70,6 @@ export interface FuzzyGuard {
 // ============================================================================
 
 export interface ProbabilisticWeight {
-  enabled: boolean;
   weight: number;
   condition?: string; // Optional Lua condition
 }
@@ -118,9 +120,12 @@ export interface Transition {
   to: StateId;
   
   // Condition and execution
-  condition: string;         // Lua code returning boolean
-  body: string;              // Lua code executed on transition
+  condition?: string;        // Lua code returning boolean
+  body?: string;             // Lua code executed on transition
   triggered?: string;        // Optional callback after transition
+  
+  // Transition type
+  type?: 'classic' | 'timed' | 'event' | 'probabilistic' | 'immediate';
   
   // Priority and probabilistic selection
   priority: number;          // Lower = higher priority
@@ -173,6 +178,7 @@ export interface Automata {
   initialState: StateId;
   states: Record<StateId, State>;
   transitions: Record<TransitionId, Transition>;
+  variables?: VariableDefinition[];
   
   // Global inputs/outputs (for nested automata interface)
   inputs?: InputId[];
@@ -369,7 +375,7 @@ export interface GatewayConnection {
 // ============================================================================
 
 export type EditorMode = 'visual' | 'code' | 'split';
-export type PanelId = 'automata' | 'devices' | 'network' | 'timetravel' | 'properties' | 'console' | 'explorer' | 'gateway';
+export type PanelId = 'automata' | 'devices' | 'network' | 'timetravel' | 'properties' | 'console' | 'explorer' | 'gateway' | 'transitions' | 'variables' | 'connections';
 
 export interface EditorTab {
   id: string;

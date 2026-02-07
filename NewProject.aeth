@@ -1,0 +1,144 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "NewProject",
+    "version": "0.1.0",
+    "description": "",
+    "author": "",
+    "created": 1768749341951,
+    "modified": 1768750433086,  
+    "tags": []
+  },
+  "networks": [
+    {
+      "id": "network_1768750160049",
+      "name": "Default Network",
+      "description": "",
+      "rootAutomataIds": [],
+      "automataIds": [
+        "automata-337f3c7a"
+      ],
+      "relativePath": "default-network",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "automata-337f3c7a": {
+      "version": "0.0.1",
+      "config": {
+        "name": "test",
+        "type": "inline",
+        "language": "lua",
+        "description": "",
+        "tags": [],
+        "version": "1.0.0",
+        "created": 1768750159933,
+        "modified": 1768750159933
+      },
+      "initialState": "Initial",
+      "states": {
+        "Initial": {
+          "id": "Initial",
+          "name": "Initial",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "-- Initial state code\n",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 96,
+            "y": 128
+          }
+        },
+        "State_4bef3e06": {
+          "name": "State 2",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 368,
+            "y": 128
+          },
+          "id": "State_4bef3e06"
+        },
+        "State_d2ccd6fd": {
+          "name": "State 3",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 352,
+            "y": -80
+          },
+          "id": "State_d2ccd6fd"
+        }
+      },
+      "transitions": {
+        "t_3c58ffbe": {
+          "from": "Initial",
+          "to": "State_4bef3e06",
+          "name": "Initial → State 2",
+          "condition": "",
+          "body": "",
+          "priority": 0,
+          "weight": 1,
+          "id": "t_3c58ffbe"
+        },
+        "t_4775bd8f": {
+          "from": "State_4bef3e06",
+          "to": "State_d2ccd6fd",
+          "name": "State 2 → State 3",
+          "condition": "",
+          "body": "",
+          "priority": 0,
+          "weight": 1,
+          "id": "t_4775bd8f"
+        },
+        "t_425e0425": {
+          "from": "State_d2ccd6fd",
+          "to": "Initial",
+          "name": "State 3 → Initial",
+          "condition": "",
+          "body": "",
+          "priority": 0,
+          "weight": 33,
+          "id": "t_425e0425"
+        }
+      },
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "id": "automata-337f3c7a",
+      "isDirty": true
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "filePath": "/Users/administratorik/dev/Aetherium_Automata/NewProject.aeth"
+}

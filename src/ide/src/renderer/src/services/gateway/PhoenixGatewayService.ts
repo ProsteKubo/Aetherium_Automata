@@ -76,6 +76,21 @@ interface AutomataStateChangeEvent {
   timestamp: string;
 }
 
+interface StateChangedEvent {
+  device_id?: string;
+  deviceId?: string;
+  automata_id?: string;
+  automataId?: string;
+  from_state?: string;
+  fromState?: string;
+  to_state?: string;
+  toState?: string;
+  transition_id?: string;
+  transitionId?: string;
+  timestamp?: string;
+  variables?: Record<string, unknown>;
+}
+
 // ============================================================================
 // Phoenix Gateway Service
 // ============================================================================
@@ -83,6 +98,7 @@ interface AutomataStateChangeEvent {
 export class PhoenixGatewayService implements IGatewayService {
   private socket: Socket | null = null;
   private channel: Channel | null = null;
+  private automataChannel: Channel | null = null;
   private status: GatewayStatus = 'disconnected';
   private config: GatewayConfig | null = null;
   private sessionId: string | null = null;
@@ -220,44 +236,69 @@ export class PhoenixGatewayService implements IGatewayService {
       // Join the control channel with token in payload
       const token = config.password || 'dev_secret_token';
       this.channel = this.socket.channel('gateway:control', { token });
+
+      // Join the automata control channel for deploy/runtime control
+      this.automataChannel = this.socket.channel('automata:control', { token });
       
       // Set up channel event handlers BEFORE joining
       this.setupChannelHandlers();
       
-      // Join channel and wait for response
-      return new Promise((resolve, reject) => {
+      // Join both channels and wait for responses
+      const joinGateway = new Promise<void>((resolve, reject) => {
         if (!this.channel) {
           reject(new Error('Channel not initialized'));
           return;
         }
-        
+
         this.channel
           .join()
           .receive('ok', (response) => {
             console.log('[Gateway] Channel joined successfully', response);
             this.sessionId = response.session_id || `session_${Date.now()}`;
-            this.setStatus('connected');
-            
-            resolve({
-              sessionId: this.sessionId || '',
-              gatewayVersion: '1.0.0',
-              serverCount: 0,
-              deviceCount: 0,
-            });
+            resolve();
           })
           .receive('error', (resp) => {
             console.error('[Gateway] Failed to join channel:', resp);
-            this.setStatus('error', resp.reason || 'Authentication failed');
-            
             reject(new Error(resp.reason || 'Failed to join channel'));
           })
           .receive('timeout', () => {
             console.error('[Gateway] Channel join timeout');
-            this.setStatus('error', 'Connection timeout');
-            
             reject(new Error('Connection timeout'));
           });
       });
+
+      const joinAutomata = new Promise<void>((resolve, reject) => {
+        if (!this.automataChannel) {
+          reject(new Error('Automata channel not initialized'));
+          return;
+        }
+
+        this.automataChannel
+          .join()
+          .receive('ok', (response) => {
+            console.log('[Gateway] Automata channel joined successfully', response);
+            resolve();
+          })
+          .receive('error', (resp) => {
+            console.error('[Gateway] Failed to join automata channel:', resp);
+            reject(new Error(resp.reason || 'Failed to join automata channel'));
+          })
+          .receive('timeout', () => {
+            console.error('[Gateway] Automata channel join timeout');
+            reject(new Error('Automata channel join timeout'));
+          });
+      });
+
+      await Promise.all([joinGateway, joinAutomata]);
+
+      this.setStatus('connected');
+
+      return {
+        sessionId: this.sessionId || '',
+        gatewayVersion: '1.0.0',
+        serverCount: 0,
+        deviceCount: 0,
+      };
     } catch (error) {
       console.error('[Gateway] Connection error:', error);
       this.setStatus('error', error instanceof Error ? error.message : 'Unknown error');
@@ -269,6 +310,11 @@ export class PhoenixGatewayService implements IGatewayService {
     if (this.channel) {
       this.channel.leave();
       this.channel = null;
+    }
+
+    if (this.automataChannel) {
+      this.automataChannel.leave();
+      this.automataChannel = null;
     }
     
     if (this.socket) {
@@ -411,8 +457,8 @@ export class PhoenixGatewayService implements IGatewayService {
         last_seen: payload.timestamp,
       });
 
-      next.metrics = payload.metrics;
-      this.devices.set(payload.device_id, next);
+      // Create new object to avoid mutating frozen Immer objects
+      this.devices.set(payload.device_id, { ...next, metrics: payload.metrics });
 
       this.emit('onDeviceMetrics', {
         deviceId: payload.device_id,
@@ -432,10 +478,13 @@ export class PhoenixGatewayService implements IGatewayService {
         const previous = this.servers.get(id);
         const server = this.normalizeServer(raw);
 
-        // Update deviceIds using current devices map
-        server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any);
+        // Update deviceIds using current devices map (create new object to avoid Immer freeze issues)
+        const updatedServer = {
+          ...server,
+          deviceIds: Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any),
+        };
 
-        this.servers.set(server.id, server);
+        this.servers.set(updatedServer.id, updatedServer);
 
         if (!previous || previous.status !== server.status) {
           this.emit('onServerStatus', {
@@ -482,30 +531,96 @@ export class PhoenixGatewayService implements IGatewayService {
       // Upsert incoming devices
       incomingNormalized.forEach((n) => this.devices.set(n.id, n));
 
-      // Update server deviceIds
+      // Update server deviceIds (create new object to avoid Immer freeze issues)
       const server = this.servers.get(serverId as string);
       if (server) {
-        server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === serverId).map(d => d.id as any);
-        this.servers.set(server.id, server);
+        const updatedServer = {
+          ...server,
+          deviceIds: Array.from(this.devices.values()).filter(d => d.serverId === serverId).map(d => d.id as any),
+        };
+        this.servers.set(updatedServer.id, updatedServer);
       }
 
       // Emit updated device list for consumers to replace local caches
       this.emit('onDeviceList', Array.from(this.devices.values()));
     });
     
-    // Automata state changes
+    // State changes (gateway broadcasts "state_changed")
+    this.channel.on('state_changed', (payload: StateChangedEvent) => {
+      const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+      if (!deviceId) return;
+
+      const fromState = String(payload.from_state ?? payload.fromState ?? '');
+      const toState = String(payload.to_state ?? payload.toState ?? '');
+      const automataId = String(payload.automata_id ?? payload.automataId ?? '') as any;
+      const transitionId = String(payload.transition_id ?? payload.transitionId ?? '');
+      const variables = payload.variables ?? {};
+
+      console.log(`[Gateway] state_changed ${deviceId}: ${fromState} -> ${toState}`);
+
+      const device = this.devices.get(deviceId);
+      if (device) {
+        // Create new object to avoid mutating frozen Immer objects
+        this.devices.set(deviceId, { ...device, currentState: toState });
+        this.emit('onDeviceList', Array.from(this.devices.values()));
+      }
+
+      this.emit('onExecutionTransition', {
+        deviceId: deviceId as any,
+        automataId,
+        fromState,
+        toState,
+        transitionId,
+        timestamp: payload.timestamp ? Date.parse(payload.timestamp) : Date.now(),
+        variables,
+      });
+    });
+
+    // Legacy event name (older gateway builds)
     this.channel.on('automata_state_change', (payload: AutomataStateChangeEvent) => {
-      console.log(`[Gateway] State change on ${payload.device_id}: ${payload.previous_state} -> ${payload.new_state}`);
-      
-      // Update device current state
+      console.log(`[Gateway] (legacy) automata_state_change on ${payload.device_id}: ${payload.previous_state} -> ${payload.new_state}`);
+
       const device = this.devices.get(payload.device_id);
       if (device) {
-        device.currentState = payload.new_state;
-        this.devices.set(payload.device_id, device);
+        // Create new object to avoid mutating frozen Immer objects
+        this.devices.set(payload.device_id, { ...device, currentState: payload.new_state });
+        this.emit('onDeviceList', Array.from(this.devices.values()));
       }
-      
-      // TODO: Emit to UI handlers
     });
+
+    // Also listen on automata:control for deployments/state (some events are broadcast there only)
+    if (this.automataChannel) {
+      this.automataChannel.on('state_changed', (payload: StateChangedEvent) => {
+        const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+        if (!deviceId) return;
+        const toState = String(payload.to_state ?? payload.toState ?? '');
+
+        const device = this.devices.get(deviceId);
+        if (device) {
+          // Create new object to avoid mutating frozen Immer objects
+          this.devices.set(deviceId, { ...device, currentState: toState });
+          this.emit('onDeviceList', Array.from(this.devices.values()));
+        }
+      });
+
+      this.automataChannel.on('deployment_status', (payload: any) => {
+        const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+        if (!deviceId) return;
+
+        const device = this.devices.get(deviceId);
+        if (device) {
+          const automataId = payload.automata_id ?? payload.automataId;
+          const currentState = payload.current_state ?? payload.currentState;
+          // Create new object to avoid mutating frozen Immer objects
+          this.devices.set(deviceId, {
+            ...device,
+            ...(automataId ? { assignedAutomataId: automataId } : {}),
+            ...(currentState ? { currentState } : {}),
+          });
+          this.emit('onDeviceList', Array.from(this.devices.values()));
+        }
+      });
+    }
   }
   
   // Private: Command Helper
@@ -532,6 +647,24 @@ export class PhoenixGatewayService implements IGatewayService {
         .receive('timeout', () => {
           reject(new Error('Command timeout'));
         });
+    });
+  }
+
+  private async sendAutomataCommand<T = any>(
+    command: string,
+    payload: Record<string, any> = {},
+    timeout: number = 5000
+  ): Promise<T> {
+    if (!this.automataChannel) {
+      throw new Error('Not connected to automata channel');
+    }
+
+    return new Promise((resolve, reject) => {
+      this.automataChannel!
+        .push(command, payload, timeout)
+        .receive('ok', (response) => resolve(response as T))
+        .receive('error', (error) => reject(error))
+        .receive('timeout', () => reject(new Error('Command timeout')));
     });
   }
   
@@ -632,9 +765,12 @@ export class PhoenixGatewayService implements IGatewayService {
     
     // Update servers map
     normalized.forEach((server) => {
-      // Update deviceIds using current devices map
-      server.deviceIds = Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any);
-      this.servers.set(server.id, server);
+      // Update deviceIds using current devices map (create new object to avoid Immer freeze issues)
+      const updatedServer = {
+        ...server,
+        deviceIds: Array.from(this.devices.values()).filter(d => d.serverId === server.id).map(d => d.id as any),
+      };
+      this.servers.set(updatedServer.id, updatedServer);
     });
 
     return { servers: normalized };
@@ -713,23 +849,54 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async listAutomata(): Promise<AutomataListResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const result = await this.sendAutomataCommand<{ automata: any[] }>('list_automata', {});
+
+    const automata = (result.automata || []).map((a) => ({
+      id: a.id,
+      name: a.name,
+      version: a.version ?? '1.0.0',
+      tags: a.tags ?? [],
+      deployedTo: [],
+    }));
+
+    return { automata, totalCount: automata.length };
   }
   
   async getAutomata(_automataId: AutomataId): Promise<AutomataGetResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const result = await this.sendAutomataCommand<{ automata: any }>('get_automata', { id: _automataId });
+    return { automata: result.automata as Automata };
   }
   
   async createAutomata(_automata: Omit<Automata, 'id'>): Promise<Automata> {
-    throw new Error('Not implemented yet - use Mock service');
+    // The gateway currently expects a simplified schema; pass through common fields.
+    const payload: Record<string, any> = {
+      name: (_automata as any).config?.name ?? (_automata as any).name ?? 'Untitled',
+      description: (_automata as any).config?.description ?? (_automata as any).description,
+      version: (_automata as any).config?.version ?? (_automata as any).version ?? '1.0.0',
+      states: (_automata as any).states ?? {},
+      transitions: (_automata as any).transitions ?? {},
+      variables: (_automata as any).variables ?? [],
+      inputs: (_automata as any).inputs ?? [],
+      outputs: (_automata as any).outputs ?? [],
+    };
+
+    const result = await this.sendAutomataCommand<{ automata_id: string }>('create_automata', payload);
+
+    return {
+      ...(_automata as any),
+      id: result.automata_id as any,
+    } as Automata;
   }
   
   async updateAutomata(_automataId: AutomataId, _updates: Partial<Automata>): Promise<Automata> {
-    throw new Error('Not implemented yet - use Mock service');
+    await this.sendAutomataCommand('update_automata', { id: _automataId, ...(_updates as any) });
+    const refreshed = await this.getAutomata(_automataId);
+    return refreshed.automata;
   }
   
   async deleteAutomata(_automataId: AutomataId): Promise<boolean> {
-    throw new Error('Not implemented yet - use Mock service');
+    await this.sendAutomataCommand('delete_automata', { id: _automataId });
+    return true;
   }
   
   async deployAutomata(
@@ -737,11 +904,53 @@ export class PhoenixGatewayService implements IGatewayService {
     _deviceId: DeviceId,
     _options?: any
   ): Promise<DeployResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(_deviceId);
+    const serverId = (device?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID) as any;
+
+    await this.sendAutomataCommand('deploy', {
+      automata_id: _automataId,
+      device_id: _deviceId,
+      server_id: serverId,
+    }, 15_000);
+
+    if (device) {
+      // Create new object to avoid mutating frozen Immer objects
+      this.devices.set(_deviceId, { ...device, assignedAutomataId: _automataId });
+      this.emit('onDeviceList', Array.from(this.devices.values()));
+    }
+
+    return {
+      deploymentId: `${_automataId}:${_deviceId}`,
+      status: 'deployed',
+      startedAt: Date.now(),
+    } as any;
   }
   
   async undeployAutomata(_deviceId: DeviceId): Promise<ExecutionSnapshot | null> {
-    throw new Error('Not implemented yet - use Mock service');
+    await this.sendAutomataCommand('stop', { device_id: _deviceId }, 10_000);
+    return null;
+  }
+
+  async setVariable(deviceId: DeviceId, name: string, value: unknown): Promise<{ status: string }> {
+    return await this.sendAutomataCommand<{ status: string }>(
+      'set_variable',
+      { device_id: deviceId, name, value },
+      10_000
+    );
+  }
+
+  async triggerEvent(deviceId: DeviceId, event: string, data?: unknown): Promise<{ status: string }> {
+    const payload: Record<string, any> = { device_id: deviceId, event };
+    if (data !== undefined) payload.data = data;
+    return await this.sendAutomataCommand<{ status: string }>('trigger_event', payload, 10_000);
+  }
+
+  async forceTransition(deviceId: DeviceId, toState: string): Promise<{ status: string }> {
+    return await this.sendAutomataCommand<{ status: string }>(
+      'force_transition',
+      { device_id: deviceId, to_state: toState },
+      10_000
+    );
   }
   
   async startExecution(_deviceId: DeviceId): Promise<ExecutionStartResponse> {

@@ -104,6 +104,11 @@ export interface IGatewayService {
     enableMonitoring?: boolean;
   }): Promise<DeployResponse>;
   undeployAutomata(deviceId: DeviceId): Promise<ExecutionSnapshot | null>;
+
+  // Runtime Control (device commands)
+  setVariable(deviceId: DeviceId, name: string, value: unknown): Promise<{ status: string }>;
+  triggerEvent(deviceId: DeviceId, event: string, data?: unknown): Promise<{ status: string }>;
+  forceTransition(deviceId: DeviceId, toState: string): Promise<{ status: string }>;
   
   // Execution Control
   startExecution(deviceId: DeviceId): Promise<ExecutionStartResponse>;
