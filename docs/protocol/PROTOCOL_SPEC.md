@@ -2,6 +2,10 @@
 
 This document defines the wire protocol for communication between Aetherium components.
 
+> Implementation note (prototype phase): the engine now includes a versioned `ProtocolCodecV2`
+> (`src/engine/core/protocol_v2.hpp`) with extensible frame metadata, explicit outcomes (`ACK`/`NAK`/`ERROR`/`STATUS`),
+> and per-message extension blocks. v1 remains documented here for compatibility/reference.
+
 ## Overview
 
 The protocol is designed to be:

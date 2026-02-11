@@ -1,6 +1,7 @@
 defmodule AetheriumGateway.ServerTracker do
   use GenServer
   require Logger
+  alias AetheriumGateway.Persistence
 
   # API
   def start_link(opts \\ []) do
@@ -42,43 +43,53 @@ defmodule AetheriumGateway.ServerTracker do
   # GenServer callbacks
   @impl true
   def init(_opts) do
-    # Map of server_id => %{pid: pid, last_heartbeat: timestamp, devices: list}
-    {:ok, %{servers: %{}}}
+    recovered = Persistence.load_state("server_tracker_known", %{})
+
+    # Map of server_id => %{pid: pid, ref: monitor_ref, last_heartbeat: ts, devices: list}
+    # recovered keeps durable metadata from previous runs (offline until reconnected).
+    {:ok, %{servers: %{}, recovered: recovered}}
   end
 
   @impl true
-  def handle_call({:register, server_id, pid}, _from, %{servers: servers} = state) do
+  def handle_call({:register, server_id, pid}, _from, %{servers: servers, recovered: recovered} = state) do
     if Map.has_key?(servers, server_id) do
       {:reply, {:error, :already_connected}, state}
     else
       # Monitor the connection
       ref = Process.monitor(pid)
 
+      prior = Map.get(recovered, server_id, %{})
+
       new_servers =
         Map.put(servers, server_id, %{
           pid: pid,
           ref: ref,
           last_heartbeat: DateTime.utc_now(),
-          connected_at: DateTime.utc_now(),
-          devices: [],
-          devices_updated_at: nil
+          connected_at: Map.get(prior, :connected_at, DateTime.utc_now()),
+          devices: Map.get(prior, :devices, []),
+          devices_updated_at: Map.get(prior, :devices_updated_at, nil)
         })
 
       Logger.info("Server #{server_id} connected")
-      {:reply, :ok, %{state | servers: new_servers}}
+      next = %{state | servers: new_servers, recovered: Map.delete(recovered, server_id)}
+      persist_known(next)
+      {:reply, :ok, next}
     end
   end
 
   @impl true
-  def handle_call({:unregister, server_id}, _from, %{servers: servers} = state) do
+  def handle_call({:unregister, server_id}, _from, %{servers: servers, recovered: recovered} = state) do
     case Map.pop(servers, server_id) do
       {nil, _new_servers} ->
         {:reply, :ok, state}
 
       {info, new_servers} ->
         Process.demonitor(info.ref, [:flush])
-        Logger.warn("Server #{server_id} disconnected")
-        {:reply, :ok, %{state | servers: new_servers}}
+        Logger.warning("Server #{server_id} disconnected")
+        snapshot = snapshot_info(info, "offline")
+        next = %{state | servers: new_servers, recovered: Map.put(recovered, server_id, snapshot)}
+        persist_known(next)
+        {:reply, :ok, next}
     end
   end
 
@@ -91,8 +102,8 @@ defmodule AetheriumGateway.ServerTracker do
   end
 
   @impl true
-  def handle_call(:list_servers, _from, %{servers: servers} = state) do
-    server_list =
+  def handle_call(:list_servers, _from, %{servers: servers, recovered: recovered} = state) do
+    online =
       Enum.map(servers, fn {server_id, info} ->
         %{
           server_id: server_id,
@@ -102,12 +113,22 @@ defmodule AetheriumGateway.ServerTracker do
         }
       end)
 
-    {:reply, server_list, state}
+    offline =
+      Enum.map(recovered, fn {server_id, info} ->
+        %{
+          server_id: server_id,
+          status: "offline",
+          connected_at: info[:connected_at],
+          last_heartbeat: info[:last_heartbeat]
+        }
+      end)
+
+    {:reply, online ++ offline, state}
   end
 
   @impl true
-  def handle_call(:list_devices, _from, %{servers: servers} = state) do
-    devices_by_server =
+  def handle_call(:list_devices, _from, %{servers: servers, recovered: recovered} = state) do
+    online =
       Enum.map(servers, fn {server_id, info} ->
         %{
           server_id: server_id,
@@ -116,12 +137,21 @@ defmodule AetheriumGateway.ServerTracker do
         }
       end)
 
-    {:reply, devices_by_server, state}
+    offline =
+      Enum.map(recovered, fn {server_id, info} ->
+        %{
+          server_id: server_id,
+          devices: info[:devices] || [],
+          devices_updated_at: info[:devices_updated_at]
+        }
+      end)
+
+    {:reply, online ++ offline, state}
   end
 
   @impl true
-  def handle_call(:list_devices_flat, _from, %{servers: servers} = state) do
-    flat =
+  def handle_call(:list_devices_flat, _from, %{servers: servers, recovered: recovered} = state) do
+    online =
       Enum.flat_map(servers, fn {server_id, info} ->
         Enum.map(info.devices || [], fn device ->
           device
@@ -130,7 +160,29 @@ defmodule AetheriumGateway.ServerTracker do
         end)
       end)
 
-    {:reply, flat, state}
+    online_ids =
+      online
+      |> Enum.map(&device_id_of/1)
+      |> Enum.reject(&is_nil/1)
+      |> MapSet.new()
+
+    offline =
+      Enum.flat_map(recovered, fn {server_id, info} ->
+        Enum.map(info[:devices] || [], fn device ->
+          device
+          |> Map.new()
+          |> Map.put_new("server_id", server_id)
+          |> Map.put("status", "offline")
+        end)
+      end)
+      |> Enum.reject(fn device ->
+        case device_id_of(device) do
+          nil -> false
+          id -> MapSet.member?(online_ids, id)
+        end
+      end)
+
+    {:reply, online ++ offline, state}
   end
 
   @impl true
@@ -140,7 +192,9 @@ defmodule AetheriumGateway.ServerTracker do
         %{info | last_heartbeat: DateTime.utc_now()}
       end)
 
-    {:noreply, %{state | servers: new_servers}}
+    next = %{state | servers: new_servers}
+    persist_known(next)
+    {:noreply, next}
   end
 
   @impl true
@@ -154,21 +208,53 @@ defmodule AetheriumGateway.ServerTracker do
         }
       end)
 
-    {:noreply, %{state | servers: new_servers}}
+    next = %{state | servers: new_servers}
+    persist_known(next)
+    {:noreply, next}
   end
 
   # Handle server process crashes
   @impl true
-  def handle_info({:DOWN, ref, :process, pid, _reason}, %{servers: servers} = state) do
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{servers: servers, recovered: recovered} = state) do
     # Find which server crashed
     case Enum.find(servers, fn {_id, info} -> info.ref == ref end) do
       {server_id, _info} ->
         Logger.error("Server #{server_id} process crashed")
+        info = Map.fetch!(servers, server_id)
         new_servers = Map.delete(servers, server_id)
-        {:noreply, %{state | servers: new_servers}}
+        snapshot = snapshot_info(info, "crashed")
+        next = %{state | servers: new_servers, recovered: Map.put(recovered, server_id, snapshot)}
+        persist_known(next)
+        {:noreply, next}
 
       nil ->
         {:noreply, state}
     end
+  end
+
+  defp persist_known(state) do
+    known =
+      state.recovered
+      |> Map.merge(
+        Enum.into(state.servers, %{}, fn {server_id, info} ->
+          {server_id, snapshot_info(info, "online")}
+        end)
+      )
+
+    Persistence.save_state("server_tracker_known", known)
+  end
+
+  defp snapshot_info(info, status) do
+    %{
+      status: status,
+      connected_at: info[:connected_at],
+      last_heartbeat: info[:last_heartbeat],
+      devices: info[:devices] || [],
+      devices_updated_at: info[:devices_updated_at]
+    }
+  end
+
+  defp device_id_of(device) when is_map(device) do
+    Map.get(device, "id") || Map.get(device, :id)
   end
 end

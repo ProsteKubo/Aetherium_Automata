@@ -51,6 +51,18 @@ defmodule AetheriumServer.DeviceWebSocket do
         if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :telemetry, payload)
         {:ok, state}
 
+      {:ok, :status, payload} ->
+        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :status, payload)
+        {:ok, state}
+
+      {:ok, :variable, payload} ->
+        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :output, payload)
+        {:ok, state}
+
+      {:ok, :transition_fired, payload} ->
+        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :transition_fired, payload)
+        {:ok, state}
+
       {:ok, :debug, payload} ->
         if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :log, payload)
         {:ok, state}
@@ -61,6 +73,36 @@ defmodule AetheriumServer.DeviceWebSocket do
 
       {:ok, :ping, _payload} ->
         if state.device_id, do: DeviceManager.heartbeat(state.device_id)
+        {:ok, state}
+
+      {:ok, :pong, _payload} ->
+        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
+        {:ok, state}
+
+      {:ok, :ack, _payload} ->
+        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
+        {:ok, state}
+
+      {:ok, :nak, payload} ->
+        if state.device_id do
+          DeviceManager.handle_device_message(state.device_id, :error, %{
+            code: payload[:reason_code] || payload["reason_code"] || 0,
+            message: payload[:reason] || payload["reason"] || "command_rejected"
+          })
+        end
+
+        {:ok, state}
+
+      {:ok, :discover, _payload} ->
+        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
+        {:ok, state}
+
+      {:ok, :provision, _payload} ->
+        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
+        {:ok, state}
+
+      {:ok, :goodbye, _payload} ->
+        if state.device_id, do: DeviceManager.device_disconnected(state.device_id)
         {:ok, state}
 
       {:error, reason} ->

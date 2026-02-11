@@ -260,6 +260,14 @@ struct StopMessage : Message {
     static std::optional<StopMessage> deserialize(const uint8_t* data, size_t len);
 };
 
+struct ResetMessage : Message {
+    RunId runId = 0;
+
+    MessageType type() const override { return MessageType::Reset; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<ResetMessage> deserialize(const uint8_t* data, size_t len);
+};
+
 struct StatusMessage : Message {
     RunId runId = 0;
     ExecutionState executionState = ExecutionState::Unloaded;
@@ -272,6 +280,22 @@ struct StatusMessage : Message {
     MessageType type() const override { return MessageType::Status; }
     std::vector<uint8_t> serialize() const override;
     static std::optional<StatusMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct PauseMessage : Message {
+    RunId runId = 0;
+
+    MessageType type() const override { return MessageType::Pause; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<PauseMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct ResumeMessage : Message {
+    RunId runId = 0;
+
+    MessageType type() const override { return MessageType::Resume; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<ResumeMessage> deserialize(const uint8_t* data, size_t len);
 };
 
 // ============================================================================
@@ -299,6 +323,18 @@ struct OutputMessage : Message {
     MessageType type() const override { return MessageType::Output; }
     std::vector<uint8_t> serialize() const override;
     static std::optional<OutputMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct VariableMessage : Message {
+    RunId runId = 0;
+    VariableId variableId = INVALID_VARIABLE;
+    std::string variableName;
+    Value value;
+    Timestamp timestamp = 0;
+
+    MessageType type() const override { return MessageType::Variable; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<VariableMessage> deserialize(const uint8_t* data, size_t len);
 };
 
 struct StateChangeMessage : Message {
@@ -329,6 +365,16 @@ struct TelemetryMessage : Message {
     MessageType type() const override { return MessageType::Telemetry; }
     std::vector<uint8_t> serialize() const override;
     static std::optional<TelemetryMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct TransitionFiredMessage : Message {
+    RunId runId = 0;
+    TransitionId transitionId = INVALID_TRANSITION;
+    Timestamp timestamp = 0;
+
+    MessageType type() const override { return MessageType::TransitionFired; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<TransitionFiredMessage> deserialize(const uint8_t* data, size_t len);
 };
 
 // ============================================================================
@@ -380,6 +426,34 @@ struct DebugMessage : Message {
     MessageType type() const override { return MessageType::Debug; }
     std::vector<uint8_t> serialize() const override;
     static std::optional<DebugMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct AckMessage : Message {
+    uint32_t relatedMessageId = 0;
+    std::string info;
+
+    MessageType type() const override { return MessageType::Ack; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<AckMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct NakMessage : Message {
+    uint32_t relatedMessageId = 0;
+    uint16_t reasonCode = 0;
+    std::string reason;
+
+    MessageType type() const override { return MessageType::Nak; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<NakMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct RawMessage : Message {
+    MessageType rawType = MessageType::Vendor;
+    std::vector<uint8_t> payload;
+
+    MessageType type() const override { return rawType; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<RawMessage> deserialize(MessageType type, const uint8_t* data, size_t len);
 };
 
 // ============================================================================

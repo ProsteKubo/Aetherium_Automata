@@ -5,7 +5,7 @@
  * Includes full transition type information and probabilistic grouping.
  */
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import { useAutomataStore } from '../../stores';
 import { IconSettings, IconAutomata, IconState, IconTransition } from '../common/Icons';
 import { IOVariablesPanel } from './IOVariablesPanel';

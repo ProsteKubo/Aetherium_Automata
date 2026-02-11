@@ -571,6 +571,47 @@ std::optional<StopMessage> StopMessage::deserialize(const uint8_t* data, size_t 
     return msg;
 }
 
+std::vector<uint8_t> ResetMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Reset));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+
+    return result;
+}
+
+std::optional<ResetMessage> ResetMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    ResetMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto runId = r.readU32();
+
+    if (!msgId || !srcId || !tgtId || !runId) return std::nullopt;
+
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.runId = *runId;
+    return msg;
+}
+
 // ============================================================================
 // Status Message
 // ============================================================================
@@ -635,6 +676,86 @@ std::optional<StatusMessage> StatusMessage::deserialize(const uint8_t* data, siz
     msg.tickCount = *tickCount;
     msg.errorCount = *errCount;
     
+    return msg;
+}
+
+std::vector<uint8_t> PauseMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Pause));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+
+    return result;
+}
+
+std::optional<PauseMessage> PauseMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    PauseMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto runId = r.readU32();
+
+    if (!msgId || !srcId || !tgtId || !runId) return std::nullopt;
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.runId = *runId;
+    return msg;
+}
+
+std::vector<uint8_t> ResumeMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Resume));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+
+    return result;
+}
+
+std::optional<ResumeMessage> ResumeMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    ResumeMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto runId = r.readU32();
+
+    if (!msgId || !srcId || !tgtId || !runId) return std::nullopt;
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.runId = *runId;
     return msg;
 }
 
@@ -748,6 +869,60 @@ std::optional<OutputMessage> OutputMessage::deserialize(const uint8_t* data, siz
     msg.value = std::move(*val);
     msg.timestamp = *ts;
     
+    return msg;
+}
+
+std::vector<uint8_t> VariableMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Variable));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+    w.writeU16(variableId);
+    w.writeString(variableName);
+    writeValue(w, value);
+    w.writeU64(timestamp);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<VariableMessage> VariableMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    VariableMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto runId = r.readU32();
+    auto varId = r.readU16();
+    auto varName = r.readString();
+    auto val = readValue(r);
+    auto ts = r.readU64();
+
+    if (!msgId || !srcId || !tgtId || !runId || !varId || !varName || !val || !ts) {
+        return std::nullopt;
+    }
+
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.runId = *runId;
+    msg.variableId = *varId;
+    msg.variableName = std::move(*varName);
+    msg.value = std::move(*val);
+    msg.timestamp = *ts;
     return msg;
 }
 
@@ -893,6 +1068,54 @@ std::optional<TelemetryMessage> TelemetryMessage::deserialize(const uint8_t* dat
     return msg;
 }
 
+std::vector<uint8_t> TransitionFiredMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::TransitionFired));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+    w.writeU16(transitionId);
+    w.writeU64(timestamp);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<TransitionFiredMessage> TransitionFiredMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    TransitionFiredMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto runId = r.readU32();
+    auto transitionId = r.readU16();
+    auto ts = r.readU64();
+
+    if (!msgId || !srcId || !tgtId || !runId || !transitionId || !ts) {
+        return std::nullopt;
+    }
+
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.runId = *runId;
+    msg.transitionId = *transitionId;
+    msg.timestamp = *ts;
+    return msg;
+}
+
 // ============================================================================
 // Error Message
 // ============================================================================
@@ -1019,6 +1242,142 @@ std::optional<DebugMessage> DebugMessage::deserialize(const uint8_t* data, size_
     return msg;
 }
 
+std::vector<uint8_t> AckMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Ack));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(relatedMessageId);
+    w.writeString(info);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<AckMessage> AckMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    AckMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto related = r.readU32();
+    auto info = r.readString();
+
+    if (!msgId || !srcId || !tgtId || !related || !info) return std::nullopt;
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.relatedMessageId = *related;
+    msg.info = std::move(*info);
+    return msg;
+}
+
+std::vector<uint8_t> NakMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::Nak));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(relatedMessageId);
+    w.writeU16(reasonCode);
+    w.writeString(reason);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<NakMessage> NakMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    NakMessage msg;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    auto related = r.readU32();
+    auto code = r.readU16();
+    auto reason = r.readString();
+
+    if (!msgId || !srcId || !tgtId || !related || !code || !reason) return std::nullopt;
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+    msg.relatedMessageId = *related;
+    msg.reasonCode = *code;
+    msg.reason = std::move(*reason);
+    return msg;
+}
+
+std::vector<uint8_t> RawMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(rawType));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    for (auto b : payload) {
+        w.writeU8(b);
+    }
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<RawMessage> RawMessage::deserialize(MessageType type, const uint8_t* data, size_t len) {
+    if (len < HEADER_SIZE + 12) {
+        return std::nullopt;
+    }
+
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    RawMessage msg;
+    msg.rawType = type;
+    auto msgId = r.readU32();
+    auto srcId = r.readU32();
+    auto tgtId = r.readU32();
+    if (!msgId || !srcId || !tgtId) return std::nullopt;
+    msg.messageId = *msgId;
+    msg.sourceId = *srcId;
+    msg.targetId = *tgtId;
+
+    while (r.hasMore()) {
+        auto b = r.readU8();
+        if (!b) break;
+        msg.payload.push_back(*b);
+    }
+    return msg;
+}
+
 // ============================================================================
 // Message Factory
 // ============================================================================
@@ -1076,9 +1435,24 @@ std::unique_ptr<Message> MessageFactory::deserialize(const uint8_t* data, size_t
             if (msg) return std::make_unique<StopMessage>(std::move(*msg));
             break;
         }
+        case MessageType::Reset: {
+            auto msg = ResetMessage::deserialize(data, len);
+            if (msg) return std::make_unique<ResetMessage>(std::move(*msg));
+            break;
+        }
         case MessageType::Status: {
             auto msg = StatusMessage::deserialize(data, len);
             if (msg) return std::make_unique<StatusMessage>(std::move(*msg));
+            break;
+        }
+        case MessageType::Pause: {
+            auto msg = PauseMessage::deserialize(data, len);
+            if (msg) return std::make_unique<PauseMessage>(std::move(*msg));
+            break;
+        }
+        case MessageType::Resume: {
+            auto msg = ResumeMessage::deserialize(data, len);
+            if (msg) return std::make_unique<ResumeMessage>(std::move(*msg));
             break;
         }
         case MessageType::Input: {
@@ -1091,6 +1465,11 @@ std::unique_ptr<Message> MessageFactory::deserialize(const uint8_t* data, size_t
             if (msg) return std::make_unique<OutputMessage>(std::move(*msg));
             break;
         }
+        case MessageType::Variable: {
+            auto msg = VariableMessage::deserialize(data, len);
+            if (msg) return std::make_unique<VariableMessage>(std::move(*msg));
+            break;
+        }
         case MessageType::StateChange: {
             auto msg = StateChangeMessage::deserialize(data, len);
             if (msg) return std::make_unique<StateChangeMessage>(std::move(*msg));
@@ -1099,6 +1478,11 @@ std::unique_ptr<Message> MessageFactory::deserialize(const uint8_t* data, size_t
         case MessageType::Telemetry: {
             auto msg = TelemetryMessage::deserialize(data, len);
             if (msg) return std::make_unique<TelemetryMessage>(std::move(*msg));
+            break;
+        }
+        case MessageType::TransitionFired: {
+            auto msg = TransitionFiredMessage::deserialize(data, len);
+            if (msg) return std::make_unique<TransitionFiredMessage>(std::move(*msg));
             break;
         }
         case MessageType::Error: {
@@ -1111,10 +1495,22 @@ std::unique_ptr<Message> MessageFactory::deserialize(const uint8_t* data, size_t
             if (msg) return std::make_unique<DebugMessage>(std::move(*msg));
             break;
         }
+        case MessageType::Ack: {
+            auto msg = AckMessage::deserialize(data, len);
+            if (msg) return std::make_unique<AckMessage>(std::move(*msg));
+            break;
+        }
+        case MessageType::Nak: {
+            auto msg = NakMessage::deserialize(data, len);
+            if (msg) return std::make_unique<NakMessage>(std::move(*msg));
+            break;
+        }
         default:
             break;
     }
-    
+
+    auto raw = RawMessage::deserialize(msgType, data, len);
+    if (raw) return std::make_unique<RawMessage>(std::move(*raw));
     return nullptr;
 }
 

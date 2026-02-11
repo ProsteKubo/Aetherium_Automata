@@ -19,8 +19,6 @@ import ReactFlow, {
   Edge,
   NodeChange,
   EdgeChange,
-  useReactFlow,
-  ReactFlowProvider,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -28,7 +26,7 @@ import { StateNode } from './StateNode';
 import { TransitionEdge } from './TransitionEdge';
 import { TransitionDialog } from './TransitionDialog';
 import { EnhancedTransitionDialog } from './EnhancedTransitionDialog';
-import { useAutomataStore, useUIStore } from '../../stores';
+import { useAutomataStore, useGatewayStore, useUIStore } from '../../stores';
 import {
   IconPlus,
   IconLock,
@@ -54,9 +52,11 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [isLocked, setIsLocked] = useState(false);
   const [showTransitionDialog, setShowTransitionDialog] = useState(false);
-  const [useEnhancedDialog, setUseEnhancedDialog] = useState(true); // Use new enhanced dialog
+  const [useEnhancedDialog] = useState(true); // Use new enhanced dialog
   const [editingTransitionId, setEditingTransitionId] = useState<string | undefined>(undefined);
   const [showGrid, setShowGrid] = useState(true);
+  const [targetDeviceId, setTargetDeviceId] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
   
   // Store hooks - select specific parts to ensure reactivity
   const automata = useAutomataStore((state) => state.automata.get(automataId));
@@ -73,12 +73,42 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const deleteState = useAutomataStore((state) => state.deleteState);
   const deleteTransition = useAutomataStore((state) => state.deleteTransition);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
+  const gatewayStatus = useGatewayStore((state) => state.status);
+  const devicesMap = useGatewayStore((state) => state.devices);
+  const gatewayService = useGatewayStore((state) => state.service);
+  const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const openTab = useUIStore((state) => state.openTab);
+  const addNotification = useUIStore((state) => state.addNotification);
+
+  const reachableDevices = useMemo(
+    () =>
+      Array.from(devicesMap.values()).filter(
+        (device) => device.status === 'online',
+      ),
+    [devicesMap],
+  );
   
   // Ensure this automata is active when the editor is displayed
   useEffect(() => {
     setActiveAutomata(automataId);
   }, [automataId, setActiveAutomata]);
+
+  useEffect(() => {
+    if (gatewayStatus === 'connected' && devicesMap.size === 0) {
+      void fetchDevices();
+    }
+  }, [gatewayStatus, devicesMap.size, fetchDevices]);
+
+  useEffect(() => {
+    if (reachableDevices.length === 0) {
+      setTargetDeviceId('');
+      return;
+    }
+
+    if (!targetDeviceId || !reachableDevices.some((d) => d.id === targetDeviceId)) {
+      setTargetDeviceId(reachableDevices[0].id);
+    }
+  }, [reachableDevices, targetDeviceId]);
   
   // Comprehensive keyboard shortcuts
   useEffect(() => {
@@ -345,6 +375,28 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
       // Additional state properties for initial/final could be added here
     });
   }, [addState, automata]);
+
+  const handleUploadAutomata = useCallback(async () => {
+    if (!targetDeviceId) {
+      addNotification('warning', 'Upload', 'Select a target device first');
+      return;
+    }
+
+    if (!automata) {
+      addNotification('error', 'Upload', 'Automata is not available');
+      return;
+    }
+
+    try {
+      setIsUploading(true);
+      await gatewayService.deployAutomata(automataId as any, targetDeviceId as any, { automata });
+      addNotification('success', 'Upload', `Uploaded ${automata.config.name} to ${targetDeviceId}`);
+    } catch (error) {
+      addNotification('error', 'Upload', error instanceof Error ? error.message : 'Upload failed');
+    } finally {
+      setIsUploading(false);
+    }
+  }, [targetDeviceId, automata, gatewayService, automataId, addNotification]);
   
   if (!automata) {
     return (
@@ -431,6 +483,37 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
           >
             {isLocked ? <IconLock size={16} /> : <IconUnlock size={16} />}
           </button>
+
+          <div className="toolbar-divider" />
+
+          <div className="editor-upload-controls">
+            <select
+              className="input select editor-device-select"
+              value={targetDeviceId}
+              onChange={(e) => setTargetDeviceId(e.target.value)}
+              disabled={gatewayStatus !== 'connected' || reachableDevices.length === 0 || isUploading}
+              title={gatewayStatus !== 'connected' ? 'Connect to gateway first' : 'Select target device'}
+            >
+              {reachableDevices.length === 0 ? (
+                <option value="">No online devices</option>
+              ) : (
+                reachableDevices.map((device) => (
+                  <option key={device.id} value={device.id}>
+                    {device.name} ({device.id})
+                  </option>
+                ))
+              )}
+            </select>
+
+            <button
+              className="btn btn-secondary btn-sm"
+              onClick={() => void handleUploadAutomata()}
+              disabled={gatewayStatus !== 'connected' || !targetDeviceId || isUploading}
+              title="Upload currently open automata to selected device"
+            >
+              {isUploading ? 'Uploading...' : 'Upload'}
+            </button>
+          </div>
         </Panel>
         
         {/* Info panel */}

@@ -11,9 +11,13 @@
 #include "types.hpp"
 #include "model.hpp"
 #include <ryml.hpp>
+#include <filesystem>
 #include <string>
 #include <fstream>
 #include <sstream>
+#include <algorithm>
+#include <cctype>
+#include <limits>
 
 namespace aeth {
 
@@ -78,9 +82,9 @@ private:
     void parseVariables(ryml::ConstNodeRef node, Automata& automata, ParseContext& ctx);
 
     // Detail parsing
-    State parseState(ryml::ConstNodeRef node, const std::string& name, ParseContext& ctx);
+    State parseState(ryml::ConstNodeRef node, const std::string& name, Automata& automata, ParseContext& ctx);
     Transition parseTransition(ryml::ConstNodeRef node, const std::string& name, 
-                               const Automata& automata, ParseContext& ctx);
+                               ParseContext& ctx);
     VariableSpec parseVariableSpec(ryml::ConstNodeRef node, ParseContext& ctx);
     VariableSpec parseVariableShort(const std::string& spec, ParseContext& ctx);
     CodeBlock parseCode(ryml::ConstNodeRef node);
@@ -95,6 +99,7 @@ private:
     std::string getString(ryml::ConstNodeRef node);
     std::optional<std::string> getOptString(ryml::ConstNodeRef node, const char* key);
     int getInt(ryml::ConstNodeRef node, int defaultVal = 0);
+    int parseDurationMs(ryml::ConstNodeRef node, int defaultVal = 0);
     double getDouble(ryml::ConstNodeRef node, double defaultVal = 0.0);
     bool getBool(ryml::ConstNodeRef node, bool defaultVal = false);
     
@@ -105,6 +110,16 @@ private:
     EventTrigger parseEventTrigger(const std::string& triggerStr);
     CompareOp parseCompareOp(const std::string& opStr);
     Value parseDefaultValue(const std::string& valStr, ValueType type);
+
+    std::optional<ryml::ConstNodeRef> findChild(ryml::ConstNodeRef node, const char* key);
+    std::string nodeKey(ryml::ConstNodeRef node);
+    VariableId ensureVariable(const std::string& specText,
+                              VariableDirection direction,
+                              Automata& automata,
+                              ParseContext& ctx);
+    VariableId ensureVariable(VariableSpec spec, Automata& automata, ParseContext& ctx);
+    void resolveFolderLayoutCode(Automata& automata, ParseContext& ctx);
+    std::string readTextFile(const std::filesystem::path& path, ParseContext& ctx);
 };
 
 // ============================================================================
@@ -199,27 +214,27 @@ inline void AutomataParser::parseRoot(ryml::ConstNodeRef root, Automata& automat
 
 inline void AutomataParser::parseConfig(ryml::ConstNodeRef node, Automata& automata, 
                                          ParseContext& ctx) {
-    if (node.has_child("name")) {
-        automata.config.name = getString(node["name"]);
+    if (auto n = findChild(node, "name")) {
+        automata.config.name = getString(*n);
     }
-    if (node.has_child("type")) {
-        std::string typeStr = getString(node["type"]);
+    if (auto n = findChild(node, "type")) {
+        std::string typeStr = getString(*n);
         automata.config.layout = (typeStr == "folder") ? LayoutType::Folder : LayoutType::Inline;
     }
-    if (node.has_child("location")) {
-        automata.config.location = getString(node["location"]);
+    if (auto n = findChild(node, "location")) {
+        automata.config.location = getString(*n);
     }
-    if (node.has_child("description")) {
-        automata.config.description = getString(node["description"]);
+    if (auto n = findChild(node, "description")) {
+        automata.config.description = getString(*n);
     }
-    if (node.has_child("author")) {
-        automata.config.author = getString(node["author"]);
+    if (auto n = findChild(node, "author")) {
+        automata.config.author = getString(*n);
     }
-    if (node.has_child("version")) {
-        automata.config.version = getString(node["version"]);
+    if (auto n = findChild(node, "version")) {
+        automata.config.version = getString(*n);
     }
-    if (node.has_child("tags") && node["tags"].is_seq()) {
-        for (auto tag : node["tags"].children()) {
+    if (auto n = findChild(node, "tags"); n && (*n).is_seq()) {
+        for (auto tag : (*n).children()) {
             automata.config.tags.push_back(getString(tag));
         }
     }
@@ -227,21 +242,14 @@ inline void AutomataParser::parseConfig(ryml::ConstNodeRef node, Automata& autom
 
 inline void AutomataParser::parseAutomataSection(ryml::ConstNodeRef node, 
                                                   Automata& automata, ParseContext& ctx) {
-    // Parse initial_state
-    if (node.has_child("initial_state")) {
-        std::string initialName = getString(node["initial_state"]);
-        // Will resolve after states are parsed
-        ctx.stateIds["__initial__"] = 0;  // Placeholder
-    }
-
     // Parse states first (to build ID map)
-    if (node.has_child("states")) {
-        parseStates(node["states"], automata, ctx);
+    if (auto statesNode = findChild(node, "states")) {
+        parseStates(*statesNode, automata, ctx);
     }
 
     // Resolve initial state
-    if (node.has_child("initial_state")) {
-        std::string initialName = getString(node["initial_state"]);
+    if (auto initialNode = findChild(node, "initial_state")) {
+        std::string initialName = getString(*initialNode);
         auto it = ctx.stateIds.find(initialName);
         if (it != ctx.stateIds.end()) {
             automata.initialState = it->second;
@@ -249,76 +257,117 @@ inline void AutomataParser::parseAutomataSection(ryml::ConstNodeRef node,
             ctx.error("Initial state not found: " + initialName);
         }
     } else if (!automata.states.empty()) {
-        // Default to first state
-        automata.initialState = automata.states.begin()->first;
+        // Default to the first parsed state (lowest generated state id)
+        auto it = std::min_element(
+            automata.states.begin(),
+            automata.states.end(),
+            [](const auto& a, const auto& b) { return a.first < b.first; }
+        );
+        automata.initialState = it->first;
     }
 
     // Parse transitions
-    if (node.has_child("transitions")) {
-        parseTransitions(node["transitions"], automata, ctx);
+    if (auto transitionsNode = findChild(node, "transitions")) {
+        parseTransitions(*transitionsNode, automata, ctx);
+    }
+
+    if (automata.config.layout == LayoutType::Folder) {
+        resolveFolderLayoutCode(automata, ctx);
     }
 }
 
 inline void AutomataParser::parseStates(ryml::ConstNodeRef node, Automata& automata, 
                                          ParseContext& ctx) {
-    for (auto stateNode : node.children()) {
-        std::string name;
-        name.assign(stateNode.key().str, stateNode.key().len);
-        
-        State state = parseState(stateNode, name, ctx);
-        state.id = ctx.nextStateId++;
-        ctx.stateIds[name] = state.id;
-        
-        automata.states[state.id] = std::move(state);
+    if (node.is_map() || (!node.is_seq() && node.num_children() > 0)) {
+        for (auto stateNode : node.children()) {
+            const std::string name = nodeKey(stateNode);
+            if (name.empty()) {
+                ctx.error("State entry missing name");
+                continue;
+            }
+            // Legacy list-of-singletons shape may include a placeholder
+            // `states:` key alongside concrete state entries in the same map.
+            if (name == "states" && stateNode.is_keyval() && stateNode.num_children() == 0) {
+                continue;
+            }
+
+            State state = parseState(stateNode, name, automata, ctx);
+            state.id = ctx.nextStateId++;
+            ctx.stateIds[name] = state.id;
+
+            automata.states[state.id] = std::move(state);
+        }
+    } else if (node.is_seq()) {
+        for (auto stateNode : node.children()) {
+            std::string name;
+            if (auto idNode = findChild(stateNode, "id")) {
+                name = getString(*idNode);
+            } else if (stateNode.is_map() && stateNode.num_children() == 1) {
+                for (auto only : stateNode.children()) {
+                    name = nodeKey(only);
+                    stateNode = only;
+                    break;
+                }
+            }
+
+            if (name.empty()) {
+                ctx.error("State sequence entry missing id");
+                continue;
+            }
+
+            State state = parseState(stateNode, name, automata, ctx);
+            state.id = ctx.nextStateId++;
+            ctx.stateIds[name] = state.id;
+            automata.states[state.id] = std::move(state);
+        }
     }
 }
 
-inline State AutomataParser::parseState(ryml::ConstNodeRef node, const std::string& name, 
-                                         ParseContext& ctx) {
+inline State AutomataParser::parseState(ryml::ConstNodeRef node, const std::string& name,
+                                         Automata& automata, ParseContext& ctx) {
     State state;
     state.name = name;
 
     // Parse inputs
-    if (node.has_child("inputs") && node["inputs"].is_seq()) {
-        for (auto input : node["inputs"].children()) {
-            VariableSpec spec = parseVariableShort(getString(input), ctx);
-            spec.direction = VariableDirection::Input;
-            state.inputIds.push_back(spec.id);
+    if (auto inputsNode = findChild(node, "inputs"); inputsNode && (*inputsNode).is_seq()) {
+        for (auto input : (*inputsNode).children()) {
+            const auto id = ensureVariable(getString(input), VariableDirection::Input, automata, ctx);
+            state.inputIds.push_back(id);
         }
     }
 
     // Parse outputs
-    if (node.has_child("outputs") && node["outputs"].is_seq()) {
-        for (auto output : node["outputs"].children()) {
-            VariableSpec spec = parseVariableShort(getString(output), ctx);
-            spec.direction = VariableDirection::Output;
-            state.outputIds.push_back(spec.id);
+    if (auto outputsNode = findChild(node, "outputs"); outputsNode && (*outputsNode).is_seq()) {
+        for (auto output : (*outputsNode).children()) {
+            const auto id = ensureVariable(getString(output), VariableDirection::Output, automata, ctx);
+            state.outputIds.push_back(id);
         }
     }
 
     // Parse variables
-    if (node.has_child("variables") && node["variables"].is_seq()) {
-        for (auto var : node["variables"].children()) {
-            VariableSpec spec = parseVariableShort(getString(var), ctx);
-            spec.direction = VariableDirection::Internal;
-            state.variableIds.push_back(spec.id);
+    if (auto varsNode = findChild(node, "variables"); varsNode && (*varsNode).is_seq()) {
+        for (auto var : (*varsNode).children()) {
+            const auto id = ensureVariable(getString(var), VariableDirection::Internal, automata, ctx);
+            state.variableIds.push_back(id);
         }
     }
 
     // Parse code hooks
-    if (node.has_child("code")) {
-        state.body = parseCode(node["code"]);
+    if (auto bodyNode = findChild(node, "code")) {
+        state.body = parseCode(*bodyNode);
+    } else if (auto bodyTick = findChild(node, "on_tick")) {
+        state.body = parseCode(*bodyTick);
     }
-    if (node.has_child("on_enter")) {
-        state.onEnter = parseCode(node["on_enter"]);
+    if (auto onEnterNode = findChild(node, "on_enter")) {
+        state.onEnter = parseCode(*onEnterNode);
     }
-    if (node.has_child("on_exit")) {
-        state.onExit = parseCode(node["on_exit"]);
+    if (auto onExitNode = findChild(node, "on_exit")) {
+        state.onExit = parseCode(*onExitNode);
     }
 
     // Parse description
-    if (node.has_child("description")) {
-        state.description = getString(node["description"]);
+    if (auto descNode = findChild(node, "description")) {
+        state.description = getString(*descNode);
     }
 
     return state;
@@ -326,27 +375,50 @@ inline State AutomataParser::parseState(ryml::ConstNodeRef node, const std::stri
 
 inline void AutomataParser::parseTransitions(ryml::ConstNodeRef node, Automata& automata, 
                                               ParseContext& ctx) {
-    for (auto transNode : node.children()) {
-        std::string name;
-        name.assign(transNode.key().str, transNode.key().len);
-        
-        Transition trans = parseTransition(transNode, name, automata, ctx);
-        trans.id = ctx.nextTransitionId++;
-        
-        automata.transitions[trans.id] = std::move(trans);
+    if (node.is_map() || (!node.is_seq() && node.num_children() > 0)) {
+        for (auto transNode : node.children()) {
+            const std::string name = nodeKey(transNode);
+            if (name.empty()) {
+                ctx.error("Transition entry missing name");
+                continue;
+            }
+            // Legacy list-of-singletons shape may include a placeholder
+            // `transitions:` key alongside concrete transition entries.
+            if (name == "transitions" && transNode.is_keyval() && transNode.num_children() == 0) {
+                continue;
+            }
+
+            Transition trans = parseTransition(transNode, name, ctx);
+            trans.id = ctx.nextTransitionId++;
+            automata.transitions[trans.id] = std::move(trans);
+        }
+    } else if (node.is_seq()) {
+        uint32_t index = 0;
+        for (auto transNode : node.children()) {
+            std::string name;
+            if (auto idNode = findChild(transNode, "id")) {
+                name = getString(*idNode);
+            }
+            if (name.empty()) {
+                ++index;
+                name = "transition_" + std::to_string(index);
+            }
+            Transition trans = parseTransition(transNode, name, ctx);
+            trans.id = ctx.nextTransitionId++;
+            automata.transitions[trans.id] = std::move(trans);
+        }
     }
 }
 
 inline Transition AutomataParser::parseTransition(ryml::ConstNodeRef node, 
                                                    const std::string& name,
-                                                   const Automata& automata,
                                                    ParseContext& ctx) {
     Transition trans;
     trans.name = name;
 
     // Parse from/to
-    if (node.has_child("from")) {
-        std::string fromName = getString(node["from"]);
+    if (auto fromNode = findChild(node, "from")) {
+        std::string fromName = getString(*fromNode);
         auto it = ctx.stateIds.find(fromName);
         if (it != ctx.stateIds.end()) {
             trans.from = it->second;
@@ -355,8 +427,8 @@ inline Transition AutomataParser::parseTransition(ryml::ConstNodeRef node,
         }
     }
 
-    if (node.has_child("to")) {
-        std::string toName = getString(node["to"]);
+    if (auto toNode = findChild(node, "to")) {
+        std::string toName = getString(*toNode);
         auto it = ctx.stateIds.find(toName);
         if (it != ctx.stateIds.end()) {
             trans.to = it->second;
@@ -366,45 +438,50 @@ inline Transition AutomataParser::parseTransition(ryml::ConstNodeRef node,
     }
 
     // Parse type
-    if (node.has_child("type")) {
-        trans.type = parseTransitionType(getString(node["type"]));
+    if (auto typeNode = findChild(node, "type")) {
+        trans.type = parseTransitionType(getString(*typeNode));
     }
 
     // Parse type-specific config
     switch (trans.type) {
         case TransitionType::Classic:
-            if (node.has_child("condition")) {
-                trans.classicConfig.condition = parseCode(node["condition"]);
+            if (auto conditionNode = findChild(node, "condition")) {
+                trans.classicConfig.condition = parseCode(*conditionNode);
             }
-            if (node.has_child("on_rising_edge")) {
-                trans.classicConfig.onRisingEdge = getBool(node["on_rising_edge"]);
+            if (auto risingNode = findChild(node, "on_rising_edge")) {
+                trans.classicConfig.onRisingEdge = getBool(*risingNode);
             }
             break;
 
         case TransitionType::Timed:
-            if (node.has_child("timed")) {
-                trans.timedConfig = parseTimedConfig(node["timed"], ctx);
+            if (auto timedNode = findChild(node, "timed")) {
+                trans.timedConfig = parseTimedConfig(*timedNode, ctx);
             } else {
                 // Simple format: just delay_ms
-                if (node.has_child("delay_ms")) {
-                    trans.timedConfig.delayMs = getInt(node["delay_ms"]);
+                if (auto delayNode = findChild(node, "delay_ms")) {
+                    trans.timedConfig.delayMs = parseDurationMs(*delayNode);
+                } else if (auto delayNode = findChild(node, "delayMs")) {
+                    trans.timedConfig.delayMs = parseDurationMs(*delayNode);
+                } else if (auto afterNode = findChild(node, "after")) {
+                    trans.timedConfig.delayMs = parseDurationMs(*afterNode);
                 }
             }
             // Also check for top-level condition (additional to timer)
-            if (node.has_child("condition") && trans.timedConfig.additionalCondition.isEmpty()) {
-                trans.timedConfig.additionalCondition = parseCode(node["condition"]);
+            if (auto conditionNode = findChild(node, "condition");
+                conditionNode && trans.timedConfig.additionalCondition.isEmpty()) {
+                trans.timedConfig.additionalCondition = parseCode(*conditionNode);
             }
             break;
 
         case TransitionType::Event:
-            if (node.has_child("event")) {
-                trans.eventConfig = parseEventConfig(node["event"], ctx);
+            if (auto eventNode = findChild(node, "event")) {
+                trans.eventConfig = parseEventConfig(*eventNode, ctx);
             }
             break;
 
         case TransitionType::Probabilistic:
-            if (node.has_child("probabilistic")) {
-                trans.probConfig = parseProbabilisticConfig(node["probabilistic"], ctx);
+            if (auto probNode = findChild(node, "probabilistic")) {
+                trans.probConfig = parseProbabilisticConfig(*probNode, ctx);
             }
             break;
 
@@ -413,23 +490,23 @@ inline Transition AutomataParser::parseTransition(ryml::ConstNodeRef node,
     }
 
     // Parse common fields
-    if (node.has_child("body")) {
-        trans.body = parseCode(node["body"]);
+    if (auto bodyNode = findChild(node, "body")) {
+        trans.body = parseCode(*bodyNode);
     }
-    if (node.has_child("triggered")) {
-        trans.triggered = parseCode(node["triggered"]);
+    if (auto triggeredNode = findChild(node, "triggered")) {
+        trans.triggered = parseCode(*triggeredNode);
     }
-    if (node.has_child("priority")) {
-        trans.priority = static_cast<uint8_t>(getInt(node["priority"]));
+    if (auto priorityNode = findChild(node, "priority")) {
+        trans.priority = static_cast<uint8_t>(getInt(*priorityNode));
     }
-    if (node.has_child("weight")) {
-        trans.weight = static_cast<uint16_t>(getDouble(node["weight"]) * 100);
+    if (auto weightNode = findChild(node, "weight")) {
+        trans.weight = static_cast<uint16_t>(getDouble(*weightNode) * 100);
     }
-    if (node.has_child("enabled")) {
-        trans.enabled = getBool(node["enabled"], true);
+    if (auto enabledNode = findChild(node, "enabled")) {
+        trans.enabled = getBool(*enabledNode, true);
     }
-    if (node.has_child("description")) {
-        trans.description = getString(node["description"]);
+    if (auto descNode = findChild(node, "description")) {
+        trans.description = getString(*descNode);
     }
 
     return trans;
@@ -440,10 +517,10 @@ inline void AutomataParser::parseVariables(ryml::ConstNodeRef node, Automata& au
     for (auto varNode : node.children()) {
         if (varNode.is_map()) {
             VariableSpec spec = parseVariableSpec(varNode, ctx);
-            automata.variables.push_back(std::move(spec));
+            ensureVariable(std::move(spec), automata, ctx);
         } else {
             VariableSpec spec = parseVariableShort(getString(varNode), ctx);
-            automata.variables.push_back(std::move(spec));
+            ensureVariable(std::move(spec), automata, ctx);
         }
     }
 }
@@ -451,35 +528,34 @@ inline void AutomataParser::parseVariables(ryml::ConstNodeRef node, Automata& au
 inline VariableSpec AutomataParser::parseVariableSpec(ryml::ConstNodeRef node, 
                                                        ParseContext& ctx) {
     VariableSpec spec;
-    spec.id = ctx.nextVarId++;
+    spec.id = INVALID_VARIABLE;
     
-    if (node.has_child("name")) {
-        spec.name = getString(node["name"]);
+    if (auto nameNode = findChild(node, "name")) {
+        spec.name = getString(*nameNode);
     }
-    if (node.has_child("type")) {
-        spec.type = parseValueType(getString(node["type"]));
+    if (auto typeNode = findChild(node, "type")) {
+        spec.type = parseValueType(getString(*typeNode));
     }
-    if (node.has_child("direction")) {
-        spec.direction = parseDirection(getString(node["direction"]));
+    if (auto dirNode = findChild(node, "direction")) {
+        spec.direction = parseDirection(getString(*dirNode));
     }
-    if (node.has_child("description")) {
-        spec.description = getString(node["description"]);
+    if (auto descNode = findChild(node, "description")) {
+        spec.description = getString(*descNode);
     }
     
     // Parse default/initial value
-    if (node.has_child("default")) {
-        std::string defaultStr = getString(node["default"]);
+    if (auto defaultNode = findChild(node, "default")) {
+        std::string defaultStr = getString(*defaultNode);
         spec.initialValue = parseDefaultValue(defaultStr, spec.type);
     }
 
-    ctx.varIds[spec.name] = spec.id;
     return spec;
 }
 
 inline VariableSpec AutomataParser::parseVariableShort(const std::string& spec, 
                                                         ParseContext& ctx) {
     VariableSpec result;
-    result.id = ctx.nextVarId++;
+    result.id = INVALID_VARIABLE;
 
     // Format: "name" or "name:type"
     auto colonPos = spec.find(':');
@@ -491,7 +567,6 @@ inline VariableSpec AutomataParser::parseVariableShort(const std::string& spec,
         result.type = ValueType::String;  // Default
     }
 
-    ctx.varIds[result.name] = result.id;
     return result;
 }
 
@@ -505,20 +580,46 @@ inline TimedConfig AutomataParser::parseTimedConfig(ryml::ConstNodeRef node,
                                                      ParseContext& ctx) {
     TimedConfig config;
     
-    if (node.has_child("mode")) {
-        config.mode = parseTimedMode(getString(node["mode"]));
+    if (auto modeNode = findChild(node, "mode")) {
+        config.mode = parseTimedMode(getString(*modeNode));
     }
-    if (node.has_child("delay_ms")) {
-        config.delayMs = getInt(node["delay_ms"]);
+    if (auto delayNode = findChild(node, "delay_ms")) {
+        config.delayMs = parseDurationMs(*delayNode);
+    } else if (auto delayNode = findChild(node, "delayMs")) {
+        config.delayMs = parseDurationMs(*delayNode);
+    } else if (auto afterNode = findChild(node, "after")) {
+        config.delayMs = parseDurationMs(*afterNode);
     }
-    if (node.has_child("jitter_ms")) {
-        config.jitterMs = getInt(node["jitter_ms"]);
+    if (auto jitterNode = findChild(node, "jitter_ms")) {
+        config.jitterMs = parseDurationMs(*jitterNode);
+    } else if (auto jitterNode = findChild(node, "jitterMs")) {
+        config.jitterMs = parseDurationMs(*jitterNode);
     }
-    if (node.has_child("repeat_count")) {
-        config.repeatCount = getInt(node["repeat_count"]);
+    if (auto repeatNode = findChild(node, "repeat_count")) {
+        config.repeatCount = getInt(*repeatNode);
+    } else if (auto repeatNode = findChild(node, "repeatCount")) {
+        config.repeatCount = getInt(*repeatNode);
     }
-    if (node.has_child("condition")) {
-        config.additionalCondition = parseCode(node["condition"]);
+    if (auto windowNode = findChild(node, "window_end_ms")) {
+        config.windowEndMs = parseDurationMs(*windowNode);
+    } else if (auto windowNode = findChild(node, "windowEndMs")) {
+        config.windowEndMs = parseDurationMs(*windowNode);
+    } else if (auto windowNode = findChild(node, "window_end")) {
+        config.windowEndMs = parseDurationMs(*windowNode);
+    }
+    if (auto absoluteNode = findChild(node, "absolute_time_ms")) {
+        config.delayMs = parseDurationMs(*absoluteNode);
+    } else if (auto absoluteNode = findChild(node, "absoluteTimeMs")) {
+        config.delayMs = parseDurationMs(*absoluteNode);
+    } else if (auto absoluteNode = findChild(node, "at_ms")) {
+        config.delayMs = parseDurationMs(*absoluteNode);
+    }
+    if (auto condNode = findChild(node, "condition")) {
+        config.additionalCondition = parseCode(*condNode);
+    } else if (auto condNode = findChild(node, "additional_condition")) {
+        config.additionalCondition = parseCode(*condNode);
+    } else if (auto condNode = findChild(node, "additionalCondition")) {
+        config.additionalCondition = parseCode(*condNode);
     }
 
     return config;
@@ -528,25 +629,25 @@ inline EventConfig AutomataParser::parseEventConfig(ryml::ConstNodeRef node,
                                                      ParseContext& ctx) {
     EventConfig config;
 
-    if (node.has_child("triggers") && node["triggers"].is_seq()) {
-        for (auto triggerNode : node["triggers"].children()) {
+    if (auto triggersNode = findChild(node, "triggers"); triggersNode && (*triggersNode).is_seq()) {
+        for (auto triggerNode : (*triggersNode).children()) {
             SignalTrigger trigger;
             
-            if (triggerNode.has_child("signal")) {
-                trigger.signalName = getString(triggerNode["signal"]);
+            if (auto signalNode = findChild(triggerNode, "signal")) {
+                trigger.signalName = getString(*signalNode);
             }
-            if (triggerNode.has_child("trigger")) {
-                trigger.triggerType = parseEventTrigger(getString(triggerNode["trigger"]));
+            if (auto triggerTypeNode = findChild(triggerNode, "trigger")) {
+                trigger.triggerType = parseEventTrigger(getString(*triggerTypeNode));
             }
-            if (triggerNode.has_child("threshold")) {
-                auto threshNode = triggerNode["threshold"];
+            if (auto threshNodeOpt = findChild(triggerNode, "threshold")) {
+                auto threshNode = *threshNodeOpt;
                 ThresholdConfig thresh;
-                if (threshNode.has_child("operator")) {
-                    thresh.op = parseCompareOp(getString(threshNode["operator"]));
+                if (auto opNode = findChild(threshNode, "operator")) {
+                    thresh.op = parseCompareOp(getString(*opNode));
                 }
-                if (threshNode.has_child("value")) {
+                if (auto valueNode = findChild(threshNode, "value")) {
                     // Parse as double for now
-                    thresh.value = Value(getDouble(threshNode["value"]));
+                    thresh.value = Value(getDouble(*valueNode));
                 }
                 trigger.threshold = thresh;
             }
@@ -555,14 +656,14 @@ inline EventConfig AutomataParser::parseEventConfig(ryml::ConstNodeRef node,
         }
     }
 
-    if (node.has_child("require_all")) {
-        config.requireAll = getBool(node["require_all"]);
+    if (auto requireAllNode = findChild(node, "require_all")) {
+        config.requireAll = getBool(*requireAllNode);
     }
-    if (node.has_child("debounce_ms")) {
-        config.debounceMs = getInt(node["debounce_ms"]);
+    if (auto debounceNode = findChild(node, "debounce_ms")) {
+        config.debounceMs = getInt(*debounceNode);
     }
-    if (node.has_child("condition")) {
-        config.additionalCondition = parseCode(node["condition"]);
+    if (auto conditionNode = findChild(node, "condition")) {
+        config.additionalCondition = parseCode(*conditionNode);
     }
 
     return config;
@@ -572,18 +673,157 @@ inline ProbabilisticConfig AutomataParser::parseProbabilisticConfig(ryml::ConstN
                                                                      ParseContext& ctx) {
     ProbabilisticConfig config;
 
-    if (node.has_child("weight")) {
-        config.weight = static_cast<uint16_t>(getDouble(node["weight"]) * 100);
+    if (auto weightNode = findChild(node, "weight")) {
+        config.weight = static_cast<uint16_t>(getDouble(*weightNode) * 100);
     }
-    if (node.has_child("weight_expression")) {
-        config.weightExpression = parseCode(node["weight_expression"]);
+    if (auto expressionNode = findChild(node, "weight_expression")) {
+        config.weightExpression = parseCode(*expressionNode);
         config.isDynamic = true;
     }
-    if (node.has_child("min_weight")) {
-        config.minWeight = static_cast<uint16_t>(getDouble(node["min_weight"]) * 100);
+    if (auto minWeightNode = findChild(node, "min_weight")) {
+        config.minWeight = static_cast<uint16_t>(getDouble(*minWeightNode) * 100);
     }
 
     return config;
+}
+
+inline std::optional<ryml::ConstNodeRef> AutomataParser::findChild(ryml::ConstNodeRef node, const char* key) {
+    if (node.is_map() && node.has_child(key)) {
+        return node[key];
+    }
+    if (node.is_seq()) {
+        for (auto child : node.children()) {
+            if (child.is_map() && child.has_child(key)) {
+                auto candidate = child[key];
+                // Legacy shape: list item map holds `<key>:` plus sibling entries.
+                if (candidate.is_keyval() && candidate.num_children() == 0 && child.num_children() > 1) {
+                    return child;
+                }
+                return candidate;
+            }
+            if (child.has_key()) {
+                const std::string childKey(child.key().str, child.key().len);
+                if (childKey == key) {
+                    return child;
+                }
+            }
+        }
+    }
+    if (!node.is_map() && !node.is_seq() && node.num_children() > 0) {
+        for (auto child : node.children()) {
+            if (child.is_map() && child.has_child(key)) {
+                auto candidate = child[key];
+                if (candidate.is_keyval() && candidate.num_children() == 0 && child.num_children() > 1) {
+                    return child;
+                }
+                return candidate;
+            }
+            if (child.has_key()) {
+                const std::string childKey(child.key().str, child.key().len);
+                if (childKey == key) {
+                    return child;
+                }
+            }
+        }
+    }
+    return std::nullopt;
+}
+
+inline std::string AutomataParser::nodeKey(ryml::ConstNodeRef node) {
+    if (node.has_key()) {
+        return std::string(node.key().str, node.key().len);
+    }
+    return "";
+}
+
+inline VariableId AutomataParser::ensureVariable(const std::string& specText,
+                                                 VariableDirection direction,
+                                                 Automata& automata,
+                                                 ParseContext& ctx) {
+    auto spec = parseVariableShort(specText, ctx);
+    spec.direction = direction;
+    return ensureVariable(std::move(spec), automata, ctx);
+}
+
+inline VariableId AutomataParser::ensureVariable(VariableSpec spec, Automata& automata, ParseContext& ctx) {
+    auto it = ctx.varIds.find(spec.name);
+    if (it != ctx.varIds.end()) {
+        auto* existing = const_cast<VariableSpec*>(automata.getVariableSpec(it->second));
+        if (existing) {
+            if (existing->direction != spec.direction) {
+                ctx.warn("Variable '" + spec.name + "' direction conflict; keeping first definition");
+            }
+            if (existing->type != spec.type && spec.type != ValueType::String) {
+                ctx.warn("Variable '" + spec.name + "' type conflict; keeping first definition");
+            }
+        }
+        return it->second;
+    }
+
+    if (spec.id == INVALID_VARIABLE) {
+        spec.id = ctx.nextVarId++;
+    }
+    const auto assigned = spec.id;
+    ctx.varIds[spec.name] = assigned;
+    automata.variables.push_back(std::move(spec));
+    return assigned;
+}
+
+inline std::string AutomataParser::readTextFile(const std::filesystem::path& path, ParseContext& ctx) {
+    std::ifstream file(path);
+    if (!file.is_open()) {
+        ctx.error("Missing required folder-layout file: " + path.string());
+        return "";
+    }
+    std::ostringstream ss;
+    ss << file.rdbuf();
+    return ss.str();
+}
+
+inline void AutomataParser::resolveFolderLayoutCode(Automata& automata, ParseContext& ctx) {
+    const std::filesystem::path basePath(ctx.basePath.empty() ? "." : ctx.basePath);
+    const std::filesystem::path location = automata.config.location.empty() ? "." : automata.config.location;
+    const std::filesystem::path folder = basePath / location;
+
+    for (auto& [id, state] : automata.states) {
+        const auto filePath = folder / (state.name + ".lua");
+        const std::string script = readTextFile(filePath, ctx);
+        if (script.empty()) {
+            continue;
+        }
+        if (state.body.isEmpty()) {
+            state.body.source = script + "\nif body ~= nil then return body() end";
+        }
+        if (state.onEnter.isEmpty()) {
+            state.onEnter.source = script + "\nif on_enter ~= nil then return on_enter() end";
+        }
+        if (state.onExit.isEmpty()) {
+            state.onExit.source = script + "\nif on_exit ~= nil then return on_exit() end";
+        }
+    }
+
+    for (auto& [id, transition] : automata.transitions) {
+        const auto filePath = folder / (transition.name + ".lua");
+        const std::string script = readTextFile(filePath, ctx);
+        if (script.empty()) {
+            continue;
+        }
+        if (transition.classicConfig.condition.isEmpty() && transition.type == TransitionType::Classic) {
+            transition.classicConfig.condition.source = script + "\nif condition ~= nil then return condition() end\nreturn true";
+        }
+        if (transition.timedConfig.additionalCondition.isEmpty() && transition.type == TransitionType::Timed) {
+            transition.timedConfig.additionalCondition.source = script + "\nif condition ~= nil then return condition() end\nreturn true";
+        }
+        if (transition.eventConfig.additionalCondition.isEmpty() && transition.type == TransitionType::Event) {
+            transition.eventConfig.additionalCondition.source = script + "\nif condition ~= nil then return condition() end\nreturn true";
+        }
+        if (transition.body.isEmpty()) {
+            transition.body.source = script + "\nif body ~= nil then return body() end";
+        }
+        if (transition.triggered.isEmpty()) {
+            transition.triggered.source = script + "\nif triggered ~= nil then return triggered() end";
+        }
+    }
 }
 
 // Utility implementations
@@ -607,6 +847,56 @@ inline int AutomataParser::getInt(ryml::ConstNodeRef node, int defaultVal) {
     if (s.empty()) return defaultVal;
     try {
         return std::stoi(s);
+    } catch (...) {
+        return defaultVal;
+    }
+}
+
+inline int AutomataParser::parseDurationMs(ryml::ConstNodeRef node, int defaultVal) {
+    std::string raw = getString(node);
+    if (raw.empty()) return defaultVal;
+
+    auto trim = [](std::string& s) {
+        auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+        s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+    };
+
+    trim(raw);
+    if (raw.empty()) return defaultVal;
+
+    std::string lower = raw;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+
+    long long factor = 1;  // default: milliseconds
+    std::string number = lower;
+
+    if (lower.size() > 2 && lower.substr(lower.size() - 2) == "ms") {
+        number = lower.substr(0, lower.size() - 2);
+        factor = 1;
+    } else if (!lower.empty() && lower.back() == 's') {
+        number = lower.substr(0, lower.size() - 1);
+        factor = 1000;
+    } else if (!lower.empty() && lower.back() == 'm') {
+        number = lower.substr(0, lower.size() - 1);
+        factor = 60 * 1000;
+    } else if (!lower.empty() && lower.back() == 'h') {
+        number = lower.substr(0, lower.size() - 1);
+        factor = 60 * 60 * 1000;
+    }
+
+    trim(number);
+    if (number.empty()) return defaultVal;
+
+    try {
+        const double value = std::stod(number);
+        if (value < 0.0) return defaultVal;
+        const double scaled = value * static_cast<double>(factor);
+        if (scaled > static_cast<double>(std::numeric_limits<int>::max())) {
+            return std::numeric_limits<int>::max();
+        }
+        return static_cast<int>(scaled);
     } catch (...) {
         return defaultVal;
     }
@@ -680,11 +970,14 @@ inline TransitionType AutomataParser::parseTransitionType(const std::string& typ
 }
 
 inline TimedMode AutomataParser::parseTimedMode(const std::string& modeStr) {
-    if (modeStr == "after") return TimedMode::After;
-    if (modeStr == "at") return TimedMode::At;
-    if (modeStr == "every" || modeStr == "periodic") return TimedMode::Every;
-    if (modeStr == "timeout") return TimedMode::Timeout;
-    if (modeStr == "window") return TimedMode::Window;
+    std::string lower = modeStr;
+    std::transform(lower.begin(), lower.end(), lower.begin(),
+                   [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+    if (lower == "after") return TimedMode::After;
+    if (lower == "at") return TimedMode::At;
+    if (lower == "every" || lower == "periodic") return TimedMode::Every;
+    if (lower == "timeout") return TimedMode::Timeout;
+    if (lower == "window") return TimedMode::Window;
     return TimedMode::After;  // Default
 }
 

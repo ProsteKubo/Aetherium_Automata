@@ -1,0 +1,116 @@
+version: 0.0.1
+
+config:
+  name: Command Event Gate
+  type: inline
+  description: Command-driven automata for testing Input and Variable protocol commands
+  author: Aetherium Team
+  tags:
+    - command-test
+    - event
+    - input
+    - reset
+
+variables:
+  - name: sensor_temp
+    type: int
+    direction: input
+    default: 20
+
+  - name: threshold
+    type: int
+    direction: input
+    default: 60
+
+  - name: door_open
+    type: bool
+    direction: input
+    default: false
+
+  - name: cmd_reset
+    type: bool
+    direction: input
+    default: false
+
+  - name: over_temp
+    type: bool
+    direction: output
+    default: false
+
+  - name: latch_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: manual_override
+    type: bool
+    direction: output
+    default: false
+
+  - name: state_label
+    type: string
+    direction: output
+    default: idle
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("over_temp", false)
+        setVal("state_label", "idle")
+
+    Armed:
+      on_enter: |
+        setVal("state_label", "armed")
+
+    Latched:
+      on_enter: |
+        setVal("over_temp", true)
+        setVal("state_label", "latched")
+        setVal("latch_count", value("latch_count") + 1)
+
+    Resetting:
+      on_enter: |
+        setVal("over_temp", false)
+        setVal("state_label", "resetting")
+
+  transitions:
+    arm_when_hot:
+      from: Idle
+      to: Armed
+      type: classic
+      condition: value("sensor_temp") >= value("threshold")
+
+    cool_when_safe:
+      from: Armed
+      to: Idle
+      type: classic
+      condition: value("sensor_temp") < (value("threshold") - 5)
+
+    latch_on_door_open:
+      from: Armed
+      to: Latched
+      type: event
+      event:
+        require_all: true
+        triggers:
+          - signal: door_open
+            trigger: on_rise
+        condition: value("sensor_temp") >= value("threshold")
+
+    reset_command:
+      from: Latched
+      to: Resetting
+      type: event
+      event:
+        triggers:
+          - signal: cmd_reset
+            trigger: on_rise
+
+    settle_to_idle:
+      from: Resetting
+      to: Idle
+      type: timed
+      after: 5

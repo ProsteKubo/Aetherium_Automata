@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useMemo } from 'react';
-import { useGatewayStore, useExecutionStore, useUIStore } from '../../stores';
+import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore } from '../../stores';
 import {
   IconDevice,
   IconServer,
@@ -38,12 +38,34 @@ export const DevicesPanel: React.FC = () => {
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const fetchServers = useGatewayStore((state) => state.fetchServers);
   const gatewayService = useGatewayStore((state) => state.service);
+  const activeAutomataId = useAutomataStore((state) => state.activeAutomataId);
+  const automataMap = useAutomataStore((state) => state.automata);
   const deviceExecutions = useExecutionStore((state) => state.deviceExecutions);
+  const startExecution = useExecutionStore((state) => state.startExecution);
+  const stopExecution = useExecutionStore((state) => state.stopExecution);
+  const pauseExecution = useExecutionStore((state) => state.pauseExecution);
+  const resumeExecution = useExecutionStore((state) => state.resumeExecution);
+  const resetExecution = useExecutionStore((state) => state.resetExecution);
+  const fetchSnapshot = useExecutionStore((state) => state.fetchSnapshot);
   const addNotification = useUIStore((state) => state.addNotification);
   
   // Memoize array conversions
   const servers = useMemo(() => Array.from(serversMap.values()), [serversMap]);
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
+  const activeAutomata = activeAutomataId ? automataMap.get(activeAutomataId) : undefined;
+
+  const pickDeployCandidate = (): { id: string; automata: any } | null => {
+    if (activeAutomataId && activeAutomata) {
+      return { id: activeAutomataId, automata: activeAutomata };
+    }
+
+    const first = automataMap.values().next().value;
+    if (first?.id) {
+      return { id: first.id, automata: first };
+    }
+
+    return null;
+  };
   
   const toggleServer = (serverId: string) => {
     setExpandedServers((prev) => {
@@ -79,20 +101,104 @@ export const DevicesPanel: React.FC = () => {
   const getDeviceExecution = (deviceId: string) => {
     return deviceExecutions.get(deviceId);
   };
+
+  const supportsCommand = (deviceId: string, command: string): boolean => {
+    const device = devicesMap.get(deviceId);
+    if (!device?.supportedCommands || device.supportedCommands.length === 0) {
+      return true;
+    }
+    return device.supportedCommands.includes(command);
+  };
+
+  const isDeviceReachable = (status: string): boolean => {
+    return status === 'online' || status === 'connected';
+  };
   
   const handleStartExecution = async (deviceId: string) => {
-    // TODO: Implement start execution
-    addNotification('info', 'Execution', `Starting execution on device ${deviceId}`);
+    try {
+      const device = devicesMap.get(deviceId);
+
+      if (!device?.assignedAutomataId) {
+        const candidate = pickDeployCandidate();
+        if (!candidate) {
+          addNotification('warning', 'Execution', 'No automata available. Create or import one first.');
+          return;
+        }
+
+        await gatewayService.deployAutomata(candidate.id, deviceId, { automata: candidate.automata });
+        addNotification('info', 'Deploy', `Auto-deployed ${candidate.automata?.config?.name ?? candidate.id} to ${deviceId}`);
+      }
+
+      await startExecution(deviceId);
+      addNotification('success', 'Execution', `Started execution on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Execution', err instanceof Error ? err.message : 'Failed to start execution');
+    }
   };
   
   const handleStopExecution = async (deviceId: string) => {
-    // TODO: Implement stop execution
-    addNotification('info', 'Execution', `Stopping execution on device ${deviceId}`);
+    try {
+      await stopExecution(deviceId);
+      addNotification('success', 'Execution', `Stopped execution on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Execution', err instanceof Error ? err.message : 'Failed to stop execution');
+    }
+  };
+
+  const handlePauseExecution = async (deviceId: string) => {
+    try {
+      await pauseExecution(deviceId);
+      addNotification('success', 'Execution', `Paused execution on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Execution', err instanceof Error ? err.message : 'Failed to pause execution');
+    }
+  };
+
+  const handleResumeExecution = async (deviceId: string) => {
+    try {
+      await resumeExecution(deviceId);
+      addNotification('success', 'Execution', `Resumed execution on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Execution', err instanceof Error ? err.message : 'Failed to resume execution');
+    }
+  };
+
+  const handleResetExecution = async (deviceId: string) => {
+    try {
+      await resetExecution(deviceId);
+      addNotification('success', 'Execution', `Reset execution on ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Execution', err instanceof Error ? err.message : 'Failed to reset execution');
+    }
+  };
+
+  const handleSnapshot = async (deviceId: string) => {
+    try {
+      const snapshot = await fetchSnapshot(deviceId);
+      addNotification('info', 'Snapshot', `State: ${snapshot.currentState}`);
+    } catch (err) {
+      addNotification('error', 'Snapshot', err instanceof Error ? err.message : 'Failed to fetch snapshot');
+    }
   };
   
   const handleOTAUpdate = async (deviceId: string) => {
     // TODO: Implement OTA update
     addNotification('info', 'OTA Update', `Initiating OTA update for device ${deviceId}`);
+  };
+
+  const handleDeployActiveAutomata = async (deviceId: string) => {
+    const candidate = pickDeployCandidate();
+    if (!candidate) {
+      addNotification('warning', 'Deploy', 'No automata available. Create or import one first.');
+      return;
+    }
+
+    try {
+      await gatewayService.deployAutomata(candidate.id, deviceId, { automata: candidate.automata });
+      addNotification('success', 'Deploy', `Deployed ${candidate.automata?.config?.name ?? candidate.id} to ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Deploy', err instanceof Error ? err.message : 'Failed to deploy automata');
+    }
   };
 
   const parseJsonOrString = (text: string): unknown => {
@@ -277,6 +383,12 @@ export const DevicesPanel: React.FC = () => {
                     <span className="detail-value">{selectedDevice.currentState}</span>
                   </div>
                 )}
+                {selectedDevice.assignedAutomataId && (
+                  <div className="detail-row">
+                    <span className="detail-label">Automata:</span>
+                    <span className="detail-value">{selectedDevice.assignedAutomataId}</span>
+                  </div>
+                )}
                 {selectedDevice.location && (
                   <div className="detail-row">
                     <span className="detail-label">Location:</span>
@@ -312,6 +424,10 @@ export const DevicesPanel: React.FC = () => {
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleStopExecution(selectedDevice.id)}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'stop_execution')
+                      }
                     >
                       <IconStop size={12} />
                       <span>Stop</span>
@@ -320,20 +436,80 @@ export const DevicesPanel: React.FC = () => {
                     <button
                       className="btn btn-primary btn-sm"
                       onClick={() => handleStartExecution(selectedDevice.id)}
-                      disabled={selectedDevice.status !== 'online'}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'start_execution')
+                      }
                     >
                       <IconPlay size={12} />
                       <span>Start</span>
                     </button>
                   )}
+
+                  {getDeviceExecution(selectedDevice.id)?.isRunning && !getDeviceExecution(selectedDevice.id)?.isPaused && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handlePauseExecution(selectedDevice.id)}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'pause_execution')
+                      }
+                    >
+                      <span>Pause</span>
+                    </button>
+                  )}
+
+                  {getDeviceExecution(selectedDevice.id)?.isPaused && (
+                    <button
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => handleResumeExecution(selectedDevice.id)}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'resume_execution')
+                      }
+                    >
+                      <span>Resume</span>
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleResetExecution(selectedDevice.id)}
+                    disabled={
+                      !isDeviceReachable(selectedDevice.status) ||
+                      !supportsCommand(selectedDevice.id, 'reset_execution')
+                    }
+                  >
+                    <span>Reset</span>
+                  </button>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleSnapshot(selectedDevice.id)}
+                    disabled={
+                      !isDeviceReachable(selectedDevice.status) ||
+                      !supportsCommand(selectedDevice.id, 'request_state')
+                    }
+                  >
+                    <span>Snapshot</span>
+                  </button>
                   
                   <button
                     className="btn btn-secondary btn-sm"
                     onClick={() => handleOTAUpdate(selectedDevice.id)}
-                    disabled={selectedDevice.status !== 'online'}
+                    disabled={!isDeviceReachable(selectedDevice.status)}
                   >
                     <IconUpload size={12} />
                     <span>OTA Update</span>
+                  </button>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleDeployActiveAutomata(selectedDevice.id)}
+                    disabled={!isDeviceReachable(selectedDevice.status) || automataMap.size === 0}
+                    title={automataMap.size > 0 ? `Deploy ${activeAutomata?.config?.name ?? activeAutomataId ?? 'first automata'}` : 'Create or import an automata first'}
+                  >
+                    <span>Deploy Active</span>
                   </button>
                   
                   <button
@@ -367,7 +543,10 @@ export const DevicesPanel: React.FC = () => {
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleSendVariable(selectedDevice.id)}
-                      disabled={selectedDevice.status !== 'online'}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'set_variable')
+                      }
                     >
                       Send
                     </button>
@@ -392,7 +571,10 @@ export const DevicesPanel: React.FC = () => {
                     <button
                       className="btn btn-secondary btn-sm"
                       onClick={() => handleTriggerEvent(selectedDevice.id)}
-                      disabled={selectedDevice.status !== 'online'}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'trigger_event')
+                      }
                     >
                       Send
                     </button>
@@ -410,7 +592,10 @@ export const DevicesPanel: React.FC = () => {
                     <button
                       className="btn btn-danger btn-sm"
                       onClick={() => handleForceTransition(selectedDevice.id)}
-                      disabled={selectedDevice.status !== 'online'}
+                      disabled={
+                        !isDeviceReachable(selectedDevice.status) ||
+                        !supportsCommand(selectedDevice.id, 'force_transition')
+                      }
                     >
                       Force
                     </button>

@@ -1,65 +1,60 @@
 defmodule AetheriumGatewayWeb.AutomataChannel do
   @moduledoc """
   WebSocket channel for automata management operations.
-  Handles CRUD, deployments, connections, and real-time state updates.
   """
   use AetheriumGatewayWeb, :channel
-  require Logger
 
+  alias AetheriumGateway.Auth
   alias AetheriumGateway.AutomataRegistry
+  alias AetheriumGateway.CommandDispatcher
+  alias AetheriumGateway.CommandEnvelope
   alias AetheriumGateway.ConnectionManager
+  alias AetheriumGateway.Persistence
 
-  # ============================================================================
-  # Join
-  # ============================================================================
-
-  @doc """
-  UI joins "automata:control" for automata management.
-  Payload: %{"token" => "dev_secret_token"}
-  """
+  @impl true
   def join("automata:control", payload, socket) do
     token = payload["token"] || socket.assigns[:token]
 
-    if valid_token?(token) do
-      socket = assign(socket, :session_id, generate_session_id())
-      send(self(), :send_initial_state)
-      {:ok, %{status: "connected"}, socket}
-    else
-      {:error, %{reason: "invalid_token"}}
+    case Auth.authorize(:operator, token) do
+      {:ok, claims} ->
+        socket =
+          socket
+          |> assign(:session_id, generate_session_id())
+          |> assign(:auth_claims, claims)
+
+        send(self(), :send_initial_state)
+        {:ok, %{status: "connected"}, socket}
+
+      {:error, reason} ->
+        {:error, %{reason: to_string(reason)}}
     end
   end
 
-  # ============================================================================
-  # Automata CRUD
-  # ============================================================================
-
-  @doc "Create new automata"
+  @impl true
   def handle_in("create_automata", payload, socket) do
-    automata = normalize_automata(payload)
+    with_command("create_automata", payload, socket, fn _envelope ->
+      automata = normalize_automata(payload)
 
-    case AutomataRegistry.register_automata(automata) do
-      :ok ->
-        {:reply, {:ok, %{automata_id: automata.id, status: "created"}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+      case AutomataRegistry.register_automata(automata) do
+        :ok -> {:ok, %{"automata_id" => automata.id, "status" => "created"}}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  @doc "Update existing automata"
+  @impl true
   def handle_in("update_automata", %{"id" => automata_id} = payload, socket) do
-    updates = Map.drop(payload, ["id"])
+    with_command("update_automata", payload, socket, fn _envelope ->
+      updates = Map.drop(payload, ["id"]) |> normalize_updates()
 
-    case AutomataRegistry.update_automata(automata_id, normalize_updates(updates)) do
-      :ok ->
-        {:reply, {:ok, %{status: "updated"}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+      case AutomataRegistry.update_automata(automata_id, updates) do
+        :ok -> {:ok, %{"status" => "updated"}}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  @doc "Get automata by ID"
+  @impl true
   def handle_in("get_automata", %{"id" => automata_id}, socket) do
     case AutomataRegistry.get_automata(automata_id) do
       {:ok, automata} ->
@@ -70,68 +65,170 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     end
   end
 
-  @doc "List all automata"
+  @impl true
   def handle_in("list_automata", _payload, socket) do
     automata = AutomataRegistry.list_automata()
     {:reply, {:ok, %{automata: Enum.map(automata, &serialize_automata/1)}}, socket}
   end
 
-  @doc "Delete automata"
-  def handle_in("delete_automata", %{"id" => automata_id}, socket) do
-    case AutomataRegistry.delete_automata(automata_id) do
-      :ok ->
-        {:reply, {:ok, %{status: "deleted"}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+  @impl true
+  def handle_in("delete_automata", %{"id" => automata_id} = payload, socket) do
+    with_command("delete_automata", payload, socket, fn _envelope ->
+      case AutomataRegistry.delete_automata(automata_id) do
+        :ok -> {:ok, %{"status" => "deleted"}}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  # ============================================================================
-  # Deployment
-  # ============================================================================
-
-  @doc "Deploy automata to device"
-  def handle_in("deploy", %{"automata_id" => automata_id, "device_id" => device_id, "server_id" => server_id}, socket) do
-    case AutomataRegistry.deploy_automata(automata_id, device_id, server_id) do
-      {:ok, deployment} ->
-        {:reply, {:ok, %{deployment: serialize_deployment(deployment)}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+  @impl true
+  def handle_in("deploy", %{"automata_id" => automata_id, "device_id" => device_id, "server_id" => server_id} = payload, socket) do
+    with_command("deploy", payload, socket, fn envelope ->
+      case deploy_with_optional_registration(automata_id, device_id, server_id, payload["automata"], envelope) do
+        {:ok, deployment} -> {:ok, %{"deployment" => serialize_deployment(deployment)}}
+        {:nak, reason, data} -> {:nak, reason, data}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  @doc "Stop automata on device"
-  def handle_in("stop", %{"device_id" => device_id}, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
-      {:ok, deployment} ->
-        # Update status and notify server
-        AutomataRegistry.update_deployment_status(
-          deployment.automata_id,
-          device_id,
-          :stopped,
-          %{}
-        )
-
-        # Server-side control expects deployment_id.
-        notify_server_stop(deployment.server_id, "#{deployment.automata_id}:#{device_id}")
-        {:reply, {:ok, %{status: "stopped"}}, socket}
-
-      {:error, :not_found} ->
-        {:reply, {:error, %{reason: "no_deployment_found"}}, socket}
-    end
+  @impl true
+  def handle_in("stop", %{"device_id" => device_id} = payload, socket) do
+    handle_in("stop_execution", %{"device_id" => device_id} |> Map.merge(payload), socket)
   end
 
-  @doc "List all deployments"
+  @impl true
+  def handle_in("stop_execution", %{"device_id" => device_id} = payload, socket) do
+    with_command("stop_execution", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          AutomataRegistry.update_deployment_status(deployment.automata_id, device_id, :stopped, %{})
+
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "stop_automata", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("start_execution", %{"device_id" => device_id} = payload, socket) do
+    with_command("start_execution", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "start_automata", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("pause_execution", %{"device_id" => device_id} = payload, socket) do
+    with_command("pause_execution", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "pause_automata", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("resume_execution", %{"device_id" => device_id} = payload, socket) do
+    with_command("resume_execution", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "resume_automata", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("reset_execution", %{"device_id" => device_id} = payload, socket) do
+    with_command("reset_execution", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "reset_automata", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("request_state", %{"device_id" => device_id} = payload, socket) do
+    with_command("request_state", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(deployment.server_id, "request_state", command_payload, envelope)
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("step_execution", payload, socket) do
+    with_command("step_execution", payload, socket, fn _envelope ->
+      {:nak, :unsupported_by_engine_protocol, %{}}
+    end)
+  end
+
+  @impl true
   def handle_in("list_deployments", _payload, socket) do
     deployments = AutomataRegistry.list_deployments()
     {:reply, {:ok, %{deployments: Enum.map(deployments, &serialize_deployment/1)}}, socket}
   end
 
-  @doc "Get deployment for device"
+  @impl true
   def handle_in("get_deployment", %{"device_id" => device_id}, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
+    case resolve_device_deployment(device_id, %{}) do
       {:ok, deployment} ->
         {:reply, {:ok, %{deployment: serialize_deployment(deployment)}}, socket}
 
@@ -140,73 +237,64 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     end
   end
 
-  # ============================================================================
-  # Connections (Inter-Automata Bindings)
-  # ============================================================================
-
-  @doc "Create connection between automata I/O"
+  @impl true
   def handle_in("create_connection", payload, socket) do
-    connection = %{
-      id: payload["id"] || generate_id("conn"),
-      source_automata_id: payload["source_automata_id"],
-      source_output: payload["source_output"],
-      target_automata_id: payload["target_automata_id"],
-      target_input: payload["target_input"],
-      binding_type: String.to_atom(payload["binding_type"] || "direct"),
-      transform: payload["transform"]
-    }
+    with_command("create_connection", payload, socket, fn _envelope ->
+      connection = %{
+        source_automata: payload["source_automata_id"],
+        source_output: payload["source_output"],
+        target_automata: payload["target_automata_id"],
+        target_input: payload["target_input"],
+        transform: payload["transform"],
+        enabled: payload["enabled"] != false,
+        binding_type: parse_binding_type(payload["binding_type"])
+      }
 
-    case ConnectionManager.create_connection(connection) do
-      :ok ->
-        {:reply, {:ok, %{connection_id: connection.id, status: "created"}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+      case ConnectionManager.create_connection(connection) do
+        {:ok, created} -> {:ok, %{"connection_id" => created.id, "status" => "created"}}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  @doc "Delete connection"
-  def handle_in("delete_connection", %{"id" => connection_id}, socket) do
-    case ConnectionManager.delete_connection(connection_id) do
-      :ok ->
-        {:reply, {:ok, %{status: "deleted"}}, socket}
-
-      {:error, reason} ->
-        {:reply, {:error, %{reason: to_string(reason)}}, socket}
-    end
+  @impl true
+  def handle_in("delete_connection", %{"id" => connection_id} = payload, socket) do
+    with_command("delete_connection", payload, socket, fn _envelope ->
+      case ConnectionManager.delete_connection(connection_id) do
+        :ok -> {:ok, %{"status" => "deleted"}}
+        {:error, reason} -> {:error, reason, %{}}
+      end
+    end)
   end
 
-  @doc "List all connections"
+  @impl true
   def handle_in("list_connections", _payload, socket) do
     connections = ConnectionManager.list_connections()
     {:reply, {:ok, %{connections: connections}}, socket}
   end
 
-  @doc "Get connections for automata"
+  @impl true
   def handle_in("get_automata_connections", %{"automata_id" => automata_id}, socket) do
     incoming = ConnectionManager.get_incoming_connections(automata_id)
     outgoing = ConnectionManager.get_outgoing_connections(automata_id)
     {:reply, {:ok, %{incoming: incoming, outgoing: outgoing}}, socket}
   end
 
-  # ============================================================================
-  # Variables
-  # ============================================================================
+  @impl true
+  def handle_in("set_variable", %{"device_id" => device_id, "name" => name, "value" => value} = payload, socket) do
+    with_command("set_variable", payload, socket, fn envelope ->
+      case AutomataRegistry.get_device_deployment(device_id) do
+        {:ok, deployment} ->
+          command_payload = %{"device_id" => device_id, "input" => name, "value" => value}
+          dispatch_server_command(deployment.server_id, "set_input", command_payload, envelope)
 
-  @doc "Set variable value on device"
-  def handle_in("set_variable", %{"device_id" => device_id, "name" => name, "value" => value}, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
-      {:ok, deployment} ->
-        # Forwarded as a set_input command by the gateway->server bridge.
-        notify_server_set_variable(deployment.server_id, device_id, name, value)
-        {:reply, {:ok, %{status: "sent"}}, socket}
-
-      {:error, :not_found} ->
-        {:reply, {:error, %{reason: "no_deployment_found"}}, socket}
-    end
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
   end
 
-  @doc "Get current variable values"
+  @impl true
   def handle_in("get_variables", %{"device_id" => device_id}, socket) do
     case AutomataRegistry.get_device_deployment(device_id) do
       {:ok, deployment} ->
@@ -217,78 +305,166 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     end
   end
 
-  # ============================================================================
-  # Transition Statistics
-  # ============================================================================
-
-  @doc "Get transition history for device"
+  @impl true
   def handle_in("get_transition_history", %{"device_id" => device_id} = payload, socket) do
-    limit = payload["limit"] || 100
+    limit = payload["limit"] |> to_int(100)
     history = AutomataRegistry.get_transition_history(device_id, limit)
     {:reply, {:ok, %{history: history}}, socket}
   end
 
-  @doc "Get probabilistic transition statistics"
+  @impl true
   def handle_in("get_transition_stats", %{"automata_id" => automata_id, "from_state" => from_state}, socket) do
     stats = AutomataRegistry.get_transition_stats(automata_id, from_state)
     {:reply, {:ok, %{stats: stats}}, socket}
   end
 
-  # ============================================================================
-  # Trigger Events
-  # ============================================================================
-
-  @doc "Send event trigger to device"
+  @impl true
   def handle_in("trigger_event", %{"device_id" => device_id, "event" => event} = payload, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
-      {:ok, deployment} ->
-        notify_server_trigger_event(deployment.server_id, device_id, event, payload["data"])
-        {:reply, {:ok, %{status: "sent"}}, socket}
+    with_command("trigger_event", payload, socket, fn envelope ->
+      case AutomataRegistry.get_device_deployment(device_id) do
+        {:ok, deployment} ->
+          command_payload = %{"device_id" => device_id, "event" => event, "data" => payload["data"]}
+          dispatch_server_command(deployment.server_id, "trigger_event", command_payload, envelope)
 
-      {:error, :not_found} ->
-        {:reply, {:error, %{reason: "no_deployment_found"}}, socket}
-    end
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
   end
 
-  @doc "Force state transition (for debugging)"
-  def handle_in("force_transition", %{"device_id" => device_id, "to_state" => to_state}, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
-      {:ok, deployment} ->
-        notify_server_force_transition(deployment.server_id, device_id, to_state)
-        {:reply, {:ok, %{status: "sent"}}, socket}
+  @impl true
+  def handle_in("force_transition", %{"device_id" => device_id, "to_state" => to_state} = payload, socket) do
+    with_command("force_transition", payload, socket, fn envelope ->
+      case AutomataRegistry.get_device_deployment(device_id) do
+        {:ok, deployment} ->
+          command_payload = %{"device_id" => device_id, "state_id" => to_state}
+          dispatch_server_command(deployment.server_id, "force_state", command_payload, envelope)
 
-      {:error, :not_found} ->
-        {:reply, {:error, %{reason: "no_deployment_found"}}, socket}
-    end
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
   end
-
-  # ============================================================================
-  # Handle Info
-  # ============================================================================
 
   @impl true
   def handle_info(:send_initial_state, socket) do
-    # Send current automata list
     automata = AutomataRegistry.list_automata()
     push(socket, "automata_list", %{automata: Enum.map(automata, &serialize_automata/1)})
 
-    # Send current deployments
     deployments = AutomataRegistry.list_deployments()
     push(socket, "deployment_list", %{deployments: Enum.map(deployments, &serialize_deployment/1)})
 
-    # Send connections
     connections = ConnectionManager.list_connections()
     push(socket, "connection_list", %{connections: connections})
 
     {:noreply, socket}
   end
 
-  # ============================================================================
-  # Private Functions
-  # ============================================================================
+  defp with_command(command_type, payload, socket, fun) do
+    actor = actor_for_socket(socket)
 
-  defp valid_token?(token) do
-    token == "dev_secret_token"
+    case CommandEnvelope.from_payload(command_type, payload, actor) do
+      {:ok, envelope} ->
+        dedupe_key = CommandEnvelope.dedupe_key(envelope)
+
+        case Persistence.fetch_command(dedupe_key) do
+          {:ok, cached} ->
+            replay = cached |> stringify_keys() |> Map.put("replayed", true)
+            {:reply, {:ok, replay}, socket}
+
+          :not_found ->
+            {reply_kind, response} = execute_command_fun(envelope, fun)
+            Persistence.record_command(dedupe_key, response)
+            Persistence.append_event(%{kind: "gateway_command", source: "automata_channel", data: response})
+
+            case reply_kind do
+              :ok -> {:reply, {:ok, response}, socket}
+              :error -> {:reply, {:error, response}, socket}
+            end
+        end
+
+      {:error, reason} ->
+        {:reply, {:error, %{status: "ERROR", reason: format_reason(reason)}}, socket}
+    end
+  end
+
+  defp execute_command_fun(envelope, fun) do
+    case fun.(envelope) do
+      {:ok, data} ->
+        response = %{
+          "status" => "ACK",
+          "result" => stringify_keys(data),
+          "outcome" => CommandEnvelope.outcome(envelope, "ACK", data)
+        }
+
+        {:ok, response}
+
+      {:nak, reason, data} ->
+        response = %{
+          "status" => "NAK",
+          "reason" => format_reason(reason),
+          "result" => stringify_keys(data),
+          "outcome" => CommandEnvelope.outcome(envelope, "NAK", %{"reason" => format_reason(reason)})
+        }
+
+        {:ok, response}
+
+      {:error, reason, data} ->
+        response = %{
+          "status" => "ERROR",
+          "reason" => format_reason(reason),
+          "result" => stringify_keys(data),
+          "outcome" => CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
+        }
+
+        {:error, response}
+
+      {:error, reason} ->
+        response = %{
+          "status" => "ERROR",
+          "reason" => format_reason(reason),
+          "result" => %{},
+          "outcome" => CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
+        }
+
+        {:error, response}
+    end
+  end
+
+  defp dispatch_server_command(server_id, event, payload, envelope)
+       when is_binary(server_id) and is_binary(event) and is_map(payload) and is_map(envelope) do
+    CommandDispatcher.dispatch(server_id, event, payload, envelope)
+    {:ok, %{"status" => "sent"}}
+  end
+
+  defp dispatch_server_command(_server_id, _event, _payload, _envelope) do
+    {:nak, :server_not_found, %{}}
+  end
+
+  defp resolve_device_deployment(device_id, payload) do
+    opts =
+      []
+      |> maybe_put_opt(:automata_id, payload["automata_id"])
+      |> maybe_put_opt(:server_id, payload["server_id"])
+
+    AutomataRegistry.get_device_deployment(device_id, opts)
+  end
+
+  defp maybe_put_opt(opts, _key, nil), do: opts
+  defp maybe_put_opt(opts, _key, ""), do: opts
+  defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp deployment_id_for(deployment) do
+    "#{deployment.automata_id}:#{deployment.device_id}"
+  end
+
+  defp actor_for_socket(socket) do
+    %{
+      "role" => "operator",
+      "session_id" => socket.assigns[:session_id] || "unknown",
+      "source" => "automata_channel",
+      "claims" => stringify_keys(socket.assigns[:auth_claims] || %{})
+    }
   end
 
   defp generate_session_id do
@@ -313,17 +489,85 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     }
   end
 
+  defp deploy_with_optional_registration(automata_id, device_id, server_id, automata_payload, envelope) do
+    with {:ok, automata} <- ensure_automata_available(automata_id, automata_payload),
+         {:ok, deployment} <- AutomataRegistry.deploy_automata(automata_id, device_id, server_id, dispatch: false),
+         {:ok, _response} <-
+           dispatch_server_command(
+             server_id,
+             "deploy_automata",
+             %{
+               "automata_id" => automata_id,
+               "device_id" => device_id,
+               "automata" => automata
+             },
+             envelope
+           ) do
+      {:ok, deployment}
+    else
+      {:nak, reason, data} -> {:nak, reason, data}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp ensure_automata_available(automata_id, automata_payload) do
+    case AutomataRegistry.get_automata(automata_id) do
+      {:ok, automata} -> {:ok, automata}
+      {:error, :not_found} -> register_automata_from_payload(automata_id, automata_payload)
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  defp register_automata_from_payload(_automata_id, nil), do: {:error, :automata_not_found}
+
+  defp register_automata_from_payload(automata_id, automata_payload) when is_map(automata_payload) do
+    normalized =
+      automata_payload
+      |> to_gateway_automata(automata_id)
+      |> normalize_automata()
+
+    case AutomataRegistry.register_automata(normalized) do
+      :ok ->
+        {:ok, normalized}
+
+      {:error, :already_exists} ->
+        {:ok, normalized}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp register_automata_from_payload(_automata_id, _payload), do: {:error, :invalid_automata_payload}
+
+  defp to_gateway_automata(payload, automata_id) when is_map(payload) do
+    cfg = payload["config"] || %{}
+
+    %{
+      "id" => payload["id"] || automata_id,
+      "name" => payload["name"] || cfg["name"] || automata_id,
+      "description" => payload["description"] || cfg["description"],
+      "version" => payload["version"] || cfg["version"] || "1.0.0",
+      "states" => payload["states"] || %{},
+      "transitions" => payload["transitions"] || %{},
+      "variables" => payload["variables"] || [],
+      "inputs" => payload["inputs"] || [],
+      "outputs" => payload["outputs"] || []
+    }
+  end
+
   defp normalize_states(states) when is_map(states) do
     states
     |> Enum.map(fn {id, state} ->
-      {id, %{
-        id: id,
-        name: state["name"] || id,
-        type: String.to_atom(state["type"] || "normal"),
-        on_enter: state["on_enter"],
-        on_exit: state["on_exit"],
-        on_tick: state["on_tick"]
-      }}
+      {id,
+       %{
+         id: id,
+         name: state["name"] || id,
+         type: parse_state_type(state["type"]),
+         on_enter: state["on_enter"],
+         on_exit: state["on_exit"],
+         on_tick: state["on_tick"]
+       }}
     end)
     |> Enum.into(%{})
   end
@@ -331,17 +575,18 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   defp normalize_transitions(transitions) when is_map(transitions) do
     transitions
     |> Enum.map(fn {id, trans} ->
-      {id, %{
-        id: id,
-        from: trans["from"],
-        to: trans["to"],
-        type: String.to_atom(trans["type"] || "classic"),
-        condition: trans["condition"],
-        priority: trans["priority"] || 0,
-        weight: trans["weight"],
-        timed: normalize_timed_config(trans["timed"]),
-        event: normalize_event_config(trans["event"])
-      }}
+      {id,
+       %{
+         id: id,
+         from: trans["from"],
+         to: trans["to"],
+         type: parse_transition_type(trans["type"]),
+         condition: trans["condition"],
+         priority: to_int(trans["priority"], 0),
+         weight: trans["weight"],
+         timed: normalize_timed_config(trans["timed"]),
+         event: normalize_event_config(trans["event"])
+       }}
     end)
     |> Enum.into(%{})
   end
@@ -352,96 +597,153 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
         id: var["id"] || generate_id("var"),
         name: var["name"],
         type: var["type"] || "int",
-        direction: String.to_atom(var["direction"] || "internal"),
+        direction: parse_direction(var["direction"]),
         default: var["default"]
       }
     end)
   end
 
   defp normalize_timed_config(nil), do: nil
+
   defp normalize_timed_config(config) do
     %{
-      mode: String.to_atom(config["mode"] || "after"),
-      delay_ms: config["delay_ms"] || config["delayMs"] || 0,
-      jitter_ms: config["jitter_ms"] || config["jitterMs"]
+      mode: parse_timed_mode(config["mode"]),
+      delay_ms: to_int(config["delay_ms"] || config["delayMs"], 0),
+      jitter_ms: to_int(config["jitter_ms"] || config["jitterMs"], 0)
     }
   end
 
   defp normalize_event_config(nil), do: nil
+
   defp normalize_event_config(config) do
     %{
       triggers: config["triggers"] || [],
       require_all: config["require_all"] || config["requireAll"] || false,
-      debounce_ms: config["debounce_ms"] || config["debounceMs"]
+      debounce_ms: to_int(config["debounce_ms"] || config["debounceMs"], 0)
     }
   end
 
   defp normalize_updates(updates) do
     updates
-    |> Enum.map(fn
-      {"states", states} -> {:states, normalize_states(states)}
-      {"transitions", trans} -> {:transitions, normalize_transitions(trans)}
-      {"variables", vars} -> {:variables, normalize_variables(vars)}
-      {key, value} -> {String.to_existing_atom(key), value}
+    |> Enum.reduce(%{}, fn
+      {"states", states}, acc -> Map.put(acc, :states, normalize_states(states))
+      {"transitions", transitions}, acc -> Map.put(acc, :transitions, normalize_transitions(transitions))
+      {"variables", vars}, acc -> Map.put(acc, :variables, normalize_variables(vars))
+      {"name", value}, acc -> Map.put(acc, :name, value)
+      {"description", value}, acc -> Map.put(acc, :description, value)
+      {"version", value}, acc -> Map.put(acc, :version, value)
+      {"inputs", value}, acc -> Map.put(acc, :inputs, value)
+      {"outputs", value}, acc -> Map.put(acc, :outputs, value)
+      {_key, _value}, acc -> acc
     end)
-    |> Enum.into(%{})
   end
 
   defp serialize_automata(automata) do
     %{
-      id: automata.id,
-      name: automata.name,
-      description: automata.description,
-      version: automata.version,
-      states: automata.states,
-      transitions: automata.transitions,
-      variables: automata.variables,
-      inputs: automata.inputs,
-      outputs: automata.outputs,
-      created_at: automata[:created_at],
-      updated_at: automata[:updated_at]
+      id: field(automata, :id),
+      name: field(automata, :name),
+      description: field(automata, :description),
+      version: field(automata, :version, "1.0.0"),
+      states: field(automata, :states, %{}),
+      transitions: field(automata, :transitions, %{}),
+      variables: field(automata, :variables, []),
+      inputs: field(automata, :inputs, []),
+      outputs: field(automata, :outputs, []),
+      created_at: field(automata, :created_at),
+      updated_at: field(automata, :updated_at)
     }
   end
 
   defp serialize_deployment(deployment) do
     %{
-      automata_id: deployment.automata_id,
-      device_id: deployment.device_id,
-      server_id: deployment.server_id,
-      status: deployment.status,
-      deployed_at: deployment.deployed_at,
-      current_state: deployment.current_state,
-      variables: deployment.variables,
-      error: deployment.error
+      automata_id: field(deployment, :automata_id),
+      device_id: field(deployment, :device_id),
+      server_id: field(deployment, :server_id),
+      status: field(deployment, :status),
+      deployed_at: field(deployment, :deployed_at),
+      current_state: field(deployment, :current_state),
+      variables: field(deployment, :variables, %{}),
+      error: field(deployment, :error)
     }
   end
 
-  # Server notification helpers
-  defp notify_server_stop(server_id, device_id) do
-    case AetheriumGateway.ServerTracker.get_server_pid(server_id) do
-      {:ok, pid} -> send(pid, {:stop_automata, device_id})
-      _ -> :ok
+  defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do
+    Map.get(data, key, Map.get(data, Atom.to_string(key), default))
+  end
+
+  defp parse_binding_type("direct"), do: :direct
+  defp parse_binding_type("transform"), do: :transform
+  defp parse_binding_type(:direct), do: :direct
+  defp parse_binding_type(:transform), do: :transform
+  defp parse_binding_type(_), do: :direct
+
+  defp parse_state_type("initial"), do: :initial
+  defp parse_state_type("final"), do: :final
+  defp parse_state_type("normal"), do: :normal
+  defp parse_state_type(:initial), do: :initial
+  defp parse_state_type(:final), do: :final
+  defp parse_state_type(:normal), do: :normal
+  defp parse_state_type(_), do: :normal
+
+  defp parse_transition_type("classic"), do: :classic
+  defp parse_transition_type("timed"), do: :timed
+  defp parse_transition_type("event"), do: :event
+  defp parse_transition_type("probabilistic"), do: :probabilistic
+  defp parse_transition_type("immediate"), do: :immediate
+  defp parse_transition_type(:classic), do: :classic
+  defp parse_transition_type(:timed), do: :timed
+  defp parse_transition_type(:event), do: :event
+  defp parse_transition_type(:probabilistic), do: :probabilistic
+  defp parse_transition_type(:immediate), do: :immediate
+  defp parse_transition_type(_), do: :classic
+
+  defp parse_direction("input"), do: :input
+  defp parse_direction("output"), do: :output
+  defp parse_direction("internal"), do: :internal
+  defp parse_direction(:input), do: :input
+  defp parse_direction(:output), do: :output
+  defp parse_direction(:internal), do: :internal
+  defp parse_direction(_), do: :internal
+
+  defp parse_timed_mode("after"), do: :after
+  defp parse_timed_mode("at"), do: :at
+  defp parse_timed_mode("every"), do: :every
+  defp parse_timed_mode("timeout"), do: :timeout
+  defp parse_timed_mode("window"), do: :window
+  defp parse_timed_mode(:after), do: :after
+  defp parse_timed_mode(:at), do: :at
+  defp parse_timed_mode(:every), do: :every
+  defp parse_timed_mode(:timeout), do: :timeout
+  defp parse_timed_mode(:window), do: :window
+  defp parse_timed_mode(_), do: :after
+
+  defp to_int(value, _default) when is_integer(value), do: value
+
+  defp to_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} -> n
+      _ -> default
     end
   end
 
-  defp notify_server_set_variable(server_id, device_id, name, value) do
-    case AetheriumGateway.ServerTracker.get_server_pid(server_id) do
-      {:ok, pid} -> send(pid, {:set_variable, device_id, name, value})
-      _ -> :ok
-    end
+  defp to_int(_, default), do: default
+
+  defp stringify_keys(%_{} = struct), do: struct
+
+  defp stringify_keys(map) when is_map(map) do
+    map
+    |> Enum.map(fn
+      {k, v} when is_atom(k) -> {Atom.to_string(k), stringify_keys(v)}
+      {k, v} when is_binary(k) -> {k, stringify_keys(v)}
+      {k, v} -> {to_string(k), stringify_keys(v)}
+    end)
+    |> Enum.into(%{})
   end
 
-  defp notify_server_trigger_event(server_id, device_id, event, data) do
-    case AetheriumGateway.ServerTracker.get_server_pid(server_id) do
-      {:ok, pid} -> send(pid, {:trigger_event, device_id, event, data})
-      _ -> :ok
-    end
-  end
+  defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
+  defp stringify_keys(other), do: other
 
-  defp notify_server_force_transition(server_id, device_id, to_state) do
-    case AetheriumGateway.ServerTracker.get_server_pid(server_id) do
-      {:ok, pid} -> send(pid, {:force_transition, device_id, to_state})
-      _ -> :ok
-    end
-  end
+  defp format_reason(reason) when is_atom(reason), do: Atom.to_string(reason)
+  defp format_reason(reason) when is_binary(reason), do: reason
+  defp format_reason(reason), do: inspect(reason)
 end

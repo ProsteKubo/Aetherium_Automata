@@ -1,0 +1,49 @@
+version: "0.0.1"
+
+config:
+  name: "Timeout Versus Classic"
+  type: inline
+  description: "Timeout transition should not preempt an immediately-true classic transition"
+  tags: [timeout, fallback, priority]
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+    FastPath: {}
+    SlowPath: {}
+    Done: {}
+
+  transitions:
+    idle_to_fast:
+      from: Idle
+      to: FastPath
+      type: classic
+      priority: 0
+      condition: "true"
+
+    idle_timeout_fallback:
+      from: Idle
+      to: SlowPath
+      type: timed
+      priority: 0
+      timed:
+        mode: timeout
+        delay_ms: 2s
+
+    fast_to_done:
+      from: FastPath
+      to: Done
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1s
+
+    slow_to_done:
+      from: SlowPath
+      to: Done
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1s

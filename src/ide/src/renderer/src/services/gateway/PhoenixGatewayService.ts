@@ -27,10 +27,12 @@ import type {
   DeployResponse,
   ExecutionStartResponse,
   ExecutionStopResponse,
+  ExecutionResetResponse,
   ExecutionSnapshotResponse,
   TimeTravelStartResponse,
   TimeTravelNavigateResponse,
   MonitorSubscribeResponse,
+  CommandOutcomeEvent,
 } from '../../types/protocol';
 import type { IGatewayService, GatewayEventHandlers } from './IGatewayService';
 
@@ -91,6 +93,12 @@ interface StateChangedEvent {
   variables?: Record<string, unknown>;
 }
 
+interface PendingCommandOutcome {
+  resolve: (outcome: CommandOutcomeEvent) => void;
+  reject: (error: Error) => void;
+  timer: ReturnType<typeof setTimeout>;
+}
+
 // ============================================================================
 // Phoenix Gateway Service
 // ============================================================================
@@ -109,8 +117,13 @@ export class PhoenixGatewayService implements IGatewayService {
   private alerts: AlertEvent[] = [];
   private devices: Map<string, Device> = new Map();
   private servers: Map<string, Server> = new Map();
+  private pendingCommandOutcomes: Map<string, PendingCommandOutcome> = new Map();
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private reconnectAttempts = 0;
+  private manualDisconnect = false;
 
   private static readonly DEFAULT_SERVER_ID: ServerId = 'default_server' as ServerId;
+  private static readonly RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
 
   private emit<K extends keyof GatewayEventHandlers>(
     event: K,
@@ -123,11 +136,238 @@ export class PhoenixGatewayService implements IGatewayService {
     });
   }
 
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) return;
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private scheduleReconnect(reason: string): void {
+    if (this.manualDisconnect || !this.config || this.reconnectTimer) {
+      return;
+    }
+
+    const idx = Math.min(
+      this.reconnectAttempts,
+      PhoenixGatewayService.RECONNECT_DELAYS_MS.length - 1
+    );
+    const delay = PhoenixGatewayService.RECONNECT_DELAYS_MS[idx];
+    this.reconnectAttempts += 1;
+
+    this.setStatus('connecting', `Reconnecting: ${reason}`);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+
+      if (this.manualDisconnect || !this.config) {
+        return;
+      }
+
+      this.connect(this.config).catch((error) => {
+        console.error('[Gateway] Reconnect attempt failed:', error);
+      });
+    }, delay);
+  }
+
+  private makeId(prefix: string): string {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `${prefix}_${crypto.randomUUID()}`;
+    }
+    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
+  }
+
+  private buildEnvelope(commandType: string, deadlineMs: number): Record<string, any> {
+    const commandId = this.makeId('cmd');
+    return {
+      version: 1,
+      command_id: commandId,
+      correlation_id: this.makeId('corr'),
+      idempotency_key: this.makeId('idem'),
+      issued_at: Date.now(),
+      deadline_ms: deadlineMs,
+      command_type: commandType,
+    };
+  }
+
+  private normalizeCommandOutcome(payload: Record<string, any>): CommandOutcomeEvent {
+    const statusRaw = String(payload.status ?? payload.outcome ?? 'ERROR').toUpperCase();
+    const status = (statusRaw === 'ACK' || statusRaw === 'NAK' ? statusRaw : 'ERROR') as CommandOutcomeEvent['status'];
+    const timestampRaw = payload.timestamp ?? payload.ts;
+    const timestamp =
+      typeof timestampRaw === 'number'
+        ? timestampRaw
+        : typeof timestampRaw === 'string'
+          ? Date.parse(timestampRaw)
+          : Date.now();
+
+    const dataRaw = payload.data ?? payload.result;
+    const data = dataRaw && typeof dataRaw === 'object' ? (dataRaw as Record<string, unknown>) : undefined;
+
+    return {
+      status,
+      command_id: payload.command_id,
+      correlation_id: payload.correlation_id,
+      idempotency_key: payload.idempotency_key,
+      command_type: payload.command_type,
+      reason: payload.reason,
+      data,
+      timestamp: Number.isNaN(timestamp) ? Date.now() : timestamp,
+    };
+  }
+
+  private handleCommandOutcome(payload: Record<string, any>): void {
+    const outcome = this.normalizeCommandOutcome(payload);
+    this.emit('onCommandOutcome', outcome);
+
+    const commandId = outcome.command_id;
+    if (!commandId) return;
+
+    const pending = this.pendingCommandOutcomes.get(commandId);
+    if (!pending) return;
+
+    clearTimeout(pending.timer);
+    this.pendingCommandOutcomes.delete(commandId);
+    pending.resolve(outcome);
+  }
+
+  private awaitCommandOutcome(commandId: string, timeoutMs: number): Promise<CommandOutcomeEvent> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingCommandOutcomes.delete(commandId);
+        reject(new Error(`Command outcome timeout (${commandId})`));
+      }, timeoutMs);
+
+      this.pendingCommandOutcomes.set(commandId, { resolve, reject, timer });
+    });
+  }
+
+  private parseCommandFailure(commandType: string, source: Record<string, any>): Error {
+    const status = String(source.status ?? 'ERROR').toUpperCase();
+    const reason = String(source.reason ?? source.error ?? 'unknown_error');
+    return new Error(`${commandType} ${status}: ${reason}`);
+  }
+
+  private inferVariableType(value: unknown): 'number' | 'string' | 'bool' | 'any' | 'table' {
+    if (typeof value === 'number') return 'number';
+    if (typeof value === 'string') return 'string';
+    if (typeof value === 'boolean') return 'bool';
+    if (value !== null && typeof value === 'object') return 'table';
+    return 'any';
+  }
+
+  private buildSnapshot(deviceId: DeviceId, runtimeState?: Record<string, any>): ExecutionSnapshotResponse['snapshot'] {
+    const now = Date.now();
+    const device = this.devices.get(String(deviceId));
+    const variablesMap = runtimeState?.variables && typeof runtimeState.variables === 'object' ? runtimeState.variables : {};
+
+    const variables = Object.entries(variablesMap).reduce((acc, [name, value]) => {
+      acc[name] = {
+        name,
+        value,
+        type: this.inferVariableType(value),
+        timestamp: now,
+      };
+      return acc;
+    }, {} as ExecutionSnapshotResponse['snapshot']['variables']);
+
+    return {
+      id: `${String(deviceId)}:${now}`,
+      timestamp: now,
+      automataId:
+        (runtimeState?.automata_id as AutomataId | undefined) ??
+        (runtimeState?.automataId as AutomataId | undefined) ??
+        (device?.assignedAutomataId as AutomataId | undefined) ??
+        ('unknown' as AutomataId),
+      deviceId,
+      currentState:
+        String(runtimeState?.current_state ?? runtimeState?.currentState ?? device?.currentState ?? 'unknown'),
+      variables,
+      inputs: {},
+      outputs: {},
+      executionCycle:
+        Number(runtimeState?.execution_cycle ?? runtimeState?.executionCycle ?? runtimeState?.tick ?? 0) || 0,
+    };
+  }
+
+  private async sendAutomataCommandWithOutcome<T = any>(
+    command: string,
+    payload: Record<string, any> = {},
+    timeout: number = 5000
+  ): Promise<{ response: T; outcome: CommandOutcomeEvent }> {
+    const envelope = this.buildEnvelope(command, timeout);
+    const commandPayload = { ...payload, ...envelope };
+    const commandId = envelope.command_id;
+    const outcomePromise = this.awaitCommandOutcome(commandId, timeout);
+
+    try {
+      const response = await this.sendAutomataCommand<T & Record<string, any>>(command, commandPayload, timeout);
+      const responseStatus = String((response as any)?.status ?? '').toUpperCase();
+
+      if ((response as any)?.outcome) {
+        const immediateOutcome = this.normalizeCommandOutcome((response as any).outcome);
+        this.emit('onCommandOutcome', immediateOutcome);
+
+        const pending = this.pendingCommandOutcomes.get(commandId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingCommandOutcomes.delete(commandId);
+        }
+
+        if (immediateOutcome.status !== 'ACK') {
+          throw this.parseCommandFailure(command, immediateOutcome as any);
+        }
+
+        return { response: response as T, outcome: immediateOutcome };
+      }
+
+      if (responseStatus === 'NAK' || responseStatus === 'ERROR') {
+        const immediateOutcome = (response as any)?.outcome
+          ? this.normalizeCommandOutcome((response as any).outcome)
+          : ({
+              status: responseStatus as CommandOutcomeEvent['status'],
+              command_id: commandId,
+              command_type: command,
+              reason: (response as any)?.reason,
+              data: (response as any)?.result,
+              timestamp: Date.now(),
+            } as CommandOutcomeEvent);
+        this.emit('onCommandOutcome', immediateOutcome);
+
+        const pending = this.pendingCommandOutcomes.get(commandId);
+        if (pending) {
+          clearTimeout(pending.timer);
+          this.pendingCommandOutcomes.delete(commandId);
+        }
+        throw this.parseCommandFailure(command, response as any);
+      }
+
+      const outcome = await outcomePromise;
+      if (outcome.status !== 'ACK') {
+        throw this.parseCommandFailure(command, outcome as any);
+      }
+      return { response: response as T, outcome };
+    } catch (error) {
+      const pending = this.pendingCommandOutcomes.get(commandId);
+      if (pending) {
+        clearTimeout(pending.timer);
+        this.pendingCommandOutcomes.delete(commandId);
+      }
+      throw error;
+    }
+  }
+
   private normalizeDevice(raw: DeviceListEvent['devices'][number] | Record<string, any>): Device {
     const id = String((raw as any).id ?? (raw as any).device_id ?? (raw as any).deviceId);
-    const status = ((raw as any).status ?? 'unknown') as Device['status'];
+    const status = this.normalizeDeviceStatus((raw as any).status ?? 'unknown');
 
     const previous = this.devices.get(id);
+    const supportedCommandsRaw =
+      (raw as any).supported_commands ??
+      (raw as any).supportedCommands ??
+      previous?.supportedCommands;
+    const supportedCommands =
+      Array.isArray(supportedCommandsRaw)
+        ? supportedCommandsRaw.map((command) => String(command))
+        : previous?.supportedCommands;
 
     const serverIdFromRaw = (raw as any).server_id ?? (raw as any).serverId ?? previous?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID;
 
@@ -141,6 +381,7 @@ export class PhoenixGatewayService implements IGatewayService {
       capabilities: previous?.capabilities ?? [],
       engineVersion: previous?.engineVersion ?? 'unknown',
       tags: previous?.tags ?? [],
+      ...(supportedCommands ? { supportedCommands } : null),
     };
 
     const lastSeen = (raw as any).last_seen ?? (raw as any).lastSeen ?? previous?.lastSeen;
@@ -154,6 +395,51 @@ export class PhoenixGatewayService implements IGatewayService {
       ...(temperature !== undefined ? { temperature } : null),
       ...(error !== undefined ? { error } : null),
     } as Device;
+  }
+
+  private normalizeDeviceStatus(statusRaw: unknown): Device['status'] {
+    const status = String(statusRaw ?? 'unknown').toLowerCase();
+
+    if (status === 'online' || status === 'connected' || status === 'running') return 'online';
+    if (status === 'offline' || status === 'disconnected' || status === 'stopped') return 'offline';
+    if (status === 'error' || status === 'failed') return 'error';
+    if (status === 'updating') return 'updating';
+
+    return 'unknown';
+  }
+
+  private statusPriority(status: Device['status']): number {
+    switch (status) {
+      case 'online':
+        return 5;
+      case 'updating':
+        return 4;
+      case 'error':
+        return 3;
+      case 'unknown':
+        return 2;
+      case 'offline':
+      default:
+        return 1;
+    }
+  }
+
+  private consolidateDevices(devices: Device[]): Device[] {
+    const bestById = new Map<string, Device>();
+
+    devices.forEach((device) => {
+      const existing = bestById.get(device.id);
+      if (!existing) {
+        bestById.set(device.id, device);
+        return;
+      }
+
+      if (this.statusPriority(device.status) >= this.statusPriority(existing.status)) {
+        bestById.set(device.id, { ...existing, ...device });
+      }
+    });
+
+    return Array.from(bestById.values());
   }
 
   private normalizeServer(raw: Record<string, any>): Server {
@@ -190,11 +476,15 @@ export class PhoenixGatewayService implements IGatewayService {
     if (!config.host || !config.port) {
       throw new Error('Invalid gateway config: host and port are required');
     }
+
+    this.manualDisconnect = false;
+    this.clearReconnectTimer();
     
     // Disconnect existing connection first
-    if (this.socket || this.channel) {
+    if (this.socket || this.channel || this.automataChannel) {
       console.log('[Gateway] Disconnecting existing connection before reconnecting');
       await this.disconnect();
+      this.manualDisconnect = false;
     }
     
     this.config = config;
@@ -223,11 +513,13 @@ export class PhoenixGatewayService implements IGatewayService {
       this.socket.onError((error) => {
         console.error('[Gateway] Socket error:', error);
         this.setStatus('error', 'Socket connection error');
+        this.scheduleReconnect('socket_error');
       });
       
       this.socket.onClose(() => {
         console.log('[Gateway] Socket closed');
         this.setStatus('disconnected');
+        this.scheduleReconnect('socket_closed');
       });
       
       // Connect socket
@@ -239,6 +531,28 @@ export class PhoenixGatewayService implements IGatewayService {
 
       // Join the automata control channel for deploy/runtime control
       this.automataChannel = this.socket.channel('automata:control', { token });
+
+      this.channel.onError(() => {
+        console.error('[Gateway] gateway:control channel error');
+        this.setStatus('error', 'gateway:control channel error');
+        this.scheduleReconnect('gateway_channel_error');
+      });
+
+      this.channel.onClose(() => {
+        console.warn('[Gateway] gateway:control channel closed');
+        this.scheduleReconnect('gateway_channel_closed');
+      });
+
+      this.automataChannel.onError(() => {
+        console.error('[Gateway] automata:control channel error');
+        this.setStatus('error', 'automata:control channel error');
+        this.scheduleReconnect('automata_channel_error');
+      });
+
+      this.automataChannel.onClose(() => {
+        console.warn('[Gateway] automata:control channel closed');
+        this.scheduleReconnect('automata_channel_closed');
+      });
       
       // Set up channel event handlers BEFORE joining
       this.setupChannelHandlers();
@@ -291,6 +605,7 @@ export class PhoenixGatewayService implements IGatewayService {
 
       await Promise.all([joinGateway, joinAutomata]);
 
+      this.reconnectAttempts = 0;
       this.setStatus('connected');
 
       return {
@@ -302,11 +617,16 @@ export class PhoenixGatewayService implements IGatewayService {
     } catch (error) {
       console.error('[Gateway] Connection error:', error);
       this.setStatus('error', error instanceof Error ? error.message : 'Unknown error');
+      this.scheduleReconnect('connect_failed');
       throw error;
     }
   }
   
   async disconnect(): Promise<void> {
+    this.manualDisconnect = true;
+    this.clearReconnectTimer();
+    this.reconnectAttempts = 0;
+
     if (this.channel) {
       this.channel.leave();
       this.channel = null;
@@ -321,6 +641,12 @@ export class PhoenixGatewayService implements IGatewayService {
       this.socket.disconnect();
       this.socket = null;
     }
+
+    this.pendingCommandOutcomes.forEach((pending, commandId) => {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(`Disconnected before command outcome (${commandId})`));
+    });
+    this.pendingCommandOutcomes.clear();
     
     this.setStatus('disconnected');
     this.sessionId = null;
@@ -414,7 +740,7 @@ export class PhoenixGatewayService implements IGatewayService {
     this.channel.on('device_list', (payload: DeviceListEvent) => {
       console.log('[Gateway] Device list update:', payload.devices);
 
-      const normalized = payload.devices.map((d) => this.normalizeDevice(d));
+      const normalized = this.consolidateDevices(payload.devices.map((d) => this.normalizeDevice(d)));
       
       // Collect incoming device IDs
       const incomingIds = new Set(normalized.map(d => d.id));
@@ -590,6 +916,10 @@ export class PhoenixGatewayService implements IGatewayService {
 
     // Also listen on automata:control for deployments/state (some events are broadcast there only)
     if (this.automataChannel) {
+      this.automataChannel.on('command_outcome', (payload: Record<string, any>) => {
+        this.handleCommandOutcome(payload);
+      });
+
       this.automataChannel.on('state_changed', (payload: StateChangedEvent) => {
         const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
         if (!deviceId) return;
@@ -694,7 +1024,7 @@ export class PhoenixGatewayService implements IGatewayService {
   async listDevicesCommand(): Promise<{ devices: Device[] }> {
     const result = await this.sendCommand<{ devices: any[] }>('list_devices', {});
 
-    const normalized = result.devices.map((d) => this.normalizeDevice(d));
+    const normalized = this.consolidateDevices(result.devices.map((d) => this.normalizeDevice(d)));
     
     // Handle device removals: find devices that are no longer reported by the gateway
     const incomingIds = new Set(normalized.map(d => d.id));
@@ -906,12 +1236,17 @@ export class PhoenixGatewayService implements IGatewayService {
   ): Promise<DeployResponse> {
     const device = this.devices.get(_deviceId);
     const serverId = (device?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID) as any;
-
-    await this.sendAutomataCommand('deploy', {
+    const payload: Record<string, any> = {
       automata_id: _automataId,
       device_id: _deviceId,
       server_id: serverId,
-    }, 15_000);
+    };
+
+    if (_options?.automata) {
+      payload.automata = _options.automata;
+    }
+
+    await this.sendAutomataCommandWithOutcome('deploy', payload, 15_000);
 
     if (device) {
       // Create new object to avoid mutating frozen Immer objects
@@ -927,54 +1262,151 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async undeployAutomata(_deviceId: DeviceId): Promise<ExecutionSnapshot | null> {
-    await this.sendAutomataCommand('stop', { device_id: _deviceId }, 10_000);
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'stop_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
     return null;
   }
 
   async setVariable(deviceId: DeviceId, name: string, value: unknown): Promise<{ status: string }> {
-    return await this.sendAutomataCommand<{ status: string }>(
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
       'set_variable',
       { device_id: deviceId, name, value },
       10_000
     );
+    return { status: outcome.status };
   }
 
   async triggerEvent(deviceId: DeviceId, event: string, data?: unknown): Promise<{ status: string }> {
     const payload: Record<string, any> = { device_id: deviceId, event };
     if (data !== undefined) payload.data = data;
-    return await this.sendAutomataCommand<{ status: string }>('trigger_event', payload, 10_000);
+    const { outcome } = await this.sendAutomataCommandWithOutcome('trigger_event', payload, 10_000);
+    return { status: outcome.status };
   }
 
   async forceTransition(deviceId: DeviceId, toState: string): Promise<{ status: string }> {
-    return await this.sendAutomataCommand<{ status: string }>(
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
       'force_transition',
       { device_id: deviceId, to_state: toState },
       10_000
     );
+    return { status: outcome.status };
   }
   
   async startExecution(_deviceId: DeviceId): Promise<ExecutionStartResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'start_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
+    const snapshotResponse = await this.getSnapshot(_deviceId);
+    return { started: true, snapshot: snapshotResponse.snapshot };
   }
   
   async stopExecution(_deviceId: DeviceId): Promise<ExecutionStopResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'stop_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
+    const snapshotResponse = await this.getSnapshot(_deviceId);
+    return { stopped: true, finalSnapshot: snapshotResponse.snapshot };
   }
   
   async pauseExecution(_deviceId: DeviceId): Promise<void> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'pause_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
   }
   
   async resumeExecution(_deviceId: DeviceId): Promise<void> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'resume_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
+  }
+
+  async resetExecution(_deviceId: DeviceId): Promise<ExecutionResetResponse> {
+    const device = this.devices.get(String(_deviceId));
+    await this.sendAutomataCommandWithOutcome(
+      'reset_execution',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
+    const snapshotResponse = await this.getSnapshot(_deviceId);
+    return { reset: true, snapshot: snapshotResponse.snapshot };
   }
   
   async stepExecution(_deviceId: DeviceId, _steps?: number): Promise<ExecutionSnapshot[]> {
-    throw new Error('Not implemented yet - use Mock service');
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'step_execution',
+      { device_id: _deviceId, steps: _steps ?? 1 },
+      10_000
+    );
+
+    const snapshots = (outcome.data?.snapshots as ExecutionSnapshot[] | undefined) ?? [];
+    if (snapshots.length > 0) {
+      return snapshots;
+    }
+
+    const snapshotResponse = await this.getSnapshot(_deviceId);
+    return [snapshotResponse.snapshot];
   }
   
   async getSnapshot(_deviceId: DeviceId): Promise<ExecutionSnapshotResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+    const device = this.devices.get(String(_deviceId));
+    const { response, outcome } = await this.sendAutomataCommandWithOutcome(
+      'request_state',
+      {
+        device_id: _deviceId,
+        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
+        ...(device?.serverId ? { server_id: device.serverId } : {}),
+      },
+      10_000
+    );
+
+    const stateData =
+      (outcome.data?.state as Record<string, any> | undefined) ??
+      ((response as any)?.result?.state as Record<string, any> | undefined) ??
+      ((response as any)?.state as Record<string, any> | undefined);
+
+    return {
+      snapshot: this.buildSnapshot(_deviceId, stateData),
+    };
   }
   
   async startTimeTravel(_deviceId: DeviceId, _options?: any): Promise<TimeTravelStartResponse> {

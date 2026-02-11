@@ -23,7 +23,13 @@ def case_missing_arg_run(binary: Path):
 
 
 def case_mode_network_ok(binary: Path):
-    code, out, err = run([str(binary), "--mode", "network"])  # valid mode value
+    sample = Path("example/automata/automata-yaml-examples/one-state-automata-inline.yaml")
+    code, out, err = run([
+        str(binary),
+        "--mode", "network",
+        "--run", str(sample),
+        "--max-ticks", "5",
+    ])  # valid mode value + bounded run
     assert code == 0, f"--mode network should succeed. code={code} stdout={out} stderr={err}"
 
 
@@ -34,7 +40,7 @@ def case_mode_invalid(binary: Path):
 
 def case_run_valid_file(binary: Path, file: Path):
     assert file.exists(), f"automata file not found: {file}"
-    code, out, err = run([str(binary), "--run", str(file)])
+    code, out, err = run([str(binary), "--run", str(file), "--max-ticks", "100"])
     assert code == 0, f"--run with existing file should succeed. code={code} stdout={out} stderr={err}"
 
 
@@ -98,4 +104,3 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)
-

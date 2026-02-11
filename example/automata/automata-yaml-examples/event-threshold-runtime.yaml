@@ -1,0 +1,104 @@
+version: "0.0.1"
+
+config:
+  name: "Event Threshold Runtime"
+  type: inline
+  description: "Covers event on_rise/on_threshold plus timed timeout watchdog"
+  tags: [event, threshold, watchdog]
+
+variables:
+  - name: cmd_start
+    type: bool
+    direction: input
+    default: false
+
+  - name: cmd_stop
+    type: bool
+    direction: input
+    default: false
+
+  - name: pressure
+    type: int
+    direction: input
+    default: 0
+
+  - name: cycles
+    type: int
+    direction: internal
+    default: 0
+
+  - name: running
+    type: bool
+    direction: output
+    default: false
+
+  - name: overload
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("running", false)
+        setVal("overload", false)
+
+    Active:
+      on_enter: |
+        setVal("running", true)
+        setVal("cycles", value("cycles") + 1)
+
+    Tripped:
+      on_enter: |
+        setVal("running", false)
+        setVal("overload", true)
+
+  transitions:
+    start_event:
+      from: Idle
+      to: Active
+      type: event
+      event:
+        triggers:
+          - signal: cmd_start
+            trigger: on_rise
+
+    stop_event:
+      from: Active
+      to: Idle
+      type: event
+      event:
+        triggers:
+          - signal: cmd_stop
+            trigger: on_rise
+
+    trip_on_pressure:
+      from: Active
+      to: Tripped
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: pressure
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 90
+
+    active_watchdog:
+      from: Active
+      to: Tripped
+      type: timed
+      priority: 1
+      timed:
+        mode: timeout
+        delay_ms: 5s
+
+    recover_to_idle:
+      from: Tripped
+      to: Idle
+      type: classic
+      condition: value("pressure") < 50

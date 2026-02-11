@@ -1,0 +1,218 @@
+elixir-gateway   | ===> Analyzing applications...
+elixir-gateway   | ===> Compiling telemetry
+elixir-gateway   | ===> Analyzing applications...
+elixir-gateway   | ===> Compiling telemetry_poller
+elixir-gateway   | Compiling 1 file (.ex)
+elixir-server-3  | ===> Analyzing applications...
+elixir-server-3  | ===> Compiling ranch
+elixir-server-3  | ===> Analyzing applications...
+elixir-server-3  | ===> Compiling cowlib
+elixir-server-3  | ===> Analyzing applications...
+cpp-device-1     | [WS] Error: Unable to connect to 172.20.0.23 on port 4000, error: Connect error: Connection refused
+cpp-device-1     | Connecting to server: ws://172.20.0.23:4000/socket/device/websocket
+cpp-device-1     | [WS] Connecting to ws://172.20.0.23:4000/socket/device/websocket (will retry)
+cpp-device-1     | Network mode: waiting for load/start commands...
+cpp-device-1     | [WS] Error: Unable to connect to 172.20.0.23 on port 4000, error: Connect error: Connection refused
+elixir-server-3  | ===> Compiling websocket_client
+elixir-server-3  | ===> Analyzing applications...
+elixir-server-3  | ===> Compiling telemetry
+elixir-server-3  | ===> Analyzing applications...
+cpp-device-1     | [WS] Connection opened
+elixir-server-3  | ===> Compiling cowboy
+elixir-server-3  | ==> phoenix_client
+elixir-server-3  |     warning: Logger.warn/1 is deprecated. Use Logger.warning/2 instead
+elixir-server-3  |     │
+elixir-server-3  |  53 │     Logger.warn(fn -> "Unknown message #{inspect(other_msg)}" end)
+elixir-server-3  |     │            ~
+elixir-server-3  |     │
+elixir-server-3  |     └─ (phoenix_client 0.11.1) lib/phoenix_client/transports/websocket.ex:53:12: PhoenixClient.Transports.Websocket.websocket_handle/3
+elixir-server-3  | 
+elixir-server-3  | ==> aetherium_server
+elixir-server-3  | ===> Analyzing applications...
+elixir-server-3  | ===> Compiling cowboy_telemetry
+elixir-server-3  |      warning: clauses with the same name and arity (number of arguments) should be grouped together, "def handle_call/3" was previously defined (lib/aetherium_server/device_manager.ex:210)
+elixir-server-3  |      │
+elixir-server-3  |  333 │   def handle_call({:stop_automata, deployment_id}, _from, state) do
+elixir-server-3  |      │       ~
+elixir-server-3  |      │
+elixir-gateway   |     warning: module attribute @type_binary was set but never used
+elixir-gateway   |     │
+elixir-gateway   |  54 │   @type_binary 0x07
+elixir-gateway   |     │   ~~~~~~~~~~~~~~~~~
+elixir-gateway   |     │
+elixir-server-3  |      └─ lib/aetherium_server/device_manager.ex:333:7
+elixir-server-3  | 
+elixir-server-3  |     warning: module attribute @type_binary was set but never used
+elixir-server-3  |     │
+elixir-server-3  |  44 │   @type_binary 0x07
+elixir-server-3  |     │   ~~~~~~~~~~~~~~~~~
+elixir-server-3  |     │
+elixir-server-3  |     └─ lib/aetherium_server/protocol.ex:44: AetheriumServer.Protocol (module)
+elixir-server-3  | 
+elixir-server-3  | Generated aetherium_server app
+elixir-server-3  |      warning: clauses with the same name and arity (number of arguments) should be grouped together, "def handle_call/3" was previously defined (lib/aetherium_server/device_manager.ex:210)
+elixir-server-3  |      │
+elixir-gateway   |     └─ lib/aetherium_gateway/protocol.ex:54: AetheriumGateway.Protocol (module)
+elixir-server-3  |  333 │   def handle_call({:stop_automata, deployment_id}, _from, state) do
+elixir-server-3  |      │       ~
+elixir-gateway   | 
+elixir-server-3  |      │
+elixir-gateway   | Generated aetherium_gateway app
+elixir-server-3  |      └─ lib/aetherium_server/device_manager.ex:333:7
+elixir-server-3  | 
+elixir-server-3  |     warning: module attribute @type_binary was set but never used
+elixir-server-3  |     │
+elixir-server-3  |  44 │   @type_binary 0x07
+elixir-server-3  |     │   ~~~~~~~~~~~~~~~~~
+elixir-server-3  |     │
+elixir-server-3  |     └─ lib/aetherium_server/protocol.ex:44: AetheriumServer.Protocol (module)
+elixir-server-3  | 
+elixir-server-3  | 
+elixir-gateway   |     warning: module attribute @type_binary was set but never used
+elixir-gateway   |     │
+elixir-server-3  | 17:40:24.010 [info] DeviceManager started
+elixir-server-3  | 
+elixir-server-3  | 17:40:24.018 [info] Starting device WS listener on 0.0.0.0:4000
+elixir-server-3  | 
+elixir-server-3  | 17:40:25.351 [info] Device registered: device_cpp_01 (desktop)
+elixir-server-3  | 
+elixir-server-3  | 17:40:25.354 [debug] WS decode error: :unsupported
+elixir-server-3  | 
+elixir-server-3  | 17:40:26.086 [info] Connected to gateway and joined server:gateway
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.146 [info] Dumped deploy YAML to /tmp/aetherium_deploy_aut_6a500fb1_device_cpp_01.yaml
+elixir-gateway   |  54 │   @type_binary 0x07
+elixir-gateway   |     │   ~~~~~~~~~~~~~~~~~
+elixir-gateway   |     │
+elixir-gateway   |     └─ lib/aetherium_gateway/protocol.ex:54: AetheriumGateway.Protocol (module)
+elixir-gateway   | 
+elixir-gateway   | [info] ConnectionManager started
+elixir-gateway   | [info] Running AetheriumGatewayWeb.Endpoint with Bandit 1.9.0 at 0.0.0.0:4000 (http)
+elixir-server-3  | version: "0.0.1"
+elixir-server-3  | config:
+elixir-server-3  |   name: "test"
+elixir-server-3  |   description: ""
+elixir-server-3  | automata:
+elixir-server-3  |   initial_state: "Initial"
+elixir-gateway   | [info] Access AetheriumGatewayWeb.Endpoint at http://localhost:4000
+elixir-gateway   | [info] CONNECTED TO AetheriumGatewayWeb.UserSocket in 24µs
+elixir-gateway   |   Transport: :websocket
+elixir-gateway   |   Serializer: Phoenix.Socket.V2.JSONSerializer
+elixir-gateway   |   Parameters: %{"server_id" => "svr_03", "token" => "server_secret_token", "vsn" => "2.0.0"}
+elixir-gateway   | [info] Server svr_03 connected
+elixir-gateway   | [info] JOINED server:gateway in 4ms
+elixir-server-3  |   states:
+elixir-gateway   |   Parameters: %{"server_id" => "svr_03", "token" => "server_secret_token"}
+elixir-server-3  |     Initial: {}
+elixir-server-3  |   transitions:
+elixir-server-3  | variables:
+elixir-server-3  |   []
+elixir-server-3  | 
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.146 [info] Deploying automata aut_6a500fb1 to device device_cpp_01
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.150 [info] Automata loaded on device device_cpp_01
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.150 [debug] Device device_cpp_01: Loaded automata: test
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.150 [debug] WS decode error: :unsupported
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.150 [debug] Device device_cpp_01: Started in state: Initial
+elixir-server-3  | 
+elixir-server-3  | 17:40:56.152 [debug] Device device_cpp_01: Reached terminal state: Initial
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 135µs
+elixir-gateway   |   Parameters: %{"devices" => [%{"capabilities" => 7, "connected_at" => 1770486025351, "device_type" => "desktop", "id" => "device_cpp_01", "last_heartbeat" => 1770486025354, "status" => "connected", "supported_commands" => ["deploy", "start_execution", "stop_execution", "pause_execution", "resume_execution", "reset_execution", "set_variable", "request_state"]}]}
+elixir-gateway   | [info] CONNECTED TO AetheriumGatewayWeb.UserSocket in 58µs
+elixir-gateway   |   Transport: :websocket
+elixir-gateway   |   Serializer: Phoenix.Socket.V2.JSONSerializer
+elixir-gateway   |   Parameters: %{"token" => "dev_secret_token", "vsn" => "2.0.0"}
+elixir-gateway   | [info] JOINED gateway:control in 136µs
+elixir-gateway   |   Parameters: %{"token" => "dev_secret_token"}
+elixir-gateway   | [info] JOINED automata:control in 162µs
+elixir-gateway   |   Parameters: %{"token" => "dev_secret_token"}
+elixir-gateway   | [debug] HANDLED list_devices INCOMING ON gateway:control (AetheriumGatewayWeb.GatewayChannel) in 108µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [debug] HANDLED list_devices INCOMING ON gateway:control (AetheriumGatewayWeb.GatewayChannel) in 176µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [debug] HANDLED list_devices INCOMING ON gateway:control (AetheriumGatewayWeb.GatewayChannel) in 88µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 868µs
+elixir-gateway   |   Parameters: %{"devices" => [%{"capabilities" => 7, "connected_at" => 1770486025351, "device_type" => "desktop", "id" => "device_cpp_01", "last_heartbeat" => 1770486025354, "status" => "connected", "supported_commands" => ["deploy", "start_execution", "stop_execution", "pause_execution", "resume_execution", "reset_execution", "set_variable", "request_state"]}]}
+elixir-gateway   | [debug] HANDLED heartbeat INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 16µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [info] Registered automata: test (aut_6a500fb1)
+elixir-gateway   | [info] Deploying automata aut_6a500fb1 to device device_cpp_01 via server svr_03
+elixir-gateway   | [debug] HANDLED deploy INCOMING ON automata:control (AetheriumGatewayWeb.AutomataChannel) in 55ms
+elixir-gateway   |   Parameters: %{"automata" => %{"config" => %{"created" => 1770486051610, "description" => "", "language" => "lua", "modified" => 1770486051610, "name" => "test", "tags" => [], "type" => "inline", "version" => "1.0.0"}, "id" => "aut_6a500fb1", "initialState" => "Initial", "inputs" => [], "isDirty" => true, "nestedAutomataIds" => [], "outputs" => [], "states" => %{"Initial" => %{"code" => "-- Initial state code\n", "hooks" => %{}, "id" => "Initial", "inputs" => [], "isComposite" => false, "name" => "Initial", "outputs" => [], "position" => %{"x" => 160, "y" => 64}, "variables" => []}}, "transitions" => %{}, "version" => "0.0.1"}, "automata_id" => "aut_6a500fb1", "command_id" => "cmd_96f860f8-bf53-4b80-968d-3e5ee76ef71d", "command_type" => "deploy", "correlation_id" => "corr_d95d6a57-be20-46d1-9be6-8a20687f7b7a", "deadline_ms" => 15000, "device_id" => "device_cpp_01", "idempotency_key" => "idem_27122911-2f76-48a5-a1cf-e20c3d863f5e", "issued_at" => 1770486056097, "server_id" => "svr_03", "version" => 1}
+elixir-gateway   | [debug] HANDLED deployment_status INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 50µs
+elixir-gateway   |   Parameters: %{"automata_id" => "aut_6a500fb1", "deployment_id" => "aut_6a500fb1:device_cpp_01", "device_id" => "device_cpp_01", "status" => "loading"}
+elixir-gateway   | [debug] HANDLED command_outcome INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 12ms
+elixir-gateway   |   Parameters: %{"command_id" => "cmd_mRmtuUevMIFkpg", "command_type" => "deploy_automata", "correlation_id" => "corr_ZLKhLpYc0QE_dA", "data" => %{"deployment_id" => "aut_6a500fb1:device_cpp_01"}, "idempotency_key" => "idem_OnuukAaGfAQ2KQ", "status" => "ACK", "timestamp" => 1770486056147}
+elixir-gateway   | [debug] HANDLED deployment_status INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 23µs
+elixir-gateway   |   Parameters: %{"automata_id" => "aut_6a500fb1", "deployment_id" => "aut_6a500fb1:device_cpp_01", "device_id" => "device_cpp_01", "status" => "loading"}
+elixir-gateway   | [debug] HANDLED deployment_status INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 8µs
+elixir-gateway   |   Parameters: %{"automata_id" => "aut_6a500fb1", "deployment_id" => "aut_6a500fb1:device_cpp_01", "device_id" => "device_cpp_01", "status" => "running"}
+elixir-gateway   | [debug] HANDLED deployment_status INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 6µs
+elixir-gateway   |   Parameters: %{"automata_id" => "aut_6a500fb1", "current_state" => "65535", "deployment_id" => "aut_6a500fb1:device_cpp_01", "device_id" => "device_cpp_01", "status" => "running", "variables" => %{}}
+elixir-gateway   | [debug] HANDLED device_log INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 7µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "level" => "debug", "message" => "Loaded automata: test"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 16µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 7, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486056149, "variables" => []}, "timestamp" => 1770486056151, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED deployment_status INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 58µs
+elixir-gateway   |   Parameters: %{"automata_id" => "aut_6a500fb1", "current_state" => "Initial", "deployment_id" => "aut_6a500fb1:device_cpp_01", "device_id" => "device_cpp_01", "status" => "running", "variables" => %{}}
+elixir-gateway   | [debug] HANDLED device_log INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 30µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "level" => "debug", "message" => "Started in state: Initial"}
+elixir-gateway   | [debug] HANDLED device_log INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 8µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "level" => "debug", "message" => "Reached terminal state: Initial"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 181µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 12, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486061149, "variables" => []}, "timestamp" => 1770486061152, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 161µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 13, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486066150, "variables" => []}, "timestamp" => 1770486066153, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 117µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 14, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486071151, "variables" => []}, "timestamp" => 1770486071154, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 90µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 15, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486076152, "variables" => []}, "timestamp" => 1770486076155, "type" => "metrics"}
+elixir-gateway   | [info] CONNECTED TO AetheriumGatewayWeb.UserSocket in 41µs
+elixir-gateway   |   Transport: :websocket
+elixir-gateway   |   Serializer: Phoenix.Socket.V2.JSONSerializer
+elixir-gateway   |   Parameters: %{"server_id" => "svr_01", "token" => "server_secret_token", "vsn" => "2.0.0"}
+elixir-gateway   | [info] Server svr_01 connected
+elixir-gateway   | [info] JOINED server:gateway in 193µs
+elixir-gateway   |   Parameters: %{"server_id" => "svr_01", "token" => "server_secret_token"}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 141µs
+elixir-gateway   |   Parameters: %{"devices" => []}
+elixir-gateway   | [info] CONNECTED TO AetheriumGatewayWeb.UserSocket in 29µs
+elixir-gateway   |   Transport: :websocket
+elixir-gateway   |   Serializer: Phoenix.Socket.V2.JSONSerializer
+elixir-gateway   |   Parameters: %{"server_id" => "svr_02", "token" => "server_secret_token", "vsn" => "2.0.0"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 75µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 16, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486081152, "variables" => []}, "timestamp" => 1770486081155, "type" => "metrics"}
+elixir-gateway   | [info] Server svr_02 connected
+elixir-gateway   | [info] JOINED server:gateway in 249µs
+elixir-gateway   |   Parameters: %{"server_id" => "svr_02", "token" => "server_secret_token"}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 239µs
+elixir-gateway   |   Parameters: %{"devices" => []}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 281µs
+elixir-gateway   |   Parameters: %{"devices" => [%{"capabilities" => 7, "connected_at" => 1770486025351, "device_type" => "desktop", "id" => "device_cpp_01", "last_heartbeat" => 1770486081155, "status" => "connected", "supported_commands" => ["deploy", "start_execution", "stop_execution", "pause_execution", "resume_execution", "reset_execution", "set_variable", "request_state"]}]}
+elixir-gateway   | [debug] HANDLED heartbeat INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 28µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 75µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 17, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486086152, "variables" => []}, "timestamp" => 1770486086155, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 288µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 18, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486091152, "variables" => []}, "timestamp" => 1770486091156, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 51µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 19, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486096153, "variables" => []}, "timestamp" => 1770486096157, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 70µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 20, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486101154, "variables" => []}, "timestamp" => 1770486101158, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 290µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 21, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486106154, "variables" => []}, "timestamp" => 1770486106158, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 602µs
+elixir-gateway   |   Parameters: %{"devices" => []}
+elixir-gateway   | [debug] HANDLED device_update INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 672µs
+elixir-gateway   |   Parameters: %{"devices" => []}
+elixir-gateway   | [debug] HANDLED heartbeat INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 9µs
+elixir-gateway   |   Parameters: %{}
+elixir-gateway   | [debug] HANDLED device_alert INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 71µs
+elixir-gateway   |   Parameters: %{"device_id" => "device_cpp_01", "telemetry" => %{"cpu_usage" => 0.0, "heap_free" => 0, "heap_total" => 0, "message_id" => 22, "run_id" => 1507058220, "source_id" => 4150689053, "tick_rate" => 0, "timestamp" => 1770486111155, "variables" => []}, "timestamp" => 1770486111159, "type" => "metrics"}
+elixir-gateway   | [debug] HANDLED heartbeat INCOMING ON server:gateway (AetheriumGatewayWeb.ServerChannel) in 15µs
+elixir-gateway   |   Parameters: %{}

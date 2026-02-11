@@ -48,6 +48,7 @@ export type MessageType =
   | 'execution.stop'
   | 'execution.pause'
   | 'execution.resume'
+  | 'execution.reset'
   | 'execution.step'
   | 'execution.snapshot'
   
@@ -322,6 +323,11 @@ export interface ExecutionStopResponse {
   finalSnapshot: ExecutionSnapshot;
 }
 
+export interface ExecutionResetResponse {
+  reset: boolean;
+  snapshot: ExecutionSnapshot;
+}
+
 export interface ExecutionStepRequest extends ExecutionControlRequest {
   steps?: number;  // Number of execution cycles to step
 }
@@ -552,6 +558,19 @@ export interface ServerStatusEvent {
   previousStatus: Server['status'];
   currentStatus: Server['status'];
   affectedDevices: DeviceId[];
+}
+
+export type CommandOutcomeStatus = 'ACK' | 'NAK' | 'ERROR';
+
+export interface CommandOutcomeEvent {
+  status: CommandOutcomeStatus;
+  command_id?: string;
+  correlation_id?: string;
+  idempotency_key?: string;
+  command_type?: string;
+  reason?: string;
+  timestamp?: number;
+  data?: Record<string, unknown>;
 }
 
 // ============================================================================

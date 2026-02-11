@@ -48,6 +48,7 @@ interface ExecutionActions {
   stopExecution: (deviceId: DeviceId) => Promise<void>;
   pauseExecution: (deviceId: DeviceId) => Promise<void>;
   resumeExecution: (deviceId: DeviceId) => Promise<void>;
+  resetExecution: (deviceId: DeviceId) => Promise<void>;
   stepExecution: (deviceId: DeviceId, steps?: number) => Promise<void>;
   
   // Snapshot management
@@ -181,6 +182,22 @@ export const useExecutionStore = create<ExecutionStore>()(
         if (execution) {
           execution.isPaused = false;
         }
+      });
+    },
+
+    resetExecution: async (deviceId: DeviceId) => {
+      const gatewayStore = useGatewayStore.getState();
+
+      const response = await gatewayStore.service.resetExecution(deviceId);
+
+      set((state) => {
+        const existing = state.deviceExecutions.get(deviceId);
+        state.deviceExecutions.set(deviceId, {
+          isRunning: existing?.isRunning ?? false,
+          isPaused: false,
+          currentSnapshot: response.snapshot,
+          automataId: response.snapshot.automataId,
+        });
       });
     },
     

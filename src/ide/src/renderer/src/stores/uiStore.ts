@@ -170,6 +170,27 @@ const defaultLayout: LayoutConfig = {
       position: 'right',
       isCollapsed: false,
     },
+    transitions: {
+      id: 'transitions',
+      isVisible: false,
+      size: 320,
+      position: 'right',
+      isCollapsed: true,
+    },
+    variables: {
+      id: 'variables',
+      isVisible: false,
+      size: 320,
+      position: 'right',
+      isCollapsed: true,
+    },
+    connections: {
+      id: 'connections',
+      isVisible: false,
+      size: 320,
+      position: 'right',
+      isCollapsed: true,
+    },
     console: {
       id: 'console',
       isVisible: true,

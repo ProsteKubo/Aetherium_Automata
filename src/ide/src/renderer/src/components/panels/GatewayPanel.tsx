@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useGatewayStore } from '../../stores';
+import { useGatewayStore, useUIStore } from '../../stores';
 import './GatewayPanel.css';
 
 export const GatewayPanel: React.FC = () => {
@@ -30,6 +30,7 @@ export const GatewayPanel: React.FC = () => {
   const disconnect = useGatewayStore((state) => state.disconnect);
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const service = useGatewayStore((state) => state.service);
+  const addNotification = useUIStore((state) => state.addNotification);
   
   // Load saved config on mount
   useEffect(() => {
@@ -96,10 +97,9 @@ export const GatewayPanel: React.FC = () => {
       if ('restartDevice' in service) {
         const result = await (service as any).restartDevice(deviceId);
         console.log('Restart queued:', result);
-        // Show success message
-        alert(`Device restart queued: ${result.status}`);
+        addNotification('success', 'Device Restart', `Device restart queued: ${result.status}`);
       } else {
-        alert('Restart not available with mock service');
+        addNotification('warning', 'Device Restart', 'Restart not available with current service');
       }
     } catch (error) {
       setCommandError(error instanceof Error ? error.message : 'Restart failed');

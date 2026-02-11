@@ -14,12 +14,14 @@ defmodule AetheriumServer.AutomataYaml do
     states = Map.get(automata, :states) || Map.get(automata, "states") || %{}
     transitions = Map.get(automata, :transitions) || Map.get(automata, "transitions") || %{}
     variables = Map.get(automata, :variables) || Map.get(automata, "variables") || []
+    state_lookup = build_state_lookup(states)
 
     state_names = states |> Map.values() |> Enum.map(&to_s(Map.get(&1, :name) || Map.get(&1, "name"))) |> Enum.reject(&(&1 == ""))
-    initial_state = infer_initial_state(states, state_names)
+    initial_ref = Map.get(automata, :initial_state) || Map.get(automata, "initial_state") || Map.get(automata, :initialState) || Map.get(automata, "initialState")
+    initial_state = resolve_state_name(initial_ref, state_lookup) || infer_initial_state(states, state_names)
 
     {states_yaml, state_id_map} = render_states(states)
-    {trans_yaml, transition_id_map} = render_transitions(transitions)
+    {trans_yaml, transition_id_map} = render_transitions(transitions, state_lookup)
     vars_yaml = render_variables(variables)
 
     yaml =
@@ -84,17 +86,20 @@ defmodule AetheriumServer.AutomataYaml do
     {IO.iodata_to_binary(iodata), id_map}
   end
 
-  defp render_transitions(transitions) when transitions == %{}, do: {"", %{}}
+  defp render_transitions(transitions, _state_lookup) when transitions == %{}, do: {"", %{}}
 
-  defp render_transitions(transitions) do
+  defp render_transitions(transitions, state_lookup) do
     ordered =
       transitions
       |> Map.values()
       |> Enum.map(fn t ->
+        from = Map.get(t, :from) || Map.get(t, "from")
+        to = Map.get(t, :to) || Map.get(t, "to")
+
         %{
           name: transition_name(t),
-          from: to_s(Map.get(t, :from) || Map.get(t, "from")),
-          to: to_s(Map.get(t, :to) || Map.get(t, "to")),
+          from: resolve_state_name(from, state_lookup) || to_s(from),
+          to: resolve_state_name(to, state_lookup) || to_s(to),
           type: to_s(Map.get(t, :type) || Map.get(t, "type") || "classic"),
           condition: Map.get(t, :condition) || Map.get(t, "condition"),
           priority: Map.get(t, :priority) || Map.get(t, "priority"),
@@ -165,6 +170,34 @@ defmodule AetheriumServer.AutomataYaml do
     to_s(Map.get(t, :id) || Map.get(t, "id") || Map.get(t, :name) || Map.get(t, "name") || "")
   end
 
+  defp build_state_lookup(states) when is_map(states) do
+    Enum.reduce(states, %{}, fn {key, state}, acc ->
+      key_s = to_s(key)
+      name = to_s(Map.get(state, :name) || Map.get(state, "name"))
+      state_id = to_s(Map.get(state, :id) || Map.get(state, "id"))
+      resolved = if name == "", do: key_s, else: name
+
+      acc
+      |> maybe_put_lookup(key_s, resolved)
+      |> maybe_put_lookup(state_id, resolved)
+      |> maybe_put_lookup(name, resolved)
+    end)
+  end
+
+  defp resolve_state_name(nil, _lookup), do: nil
+
+  defp resolve_state_name(value, lookup) when is_map(lookup) do
+    key = to_s(value)
+
+    cond do
+      key == "" -> nil
+      true -> Map.get(lookup, key, key)
+    end
+  end
+
+  defp maybe_put_lookup(acc, "", _resolved), do: acc
+  defp maybe_put_lookup(acc, key, resolved), do: Map.put(acc, key, resolved)
+
   defp maybe_kv(_k, nil), do: ""
   defp maybe_kv(k, v), do: [k, ": ", q(to_s(v)), "\n"]
 
@@ -181,16 +214,62 @@ defmodule AetheriumServer.AutomataYaml do
 
   defp maybe_timed(nil), do: ""
   defp maybe_timed(map) when is_map(map) do
-    delay = Map.get(map, :delay_ms) || Map.get(map, "delay_ms")
-    jitter = Map.get(map, :jitter_ms) || Map.get(map, "jitter_ms")
-    mode = Map.get(map, :mode) || Map.get(map, "mode")
+    delay =
+      first_present(map, [
+        :delay_ms,
+        "delay_ms",
+        :delayMs,
+        "delayMs",
+        :after,
+        "after"
+      ])
+
+    jitter = first_present(map, [:jitter_ms, "jitter_ms", :jitterMs, "jitterMs"])
+    mode = first_present(map, [:mode, "mode"])
+    repeat_count = first_present(map, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"])
+    window_end = first_present(map, [:window_end_ms, "window_end_ms", :windowEndMs, "windowEndMs"])
+
+    absolute_time =
+      first_present(map, [
+        :absolute_time_ms,
+        "absolute_time_ms",
+        :absoluteTimeMs,
+        "absoluteTimeMs",
+        :absoluteTime,
+        "absoluteTime",
+        :at_ms,
+        "at_ms"
+      ])
+
+    additional_condition =
+      first_present(map, [
+        :additional_condition,
+        "additional_condition",
+        :additionalCondition,
+        "additionalCondition",
+        :condition,
+        "condition"
+      ])
 
     [
       "      timed:\n",
       if(mode, do: ["        mode: ", q(to_s(mode)), "\n"], else: ""),
       if(delay, do: ["        delay_ms: ", q(to_s(delay)), "\n"], else: ""),
-      if(jitter, do: ["        jitter_ms: ", q(to_s(jitter)), "\n"], else: "")
+      if(jitter, do: ["        jitter_ms: ", q(to_s(jitter)), "\n"], else: ""),
+      if(repeat_count, do: ["        repeat_count: ", q(to_s(repeat_count)), "\n"], else: ""),
+      if(window_end, do: ["        window_end_ms: ", q(to_s(window_end)), "\n"], else: ""),
+      if(absolute_time, do: ["        absolute_time_ms: ", q(to_s(absolute_time)), "\n"], else: ""),
+      maybe_code("        condition", additional_condition)
     ]
+  end
+
+  defp first_present(map, keys) when is_map(map) and is_list(keys) do
+    Enum.find_value(keys, fn key ->
+      case Map.fetch(map, key) do
+        {:ok, value} -> value
+        :error -> nil
+      end
+    end)
   end
 
   defp maybe_prob(nil), do: ""
