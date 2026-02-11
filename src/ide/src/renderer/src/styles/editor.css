@@ -285,12 +285,27 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   padding: var(--spacing-2);
+  max-width: calc(100vw - 180px);
+  overflow-x: auto;
 }
 
 .toolbar-divider {
   width: 1px;
   height: 20px;
   background: var(--color-border);
+}
+
+.editor-upload-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
+.editor-device-select {
+  min-width: 240px;
+  height: 30px;
+  padding-top: var(--spacing-1);
+  padding-bottom: var(--spacing-1);
 }
 
 /* Editor info panel */

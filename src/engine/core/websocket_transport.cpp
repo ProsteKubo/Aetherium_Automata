@@ -27,6 +27,7 @@ Result<void> WebSocketTransport::connect() {
     if (state_ == TransportState::Connected) {
         return Result<void>::ok();
     }
+    shuttingDown_ = false;
     
     state_ = TransportState::Connecting;
     notifyStateChange(state_);
@@ -71,7 +72,7 @@ void WebSocketTransport::disconnect() {
     if (state_ == TransportState::Disconnected) {
         return;
     }
-    
+    shuttingDown_ = true;
     ws_.stop();
     state_ = TransportState::Disconnected;
     notifyStateChange(state_);
@@ -89,13 +90,20 @@ void WebSocketTransport::onMessage(const ix::WebSocketMessagePtr& msg) {
             break;
             
         case ix::WebSocketMessageType::Close:
-            std::cout << "[WS] Connection closed: " << msg->closeInfo.reason << std::endl;
+            if (!shuttingDown_) {
+                std::cout << "[WS] Connection closed: " << msg->closeInfo.reason << std::endl;
+            }
             state_ = TransportState::Disconnected;
             notifyStateChange(state_);
             break;
             
         case ix::WebSocketMessageType::Error:
-            std::cerr << "[WS] Error: " << msg->errorInfo.reason << std::endl;
+            if (shuttingDown_) {
+                break;
+            }
+            if (state_ != TransportState::Error) {
+                std::cerr << "[WS] Error: " << msg->errorInfo.reason << std::endl;
+            }
             state_ = TransportState::Error;
             notifyStateChange(state_);
             break;

@@ -6,8 +6,68 @@
 
 #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp>
+#include <algorithm>
+#include <chrono>
+#include <random>
+#include <stdexcept>
 
 namespace aeth {
+
+namespace {
+
+Timestamp nowMs() {
+    const auto now = std::chrono::steady_clock::now().time_since_epoch();
+    return static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+}
+
+Value coerceToType(const sol::object& obj, ValueType type) {
+    switch (type) {
+        case ValueType::Bool:
+            if (obj.is<bool>()) return Value(obj.as<bool>());
+            if (obj.is<int>()) return Value(obj.as<int>() != 0);
+            if (obj.is<double>()) return Value(obj.as<double>() != 0.0);
+            if (obj.is<std::string>()) {
+                const auto s = obj.as<std::string>();
+                return Value(s == "true" || s == "1" || s == "yes");
+            }
+            break;
+        case ValueType::Int32:
+            if (obj.is<int>()) return Value(static_cast<int32_t>(obj.as<int>()));
+            if (obj.is<double>()) return Value(static_cast<int32_t>(obj.as<double>()));
+            if (obj.is<bool>()) return Value(static_cast<int32_t>(obj.as<bool>() ? 1 : 0));
+            if (obj.is<std::string>()) return Value(static_cast<int32_t>(std::stoi(obj.as<std::string>())));
+            break;
+        case ValueType::Int64:
+            if (obj.is<int>()) return Value(static_cast<int64_t>(obj.as<int>()));
+            if (obj.is<double>()) return Value(static_cast<int64_t>(obj.as<double>()));
+            if (obj.is<bool>()) return Value(static_cast<int64_t>(obj.as<bool>() ? 1 : 0));
+            if (obj.is<std::string>()) return Value(static_cast<int64_t>(std::stoll(obj.as<std::string>())));
+            break;
+        case ValueType::Float32:
+            if (obj.is<int>()) return Value(static_cast<float>(obj.as<int>()));
+            if (obj.is<double>()) return Value(static_cast<float>(obj.as<double>()));
+            if (obj.is<bool>()) return Value(obj.as<bool>() ? 1.0f : 0.0f);
+            if (obj.is<std::string>()) return Value(std::stof(obj.as<std::string>()));
+            break;
+        case ValueType::Float64:
+            if (obj.is<int>()) return Value(static_cast<double>(obj.as<int>()));
+            if (obj.is<double>()) return Value(obj.as<double>());
+            if (obj.is<bool>()) return Value(obj.as<bool>() ? 1.0 : 0.0);
+            if (obj.is<std::string>()) return Value(std::stod(obj.as<std::string>()));
+            break;
+        case ValueType::String:
+            if (obj.is<std::string>()) return Value(obj.as<std::string>());
+            if (obj.is<int>()) return Value(std::to_string(obj.as<int>()));
+            if (obj.is<double>()) return Value(std::to_string(obj.as<double>()));
+            if (obj.is<bool>()) return Value(obj.as<bool>() ? "true" : "false");
+            break;
+        default:
+            break;
+    }
+    throw std::runtime_error("Lua value cannot be coerced to required variable type");
+}
+
+} // namespace
 
 LuaScriptEngine::LuaScriptEngine() 
     : lua_(std::make_unique<sol::state>()) {
@@ -33,99 +93,97 @@ Result<void> LuaScriptEngine::initialize(VariableStore* variables) {
 }
 
 void LuaScriptEngine::setupBuiltins() {
-    // log(level, message) - Log a message
-    lua_->set_function("log", [](const std::string& level, const std::string& msg) {
+    // log(level, message)
+    lua_->set_function("log", [this](const std::string& level, const std::string& msg) {
+        if (logHandler_) {
+            logHandler_(level, msg);
+            return;
+        }
         std::printf("[%s] %s\n", level.c_str(), msg.c_str());
     });
-    
-    // value(name) - Get variable value
-    lua_->set_function("value", [this](const std::string& name) -> sol::object {
-        if (!variables_) return sol::make_object(*lua_, sol::lua_nil);
-        
-        auto val = variables_->getValue(name);
-        if (!val) return sol::make_object(*lua_, sol::lua_nil);
-        
-        switch (val->type()) {
-            case ValueType::Bool:
-                return sol::make_object(*lua_, val->get<bool>());
-            case ValueType::Int32:
-                return sol::make_object(*lua_, val->get<int32_t>());
-            case ValueType::Int64:
-                return sol::make_object(*lua_, val->get<int64_t>());
-            case ValueType::Float32:
-                return sol::make_object(*lua_, val->get<float>());
-            case ValueType::Float64:
-                return sol::make_object(*lua_, val->get<double>());
-            case ValueType::String:
-                return sol::make_object(*lua_, val->get<std::string>());
-            default:
-                return sol::make_object(*lua_, sol::lua_nil);
+
+    auto toLuaValue = [this](const Value& val) -> sol::object {
+        switch (val.type()) {
+            case ValueType::Bool: return sol::make_object(*lua_, val.get<bool>());
+            case ValueType::Int32: return sol::make_object(*lua_, val.get<int32_t>());
+            case ValueType::Int64: return sol::make_object(*lua_, val.get<int64_t>());
+            case ValueType::Float32: return sol::make_object(*lua_, val.get<float>());
+            case ValueType::Float64: return sol::make_object(*lua_, val.get<double>());
+            case ValueType::String: return sol::make_object(*lua_, val.get<std::string>());
+            default: return sol::make_object(*lua_, sol::lua_nil);
+        }
+    };
+
+    auto requireVar = [this](const std::string& name) -> Variable* {
+        if (!variables_) {
+            throw std::runtime_error("Variable store unavailable");
+        }
+        auto* var = variables_->getByName(name);
+        if (!var) {
+            throw std::runtime_error("Unknown variable: " + name);
+        }
+        return var;
+    };
+
+    lua_->set_function("check", [requireVar](const std::string& name) -> bool {
+        return requireVar(name)->hasChanged();
+    });
+    lua_->set_function("changed", [requireVar](const std::string& name) -> bool {
+        return requireVar(name)->hasChanged();
+    });
+
+    lua_->set_function("value", [requireVar, toLuaValue](const std::string& name) -> sol::object {
+        return toLuaValue(requireVar(name)->value());
+    });
+
+    lua_->set_function("setVal", [requireVar](const std::string& name, sol::object obj) {
+        auto* var = requireVar(name);
+        if (var->direction() == VariableDirection::Input) {
+            throw std::runtime_error("setVal cannot write input variable: " + name);
+        }
+        auto value = coerceToType(obj, var->type());
+        if (!var->set(std::move(value))) {
+            throw std::runtime_error("setVal rejected write: " + name);
         }
     });
-    
-    // setVal(name, value) - Set variable value
-    lua_->set_function("setVal", [this](const std::string& name, sol::object val) {
-        if (!variables_) return;
-        
-        Value v;
-        if (val.is<bool>()) {
-            v = Value(val.as<bool>());
-        } else if (val.is<int>()) {
-            v = Value(val.as<int32_t>());
-        } else if (val.is<double>()) {
-            v = Value(val.as<double>());
-        } else if (val.is<std::string>()) {
-            v = Value(val.as<std::string>());
-        } else {
-            return;
-        }
-        
-        variables_->setValue(name, std::move(v));
+    lua_->set_function("emit", [this](const std::string& name, sol::object obj) {
+        (*lua_)["setVal"](name, obj);
     });
-    
-    // getInput(name) - Get input value (direct implementation, no nested Lua call)
-    lua_->set_function("getInput", [this](const std::string& name) -> sol::object {
-        if (!variables_) return sol::make_object(*lua_, sol::lua_nil);
-        
-        auto val = variables_->getValue(name);
-        if (!val) return sol::make_object(*lua_, sol::lua_nil);
-        
-        switch (val->type()) {
-            case ValueType::Bool:
-                return sol::make_object(*lua_, val->get<bool>());
-            case ValueType::Int32:
-                return sol::make_object(*lua_, val->get<int32_t>());
-            case ValueType::Int64:
-                return sol::make_object(*lua_, val->get<int64_t>());
-            case ValueType::Float32:
-                return sol::make_object(*lua_, val->get<float>());
-            case ValueType::Float64:
-                return sol::make_object(*lua_, val->get<double>());
-            case ValueType::String:
-                return sol::make_object(*lua_, val->get<std::string>());
-            default:
-                return sol::make_object(*lua_, sol::lua_nil);
-        }
+
+    lua_->set_function("now", []() -> uint64_t {
+        return nowMs();
     });
-    
-    // setOutput(name, value) - Set output value (direct implementation, no nested Lua call)
-    lua_->set_function("setOutput", [this](const std::string& name, sol::object val) {
-        if (!variables_) return;
-        
-        Value v;
-        if (val.is<bool>()) {
-            v = Value(val.as<bool>());
-        } else if (val.is<int>()) {
-            v = Value(val.as<int32_t>());
-        } else if (val.is<double>()) {
-            v = Value(val.as<double>());
-        } else if (val.is<std::string>()) {
-            v = Value(val.as<std::string>());
-        } else {
-            return;
+
+    lua_->set_function("rand", []() -> double {
+        static thread_local std::mt19937_64 generator{std::random_device{}()};
+        static thread_local std::uniform_real_distribution<double> distribution(0.0, 1.0);
+        return distribution(generator);
+    });
+
+    lua_->set_function("clamp", [](double x, double lo, double hi) -> double {
+        if (lo > hi) std::swap(lo, hi);
+        if (x < lo) return lo;
+        if (x > hi) return hi;
+        return x;
+    });
+
+    lua_->set_function("getInput", [this, toLuaValue](const std::string& name) -> sol::object {
+        auto* var = variables_ ? variables_->getByName(name) : nullptr;
+        if (!var || var->direction() != VariableDirection::Input) {
+            throw std::runtime_error("getInput expects known input variable: " + name);
         }
-        
-        variables_->setValue(name, std::move(v));
+        return toLuaValue(var->value());
+    });
+
+    lua_->set_function("setOutput", [requireVar](const std::string& name, sol::object obj) {
+        auto* var = requireVar(name);
+        if (var->direction() != VariableDirection::Output) {
+            throw std::runtime_error("setOutput expects output variable: " + name);
+        }
+        auto value = coerceToType(obj, var->type());
+        if (!var->set(std::move(value))) {
+            throw std::runtime_error("setOutput rejected write: " + name);
+        }
     });
     
     // print override for debugging
@@ -329,6 +387,11 @@ std::string LuaScriptEngine::lastError() const {
 
 void LuaScriptEngine::clearError() {
     lastError_.clear();
+}
+
+void LuaScriptEngine::setLogHandler(std::function<void(const std::string& level,
+                                                       const std::string& message)> handler) {
+    logHandler_ = std::move(handler);
 }
 
 void LuaScriptEngine::collectGarbage() {

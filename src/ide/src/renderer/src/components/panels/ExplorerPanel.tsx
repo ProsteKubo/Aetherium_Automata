@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useGatewayStore, useAutomataStore, useUIStore, useProjectStore } from '../../stores';
+import type { Automata } from '../../types';
 import {
   IconChevronRight,
   IconChevronDown,
@@ -230,11 +231,12 @@ export const ExplorerPanel: React.FC = () => {
   const activeAutomataId = useAutomataStore((state) => state.activeAutomataId);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const createAutomata = useAutomataStore((state) => state.createAutomata);
+  const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
   const fetchAutomata = useAutomataStore((state) => state.fetchAutomata);
   const fetchServers = useGatewayStore((state) => state.fetchServers);
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
-  const connect = useGatewayStore((state) => state.connect);
   const openTab = useUIStore((state) => state.openTab);
+  const addNotification = useUIStore((state) => state.addNotification);
   
   // Project store
   const project = useProjectStore((state) => state.project);
@@ -259,21 +261,12 @@ export const ExplorerPanel: React.FC = () => {
     [automataList]
   );
   
-  // Auto-connect on mount (for demo purposes)
+  // Refresh lists when gateway becomes connected.
   useEffect(() => {
-    if (!isConnected) {
-      connect({
-        host: 'localhost',
-        port: 4000,
-        reconnectInterval: 5000,
-        heartbeatInterval: 30000,
-        timeout: 10000,
-        useTLS: false,
-      }).then(() => {
-        fetchAutomata();
-      });
+    if (isConnected) {
+      void Promise.all([fetchServers(), fetchDevices(), fetchAutomata()]);
     }
-  }, []);
+  }, [isConnected, fetchServers, fetchDevices, fetchAutomata]);
   
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -348,6 +341,80 @@ export const ExplorerPanel: React.FC = () => {
       await Promise.all([fetchServers(), fetchDevices(), fetchAutomata()]);
     }
   };
+
+  const handleImportAutomata = useCallback(async () => {
+    const result = await window.api.automata.loadYaml();
+    if (!result.success || !result.data) {
+      if (result.error && result.error !== 'Cancelled') {
+        addNotification('error', 'Import Failed', result.error);
+      }
+      return;
+    }
+
+    const imported = result.data as Partial<Automata>;
+    const generatedId = `aut_${Math.random().toString(16).slice(2, 10)}`;
+    const automataId = imported.id || generatedId;
+    const automataName = imported.config?.name || `Imported ${automataId}`;
+
+    const normalizedAutomata: Automata = {
+      ...(imported as Automata),
+      id: automataId,
+      version: imported.version || '0.0.1',
+      config: {
+        name: automataName,
+        type: imported.config?.type || 'inline',
+        language: 'lua',
+        description: imported.config?.description || '',
+        tags: imported.config?.tags || [],
+        version: imported.config?.version || '1.0.0',
+        created: imported.config?.created || Date.now(),
+        modified: Date.now(),
+        ...(imported.config?.location ? { location: imported.config.location } : {}),
+      },
+      initialState: imported.initialState || Object.keys(imported.states || {})[0] || 'Initial',
+      states: imported.states || {},
+      transitions: imported.transitions || {},
+      variables: imported.variables || [],
+      inputs: imported.inputs || [],
+      outputs: imported.outputs || [],
+      nestedAutomataIds: imported.nestedAutomataIds || [],
+      isDirty: true,
+      ...(result.filePath ? { filePath: result.filePath } : {}),
+    };
+
+    const nextMap = new Map(automataMap);
+    nextMap.set(normalizedAutomata.id, normalizedAutomata);
+    setAutomataMap(nextMap);
+
+    if (project) {
+      let networkId = project.networks[0]?.id;
+      if (!networkId) {
+        networkId = createNetwork('Default Network');
+      }
+      addAutomataToNetwork(networkId, normalizedAutomata);
+      markDirty();
+    }
+
+    setActiveAutomata(normalizedAutomata.id);
+    openTab({
+      type: 'automata',
+      targetId: normalizedAutomata.id,
+      name: normalizedAutomata.config.name,
+      isDirty: true,
+    });
+
+    addNotification('success', 'Automata Imported', `Imported ${normalizedAutomata.config.name}.`);
+  }, [
+    addNotification,
+    automataMap,
+    setAutomataMap,
+    project,
+    createNetwork,
+    addAutomataToNetwork,
+    markDirty,
+    setActiveAutomata,
+    openTab,
+  ]);
   
   const getDeviceStatus = (status: string): 'online' | 'offline' | 'error' | 'warning' => {
     switch (status) {
@@ -445,6 +512,17 @@ export const ExplorerPanel: React.FC = () => {
               }}
             >
               <IconPlus size={12} />
+            </button>
+            <button
+              className="btn btn-ghost"
+              style={{ height: 20, padding: '0 6px', fontSize: '10px' }}
+              title="Import YAML"
+              onClick={(e) => {
+                e.stopPropagation();
+                void handleImportAutomata();
+              }}
+            >
+              Import
             </button>
             <button
               className="btn btn-ghost btn-icon"

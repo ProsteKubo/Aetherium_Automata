@@ -16,7 +16,6 @@ import type {
   TransitionId,
   VariableSpec,
 } from '../types';
-import { MockGatewayService } from '../services/gateway';
 
 // Lazy getter to avoid circular dependency
 let projectStoreGetter: (() => any) | null = null;
@@ -140,56 +139,33 @@ export const useAutomataStore = create<AutomataStore>()(
     // ========================================================================
     
     fetchAutomata: async () => {
-      // Use MockGatewayService for automata operations since backend doesn't support it yet
-      const mockService = new MockGatewayService();
-      
+      // Local-first by design: editor automata are private draft state until explicit upload/deploy.
       set((state) => {
         state.isLoading = true;
       });
-      
-      try {
-        const response = await mockService.listAutomata();
-        
-        // Load each automata in detail
-        for (const item of response.automata) {
-          const fullResponse = await mockService.getAutomata(item.id);
-          set((state) => {
-            state.automata.set(item.id, fullResponse.automata);
-          });
-        }
-        
-        set((state) => {
-          state.isLoading = false;
-        });
-      } catch (error) {
-        set((state) => {
-          state.isLoading = false;
-        });
-        throw error;
-      }
+
+      set((state) => {
+        state.isLoading = false;
+      });
     },
     
     loadAutomata: async (automataId: AutomataId) => {
-      // Use MockGatewayService for automata operations since backend doesn't support it yet
-      const mockService = new MockGatewayService();
-      
       set((state) => {
         state.isLoading = true;
       });
-      
-      try {
-        const response = await mockService.getAutomata(automataId);
-        
-        set((state) => {
-          state.automata.set(automataId, response.automata);
-          state.isLoading = false;
-        });
-      } catch (error) {
+
+      const existing = get().automata.get(automataId);
+      if (!existing) {
         set((state) => {
           state.isLoading = false;
         });
-        throw error;
+        throw new Error(`Automata not found in local editor state: ${automataId}`);
       }
+
+      set((state) => {
+        state.activeAutomataId = automataId;
+        state.isLoading = false;
+      });
     },
     
     createAutomata: async (name: string, description?: string, parentId?: AutomataId) => {
@@ -228,9 +204,8 @@ export const useAutomataStore = create<AutomataStore>()(
         nestedAutomataIds: [],
       };
       
-      // Use MockGatewayService for automata operations since backend doesn't support it yet
-      const mockService = new MockGatewayService();
-      const created = await mockService.createAutomata(newAutomata);
+      const id = `aut_${uuid().slice(0, 8)}` as AutomataId;
+      const created: Automata = { ...newAutomata, id };
       
       set((state) => {
         state.automata.set(created.id, created);
@@ -302,32 +277,30 @@ export const useAutomataStore = create<AutomataStore>()(
         state.isSaving = true;
       });
       
-      try {
-        // Use MockGatewayService for automata operations since backend doesn't support it yet
-        const mockService = new MockGatewayService();
-        await mockService.updateAutomata(automataId, automata);
-        
-        set((state) => {
-          const a = state.automata.get(automataId);
-          if (a) {
-            a.isDirty = false;
+      set((state) => {
+        const a = state.automata.get(automataId);
+        if (a) {
+          a.isDirty = false;
+          if (a.config) {
+            a.config.modified = Date.now();
           }
-          state.isSaving = false;
-        });
-      } catch (error) {
-        set((state) => {
-          state.isSaving = false;
-        });
-        throw error;
-      }
+        }
+        state.isSaving = false;
+      });
     },
     
     deleteAutomata: async (automataId: AutomataId) => {
-      // Use MockGatewayService for automata operations since backend doesn't support it yet
-      const mockService = new MockGatewayService();
-      await mockService.deleteAutomata(automataId);
-      
       set((state) => {
+        // Remove from parent nested references if present.
+        const toDelete = state.automata.get(automataId);
+        const parentId = toDelete?.parentAutomataId;
+        if (parentId) {
+          const parent = state.automata.get(parentId);
+          if (parent?.nestedAutomataIds) {
+            parent.nestedAutomataIds = parent.nestedAutomataIds.filter((id) => id !== automataId);
+          }
+        }
+
         state.automata.delete(automataId);
         if (state.activeAutomataId === automataId) {
           state.activeAutomataId = null;
@@ -400,7 +373,7 @@ export const useAutomataStore = create<AutomataStore>()(
       // Mark project as dirty
       try {
         // Use projectStoreGetter
-        projectStoreGetter()?.markDirty();
+        projectStoreGetter?.()?.markDirty?.();
       } catch {
         // Project store might not be available
       }
@@ -434,7 +407,7 @@ export const useAutomataStore = create<AutomataStore>()(
       // Mark project as dirty
       try {
         // Use projectStoreGetter
-        projectStoreGetter()?.markDirty();
+        projectStoreGetter?.()?.markDirty?.();
       } catch {
         // Project store might not be available
       }
@@ -466,7 +439,7 @@ export const useAutomataStore = create<AutomataStore>()(
       // Mark project as dirty
       try {
         // Use projectStoreGetter
-        projectStoreGetter()?.markDirty();
+        projectStoreGetter?.()?.markDirty?.();
       } catch {
         // Project store might not be available
       }
@@ -499,7 +472,7 @@ export const useAutomataStore = create<AutomataStore>()(
       // Mark project as dirty
       try {
         // Use projectStoreGetter
-        projectStoreGetter()?.markDirty();
+        projectStoreGetter?.()?.markDirty?.();
       } catch {
         // Project store might not be available
       }
@@ -527,7 +500,7 @@ export const useAutomataStore = create<AutomataStore>()(
       // Mark project as dirty
       try {
         // Use projectStoreGetter
-        projectStoreGetter()?.markDirty();
+        projectStoreGetter?.()?.markDirty?.();
       } catch {
         // Project store might not be available
       }
@@ -772,7 +745,7 @@ export const useAutomataStore = create<AutomataStore>()(
         state.automata = automataMap;
         // Set first automata as active if none is active
         if (!state.activeAutomataId && automataMap.size > 0) {
-          state.activeAutomataId = automataMap.keys().next().value;
+          state.activeAutomataId = automataMap.keys().next().value ?? null;
         }
       });
     },

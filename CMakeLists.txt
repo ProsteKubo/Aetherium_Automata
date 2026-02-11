@@ -9,6 +9,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 
+option(AETHERIUM_BUILD_ENGINE_SMOKE "Build in-process engine command smoke checker target" OFF)
+
 include(FetchContent)
 
 # RapidYAML for YAML parsing
@@ -77,7 +79,12 @@ FetchContent_MakeAvailable(ixwebsocket)
 add_library(aetherium_core STATIC
   src/engine/core/runtime.cpp
   src/engine/core/protocol.cpp
+  src/engine/core/protocol_v2.cpp
   src/engine/core/lua_engine.cpp
+  src/engine/core/telemetry_log_hub.cpp
+  src/engine/core/automata_loader.cpp
+  src/engine/core/command_bus.cpp
+  src/engine/core/engine.cpp
   src/engine/core/websocket_transport.cpp
 )
 
@@ -106,3 +113,24 @@ target_include_directories(aetherium_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
 target_link_libraries(aetherium_engine PRIVATE 
   aetherium_core
 )
+
+# In-process command smoke checker for engine protocol command handling.
+# Disabled by default so production/container builds do not require test sources.
+if(AETHERIUM_BUILD_ENGINE_SMOKE)
+  if(EXISTS "${CMAKE_SOURCE_DIR}/tests/engine_command_smoke.cpp")
+    add_executable(aetherium_engine_command_smoke
+      tests/engine_command_smoke.cpp
+    )
+
+    target_include_directories(aetherium_engine_command_smoke PRIVATE
+      ${CMAKE_SOURCE_DIR}/src
+      ${CMAKE_SOURCE_DIR}/src/engine
+    )
+
+    target_link_libraries(aetherium_engine_command_smoke PRIVATE
+      aetherium_core
+    )
+  else()
+    message(WARNING "AETHERIUM_BUILD_ENGINE_SMOKE=ON but tests/engine_command_smoke.cpp was not found; skipping smoke target.")
+  endif()
+endif()

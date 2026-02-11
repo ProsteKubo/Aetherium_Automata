@@ -19,6 +19,9 @@ services:
       - PHX_HOST=0.0.0.0
       - PHX_PORT=4000
       - SKIP_ASSETS=true
+      - GATEWAY_OPERATOR_TOKEN=dev_secret_token
+      - GATEWAY_SERVER_TOKEN=server_secret_token
+      - GATEWAY_DEVICE_TOKEN=device_secret_token
     command: ["sh", "-c", "mix deps.compile && mix compile && mix phx.server"]
 
   server1:

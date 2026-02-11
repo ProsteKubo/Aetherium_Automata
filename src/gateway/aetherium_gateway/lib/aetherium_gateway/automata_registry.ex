@@ -6,6 +6,9 @@ defmodule AetheriumGateway.AutomataRegistry do
   """
   use GenServer
   require Logger
+  alias AetheriumGateway.Persistence
+  alias AetheriumGateway.CommandEnvelope
+  alias AetheriumGateway.CommandDispatcher
 
   # ============================================================================
   # Types
@@ -65,7 +68,7 @@ defmodule AetheriumGateway.AutomataRegistry do
           automata_id: automata_id(),
           device_id: device_id(),
           server_id: server_id(),
-          status: :pending | :deploying | :running | :stopped | :error,
+          status: :pending | :deploying | :running | :paused | :stopped | :error,
           deployed_at: DateTime.t() | nil,
           current_state: String.t() | nil,
           variables: map(),
@@ -113,7 +116,13 @@ defmodule AetheriumGateway.AutomataRegistry do
   @doc "Deploy automata to a device"
   @spec deploy_automata(automata_id(), device_id(), server_id()) :: {:ok, deployment()} | {:error, term()}
   def deploy_automata(automata_id, device_id, server_id) do
-    GenServer.call(__MODULE__, {:deploy_automata, automata_id, device_id, server_id})
+    deploy_automata(automata_id, device_id, server_id, [])
+  end
+
+  @spec deploy_automata(automata_id(), device_id(), server_id(), keyword()) ::
+          {:ok, deployment()} | {:error, term()}
+  def deploy_automata(automata_id, device_id, server_id, opts) when is_list(opts) do
+    GenServer.call(__MODULE__, {:deploy_automata, automata_id, device_id, server_id, opts})
   end
 
   @doc "Update deployment status"
@@ -129,9 +138,9 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   @doc "Get deployment for a specific device"
-  @spec get_device_deployment(device_id()) :: {:ok, deployment()} | {:error, :not_found}
-  def get_device_deployment(device_id) do
-    GenServer.call(__MODULE__, {:get_device_deployment, device_id})
+  @spec get_device_deployment(device_id(), keyword()) :: {:ok, deployment()} | {:error, :not_found}
+  def get_device_deployment(device_id, opts \\ []) when is_list(opts) do
+    GenServer.call(__MODULE__, {:get_device_deployment, device_id, opts})
   end
 
   @doc "List all active deployments"
@@ -170,7 +179,7 @@ defmodule AetheriumGateway.AutomataRegistry do
 
   @impl true
   def init(_opts) do
-    state = %{
+    default = %{
       # automata_id => automata
       automata: %{},
       # {automata_id, device_id} => deployment
@@ -181,6 +190,7 @@ defmodule AetheriumGateway.AutomataRegistry do
       transition_counts: %{}
     }
 
+    state = Persistence.load_state("automata_registry_state", default)
     {:ok, state}
   end
 
@@ -200,6 +210,8 @@ defmodule AetheriumGateway.AutomataRegistry do
 
       Logger.info("Registered automata: #{automata.name} (#{automata_id})")
       broadcast_automata_update(:registered, automata)
+      persist_state(new_state)
+      append_event("automata_registered", %{automata_id: automata_id, name: automata.name})
 
       {:reply, :ok, new_state}
     end
@@ -221,6 +233,8 @@ defmodule AetheriumGateway.AutomataRegistry do
 
         Logger.info("Updated automata: #{automata_id}")
         broadcast_automata_update(:updated, updated)
+        persist_state(new_state)
+        append_event("automata_updated", %{automata_id: automata_id})
 
         {:reply, :ok, new_state}
     end
@@ -258,12 +272,20 @@ defmodule AetheriumGateway.AutomataRegistry do
         broadcast_automata_update(:deleted, %{id: automata_id})
       end
 
-      {:reply, :ok, %{state | automata: new_automata}}
+      next = %{state | automata: new_automata}
+      persist_state(next)
+      append_event("automata_deleted", %{automata_id: automata_id})
+      {:reply, :ok, next}
     end
   end
 
   @impl true
-  def handle_call({:deploy_automata, automata_id, device_id, server_id}, _from, state) do
+  def handle_call({:deploy_automata, automata_id, device_id, server_id}, from, state) do
+    handle_call({:deploy_automata, automata_id, device_id, server_id, []}, from, state)
+  end
+
+  @impl true
+  def handle_call({:deploy_automata, automata_id, device_id, server_id, opts}, _from, state) do
     case Map.get(state.automata, automata_id) do
       nil ->
         {:reply, {:error, :automata_not_found}, state}
@@ -274,6 +296,8 @@ defmodule AetheriumGateway.AutomataRegistry do
           device_id: device_id,
           server_id: server_id,
           status: :pending,
+          created_at: DateTime.utc_now(),
+          updated_at: DateTime.utc_now(),
           deployed_at: nil,
           current_state: nil,
           variables: initialize_variables(automata.variables),
@@ -285,9 +309,13 @@ defmodule AetheriumGateway.AutomataRegistry do
 
         Logger.info("Deploying automata #{automata_id} to device #{device_id} via server #{server_id}")
         broadcast_deployment_update(deployment)
+        persist_state(new_state)
+        append_event("deployment_requested", %{automata_id: automata_id, device_id: device_id, server_id: server_id})
 
-        # Trigger actual deployment via server
-        send_deployment_to_server(server_id, automata, device_id)
+        if Keyword.get(opts, :dispatch, true) do
+          # Trigger actual deployment via server
+          send_deployment_to_server(server_id, automata, device_id)
+        end
 
         {:reply, {:ok, deployment}, new_state}
     end
@@ -304,12 +332,19 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   @impl true
-  def handle_call({:get_device_deployment, device_id}, _from, state) do
-    deployment =
-      state.deployments
-      |> Enum.find(fn {{_aid, did}, _dep} -> did == device_id end)
+  def handle_call({:get_device_deployment, device_id}, from, state) do
+    handle_call({:get_device_deployment, device_id, []}, from, state)
+  end
 
-    case deployment do
+  @impl true
+  def handle_call({:get_device_deployment, device_id, opts}, _from, state) do
+    candidates =
+      state.deployments
+      |> Enum.filter(fn {{automata_id, did}, dep} ->
+        did == device_id and deployment_matches_opts?(automata_id, dep, opts)
+      end)
+
+    case select_best_deployment(candidates) do
       nil -> {:reply, {:error, :not_found}, state}
       {_key, dep} -> {:reply, {:ok, dep}, state}
     end
@@ -356,11 +391,15 @@ defmodule AetheriumGateway.AutomataRegistry do
           updated =
             deployment
             |> Map.put(:status, status)
+            |> Map.put(:updated_at, DateTime.utc_now())
             |> Map.merge(extras)
             |> maybe_set_deployed_at(status)
 
           broadcast_deployment_update(updated)
-          put_in(state, [:deployments, key], updated)
+          next = put_in(state, [:deployments, key], updated)
+          persist_state(next)
+          append_event("deployment_status", %{automata_id: automata_id, device_id: device_id, status: status, extras: extras})
+          next
       end
 
     {:noreply, new_state}
@@ -381,10 +420,14 @@ defmodule AetheriumGateway.AutomataRegistry do
           updated =
             deployment
             |> Map.put(:current_state, current_state)
+            |> Map.put(:updated_at, DateTime.utc_now())
             |> Map.put(:variables, variables)
 
           broadcast_device_state_update(device_id, current_state, variables)
-          put_in(state, [:deployments, key], updated)
+          next = put_in(state, [:deployments, key], updated)
+          persist_state(next)
+          append_event("device_state", %{device_id: device_id, current_state: current_state})
+          next
       end
 
     {:noreply, new_state}
@@ -424,6 +467,8 @@ defmodule AetheriumGateway.AutomataRegistry do
 
     # Broadcast
     broadcast_transition_event(device_id, from_state, to_state, transition_id, metadata)
+    persist_state(new_state)
+    append_event("transition_recorded", %{device_id: device_id, from: from_state, to: to_state, transition_id: transition_id, metadata: metadata})
 
     {:noreply, new_state}
   end
@@ -448,13 +493,51 @@ defmodule AetheriumGateway.AutomataRegistry do
 
   defp maybe_set_deployed_at(deployment, _status), do: deployment
 
-  defp send_deployment_to_server(server_id, automata, device_id) do
-    case AetheriumGateway.ServerTracker.get_server_pid(server_id) do
-      {:ok, pid} ->
-        send(pid, {:deploy_automata, automata, device_id})
+  defp deployment_matches_opts?(automata_id, deployment, opts) do
+    matches_automata? =
+      case Keyword.get(opts, :automata_id) do
+        nil -> true
+        expected -> expected == automata_id
+      end
 
-      {:error, :not_found} ->
-        Logger.error("Cannot deploy: server #{server_id} not connected")
+    matches_server? =
+      case Keyword.get(opts, :server_id) do
+        nil -> true
+        expected -> expected == deployment.server_id
+      end
+
+    matches_automata? and matches_server?
+  end
+
+  defp select_best_deployment([]), do: nil
+
+  defp select_best_deployment(candidates) do
+    Enum.max_by(candidates, fn {{automata_id, _device_id}, dep} ->
+      {deployment_status_rank(dep.status), deployment_timestamp(dep), automata_id}
+    end)
+  end
+
+  defp deployment_timestamp(dep) do
+    dep.updated_at || dep.deployed_at || dep.created_at || DateTime.from_unix!(0)
+  end
+
+  defp deployment_status_rank(:running), do: 6
+  defp deployment_status_rank(:paused), do: 5
+  defp deployment_status_rank(:deploying), do: 4
+  defp deployment_status_rank(:pending), do: 3
+  defp deployment_status_rank(:stopped), do: 2
+  defp deployment_status_rank(:error), do: 1
+  defp deployment_status_rank(_), do: 0
+
+  defp send_deployment_to_server(server_id, automata, device_id) do
+    payload = %{"automata_id" => automata.id, "device_id" => device_id, "automata" => automata}
+
+    case CommandEnvelope.from_payload("deploy_automata", payload, %{"role" => "system", "source" => "automata_registry"}) do
+      {:ok, envelope} ->
+        CommandDispatcher.dispatch(server_id, "deploy_automata", payload, envelope)
+
+      {:error, reason} ->
+        Logger.error("Cannot dispatch deployment envelope: #{inspect(reason)}")
     end
   end
 
@@ -500,5 +583,13 @@ defmodule AetheriumGateway.AutomataRegistry do
         timestamp: DateTime.utc_now()
       }
     )
+  end
+
+  defp persist_state(state) do
+    Persistence.save_state("automata_registry_state", state)
+  end
+
+  defp append_event(kind, data) do
+    Persistence.append_event(%{kind: kind, source: "automata_registry", data: data})
   end
 end

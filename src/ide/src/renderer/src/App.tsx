@@ -175,6 +175,7 @@ const App: React.FC = () => {
   const [showGatewaySettings, setShowGatewaySettings] = useState(false);
   const connect = useGatewayStore((state) => state.connect);
   const setUseMockService = useGatewayStore((state) => state.setUseMockService);
+  const addNotification = useUIStore((state) => state.addNotification);
   
   // Check if we should show settings on first load
   useEffect(() => {
@@ -187,13 +188,13 @@ const App: React.FC = () => {
   const handleGatewayConnect = async (host: string, port: string) => {
     // Validate inputs
     if (!host || !port) {
-      alert('Please enter both host and port');
+      addNotification('warning', 'Gateway Connection', 'Please enter both host and port');
       return;
     }
     
     const portNum = parseInt(port);
     if (isNaN(portNum) || portNum <= 0 || portNum > 65535) {
-      alert('Please enter a valid port number (1-65535)');
+      addNotification('warning', 'Gateway Connection', 'Please enter a valid port number (1-65535)');
       return;
     }
     
@@ -206,11 +207,12 @@ const App: React.FC = () => {
       });
       localStorage.setItem('gateway_settings_shown', 'true');
       setShowGatewaySettings(false);
+      addNotification('success', 'Gateway Connection', `Connected to ${host}:${portNum}`);
       console.log('[App] Successfully connected to gateway');
     } catch (error) {
       console.error('[App] Failed to connect to gateway:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
-      alert(`Failed to connect to gateway:\n${errorMsg}\n\nPlease check that:\n- Gateway server is running\n- Host and port are correct\n- Network connection is available`);
+      addNotification('error', 'Gateway Connection', `Failed to connect: ${errorMsg}`);
       // Don't close dialog on error - let user try again
     }
   };

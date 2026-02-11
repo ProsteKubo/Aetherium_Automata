@@ -6,23 +6,59 @@ defmodule AetheriumServer.EngineProtocol do
   @magic 0xAE01
   @version 0x01
 
-  @type message_type :: :hello | :hello_ack | :load_automata | :load_ack | :start | :stop | :input | :output | :state_change | :telemetry | :ping | :pong | :error | :debug
+  @type message_type ::
+          :hello
+          | :hello_ack
+          | :discover
+          | :load_automata
+          | :load_ack
+          | :start
+          | :stop
+          | :reset
+          | :status
+          | :pause
+          | :resume
+          | :goodbye
+          | :provision
+          | :input
+          | :output
+          | :variable
+          | :state_change
+          | :telemetry
+          | :transition_fired
+          | :ping
+          | :pong
+          | :error
+          | :debug
+          | :ack
+          | :nak
 
   # MessageType values from C++ `protocol.hpp`
   @mt_hello 0x01
   @mt_hello_ack 0x02
+  @mt_discover 0x03
   @mt_ping 0x04
   @mt_pong 0x05
+  @mt_provision 0x06
+  @mt_goodbye 0x07
   @mt_load_automata 0x40
   @mt_load_ack 0x41
   @mt_start 0x42
   @mt_stop 0x43
+  @mt_reset 0x44
+  @mt_status 0x45
+  @mt_pause 0x46
+  @mt_resume 0x47
   @mt_input 0x80
   @mt_output 0x81
+  @mt_variable 0x82
   @mt_state_change 0x83
   @mt_telemetry 0x84
+  @mt_transition_fired 0x85
   @mt_error 0xE0
   @mt_debug 0xD0
+  @mt_ack 0xF0
+  @mt_nak 0xF1
 
   @vf_void 0
   @vf_bool 1
@@ -74,6 +110,26 @@ defmodule AetheriumServer.EngineProtocol do
     {:ok, frame(@mt_stop, payload)}
   end
 
+  def encode(:reset, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
+    payload = <<message_id::32, 0::32, target_id::32, run_id::32>>
+    {:ok, frame(@mt_reset, payload)}
+  end
+
+  def encode(:status, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
+    payload = <<message_id::32, 0::32, target_id::32, run_id::32, 0::8, 0::16, 0::64, 0::64, 0::64, 0::32>>
+    {:ok, frame(@mt_status, payload)}
+  end
+
+  def encode(:pause, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
+    payload = <<message_id::32, 0::32, target_id::32, run_id::32>>
+    {:ok, frame(@mt_pause, payload)}
+  end
+
+  def encode(:resume, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
+    payload = <<message_id::32, 0::32, target_id::32, run_id::32>>
+    {:ok, frame(@mt_resume, payload)}
+  end
+
   def encode(:input, %{message_id: message_id, target_id: target_id, run_id: run_id, name: name, value: value}) when is_binary(name) do
     var_id = 0
     {value_type, value_bin} = encode_value(value)
@@ -108,6 +164,10 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
+  defp decode_payload(@mt_discover, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+    {:ok, :discover, %{message_id: message_id, source_id: source_id, target_id: target_id}}
+  end
+
   defp decode_payload(@mt_load_ack, <<message_id::32, source_id::32, _target_id::32, run_id::32, success::8, err_len::16, err::binary-size(err_len), warn_count::16, rest::binary>>) do
     {warnings, _} = decode_string_list(rest, warn_count, [])
 
@@ -115,9 +175,32 @@ defmodule AetheriumServer.EngineProtocol do
      %{message_id: message_id, source_id: source_id, run_id: run_id, success: success != 0, error: err, warnings: warnings}}
   end
 
+  defp decode_payload(@mt_goodbye, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+    {:ok, :goodbye, %{message_id: message_id, source_id: source_id, target_id: target_id}}
+  end
+
+  defp decode_payload(@mt_provision, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+    {:ok, :provision, %{message_id: message_id, source_id: source_id, target_id: target_id}}
+  end
+
   defp decode_payload(@mt_state_change, <<message_id::32, source_id::32, _target_id::32, run_id::32, prev::16, new::16, fired::16, ts::64>>) do
     {:ok, :state_change,
      %{message_id: message_id, source_id: source_id, run_id: run_id, previous_state: prev, new_state: new, fired_transition: fired, timestamp: ts}}
+  end
+
+  defp decode_payload(@mt_status, <<message_id::32, source_id::32, _target_id::32, run_id::32, execution_state::8, current_state::16, uptime::64, transition_count::64, tick_count::64, error_count::32>>) do
+    {:ok, :status,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       run_id: run_id,
+       execution_state: execution_state,
+       current_state: current_state,
+       uptime: uptime,
+       transition_count: transition_count,
+       tick_count: tick_count,
+       error_count: error_count
+     }}
   end
 
   defp decode_payload(@mt_output, <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16, name::binary-size(name_len), rest::binary>>) do
@@ -127,6 +210,16 @@ defmodule AetheriumServer.EngineProtocol do
        %{message_id: message_id, source_id: source_id, run_id: run_id, variable_id: var_id, name: name, value: value, timestamp: ts}}
     else
       _ -> {:error, :invalid_output}
+    end
+  end
+
+  defp decode_payload(@mt_variable, <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16, name::binary-size(name_len), rest::binary>>) do
+    with {:ok, value, rest2} <- decode_value(rest),
+         <<ts::64>> <- rest2 do
+      {:ok, :variable,
+       %{message_id: message_id, source_id: source_id, run_id: run_id, variable_id: var_id, name: name, value: value, timestamp: ts}}
+    else
+      _ -> {:error, :invalid_variable}
     end
   end
 
@@ -147,6 +240,17 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
+  defp decode_payload(@mt_transition_fired, <<message_id::32, source_id::32, _target_id::32, run_id::32, transition_id::16, ts::64>>) do
+    {:ok, :transition_fired,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       run_id: run_id,
+       transition_id: transition_id,
+       timestamp: ts
+     }}
+  end
+
   defp decode_payload(@mt_ping, <<message_id::32, source_id::32, target_id::32, ts::64, seq::32>>) do
     {:ok, :ping, %{message_id: message_id, source_id: source_id, target_id: target_id, timestamp: ts, sequence: seq}}
   end
@@ -156,12 +260,49 @@ defmodule AetheriumServer.EngineProtocol do
      %{message_id: message_id, source_id: source_id, target_id: target_id, original_timestamp: orig_ts, response_timestamp: resp_ts, sequence: seq}}
   end
 
-  defp decode_payload(@mt_error, <<message_id::32, source_id::32, _target_id::32, code::16, msg_len::16, msg::binary-size(msg_len), ts::64>>) do
-    {:ok, :error, %{message_id: message_id, source_id: source_id, code: code, message: msg, timestamp: ts}}
+  defp decode_payload(@mt_error, <<message_id::32, source_id::32, _target_id::32, code::16, msg_len::16, msg::binary-size(msg_len), has_run_id::8, rest::binary>>) do
+    with {:ok, run_id, rest2} <- decode_optional_u32(rest, has_run_id),
+         <<has_related::8, rest3::binary>> <- rest2,
+         {:ok, related_message_id, _rest4} <- decode_optional_u32(rest3, has_related) do
+      {:ok, :error,
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         code: code,
+         message: msg,
+         run_id: run_id,
+         related_message_id: related_message_id
+       }}
+    else
+      _ -> {:error, :invalid_error}
+    end
   end
 
   defp decode_payload(@mt_debug, <<message_id::32, source_id::32, _target_id::32, level::8, src_len::16, src::binary-size(src_len), msg_len::16, msg::binary-size(msg_len), ts::64>>) do
     {:ok, :debug, %{message_id: message_id, source_id: source_id, level: level, source: src, message: msg, timestamp: ts}}
+  end
+
+  defp decode_payload(@mt_ack, <<message_id::32, source_id::32, target_id::32, related_message_id::32, info_len::16, info::binary-size(info_len)>>) do
+    {:ok, :ack,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       target_id: target_id,
+       related_message_id: related_message_id,
+       info: info
+     }}
+  end
+
+  defp decode_payload(@mt_nak, <<message_id::32, source_id::32, target_id::32, related_message_id::32, reason_code::16, reason_len::16, reason::binary-size(reason_len)>>) do
+    {:ok, :nak,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       target_id: target_id,
+       related_message_id: related_message_id,
+       reason_code: reason_code,
+       reason: reason
+     }}
   end
 
   defp decode_payload(_type, _payload), do: {:error, :unsupported}
@@ -221,4 +362,8 @@ defmodule AetheriumServer.EngineProtocol do
       {:error, _} -> {Enum.reverse(acc), rest}
     end
   end
+
+  defp decode_optional_u32(rest, 0), do: {:ok, nil, rest}
+  defp decode_optional_u32(<<value::32, rest::binary>>, 1), do: {:ok, value, rest}
+  defp decode_optional_u32(_rest, _flag), do: {:error, :invalid_optional_u32}
 end

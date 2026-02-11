@@ -11,6 +11,8 @@ defmodule AetheriumGateway.Application do
       AetheriumGatewayWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:aetherium_gateway, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: AetheriumGateway.PubSub},
+      AetheriumGateway.Persistence,
+      AetheriumGateway.CommandDispatcher,
       # Core gateway services
       AetheriumGateway.ServerTracker,
       AetheriumGateway.AutomataRegistry,

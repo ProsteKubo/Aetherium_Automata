@@ -30,6 +30,8 @@ public:
     Result<double> evaluateWeight(const CodeBlock& code) override;
     std::string lastError() const override;
     void clearError() override;
+    void setLogHandler(std::function<void(const std::string& level,
+                                          const std::string& message)> handler) override;
     
     /**
      * Run Lua garbage collection to free memory.
@@ -45,6 +47,7 @@ private:
     std::unique_ptr<sol::state> lua_;
     VariableStore* variables_ = nullptr;
     std::string lastError_;
+    std::function<void(const std::string&, const std::string&)> logHandler_;
 };
 
 } // namespace aeth

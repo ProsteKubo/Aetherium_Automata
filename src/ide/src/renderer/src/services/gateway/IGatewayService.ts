@@ -28,6 +28,7 @@ import type {
   DeployResponse,
   ExecutionStartResponse,
   ExecutionStopResponse,
+  ExecutionResetResponse,
   ExecutionSnapshotResponse,
   TimeTravelStartResponse,
   TimeTravelNavigateResponse,
@@ -38,6 +39,7 @@ import type {
   ExecutionTransitionEvent,
   ExecutionErrorEvent,
   ServerStatusEvent,
+  CommandOutcomeEvent,
 } from '../../types/protocol';
 
 // ============================================================================
@@ -52,6 +54,7 @@ export type ExecutionSnapshotEventHandler = (event: ExecutionSnapshotEvent) => v
 export type ExecutionTransitionEventHandler = (event: ExecutionTransitionEvent) => void;
 export type ExecutionErrorEventHandler = (event: ExecutionErrorEvent) => void;
 export type ServerStatusEventHandler = (event: ServerStatusEvent) => void;
+export type CommandOutcomeEventHandler = (event: CommandOutcomeEvent) => void;
 
 export interface GatewayEventHandlers {
   onConnectionChange?: ConnectionEventHandler;
@@ -62,6 +65,7 @@ export interface GatewayEventHandlers {
   onExecutionTransition?: ExecutionTransitionEventHandler;
   onExecutionError?: ExecutionErrorEventHandler;
   onServerStatus?: ServerStatusEventHandler;
+  onCommandOutcome?: CommandOutcomeEventHandler;
 }
 
 // ============================================================================
@@ -102,6 +106,7 @@ export interface IGatewayService {
     persistState?: boolean;
     resetExecution?: boolean;
     enableMonitoring?: boolean;
+    automata?: Automata;
   }): Promise<DeployResponse>;
   undeployAutomata(deviceId: DeviceId): Promise<ExecutionSnapshot | null>;
 
@@ -115,6 +120,7 @@ export interface IGatewayService {
   stopExecution(deviceId: DeviceId): Promise<ExecutionStopResponse>;
   pauseExecution(deviceId: DeviceId): Promise<void>;
   resumeExecution(deviceId: DeviceId): Promise<void>;
+  resetExecution(deviceId: DeviceId): Promise<ExecutionResetResponse>;
   stepExecution(deviceId: DeviceId, steps?: number): Promise<ExecutionSnapshot[]>;
   getSnapshot(deviceId: DeviceId): Promise<ExecutionSnapshotResponse>;
   

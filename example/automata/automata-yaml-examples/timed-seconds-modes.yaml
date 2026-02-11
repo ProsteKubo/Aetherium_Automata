@@ -1,0 +1,105 @@
+version: "0.0.1"
+
+config:
+  name: "Timed Seconds Modes"
+  type: inline
+  description: "Covers after/every/window/timeout with second-based durations"
+  author: "Aetherium Team"
+  tags: [timed, timeout, window, seconds]
+
+variables:
+  - name: pulse_count
+    type: int
+    direction: internal
+    default: 0
+
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: gate_open
+    type: bool
+    direction: input
+    default: true
+
+automata:
+  initial_state: Boot
+
+  states:
+    Boot:
+      on_enter: |
+        log("info", "boot")
+
+    Pulse:
+      on_enter: |
+        log("debug", "pulse")
+
+    WindowEval:
+      on_enter: |
+        log("debug", "window eval")
+
+    Fallback:
+      on_enter: |
+        log("warn", "window timeout fallback")
+
+    Done:
+      on_enter: |
+        setVal("cycle_count", value("cycle_count") + 1)
+        log("info", "done")
+
+  transitions:
+    boot_to_pulse:
+      from: Boot
+      to: Pulse
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1s
+
+    pulse_tick:
+      from: Pulse
+      to: Pulse
+      type: timed
+      priority: 0
+      timed:
+        mode: every
+        delay_ms: 250ms
+        repeat_count: 4
+      body: |
+        setVal("pulse_count", value("pulse_count") + 1)
+
+    pulse_to_window:
+      from: Pulse
+      to: WindowEval
+      type: classic
+      priority: 1
+      condition: value("pulse_count") >= 4
+
+    window_to_done:
+      from: WindowEval
+      to: Done
+      type: timed
+      priority: 0
+      timed:
+        mode: window
+        delay_ms: 1s
+        window_end_ms: 3s
+        condition: value("gate_open") == true
+
+    window_timeout_fallback:
+      from: WindowEval
+      to: Fallback
+      type: timed
+      priority: 1
+      timed:
+        mode: timeout
+        delay_ms: 4s
+
+    fallback_to_done:
+      from: Fallback
+      to: Done
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1s

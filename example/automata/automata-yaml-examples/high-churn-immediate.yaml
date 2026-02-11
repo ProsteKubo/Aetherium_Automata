@@ -1,0 +1,32 @@
+version: "0.0.1"
+
+config:
+  name: "High Churn Immediate"
+  type: inline
+  description: "Stress automata for control-plane preemption under heavy transition churn"
+  tags: [stress, immediate, command-priority]
+
+automata:
+  initial_state: A
+
+  states:
+    A:
+      on_enter: |
+        log("debug", "enter A")
+
+    B:
+      on_enter: |
+        log("debug", "enter B")
+
+  transitions:
+    a_to_b:
+      from: A
+      to: B
+      type: immediate
+      priority: 0
+
+    b_to_a:
+      from: B
+      to: A
+      type: immediate
+      priority: 0

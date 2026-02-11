@@ -1,0 +1,85 @@
+version: "0.0.1"
+
+config:
+  name: "Probabilistic Balance Loop"
+  type: inline
+  description: "Covers weighted branching and deterministic completion criteria"
+  tags: [probabilistic, weighted, loop]
+
+variables:
+  - name: cycle_count
+    type: int
+    direction: internal
+    default: 0
+
+  - name: path
+    type: string
+    direction: output
+    default: none
+
+automata:
+  initial_state: Choose
+
+  states:
+    Choose: {}
+
+    PathA:
+      on_enter: |
+        setVal("path", "A")
+
+    PathB:
+      on_enter: |
+        setVal("path", "B")
+
+    End:
+      on_enter: |
+        setVal("cycle_count", value("cycle_count") + 1)
+
+    Done: {}
+
+  transitions:
+    choose_to_a:
+      from: Choose
+      to: PathA
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 70
+
+    choose_to_b:
+      from: Choose
+      to: PathB
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 30
+
+    a_to_end:
+      from: PathA
+      to: End
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 500ms
+
+    b_to_end:
+      from: PathB
+      to: End
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 500ms
+
+    end_continue:
+      from: End
+      to: Choose
+      type: classic
+      priority: 0
+      condition: value("cycle_count") < 10
+
+    end_done:
+      from: End
+      to: Done
+      type: classic
+      priority: 1
+      condition: value("cycle_count") >= 10

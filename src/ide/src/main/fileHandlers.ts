@@ -8,6 +8,7 @@ import { ipcMain, dialog, BrowserWindow } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
+const jsYaml = require('js-yaml');
 
 // ============================================================================
 // Types (mirrored from renderer for IPC)
@@ -373,68 +374,309 @@ async function loadProject(filePath: string): Promise<LoadResult<Project>> {
 
 /**
  * Convert automata object to YAML string
- * Note: This is a basic implementation - consider using js-yaml for proper YAML
  */
 function automataToYaml(automata: unknown): string {
-  // For now, use JSON with .yaml extension
-  // TODO: Use proper YAML library (js-yaml)
-  const obj = automata as Record<string, unknown>;
-  
-  const yamlLines: string[] = [
-    `version: ${obj.version || '0.0.1'}`,
-    '',
-    'config:',
-    `  name: ${(obj.config as Record<string, unknown>)?.name || 'Unnamed'}`,
-    `  type: ${(obj.config as Record<string, unknown>)?.type || 'inline'}`,
-    `  language: ${(obj.config as Record<string, unknown>)?.language || 'lua'}`,
-    '',
-    'automata:',
-    `  initial_state: ${obj.initialState || 'Initial'}`,
-    '  states:',
-  ];
-  
-  const states = obj.states as Record<string, unknown> || {};
-  for (const [stateId, state] of Object.entries(states)) {
-    const s = state as Record<string, unknown>;
-    yamlLines.push(`    ${stateId}:`);
-    yamlLines.push(`      inputs: ${JSON.stringify(s.inputs || [])}`);
-    yamlLines.push(`      outputs: ${JSON.stringify(s.outputs || [])}`);
-    yamlLines.push(`      variables: ${JSON.stringify(s.variables || [])}`);
-    if (s.code) {
-      yamlLines.push(`      code: |`);
-      const codeLines = String(s.code).split('\n');
-      codeLines.forEach((line) => yamlLines.push(`        ${line}`));
+  const obj = asRecord(automata);
+  const config = asRecord(obj.config);
+  const states = asRecord(obj.states);
+  const transitions = asRecord(obj.transitions);
+
+  const serializedStates = Object.entries(states).reduce<Record<string, unknown>>((acc, [id, rawState]) => {
+    const state = asRecord(rawState);
+    acc[id] = {
+      name: toStringSafe(state.name, id),
+      inputs: asStringArray(state.inputs),
+      outputs: asStringArray(state.outputs),
+      variables: asVariableRefArray(state.variables),
+      code: toStringSafe(state.code, ''),
+      hooks: asRecord(state.hooks),
+    };
+    return acc;
+  }, {});
+
+  const serializedTransitions = Object.entries(transitions).reduce<Record<string, unknown>>((acc, [id, rawTransition]) => {
+    const transition = asRecord(rawTransition);
+    const timed = asRecord(transition.timed);
+    const event = asRecord(transition.event);
+    const entry: Record<string, unknown> = {
+      from: transition.from,
+      to: transition.to,
+      type: transition.type || inferTransitionTypeFromData(transition),
+      condition: transition.condition || '',
+      priority: toNumber(transition.priority, 0),
+      weight: toNumber(transition.weight, 1),
+    };
+
+    if (Object.keys(timed).length > 0) {
+      entry.timed = {
+        mode: timed.mode || 'after',
+        delay_ms: toNumber(timed.delay_ms ?? timed.delayMs, 0),
+        jitter_ms: toNumber(timed.jitter_ms ?? timed.jitterMs, 0),
+      };
     }
-  }
-  
-  yamlLines.push('  transitions:');
-  const transitions = obj.transitions as Record<string, unknown> || {};
-  for (const [transId, trans] of Object.entries(transitions)) {
-    const t = trans as Record<string, unknown>;
-    yamlLines.push(`    ${transId}:`);
-    yamlLines.push(`      from: ${t.from}`);
-    yamlLines.push(`      to: ${t.to}`);
-    if (t.condition) yamlLines.push(`      condition: ${t.condition}`);
-    if (t.body) yamlLines.push(`      body: ${t.body}`);
-    if (t.priority !== undefined) yamlLines.push(`      priority: ${t.priority}`);
-  }
-  
-  return yamlLines.join('\n');
+    if (Object.keys(event).length > 0) {
+      entry.event = {
+        triggers: Array.isArray(event.triggers) ? event.triggers : [],
+        require_all: Boolean(event.require_all ?? event.requireAll),
+        debounce_ms: toNumber(event.debounce_ms ?? event.debounceMs, 0),
+      };
+    }
+
+    acc[id] = entry;
+    return acc;
+  }, {});
+
+  const payload = {
+    version: toStringSafe(obj.version, '0.0.1'),
+    config: {
+      name: toStringSafe(config.name, 'Unnamed'),
+      type: toStringSafe(config.type, 'inline'),
+      language: toStringSafe(config.language, 'lua'),
+      description: toStringSafe(config.description, ''),
+      tags: asStringArray(config.tags),
+      version: toStringSafe(config.version, '1.0.0'),
+    },
+    automata: {
+      initial_state: toStringSafe(obj.initialState, 'Initial'),
+      states: serializedStates,
+      transitions: serializedTransitions,
+    },
+    variables: Array.isArray(obj.variables) ? obj.variables : [],
+  };
+
+  return jsYaml.dump(payload, { noRefs: true, lineWidth: 120, sortKeys: false });
 }
 
 /**
  * Parse YAML string to automata object
- * Note: This is a basic implementation - consider using js-yaml for proper YAML
  */
 function yamlToAutomata(yaml: string): unknown {
-  // For now, try JSON parse first, then basic YAML
+  let parsed: unknown;
+
   try {
-    return JSON.parse(yaml);
+    parsed = JSON.parse(yaml);
   } catch {
-    // Basic YAML parsing would go here
-    // TODO: Use proper YAML library (js-yaml)
-    throw new Error('YAML parsing not fully implemented. Please use JSON format for now.');
+    parsed = jsYaml.load(yaml);
   }
+
+  return normalizeAutomataDocument(parsed);
+}
+
+function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
+  const root = asRecord(input);
+  const config = asRecord(root.config);
+  const automataSection = asRecord(root.automata);
+  const source = Object.keys(automataSection).length > 0 ? automataSection : root;
+
+  const rawStates = asRecord(source.states);
+  const stateRefToId = new Map<string, string>();
+  const states = Object.entries(rawStates).reduce<Record<string, unknown>>((acc, [stateKey, rawState], index) => {
+    const state = asRecord(rawState);
+    const id = toStringSafe(state.id, stateKey || `State_${index + 1}`);
+    const name = toStringSafe(state.name, stateKey || id);
+
+    stateRefToId.set(stateKey, id);
+    stateRefToId.set(name, id);
+    stateRefToId.set(id, id);
+
+    const hooks = asRecord(state.hooks);
+    const legacyHooks = {
+      onEnter: toOptionalString(state.on_enter),
+      onExit: toOptionalString(state.on_exit),
+      onTick: toOptionalString(state.on_tick),
+      onError: toOptionalString(state.on_error),
+    };
+
+    acc[id] = {
+      id,
+      name,
+      inputs: asStringArray(state.inputs),
+      outputs: asStringArray(state.outputs),
+      variables: asVariableRefArray(state.variables),
+      code: toStringSafe(state.code, ''),
+      hooks: {
+        ...hooks,
+        ...(legacyHooks.onEnter ? { onEnter: legacyHooks.onEnter } : {}),
+        ...(legacyHooks.onExit ? { onExit: legacyHooks.onExit } : {}),
+        ...(legacyHooks.onTick ? { onTick: legacyHooks.onTick } : {}),
+        ...(legacyHooks.onError ? { onError: legacyHooks.onError } : {}),
+      },
+      isComposite: Boolean(state.isComposite ?? state.is_composite ?? false),
+      position: {
+        x: toNumber(asRecord(state.position).x, 180 + (index % 4) * 220),
+        y: toNumber(asRecord(state.position).y, 80 + Math.floor(index / 4) * 160),
+      },
+      description: toOptionalString(state.description),
+    };
+
+    return acc;
+  }, {});
+
+  const resolveStateRef = (value: unknown): string => {
+    const key = toStringSafe(value, '');
+    if (!key) return '';
+    return stateRefToId.get(key) || key;
+  };
+
+  const rawTransitions = asRecord(source.transitions);
+  const transitions = Object.entries(rawTransitions).reduce<Record<string, unknown>>((acc, [transitionKey, rawTransition]) => {
+    const transition = asRecord(rawTransition);
+    const id = toStringSafe(transition.id, transitionKey);
+    const from = resolveStateRef(transition.from);
+    const to = resolveStateRef(transition.to);
+    const timed = asRecord(transition.timed);
+    const event = asRecord(transition.event);
+    const probabilistic = asRecord(transition.probabilistic);
+
+    acc[id] = {
+      id,
+      name: toStringSafe(transition.name, id),
+      from,
+      to,
+      type: transition.type || inferTransitionTypeFromData(transition),
+      condition: toStringSafe(transition.condition, ''),
+      body: toStringSafe(transition.body, ''),
+      priority: toNumber(transition.priority, 0),
+      weight: toNumber(transition.weight ?? probabilistic.weight, 1),
+      timed: Object.keys(timed).length > 0
+        ? {
+            mode: toStringSafe(timed.mode, 'after'),
+            delayMs: toNumber(timed.delayMs ?? timed.delay_ms, 0),
+            jitterMs: toNumber(timed.jitterMs ?? timed.jitter_ms, 0),
+            absoluteTime: toOptionalNumber(timed.absoluteTime),
+            repeatCount: toOptionalNumber(timed.repeatCount),
+            windowEndMs: toOptionalNumber(timed.windowEndMs),
+            additionalCondition: toOptionalString(timed.additionalCondition),
+            showCountdown: timed.showCountdown === undefined ? true : Boolean(timed.showCountdown),
+          }
+        : undefined,
+      event: Object.keys(event).length > 0
+        ? {
+            triggers: Array.isArray(event.triggers) ? event.triggers : [],
+            requireAll: Boolean(event.requireAll ?? event.require_all),
+            debounceMs: toNumber(event.debounceMs ?? event.debounce_ms, 0),
+            additionalCondition: toOptionalString(event.additionalCondition),
+          }
+        : undefined,
+      probabilistic: Object.keys(probabilistic).length > 0
+        ? {
+            enabled: true,
+            weight: toNumber(probabilistic.weight, toNumber(transition.weight, 1)),
+            condition: toOptionalString(probabilistic.condition),
+          }
+        : undefined,
+    };
+
+    return acc;
+  }, {});
+
+  const initialStateRaw =
+    source.initial_state ??
+    source.initialState ??
+    root.initial_state ??
+    root.initialState;
+
+  const firstStateId = Object.keys(states)[0] || 'Initial';
+
+  return {
+    id: toStringSafe(root.id, `aut_${Date.now().toString(36)}`),
+    version: toStringSafe(root.version, '0.0.1'),
+    config: {
+      name: toStringSafe(config.name ?? root.name, 'Imported Automata'),
+      type: toStringSafe(config.type, 'inline'),
+      location: toOptionalString(config.location),
+      language: 'lua',
+      description: toOptionalString(config.description ?? root.description),
+      tags: asStringArray(config.tags),
+      version: toStringSafe(config.version, '1.0.0'),
+      created: Date.now(),
+      modified: Date.now(),
+    },
+    initialState: resolveStateRef(initialStateRaw) || firstStateId,
+    states,
+    transitions,
+    variables: normalizeVariables(root.variables ?? source.variables),
+    inputs: asStringArray(root.inputs ?? source.inputs),
+    outputs: asStringArray(root.outputs ?? source.outputs),
+    nestedAutomataIds: [],
+    isDirty: true,
+  };
+}
+
+function normalizeVariables(value: unknown): Array<Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((raw) => asRecord(raw))
+    .filter((variable) => toStringSafe(variable.name, '') !== '')
+    .map((variable) => ({
+      id: toOptionalString(variable.id),
+      name: toStringSafe(variable.name, ''),
+      type: toStringSafe(variable.type, 'any'),
+      direction: toStringSafe(variable.direction, 'internal'),
+      default: variable.default,
+      description: toOptionalString(variable.description),
+    }));
+}
+
+function asRecord(value: unknown): Record<string, any> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, any>)
+    : {};
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => toStringSafe(entry, '')).filter((entry) => entry.length > 0);
+}
+
+function asVariableRefArray(value: unknown): Array<string | Record<string, unknown>> {
+  if (!Array.isArray(value)) return [];
+  return value.map((entry) => {
+    if (typeof entry === 'string') return entry;
+    const variable = asRecord(entry);
+    if (!variable.name) return toStringSafe(entry, '');
+    return {
+      id: toOptionalString(variable.id),
+      name: toStringSafe(variable.name, ''),
+      type: toStringSafe(variable.type, 'any'),
+      direction: toOptionalString(variable.direction),
+      default: variable.default,
+    };
+  });
+}
+
+function toStringSafe(value: unknown, fallback: string): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
+function toOptionalString(value: unknown): string | undefined {
+  const rendered = toStringSafe(value, '');
+  return rendered.length > 0 ? rendered : undefined;
+}
+
+function toNumber(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (!Number.isNaN(parsed) && Number.isFinite(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function toOptionalNumber(value: unknown): number | undefined {
+  if (value === undefined || value === null || value === '') return undefined;
+  const parsed = toNumber(value, Number.NaN);
+  return Number.isNaN(parsed) ? undefined : parsed;
+}
+
+function inferTransitionTypeFromData(transition: Record<string, unknown>): string {
+  if (transition.timed && Object.keys(asRecord(transition.timed)).length > 0) return 'timed';
+  if (transition.event && Object.keys(asRecord(transition.event)).length > 0) return 'event';
+  if (transition.probabilistic && Object.keys(asRecord(transition.probabilistic)).length > 0) return 'probabilistic';
+  if (toStringSafe(transition.condition, '').trim() === 'true') return 'immediate';
+  return 'classic';
 }
 
 // ============================================================================

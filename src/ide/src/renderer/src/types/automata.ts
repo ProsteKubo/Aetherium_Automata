@@ -71,7 +71,40 @@ export interface FuzzyGuard {
 
 export interface ProbabilisticWeight {
   weight: number;
+  enabled?: boolean;
   condition?: string; // Optional Lua condition
+}
+
+export interface TimedTransitionRuntimeConfig {
+  mode?: 'after' | 'at' | 'every' | 'timeout' | 'window';
+  delayMs?: number;
+  delay_ms?: number;
+  jitterMs?: number;
+  jitter_ms?: number;
+  absoluteTime?: number;
+  repeatCount?: number;
+  windowEndMs?: number;
+  additionalCondition?: string;
+  showCountdown?: boolean;
+}
+
+export interface EventTransitionRuntimeConfig {
+  triggers?: Array<{
+    signalName?: string;
+    signalType?: 'input' | 'output' | 'variable';
+    triggerType?: 'onChange' | 'onRise' | 'onFall' | 'onThreshold' | 'onMatch';
+    threshold?: {
+      operator?: '>' | '<' | '>=' | '<=' | '==' | '!=';
+      value?: number | string | boolean;
+      oneShot?: boolean;
+    };
+    pattern?: string;
+  }>;
+  requireAll?: boolean;
+  require_all?: boolean;
+  debounceMs?: number;
+  debounce_ms?: number;
+  additionalCondition?: string;
 }
 
 // ============================================================================
@@ -131,6 +164,8 @@ export interface Transition {
   priority: number;          // Lower = higher priority
   weight: number;            // For probabilistic selection among equal priority
   probabilistic?: ProbabilisticWeight;
+  timed?: TimedTransitionRuntimeConfig;
+  event?: EventTransitionRuntimeConfig;
   
   // Fuzzy logic guard
   fuzzyGuard?: FuzzyGuard;
@@ -299,6 +334,7 @@ export interface Device {
   
   // Capabilities
   capabilities: DeviceCapability[];
+  supportedCommands?: string[];
   engineVersion: string;
   
   // Assigned automata

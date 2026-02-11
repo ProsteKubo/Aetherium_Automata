@@ -1,0 +1,165 @@
+version: 0.0.1
+
+config:
+  name: Production Line Stress
+  type: inline
+  description: Stress scenario with timed, probabilistic, and guard transitions
+  author: Aetherium Team
+  tags:
+    - stress
+    - probabilistic
+    - timed
+    - recovery
+
+variables:
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: selected_path
+    type: string
+    direction: output
+    default: none
+
+  - name: quality_score
+    type: int
+    direction: internal
+    default: 50
+
+  - name: retry_count
+    type: int
+    direction: internal
+    default: 0
+
+  - name: alarm
+    type: bool
+    direction: output
+    default: false
+
+  - name: target_quality
+    type: int
+    direction: input
+    default: 65
+
+automata:
+  initial_state: Boot
+
+  states:
+    Boot:
+      on_enter: |
+        log("info", "boot: starting production controller")
+        setVal("alarm", false)
+        setVal("selected_path", "boot")
+
+    Warmup:
+      on_enter: |
+        log("info", "warmup: selecting process lane")
+        setVal("selected_path", "warmup")
+
+    ProcessA:
+      on_enter: |
+        setVal("selected_path", "A")
+        local q = 40 + math.floor(rand() * 60)
+        setVal("quality_score", q)
+        log("debug", "process A quality=" .. q)
+
+    ProcessB:
+      on_enter: |
+        setVal("selected_path", "B")
+        local q = 30 + math.floor(rand() * 70)
+        setVal("quality_score", q)
+        log("debug", "process B quality=" .. q)
+
+    ProcessC:
+      on_enter: |
+        setVal("selected_path", "C")
+        local q = 20 + math.floor(rand() * 80)
+        setVal("quality_score", q)
+        log("debug", "process C quality=" .. q)
+
+    Cooldown:
+      on_enter: |
+        local cycles = value("cycle_count")
+        setVal("cycle_count", cycles + 1)
+        if value("quality_score") < value("target_quality") then
+          setVal("alarm", true)
+        else
+          setVal("alarm", false)
+        end
+
+    Recovery:
+      on_enter: |
+        local retries = value("retry_count")
+        setVal("retry_count", retries + 1)
+        setVal("alarm", false)
+        setVal("selected_path", "recovery")
+
+  transitions:
+    boot_to_warmup:
+      from: Boot
+      to: Warmup
+      type: timed
+      after: 20
+
+    warmup_to_a:
+      from: Warmup
+      to: ProcessA
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 50
+
+    warmup_to_b:
+      from: Warmup
+      to: ProcessB
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 30
+
+    warmup_to_c:
+      from: Warmup
+      to: ProcessC
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 20
+
+    a_to_cooldown:
+      from: ProcessA
+      to: Cooldown
+      type: timed
+      after: 15
+
+    b_to_cooldown:
+      from: ProcessB
+      to: Cooldown
+      type: timed
+      after: 15
+
+    c_to_cooldown:
+      from: ProcessC
+      to: Cooldown
+      type: timed
+      after: 15
+
+    cooldown_to_recovery:
+      from: Cooldown
+      to: Recovery
+      type: classic
+      priority: 0
+      condition: value("alarm") == true
+
+    cooldown_to_boot:
+      from: Cooldown
+      to: Boot
+      type: timed
+      after: 20
+      priority: 1
+
+    recovery_to_boot:
+      from: Recovery
+      to: Boot
+      type: timed
+      after: 30

@@ -30,6 +30,7 @@ import type {
   DeployResponse,
   ExecutionStartResponse,
   ExecutionStopResponse,
+  ExecutionResetResponse,
   ExecutionSnapshotResponse,
   TimeTravelStartResponse,
   TimeTravelNavigateResponse,
@@ -443,7 +444,7 @@ export class MockGatewayService implements IGatewayService {
   async deployAutomata(
     automataId: AutomataId,
     deviceId: DeviceId,
-    options?: { persistState?: boolean; resetExecution?: boolean; enableMonitoring?: boolean }
+    options?: { persistState?: boolean; resetExecution?: boolean; enableMonitoring?: boolean; automata?: Automata }
   ): Promise<DeployResponse> {
     await this.delay(500);
     
@@ -588,6 +589,24 @@ export class MockGatewayService implements IGatewayService {
       execution.running = true;
       this.startExecutionSimulation(deviceId);
     }
+  }
+
+  async resetExecution(deviceId: DeviceId): Promise<ExecutionResetResponse> {
+    await this.delay(50);
+
+    const execution = this.executions.get(deviceId);
+    const automataId = this.deployments.get(deviceId);
+    const automata = automataId ? this.automata.get(automataId) : null;
+
+    if (!execution || !automataId || !automata) {
+      throw new Error(`No automata deployed to device: ${deviceId}`);
+    }
+
+    execution.currentState = automata.initialState;
+    execution.cycle = 0;
+
+    const snapshot = createMockSnapshot(automataId, deviceId, execution.currentState, execution.cycle);
+    return { reset: true, snapshot };
   }
   
   async stepExecution(deviceId: DeviceId, steps = 1): Promise<ExecutionSnapshot[]> {

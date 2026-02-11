@@ -1,0 +1,56 @@
+version: 0.0.1
+
+config:
+  name: Reactor Folder Stress
+  type: folder
+  location: "."
+  description: Folder layout stress case for loader and Lua hook resolution
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+
+    Heat: {}
+
+    Hold: {}
+
+  transitions:
+    start_heat:
+      from: Idle
+      to: Heat
+      type: timed
+      after: 15
+
+    reach_target:
+      from: Heat
+      to: Hold
+      type: classic
+
+    hold_done:
+      from: Hold
+      to: Idle
+      type: timed
+      after: 20
+
+variables:
+  - name: core_temp
+    type: int
+    direction: internal
+    default: 20
+
+  - name: target_temp
+    type: int
+    direction: input
+    default: 70
+
+  - name: heater_on
+    type: bool
+    direction: output
+    default: false
+
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0

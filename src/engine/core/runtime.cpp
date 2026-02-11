@@ -81,6 +81,32 @@ const Transition* TransitionResolver::resolve(const Automata& automata,
         return nullptr;
     }
 
+    // Timeout transitions are fallback by design: if any other transition is
+    // available in the same priority group, suppress timeout candidates.
+    const bool hasNonTimeout = std::any_of(
+        candidates.begin(), candidates.end(),
+        [](const EvaluatedTransition& c) {
+            const Transition* t = c.transition;
+            return !(t->type == TransitionType::Timed &&
+                     t->timedConfig.mode == TimedMode::Timeout);
+        });
+
+    if (hasNonTimeout) {
+        candidates.erase(
+            std::remove_if(
+                candidates.begin(), candidates.end(),
+                [](const EvaluatedTransition& c) {
+                    const Transition* t = c.transition;
+                    return t->type == TransitionType::Timed &&
+                           t->timedConfig.mode == TimedMode::Timeout;
+                }),
+            candidates.end());
+    }
+
+    if (candidates.empty()) {
+        return nullptr;
+    }
+
     // Single candidate - return it
     if (candidates.size() == 1) {
         return candidates[0].transition;
@@ -152,11 +178,41 @@ EvaluatedTransition TransitionResolver::evaluate(const Transition& t) {
 
 bool TransitionResolver::evaluateTimed(const Transition& t) {
     const auto* timer = timers_->getTimer(t.id);
-    if (!timer) {
-        return false;
+    const Timestamp now = timers_->now();
+    const Timestamp stateEntry = context_ ? context_->stateEntryTime : 0;
+    const Timestamp elapsed = now >= stateEntry ? (now - stateEntry) : 0;
+    const bool timerFired = timer ? timer->fired : false;
+
+    bool ready = false;
+    switch (t.timedConfig.mode) {
+        case TimedMode::After:
+            ready = timerFired;
+            break;
+        case TimedMode::Every:
+            ready = timerFired;
+            break;
+        case TimedMode::Timeout:
+            ready = timerFired;
+            break;
+        case TimedMode::At:
+            // Current representation keeps "at" in delayMs; if delayMs is unset,
+            // fall back to timer semantics.
+            ready = (t.timedConfig.delayMs > 0)
+                ? (elapsed >= static_cast<Timestamp>(t.timedConfig.delayMs))
+                : timerFired;
+            break;
+        case TimedMode::Window: {
+            const Timestamp startMs = static_cast<Timestamp>(t.timedConfig.delayMs);
+            const Timestamp endMs = static_cast<Timestamp>(t.timedConfig.windowEndMs);
+            ready = elapsed >= startMs;
+            if (ready && endMs > 0) {
+                ready = elapsed <= endMs;
+            }
+            break;
+        }
     }
-    
-    if (!timer->fired) {
+
+    if (!ready) {
         return false;
     }
 
@@ -290,12 +346,30 @@ Runtime::Runtime(std::unique_ptr<IClock> clock,
     , script_(std::move(script)) {
     
     timers_ = std::make_unique<TimerManager>(clock_.get());
+    timers_->setRandomSource(random_.get());
 }
 
 Runtime::~Runtime() {
     if (running_) {
         stop();
     }
+}
+
+void Runtime::setCallbacks(RuntimeCallbacks callbacks) {
+    callbacks_ = std::move(callbacks);
+
+    if (!script_) {
+        return;
+    }
+
+    script_->setLogHandler([this](const std::string& level, const std::string& message) {
+        const std::string entry = "lua[" + level + "]: " + message;
+        if (level == "error" || level == "fatal") {
+            reportError(entry);
+            return;
+        }
+        debug(entry);
+    });
 }
 
 Result<RunId> Runtime::load(const Automata& automata) {
@@ -359,10 +433,11 @@ Result<void> Runtime::start(std::optional<StateId> fromState) {
     ctx_.stateEntryTime = ctx_.startTime;
     ctx_.tickCount = 0;
     ctx_.transitionCount = 0;
+    pausedAt_ = 0;
 
     // Setup resolver
     resolver_ = std::make_unique<TransitionResolver>(
-        script_.get(), random_.get(), timers_.get(), &ctx_.variables);
+        script_.get(), random_.get(), timers_.get(), &ctx_.variables, &ctx_);
 
     // Setup timers for initial state
     setupTimersForState(*state);
@@ -388,6 +463,7 @@ Result<void> Runtime::stop() {
 
     ctx_.state = ExecutionState::Stopped;
     timers_->cancelAll();
+    pausedAt_ = 0;
 
     debug("Stopped");
     return Result<void>::ok();
@@ -399,7 +475,7 @@ Result<void> Runtime::pause() {
     }
 
     ctx_.state = ExecutionState::Paused;
-    // Note: In real implementation, should pause timers
+    pausedAt_ = clock_->now();
     
     debug("Paused");
     return Result<void>::ok();
@@ -410,8 +486,13 @@ Result<void> Runtime::resume() {
         return Result<void>::error("Not paused");
     }
 
+    const Timestamp now = clock_->now();
+    if (pausedAt_ > 0 && now >= pausedAt_) {
+        const auto delta = static_cast<uint32_t>(now - pausedAt_);
+        timers_->shiftAll(delta);
+    }
+    pausedAt_ = 0;
     ctx_.state = ExecutionState::Running;
-    // Note: In real implementation, should resume timers
     
     debug("Resumed");
     return Result<void>::ok();
@@ -450,6 +531,7 @@ void Runtime::unload() {
     ctx_.variables.clear();
     timers_->cancelAll();
     resolver_.reset();
+    pausedAt_ = 0;
 
     debug("Unloaded");
 }
@@ -459,8 +541,16 @@ bool Runtime::tick() {
         return false;
     }
 
+    const Timestamp now = clock_->now();
+    if (maxTickRate_ > 0 && ctx_.lastTickTime > 0) {
+        const uint32_t targetMs = std::max<uint32_t>(1, 1000 / maxTickRate_);
+        if (now - ctx_.lastTickTime < targetMs) {
+            return false;
+        }
+    }
+
     ctx_.tickCount++;
-    ctx_.lastTickTime = clock_->now();
+    ctx_.lastTickTime = now;
     
     // Run garbage collection every 100 ticks to prevent memory buildup
     if (ctx_.tickCount % 100 == 0 && script_) {
@@ -538,6 +628,34 @@ Result<void> Runtime::setInput(const std::string& name, Value value) {
 Result<void> Runtime::setInput(VariableId id, Value value) {
     if (!ctx_.variables.setExternalValue(id, std::move(value))) {
         return Result<void>::error("Failed to set input");
+    }
+    return Result<void>::ok();
+}
+
+Result<void> Runtime::setVariable(const std::string& name, Value value) {
+    const auto* existing = ctx_.variables.getByName(name);
+    if (!existing) {
+        return Result<void>::error("Variable not found: " + name);
+    }
+    if (existing->direction() == VariableDirection::Input) {
+        return Result<void>::error("Cannot set input via setVariable: " + name);
+    }
+    if (!ctx_.variables.setValue(name, std::move(value))) {
+        return Result<void>::error("Failed to set variable: " + name);
+    }
+    return Result<void>::ok();
+}
+
+Result<void> Runtime::setVariable(VariableId id, Value value) {
+    const auto* existing = ctx_.variables.get(id);
+    if (!existing) {
+        return Result<void>::error("Variable not found");
+    }
+    if (existing->direction() == VariableDirection::Input) {
+        return Result<void>::error("Cannot set input via setVariable");
+    }
+    if (!ctx_.variables.setValue(id, std::move(value))) {
+        return Result<void>::error("Failed to set variable");
     }
     return Result<void>::ok();
 }

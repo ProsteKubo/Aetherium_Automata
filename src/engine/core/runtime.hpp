@@ -98,6 +98,10 @@ public:
     
     // Memory management - run garbage collection
     virtual void collectGarbage() = 0;
+
+    // Optional structured log sink for script-side `log(...)` calls
+    virtual void setLogHandler(std::function<void(const std::string& level,
+                                                  const std::string& message)> handler) = 0;
 };
 
 // ============================================================================
@@ -143,14 +147,22 @@ public:
     // Restart timer (for repeating)
     void restartTimer(TransitionId id, uint32_t delayMs, uint32_t jitterMs = 0);
 
+    // Shift all timers forward by delta (used for pause/resume)
+    void shiftAll(uint32_t deltaMs);
+
     // Get timer info
     const Timer* getTimer(TransitionId id) const;
+
+    void setRandomSource(IRandomSource* source);
+    [[nodiscard]] Timestamp now() const;
 
 private:
     IClock* clock_;
     std::unordered_map<TransitionId, Timer> timers_;
     IRandomSource* randomSource_ = nullptr;  // For jitter
 };
+
+class ExecutionContext;
 
 // ============================================================================
 // Transition Resolver
@@ -171,8 +183,9 @@ struct EvaluatedTransition {
 class TransitionResolver {
 public:
     TransitionResolver(IScriptEngine* script, IRandomSource* random, 
-                       TimerManager* timers, VariableStore* variables)
-        : script_(script), random_(random), timers_(timers), variables_(variables) {}
+                       TimerManager* timers, VariableStore* variables,
+                       const ExecutionContext* context)
+        : script_(script), random_(random), timers_(timers), variables_(variables), context_(context) {}
 
     /**
      * Resolve which transition (if any) should fire.
@@ -205,6 +218,7 @@ private:
     IRandomSource* random_;
     TimerManager* timers_;
     VariableStore* variables_;
+    const ExecutionContext* context_;
 };
 
 // ============================================================================
@@ -345,6 +359,8 @@ public:
      */
     Result<void> setInput(const std::string& name, Value value);
     Result<void> setInput(VariableId id, Value value);
+    Result<void> setVariable(const std::string& name, Value value);
+    Result<void> setVariable(VariableId id, Value value);
 
     /**
      * Get an output variable value
@@ -375,9 +391,7 @@ public:
     // Callbacks
     // ========================================================================
 
-    void setCallbacks(RuntimeCallbacks callbacks) { 
-        callbacks_ = std::move(callbacks); 
-    }
+    void setCallbacks(RuntimeCallbacks callbacks);
 
     // ========================================================================
     // Configuration
@@ -429,6 +443,7 @@ private:
     // Configuration
     uint32_t maxTickRate_ = 0;
     bool running_ = false;
+    Timestamp pausedAt_ = 0;
 };
 
 // ============================================================================
@@ -486,7 +501,12 @@ inline void TimerManager::restartTimer(TransitionId id, uint32_t delayMs,
         if (t.repeatCount == 0 || t.currentRepeat < t.repeatCount - 1) {
             t.currentRepeat++;
             t.startTime = clock_->now();
-            t.targetTime = t.startTime + delayMs;
+            int32_t jitter = 0;
+            if (jitterMs > 0 && randomSource_) {
+                jitter = static_cast<int32_t>(randomSource_->randomInt(jitterMs * 2)) -
+                         static_cast<int32_t>(jitterMs);
+            }
+            t.targetTime = t.startTime + delayMs + jitter;
             t.fired = false;
         } else {
             timers_.erase(it);
@@ -494,9 +514,27 @@ inline void TimerManager::restartTimer(TransitionId id, uint32_t delayMs,
     }
 }
 
+inline void TimerManager::shiftAll(uint32_t deltaMs) {
+    if (deltaMs == 0) {
+        return;
+    }
+    for (auto& [id, timer] : timers_) {
+        timer.startTime += deltaMs;
+        timer.targetTime += deltaMs;
+    }
+}
+
 inline const Timer* TimerManager::getTimer(TransitionId id) const {
     auto it = timers_.find(id);
     return it != timers_.end() ? &it->second : nullptr;
+}
+
+inline void TimerManager::setRandomSource(IRandomSource* source) {
+    randomSource_ = source;
+}
+
+inline Timestamp TimerManager::now() const {
+    return clock_->now();
 }
 
 // ============================================================================

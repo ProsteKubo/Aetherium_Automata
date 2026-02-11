@@ -15,6 +15,7 @@
 
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore, useAutomataStore, useUIStore } from '../../stores';
+import type { Automata } from '../../types';
 import type { TreeNode } from '../../types/project';
 import {
   IconChevronRight,
@@ -463,10 +464,14 @@ export const ProjectExplorerPanel: React.FC = () => {
   const createNetwork = useProjectStore((s) => s.createNetwork);
   const deleteNetwork = useProjectStore((s) => s.deleteNetwork);
   const renameNetwork = useProjectStore((s) => s.renameNetwork);
+  const addAutomataToNetwork = useProjectStore((s) => s.addAutomataToNetwork);
   const saveProject = useProjectStore((s) => s.saveProject);
   const closeProject = useProjectStore((s) => s.closeProject);
   
+  const automataMap = useAutomataStore((s) => s.automata);
+  const setAutomataMap = useAutomataStore((s) => s.setAutomataMap);
   const setActiveAutomata = useAutomataStore((s) => s.setActiveAutomata);
+  const addNotification = useUIStore((s) => s.addNotification);
   const openTab = useUIStore((s) => s.openTab);
   
   const [contextMenu, setContextMenu] = useState<{
@@ -500,6 +505,79 @@ export const ProjectExplorerPanel: React.FC = () => {
       node,
     });
   }, [selectNode]);
+
+  const handleImportAutomata = useCallback((targetNetwork: TreeNode | null) => {
+    if (!targetNetwork || targetNetwork.type !== 'network') {
+      addNotification('error', 'Import Failed', 'No network available. Create a network first.');
+      return;
+    }
+
+    void (async () => {
+      const result = await window.api.automata.loadYaml();
+      if (!result.success || !result.data) {
+        if (result.error && result.error !== 'Cancelled') {
+          addNotification('error', 'Import Failed', result.error);
+        }
+        return;
+      }
+
+      const imported = result.data as Partial<Automata>;
+      const generatedId = `aut_${Math.random().toString(16).slice(2, 10)}`;
+      const automataId = imported.id || generatedId;
+      const automataName = imported.config?.name || `Imported ${automataId}`;
+
+      const normalizedAutomata: Automata = {
+        ...(imported as Automata),
+        id: automataId,
+        version: imported.version || '0.0.1',
+        config: {
+          name: automataName,
+          type: imported.config?.type || 'inline',
+          language: 'lua',
+          description: imported.config?.description || '',
+          tags: imported.config?.tags || [],
+          version: imported.config?.version || '1.0.0',
+          created: imported.config?.created || Date.now(),
+          modified: Date.now(),
+          ...(imported.config?.location ? { location: imported.config.location } : {}),
+        },
+        initialState: imported.initialState || Object.keys(imported.states || {})[0] || 'Initial',
+        states: imported.states || {},
+        transitions: imported.transitions || {},
+        variables: imported.variables || [],
+        inputs: imported.inputs || [],
+        outputs: imported.outputs || [],
+        nestedAutomataIds: imported.nestedAutomataIds || [],
+        isDirty: true,
+        ...(result.filePath ? { filePath: result.filePath } : {}),
+      };
+
+      addAutomataToNetwork(targetNetwork.entityId, normalizedAutomata);
+      const nextMap = new Map(automataMap);
+      nextMap.set(normalizedAutomata.id, normalizedAutomata);
+      setAutomataMap(nextMap);
+      setActiveAutomata(normalizedAutomata.id);
+      openTab({
+        type: 'automata',
+        targetId: normalizedAutomata.id,
+        name: normalizedAutomata.config.name,
+        isDirty: true,
+      });
+
+      addNotification(
+        'success',
+        'Automata Imported',
+        `Imported ${normalizedAutomata.config.name} into ${targetNetwork.name}.`
+      );
+    })();
+  }, [
+    addNotification,
+    addAutomataToNetwork,
+    automataMap,
+    setAutomataMap,
+    setActiveAutomata,
+    openTab,
+  ]);
   
   // Handle context menu actions
   const handleContextMenuAction = useCallback((action: string) => {
@@ -521,6 +599,9 @@ export const ProjectExplorerPanel: React.FC = () => {
         // TODO: Create automata in network
         console.log('Create automata in network:', node.entityId);
         break;
+      case 'import-automata':
+        handleImportAutomata(node.type === 'network' ? node : null);
+        break;
       case 'rename':
         setRenamingNodeId(node.id);
         break;
@@ -539,7 +620,16 @@ export const ProjectExplorerPanel: React.FC = () => {
     }
     
     setContextMenu(null);
-  }, [contextMenu, createNetwork, saveProject, closeProject, deleteNetwork, handleDoubleClick]);
+  }, [
+    contextMenu,
+    createNetwork,
+    saveProject,
+    closeProject,
+    deleteNetwork,
+    handleDoubleClick,
+    addNotification,
+    handleImportAutomata,
+  ]);
   
   // Handle rename
   const handleRename = useCallback((nodeId: string, newName: string) => {
@@ -606,6 +696,18 @@ export const ProjectExplorerPanel: React.FC = () => {
         </span>
         <div style={{ display: 'flex', gap: 'var(--spacing-1)' }}>
           <button
+            className="btn btn-ghost"
+            title="Import Automata YAML into selected network"
+            onClick={() => {
+              const selected = selectedNodeId ? findNodeById(treeNodes, selectedNodeId) : null;
+              const firstNetwork = findFirstNodeByType(treeNodes, 'network');
+              handleImportAutomata(selected?.type === 'network' ? selected : firstNetwork);
+            }}
+            style={{ padding: '2px 8px', fontSize: 'var(--font-size-xs)' }}
+          >
+            Import YAML
+          </button>
+          <button
             className="btn btn-ghost btn-icon"
             title="New Network"
             onClick={() => createNetwork('New Network')}
@@ -664,6 +766,15 @@ function findNodeById(nodes: TreeNode[], id: string): TreeNode | null {
       const found = findNodeById(node.children, id);
       if (found) return found;
     }
+  }
+  return null;
+}
+
+function findFirstNodeByType(nodes: TreeNode[], type: TreeNode['type']): TreeNode | null {
+  for (const node of nodes) {
+    if (node.type === type) return node;
+    const child = findFirstNodeByType(node.children, type);
+    if (child) return child;
   }
   return null;
 }

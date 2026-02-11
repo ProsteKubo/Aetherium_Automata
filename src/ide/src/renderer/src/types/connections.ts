@@ -60,7 +60,7 @@ export interface BindingValidation {
 /**
  * Represents the full network of connected automata
  */
-export interface AutomataNetwork {
+export interface ConnectionNetwork {
   // All bindings in the network
   bindings: BindingBinding[];
   

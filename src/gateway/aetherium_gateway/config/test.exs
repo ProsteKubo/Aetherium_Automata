@@ -20,3 +20,16 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+config :aetherium_gateway, AetheriumGateway.Auth,
+  tokens: %{
+    operator: "dev_secret_token",
+    server: "server_secret_token",
+    device: "device_secret_token"
+  },
+  hmac_secret: nil
+
+config :aetherium_gateway, AetheriumGateway.Persistence,
+  enabled: true,
+  data_dir: "tmp/test_gateway",
+  event_capacity: 2000

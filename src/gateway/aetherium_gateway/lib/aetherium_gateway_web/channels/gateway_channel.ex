@@ -1,18 +1,28 @@
 defmodule AetheriumGatewayWeb.GatewayChannel do
   use AetheriumGatewayWeb, :channel
 
+  alias AetheriumGateway.Auth
+  alias AetheriumGateway.CommandDispatcher
+  alias AetheriumGateway.Persistence
+
   # UI joins "gateway:control"
+  @impl true
   def join("gateway:control", payload, socket) do
-    # Try payload first, then socket assigns
     token = payload["token"] || socket.assigns[:token]
 
-    if token == "dev_secret_token" do
-      socket = assign(socket, :ui_session_id, generate_session_id())
-      send(self(), :send_device_list)
-      send(self(), :send_server_list)
-      {:ok, socket}
-    else
-      {:error, %{reason: "invalid_token"}}
+    case Auth.authorize(:operator, token) do
+      {:ok, claims} ->
+        socket =
+          socket
+          |> assign(:ui_session_id, generate_session_id())
+          |> assign(:auth_claims, claims)
+
+        send(self(), :send_device_list)
+        send(self(), :send_server_list)
+        {:ok, socket}
+
+      {:error, reason} ->
+        {:error, %{reason: to_string(reason)}}
     end
   end
 
@@ -41,7 +51,44 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
     {:reply, {:ok, %{servers: servers}}, socket}
   end
 
+  @impl true
+  def handle_in("list_events", payload, socket) do
+    cursor =
+      case payload["cursor"] do
+        value when is_integer(value) and value >= 0 -> value
+        value when is_binary(value) ->
+          case Integer.parse(value) do
+            {n, ""} when n >= 0 -> n
+            _ -> 0
+          end
+
+        _ ->
+          0
+      end
+
+    limit =
+      case payload["limit"] do
+        value when is_integer(value) and value > 0 -> value
+        value when is_binary(value) ->
+          case Integer.parse(value) do
+            {n, ""} when n > 0 -> n
+            _ -> 100
+          end
+
+        _ ->
+          100
+      end
+
+    {:reply, {:ok, %{events: Persistence.list_events(cursor, limit)}}, socket}
+  end
+
+  @impl true
+  def handle_in("outbox_status", _payload, socket) do
+    {:reply, {:ok, %{queued_commands: CommandDispatcher.outbox_size()}}, socket}
+  end
+
   # Handle internal alerts
+  @impl true
   def handle_info({:device_crashed, device_id, reason}, socket) do
     push(socket, "alert", %{
       type: "device_crash",

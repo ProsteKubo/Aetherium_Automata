@@ -41,7 +41,7 @@ defmodule AetheriumServer.DeviceManager do
     automata_id: automata_id(),
     device_id: device_id(),
     run_id: non_neg_integer(),
-    status: :pending | :loading | :running | :stopped | :error,
+    status: :pending | :loading | :running | :paused | :stopped | :error,
     current_state: String.t() | nil,
     variables: map(),
     state_id_map: %{non_neg_integer() => String.t()},
@@ -99,6 +99,30 @@ defmodule AetheriumServer.DeviceManager do
     GenServer.call(__MODULE__, {:stop_automata, deployment_id})
   end
 
+  @doc "Start automata on a device"
+  @spec start_automata(String.t()) :: :ok | {:error, term()}
+  def start_automata(deployment_id) do
+    GenServer.call(__MODULE__, {:start_automata, deployment_id})
+  end
+
+  @doc "Pause automata on a device"
+  @spec pause_automata(String.t()) :: :ok | {:error, term()}
+  def pause_automata(deployment_id) do
+    GenServer.call(__MODULE__, {:pause_automata, deployment_id})
+  end
+
+  @doc "Resume automata on a device"
+  @spec resume_automata(String.t()) :: :ok | {:error, term()}
+  def resume_automata(deployment_id) do
+    GenServer.call(__MODULE__, {:resume_automata, deployment_id})
+  end
+
+  @doc "Reset automata on a device"
+  @spec reset_automata(String.t()) :: :ok | {:error, term()}
+  def reset_automata(deployment_id) do
+    GenServer.call(__MODULE__, {:reset_automata, deployment_id})
+  end
+
   @doc "Send command to device"
   @spec send_to_device(device_id(), atom(), map()) :: :ok | {:error, term()}
   def send_to_device(device_id, message_type, payload) do
@@ -145,6 +169,18 @@ defmodule AetheriumServer.DeviceManager do
   @spec trigger_event(String.t(), String.t(), any()) :: :ok | {:error, term()}
   def trigger_event(deployment_id, event_name, data) do
     GenServer.call(__MODULE__, {:trigger_event, deployment_id, event_name, data})
+  end
+
+  @doc "Force deployment state (if supported by runtime/device capabilities)"
+  @spec force_state(String.t(), String.t()) :: :ok | {:error, term()}
+  def force_state(deployment_id, state_id) do
+    GenServer.call(__MODULE__, {:force_state, deployment_id, state_id})
+  end
+
+  @doc "Request deployment runtime snapshot"
+  @spec request_state(String.t()) :: {:ok, map()} | {:error, term()}
+  def request_state(deployment_id) do
+    GenServer.call(__MODULE__, {:request_state, deployment_id})
   end
 
   # ============================================================================
@@ -321,6 +357,76 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @impl true
+  def handle_call({:start_automata, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        with {:ok, protocol_id, transport_pid} <- resolve_device_transport(state, deployment.device_id) do
+          send_message(transport_pid, :start, %{target_id: protocol_id, run_id: deployment.run_id})
+
+          new_state = put_in(state, [:deployments, deployment_id, :status], :running)
+          {:reply, :ok, new_state}
+        else
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:pause_automata, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        with {:ok, protocol_id, transport_pid} <- resolve_device_transport(state, deployment.device_id) do
+          send_message(transport_pid, :pause, %{target_id: protocol_id, run_id: deployment.run_id})
+
+          new_state = put_in(state, [:deployments, deployment_id, :status], :paused)
+          {:reply, :ok, new_state}
+        else
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:resume_automata, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        with {:ok, protocol_id, transport_pid} <- resolve_device_transport(state, deployment.device_id) do
+          send_message(transport_pid, :resume, %{target_id: protocol_id, run_id: deployment.run_id})
+
+          new_state = put_in(state, [:deployments, deployment_id, :status], :running)
+          {:reply, :ok, new_state}
+        else
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:reset_automata, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        with {:ok, protocol_id, transport_pid} <- resolve_device_transport(state, deployment.device_id) do
+          send_message(transport_pid, :reset, %{target_id: protocol_id, run_id: deployment.run_id})
+          {:reply, :ok, state}
+        else
+          {:error, reason} -> {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
   def handle_call({:send_to_device, device_id, message_type, payload}, _from, state) do
     case Map.get(state.devices, device_id) do
       nil ->
@@ -367,16 +473,20 @@ defmodule AetheriumServer.DeviceManager do
       deployment ->
         device = Map.get(state.devices, deployment.device_id)
 
-        if device && device.transport_pid do
-          send_message(device.transport_pid, :set_input, %{
-            target_id: device.protocol_id,
-            run_id: deployment.run_id,
-            name: input_name,
-            value: value
-          })
-        end
+        case device do
+          %{transport_pid: pid, protocol_id: protocol_id} when is_pid(pid) ->
+            send_message(pid, :set_input, %{
+              target_id: protocol_id,
+              run_id: deployment.run_id,
+              name: input_name,
+              value: value
+            })
 
-        {:reply, :ok, state}
+            {:reply, :ok, state}
+
+          _ ->
+            {:reply, {:error, :device_not_connected}, state}
+        end
     end
   end
 
@@ -387,12 +497,59 @@ defmodule AetheriumServer.DeviceManager do
         {:reply, {:error, :deployment_not_found}, state}
 
       deployment ->
-        device = Map.get(state.devices, deployment.device_id)
+        Logger.warning("trigger_event unsupported for device #{deployment.device_id}: #{event_name} #{inspect(data)}")
+        {:reply, {:error, :unsupported_command}, state}
+    end
+  end
 
-        # Not yet supported by engine protocol (event triggers)
-        Logger.warn("trigger_event not supported for device #{deployment.device_id}: #{event_name} #{inspect(data)}")
+  @impl true
+  def handle_call({:force_state, deployment_id, state_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
 
-        {:reply, :ok, state}
+      _deployment ->
+        if runtime_registered?(deployment_id) do
+          {:reply, AetheriumServer.AutomataRuntime.force_state(deployment_id, state_id), state}
+        else
+          Logger.warning("force_state unsupported for deployment #{deployment_id}: runtime unavailable")
+          {:reply, {:error, :unsupported_command}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:request_state, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        if deployment.status in [:running, :paused] do
+          case resolve_device_transport(state, deployment.device_id) do
+            {:ok, protocol_id, transport_pid} ->
+              send_message(transport_pid, :status, %{target_id: protocol_id, run_id: deployment.run_id})
+
+            _ ->
+              :ok
+          end
+        end
+
+        if runtime_registered?(deployment_id) do
+          {:reply, AetheriumServer.AutomataRuntime.get_state(deployment_id), state}
+        else
+          snapshot = %{
+            deployment_id: deployment.id,
+            automata_id: deployment.automata_id,
+            device_id: deployment.device_id,
+            running: deployment.status == :running,
+            current_state: deployment.current_state,
+            variables: deployment.variables,
+            source: "device_manager_snapshot"
+          }
+
+          {:reply, {:ok, snapshot}, state}
+        end
     end
   end
 
@@ -422,7 +579,7 @@ defmodule AetheriumServer.DeviceManager do
       nil ->
         {:noreply, state}
 
-      device ->
+      _device ->
         new_state = put_in(state, [:devices, device_id, :last_heartbeat], System.system_time(:millisecond))
 
         {:noreply, new_state}
@@ -431,6 +588,19 @@ defmodule AetheriumServer.DeviceManager do
 
   @impl true
   def handle_cast({:device_message, device_id, message_type, payload}, state) do
+    now = System.system_time(:millisecond)
+
+    state =
+      case Map.get(state.devices, device_id) do
+        nil ->
+          state
+
+        _device ->
+          state
+          |> put_in([:devices, device_id, :last_heartbeat], now)
+          |> put_in([:devices, device_id, :status], :connected)
+      end
+
     state = handle_message(device_id, message_type, payload, state)
     {:noreply, state}
   end
@@ -460,10 +630,20 @@ defmodule AetheriumServer.DeviceManager do
       Enum.reduce(state.devices, state, fn {device_id, device}, acc ->
         if device.status == :connected &&
            now - device.last_heartbeat > state.heartbeat_timeout do
-          Logger.warn("Device #{device_id} heartbeat timeout")
+          cond do
+            is_pid(device.transport_pid) and Process.alive?(device.transport_pid) ->
+              # Treat active websocket transport as liveness to avoid false offline flaps.
+              acc
+              |> put_in([:devices, device_id, :last_heartbeat], now)
+              |> put_in([:devices, device_id, :status], :connected)
 
-          acc
-          |> put_in([:devices, device_id, :status], :disconnected)
+            true ->
+              Logger.warning("Device #{device_id} heartbeat timeout")
+
+              acc
+              |> put_in([:devices, device_id, :status], :disconnected)
+              |> put_in([:devices, device_id, :transport_pid], nil)
+          end
         else
           acc
         end
@@ -560,12 +740,56 @@ defmodule AetheriumServer.DeviceManager do
     state
   end
 
-  defp handle_message(device_id, :transition_fired, payload, state) do
-    %{from: from, to: to, transition_id: tid, weight_used: weight} = payload
-
+  defp handle_message(device_id, :status, payload, state) do
     deployment = find_active_deployment(device_id, state)
 
     if deployment do
+      status =
+        case payload[:execution_state] || payload["execution_state"] do
+          2 -> :running
+          3 -> :paused
+          4 -> :stopped
+          _ -> deployment.status
+        end
+
+      current_state_id = payload[:current_state] || payload["current_state"]
+
+      current_state =
+        if is_integer(current_state_id) do
+          Map.get(deployment.state_id_map, current_state_id, Integer.to_string(current_state_id))
+        else
+          deployment.current_state
+        end
+
+      new_state =
+        state
+        |> put_in([:deployments, deployment.id, :status], status)
+        |> put_in([:deployments, deployment.id, :current_state], current_state)
+
+      push_to_gateway("deployment_status", %{
+        "deployment_id" => deployment.id,
+        "automata_id" => deployment.automata_id,
+        "device_id" => device_id,
+        "status" => Atom.to_string(status),
+        "current_state" => current_state,
+        "variables" => deployment.variables
+      })
+
+      new_state
+    else
+      state
+    end
+  end
+
+  defp handle_message(device_id, :transition_fired, payload, state) do
+    deployment = find_active_deployment(device_id, state)
+
+    if deployment do
+      tid = payload[:transition_id] || payload["transition_id"]
+      from = payload[:from] || payload["from"] || deployment.current_state
+      to = payload[:to] || payload["to"] || deployment.current_state
+      weight = payload[:weight_used] || payload["weight_used"]
+
       push_to_gateway("transition_fired", %{
         "deployment_id" => deployment.id,
         "automata_id" => deployment.automata_id,
@@ -580,28 +804,52 @@ defmodule AetheriumServer.DeviceManager do
     state
   end
 
-  defp handle_message(device_id, :load_ack, _payload, state) do
+  defp handle_message(device_id, :load_ack, payload, state) do
     deployment = find_active_deployment(device_id, state)
 
     if deployment do
-      Logger.info("Automata loaded on device #{device_id}")
+      success = payload[:success] || payload["success"]
+      error_message = payload[:error] || payload["error"] || "load_failed"
 
-      new_state = put_in(state, [:deployments, deployment.id, :status], :running)
+      if success do
+        Logger.info("Automata loaded on device #{device_id}")
 
-      # Send START command
-      device = Map.get(state.devices, device_id)
-      if device && device.transport_pid do
-        send_message(device.transport_pid, :start, %{target_id: device.protocol_id, run_id: deployment.run_id})
+        new_state = put_in(state, [:deployments, deployment.id, :status], :stopped)
+
+        push_to_gateway("deployment_status", %{
+          "deployment_id" => deployment.id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => deployment.device_id,
+          "status" => "stopped"
+        })
+
+        new_state
+      else
+        Logger.error("Automata load failed on device #{device_id}: #{inspect(error_message)}")
+
+        new_state =
+          state
+          |> put_in([:deployments, deployment.id, :status], :error)
+          |> put_in([:deployments, deployment.id, :error], error_message)
+
+        push_to_gateway("deployment_error", %{
+          "deployment_id" => deployment.id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => deployment.device_id,
+          "code" => 13,
+          "message" => error_message
+        })
+
+        push_to_gateway("deployment_status", %{
+          "deployment_id" => deployment.id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => deployment.device_id,
+          "status" => "error",
+          "error" => error_message
+        })
+
+        new_state
       end
-
-      push_to_gateway("deployment_status", %{
-        "deployment_id" => deployment.id,
-        "automata_id" => deployment.automata_id,
-        "device_id" => deployment.device_id,
-        "status" => "running"
-      })
-
-      new_state
     else
       state
     end
@@ -658,15 +906,24 @@ defmodule AetheriumServer.DeviceManager do
   defp find_active_deployment(device_id, state) do
     state.deployments
     |> Map.values()
-    |> Enum.find(&(&1.device_id == device_id && &1.status in [:loading, :running]))
+    |> Enum.find(&(&1.device_id == device_id && &1.status in [:loading, :running, :paused]))
   end
 
   defp extract_default_variables(automata) do
     variables = automata[:variables] || []
 
     variables
-    |> Enum.map(fn var -> {var[:name], var[:default]} end)
+    |> Enum.map(fn var ->
+      name = var[:name] || var["name"]
+      default = var[:default] || var["default"]
+      {name, default}
+    end)
+    |> Enum.reject(fn {name, _default} -> is_nil(name) end)
     |> Enum.into(%{})
+  end
+
+  defp runtime_registered?(deployment_id) do
+    match?([{_pid, _value}], Registry.lookup(AetheriumServer.RuntimeRegistry, deployment_id))
   end
 
   defp send_message(nil, _type, _payload), do: :ok
@@ -690,6 +947,18 @@ defmodule AetheriumServer.DeviceManager do
 
         :set_input ->
           EngineProtocol.encode(:input, Map.merge(payload, %{message_id: message_id}))
+
+        :pause ->
+          EngineProtocol.encode(:pause, Map.merge(payload, %{message_id: message_id}))
+
+        :resume ->
+          EngineProtocol.encode(:resume, Map.merge(payload, %{message_id: message_id}))
+
+        :reset ->
+          EngineProtocol.encode(:reset, Map.merge(payload, %{message_id: message_id}))
+
+        :status ->
+          EngineProtocol.encode(:status, Map.merge(payload, %{message_id: message_id}))
 
         _ ->
           {:error, {:unsupported_message_type, message_type}}
@@ -716,7 +985,8 @@ defmodule AetheriumServer.DeviceManager do
           status: d.status,
           connected_at: d.connected_at,
           last_heartbeat: d.last_heartbeat,
-          capabilities: d.capabilities
+          capabilities: d.capabilities,
+          supported_commands: supported_commands_for_device(d)
         }
       end)
 
@@ -768,4 +1038,30 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   defp normalize_log_level(_), do: :info
+
+  defp resolve_device_transport(state, device_id) do
+    case Map.get(state.devices, device_id) do
+      %{transport_pid: pid, protocol_id: protocol_id} when is_pid(pid) ->
+        {:ok, protocol_id, pid}
+
+      nil ->
+        {:error, :device_not_found}
+
+      _ ->
+        {:error, :device_not_connected}
+    end
+  end
+
+  defp supported_commands_for_device(_device) do
+    [
+      "deploy",
+      "start_execution",
+      "stop_execution",
+      "pause_execution",
+      "resume_execution",
+      "reset_execution",
+      "set_variable",
+      "request_state"
+    ]
+  end
 end

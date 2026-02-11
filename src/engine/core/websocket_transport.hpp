@@ -61,6 +61,7 @@ private:
 
     std::atomic<uint32_t> nextMsgId_{1};
     std::atomic<uint32_t> assignedId_{0};
+    std::atomic<bool> shuttingDown_{false};
 };
 
 } // namespace aeth

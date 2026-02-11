@@ -24,6 +24,56 @@ import type {
   ProbabilisticTransitionConfig,
 } from '../../types/transitions';
 
+const TIMED_DELAY_MIN_SECONDS = 0.1;
+const TIMED_DELAY_MAX_SECONDS = 300;
+const TIMED_DELAY_STEP_SECONDS = 0.1;
+
+function clamp(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) return min;
+  return Math.min(max, Math.max(min, value));
+}
+
+function roundTo(value: number, places: number): number {
+  const factor = 10 ** places;
+  return Math.round(value * factor) / factor;
+}
+
+function secondsToMs(seconds: number): number {
+  return Math.max(1, Math.round(seconds * 1000));
+}
+
+function msToSeconds(ms: number): number {
+  return Math.max(TIMED_DELAY_MIN_SECONDS, ms / 1000);
+}
+
+function parseDurationToMs(raw: unknown, fallbackMs: number = 1000): number {
+  if (typeof raw === 'number' && Number.isFinite(raw)) {
+    return Math.max(1, Math.round(raw));
+  }
+
+  if (typeof raw !== 'string') {
+    return fallbackMs;
+  }
+
+  const value = raw.trim().toLowerCase();
+  if (!value) return fallbackMs;
+
+  const durationMatch = value.match(/^([0-9]+(?:\.[0-9]+)?)\s*(ms|s|m|h)?$/);
+  if (!durationMatch) return fallbackMs;
+
+  const numeric = Number(durationMatch[1]);
+  if (!Number.isFinite(numeric) || numeric < 0) return fallbackMs;
+
+  const unit = durationMatch[2] ?? 'ms';
+  const factor =
+    unit === 'ms' ? 1 :
+    unit === 's' ? 1000 :
+    unit === 'm' ? 60_000 :
+    3_600_000;
+
+  return Math.max(1, Math.round(numeric * factor));
+}
+
 // ============================================================================
 // Icons for transition types
 // ============================================================================
@@ -113,12 +163,16 @@ interface TimerEditorProps {
 }
 
 const TimerEditor: React.FC<TimerEditorProps> = ({ config, onChange }) => {
-  const [displayMs, setDisplayMs] = useState(config.delayMs);
+  const [displaySeconds, setDisplaySeconds] = useState(msToSeconds(config.delayMs));
+
+  useEffect(() => {
+    setDisplaySeconds(msToSeconds(config.delayMs));
+  }, [config.delayMs]);
   
-  const formatTime = (ms: number): string => {
-    if (ms < 1000) return `${ms}ms`;
-    if (ms < 60000) return `${(ms / 1000).toFixed(1)}s`;
-    return `${(ms / 60000).toFixed(1)}m`;
+  const formatTime = (seconds: number): string => {
+    if (seconds < 60) return `${roundTo(seconds, 2)}s`;
+    if (seconds < 3600) return `${roundTo(seconds / 60, 2)}m`;
+    return `${roundTo(seconds / 3600, 2)}h`;
   };
   
   return (
@@ -148,41 +202,44 @@ const TimerEditor: React.FC<TimerEditorProps> = ({ config, onChange }) => {
       </div>
       
       <div className="form-group">
-        <label>Delay: {formatTime(displayMs)}</label>
+        <label>Delay: {formatTime(displaySeconds)}</label>
         <input
           type="range"
-          min={100}
-          max={60000}
-          step={100}
-          value={displayMs}
+          min={TIMED_DELAY_MIN_SECONDS}
+          max={TIMED_DELAY_MAX_SECONDS}
+          step={TIMED_DELAY_STEP_SECONDS}
+          value={displaySeconds}
           onChange={(e) => {
-            const ms = Number(e.target.value);
-            setDisplayMs(ms);
-            onChange({ ...config, delayMs: ms });
+            const seconds = clamp(Number(e.target.value), TIMED_DELAY_MIN_SECONDS, TIMED_DELAY_MAX_SECONDS);
+            setDisplaySeconds(seconds);
+            onChange({ ...config, delayMs: secondsToMs(seconds) });
           }}
           style={{ width: '100%' }}
         />
         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
-          <span>100ms</span>
+          <span>0.1s</span>
           <span>1s</span>
-          <span>10s</span>
-          <span>60s</span>
+          <span>30s</span>
+          <span>300s</span>
         </div>
       </div>
       
       <div className="form-group">
-        <label htmlFor="exactDelay">Exact Value (ms)</label>
+        <label htmlFor="exactDelay">Exact Value (seconds)</label>
         <input
           id="exactDelay"
           type="number"
-          min={1}
-          value={config.delayMs}
+          min={TIMED_DELAY_MIN_SECONDS}
+          max={TIMED_DELAY_MAX_SECONDS}
+          step={TIMED_DELAY_STEP_SECONDS}
+          value={roundTo(displaySeconds, 3)}
           onChange={(e) => {
-            const ms = Number(e.target.value);
-            setDisplayMs(ms);
-            onChange({ ...config, delayMs: ms });
+            const seconds = clamp(Number(e.target.value), TIMED_DELAY_MIN_SECONDS, TIMED_DELAY_MAX_SECONDS);
+            setDisplaySeconds(seconds);
+            onChange({ ...config, delayMs: secondsToMs(seconds) });
           }}
         />
+        <span className="form-hint">Stored as milliseconds for runtime compatibility</span>
       </div>
       
       <div className="form-group">
@@ -443,6 +500,38 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
     weight: 50,
     normalizeWeights: true,
   });
+
+  const inferExistingType = (): TransitionType => {
+    if (!existingTransition) return 'classic';
+    if (existingTransition.type) return existingTransition.type;
+    if (existingTransition.timed) return 'timed';
+    if (existingTransition.event) return 'event';
+    if (existingTransition.probabilistic?.enabled || (existingTransition.weight ?? 1) !== 1) {
+      return 'probabilistic';
+    }
+    if ((existingTransition.condition ?? '').trim() === 'true') return 'immediate';
+    return 'classic';
+  };
+
+  const normalizeTimedConfig = (timed: any): TimedTransitionConfig => ({
+    mode: timed?.mode ?? 'after',
+    delayMs: parseDurationToMs(timed?.delayMs ?? timed?.delay_ms ?? timed?.after ?? 1000, 1000),
+    absoluteTime: timed?.absoluteTime,
+    repeatCount: Number(timed?.repeatCount ?? timed?.repeat_count ?? 0) || undefined,
+    windowEndMs: parseDurationToMs(timed?.windowEndMs ?? timed?.window_end_ms ?? 0, 0) || undefined,
+    jitterMs: parseDurationToMs(timed?.jitterMs ?? timed?.jitter_ms ?? 0, 0) || undefined,
+    additionalCondition: timed?.additionalCondition ?? timed?.additional_condition ?? timed?.condition,
+    showCountdown: timed?.showCountdown ?? true,
+  });
+
+  const normalizeEventConfig = (event: any): EventTransitionConfig => ({
+    triggers: Array.isArray(event?.triggers) && event.triggers.length > 0
+      ? event.triggers
+      : [{ signalName: '', signalType: 'input', triggerType: 'onChange' }],
+    requireAll: event?.requireAll ?? event?.require_all ?? false,
+    debounceMs: Number(event?.debounceMs ?? event?.debounce_ms ?? 50),
+    additionalCondition: event?.additionalCondition,
+  });
   
   // Initialize form
   const initializedRef = useRef<string | null>(null);
@@ -458,14 +547,22 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
     initializedRef.current = sessionKey;
     
     if (existingTransition) {
+      const existingType = inferExistingType();
       setFromState(existingTransition.from);
       setToState(existingTransition.to);
       setName(existingTransition.name);
       setCondition(existingTransition.condition || '');
       setBody(existingTransition.body || '');
       setPriority(existingTransition.priority || 0);
-      // TODO: Parse type from existing transition
-      setTransitionType('classic');
+      setTransitionType(existingType);
+      setTimedConfig(normalizeTimedConfig(existingTransition.timed));
+      setEventConfig(normalizeEventConfig(existingTransition.event));
+      setProbabilisticConfig({
+        mode: existingTransition.probabilistic?.condition ? 'dynamic' : 'static',
+        weight: existingTransition.probabilistic?.weight ?? existingTransition.weight ?? 50,
+        weightExpression: existingTransition.probabilistic?.condition,
+        normalizeWeights: true,
+      });
     } else {
       // Smart state pre-selection:
       // 1. Use explicit props if provided
@@ -501,6 +598,20 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
       setBody('');
       setPriority(0);
       setTransitionType('classic');
+      setTimedConfig({
+        mode: 'after',
+        delayMs: 1000,
+        showCountdown: true,
+      });
+      setEventConfig({
+        triggers: [{ signalName: '', signalType: 'input', triggerType: 'onChange' }],
+        debounceMs: 50,
+      });
+      setProbabilisticConfig({
+        mode: 'static',
+        weight: 50,
+        normalizeWeights: true,
+      });
     }
   }, [isOpen, editTransitionId, existingTransition, initialFromState, initialToState, states, selectedStateIds, automata]);
   
@@ -556,33 +667,62 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
     
     const transitionName = name.trim() || `${getStateName(fromState)} → ${getStateName(toState)}`;
     
-    // Build condition based on type
+    // Build type-aware payload so runtime config survives deploy/export.
     let finalCondition = condition;
+    let finalWeight = 1;
+    let finalTimed: any = undefined;
+    let finalEvent: any = undefined;
+    let finalProbabilistic: any = undefined;
+
     if (transitionType === 'immediate') {
       finalCondition = 'true';
+    } else if (transitionType === 'timed') {
+      finalCondition = timedConfig.additionalCondition || '';
+      finalTimed = {
+        mode: timedConfig.mode,
+        delayMs: timedConfig.delayMs,
+        jitterMs: timedConfig.jitterMs,
+        absoluteTime: timedConfig.absoluteTime,
+        repeatCount: timedConfig.repeatCount,
+        windowEndMs: timedConfig.windowEndMs,
+        additionalCondition: timedConfig.additionalCondition,
+        showCountdown: timedConfig.showCountdown,
+      };
+    } else if (transitionType === 'event') {
+      finalCondition = eventConfig.additionalCondition || '';
+      finalEvent = {
+        triggers: eventConfig.triggers,
+        requireAll: eventConfig.requireAll,
+        debounceMs: eventConfig.debounceMs,
+        additionalCondition: eventConfig.additionalCondition,
+      };
+    } else if (transitionType === 'probabilistic') {
+      finalWeight = probabilisticConfig.weight;
+      finalProbabilistic = {
+        enabled: true,
+        weight: probabilisticConfig.weight,
+        condition: probabilisticConfig.weightExpression,
+      };
     }
+
+    const transitionPayload = {
+      from: fromState,
+      to: toState,
+      name: transitionName,
+      type: transitionType,
+      condition: finalCondition,
+      body,
+      priority,
+      weight: finalWeight,
+      timed: finalTimed,
+      event: finalEvent,
+      probabilistic: finalProbabilistic,
+    };
     
     if (editTransitionId) {
-      updateTransition(editTransitionId, {
-        from: fromState,
-        to: toState,
-        name: transitionName,
-        condition: finalCondition,
-        body,
-        priority,
-        weight: transitionType === 'probabilistic' ? probabilisticConfig.weight : 1,
-        // TODO: Store type-specific config
-      });
+      updateTransition(editTransitionId, transitionPayload);
     } else {
-      addTransition({
-        from: fromState,
-        to: toState,
-        name: transitionName,
-        condition: finalCondition,
-        body,
-        priority,
-        weight: transitionType === 'probabilistic' ? probabilisticConfig.weight : 1,
-      });
+      addTransition(transitionPayload);
     }
     
     onClose();

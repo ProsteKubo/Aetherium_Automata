@@ -23,6 +23,53 @@ end
 config :aetherium_gateway, AetheriumGatewayWeb.Endpoint,
   http: [port: String.to_integer(System.get_env("PORT", "4000"))]
 
+existing_auth = Application.get_env(:aetherium_gateway, AetheriumGateway.Auth, [])
+existing_tokens = Keyword.get(existing_auth, :tokens, %{})
+
+token_from_existing = fn key ->
+  cond do
+    is_map(existing_tokens) ->
+      Map.get(existing_tokens, key) || Map.get(existing_tokens, to_string(key))
+
+    Keyword.keyword?(existing_tokens) ->
+      Keyword.get(existing_tokens, key) || Keyword.get(existing_tokens, to_string(key))
+
+    true ->
+      nil
+  end
+end
+
+default_token_for = fn
+  :operator -> "dev_secret_token"
+  :server -> "server_secret_token"
+  :device -> "device_secret_token"
+end
+
+config :aetherium_gateway, AetheriumGateway.Auth,
+  tokens: %{
+    operator:
+      System.get_env("GATEWAY_OPERATOR_TOKEN") ||
+        token_from_existing.(:operator) ||
+        default_token_for.(:operator),
+    server:
+      System.get_env("GATEWAY_SERVER_TOKEN") ||
+        token_from_existing.(:server) ||
+        default_token_for.(:server),
+    device:
+      System.get_env("GATEWAY_DEVICE_TOKEN") ||
+        token_from_existing.(:device) ||
+        default_token_for.(:device)
+  },
+  hmac_secret: System.get_env("GATEWAY_HMAC_SECRET") || Keyword.get(existing_auth, :hmac_secret)
+
+config :aetherium_gateway, AetheriumGateway.CommandEnvelope,
+  max_payload_bytes: String.to_integer(System.get_env("GATEWAY_MAX_PAYLOAD_BYTES") || "64000")
+
+config :aetherium_gateway, AetheriumGateway.Persistence,
+  enabled: String.downcase(System.get_env("GATEWAY_PERSISTENCE_ENABLED") || "true") in ["1", "true", "yes"],
+  data_dir: System.get_env("GATEWAY_DATA_DIR") || "var/gateway",
+  event_capacity: String.to_integer(System.get_env("GATEWAY_EVENT_CAPACITY") || "10000")
+
 if config_env() == :prod do
   # The secret key base is used to sign/encrypt cookies and other secrets.
   # A default value is used in config/dev.exs and config/test.exs but you

@@ -43,6 +43,7 @@
 
 // Protocol definitions
 #include "protocol.hpp"
+#include "protocol_v2.hpp"
 
 // Transport layer
 #include "transport.hpp"
@@ -52,6 +53,10 @@
 
 // YAML parser
 #include "parser.hpp"
+#include "automata_loader.hpp"
+#include "telemetry_log_hub.hpp"
+#include "command_bus.hpp"
+#include "engine.hpp"
 
 namespace aeth {
 

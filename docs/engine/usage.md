@@ -32,6 +32,24 @@ This guide covers building and running the Engine on host and MCU targets, runti
 - Optionally enable a local WebSocket or UDP transport for control/telemetry
 - Observe logs/metrics/state in the console or via tools/IDE
 
+### CLI Modes
+
+- `--run <file>`: load and start immediately in detached mode.
+- `--mode network --run <file>`: connect to server and run an initial automata.
+- `--mode network` with no `--run`: start command server loop and wait for network load/start commands.
+- `--validate <file>`: parse/validate only, no execution.
+
+### Command Surface (Engine Runtime)
+
+The engine command bus accepts and routes all protocol command IDs:
+
+- Control: `HELLO`, `HELLO_ACK`, `DISCOVER`, `PING`, `PONG`, `PROVISION`, `GOODBYE`
+- Automata: `LOAD_AUTOMATA`, `LOAD_ACK`, `START`, `STOP`, `RESET`, `STATUS`, `PAUSE`, `RESUME`
+- Data: `INPUT`, `OUTPUT`, `VARIABLE`, `STATE_CHANGE`, `TELEMETRY`, `TRANSITION_FIRED`
+- Extended: `VENDOR`, `DEBUG`, `ERROR`, `ACK`, `NAK`
+
+Execution semantics are idempotent for lifecycle operations. Responses include `ACK`/`NAK` and status snapshots.
+
 ## Using on MCU
 
 - Implement HAL for time, I/O, storage, and chosen transport
@@ -54,4 +72,3 @@ This guide covers building and running the Engine on host and MCU targets, runti
 - Keep actions short and non‑blocking; use timeouts
 - Use guards to validate inputs before side effects
 - Prefer periodic telemetry snapshots to verbose logging on MCU
-

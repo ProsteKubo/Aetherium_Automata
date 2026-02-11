@@ -5,6 +5,5 @@
 export {
   useKeyboardShortcuts,
   useGlobalShortcuts,
-  KEYBOARD_SHORTCUTS,
-  type KeyboardShortcut,
+  type Shortcut as KeyboardShortcut,
 } from './useKeyboardShortcuts';
