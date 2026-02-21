@@ -560,6 +560,38 @@ export interface ServerStatusEvent {
   affectedDevices: DeviceId[];
 }
 
+export interface DeploymentStatusEvent {
+  deployment_id?: string;
+  deploymentId?: string;
+  automata_id?: AutomataId | string;
+  automataId?: AutomataId | string;
+  device_id?: DeviceId | string;
+  deviceId?: DeviceId | string;
+  status?: string;
+  current_state?: string;
+  currentState?: string;
+  variables?: Record<string, unknown>;
+  timestamp?: number | string;
+}
+
+export interface DeploymentListEvent {
+  deployments: Array<Record<string, unknown>>;
+}
+
+export interface ConnectionListEvent {
+  connections: Array<Record<string, unknown>>;
+}
+
+export interface DeviceLogEvent {
+  device_id?: DeviceId | string;
+  deviceId?: DeviceId | string;
+  level?: 'trace' | 'debug' | 'info' | 'warning' | 'error';
+  message: string;
+  timestamp?: number | string;
+  server_id?: ServerId | string;
+  serverId?: ServerId | string;
+}
+
 export type CommandOutcomeStatus = 'ACK' | 'NAK' | 'ERROR';
 
 export interface CommandOutcomeEvent {
@@ -607,4 +639,8 @@ export type AnyEvent =
   | ExecutionSnapshotEvent
   | ExecutionTransitionEvent
   | ExecutionErrorEvent
-  | ServerStatusEvent;
+  | ServerStatusEvent
+  | DeploymentStatusEvent
+  | DeploymentListEvent
+  | ConnectionListEvent
+  | DeviceLogEvent;

@@ -7,3 +7,4 @@ export * from './protocol';
 export * from './project';
 export * from './transitions';
 export * from './connections';
+export * from './runtimeView';

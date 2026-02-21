@@ -40,6 +40,10 @@ import type {
   ExecutionErrorEvent,
   ServerStatusEvent,
   CommandOutcomeEvent,
+  DeploymentStatusEvent,
+  DeploymentListEvent,
+  ConnectionListEvent,
+  DeviceLogEvent,
 } from '../../types/protocol';
 
 // ============================================================================
@@ -55,6 +59,10 @@ export type ExecutionTransitionEventHandler = (event: ExecutionTransitionEvent) 
 export type ExecutionErrorEventHandler = (event: ExecutionErrorEvent) => void;
 export type ServerStatusEventHandler = (event: ServerStatusEvent) => void;
 export type CommandOutcomeEventHandler = (event: CommandOutcomeEvent) => void;
+export type DeploymentStatusEventHandler = (event: DeploymentStatusEvent) => void;
+export type DeploymentListEventHandler = (event: DeploymentListEvent) => void;
+export type ConnectionListEventHandler = (event: ConnectionListEvent) => void;
+export type DeviceLogEventHandler = (event: DeviceLogEvent) => void;
 
 export interface GatewayEventHandlers {
   onConnectionChange?: ConnectionEventHandler;
@@ -66,6 +74,10 @@ export interface GatewayEventHandlers {
   onExecutionError?: ExecutionErrorEventHandler;
   onServerStatus?: ServerStatusEventHandler;
   onCommandOutcome?: CommandOutcomeEventHandler;
+  onDeploymentStatus?: DeploymentStatusEventHandler;
+  onDeploymentList?: DeploymentListEventHandler;
+  onConnectionList?: ConnectionListEventHandler;
+  onDeviceLog?: DeviceLogEventHandler;
 }
 
 // ============================================================================

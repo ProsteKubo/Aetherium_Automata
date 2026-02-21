@@ -4,8 +4,9 @@
  * Shows device network status, allows device management and OTA updates.
  */
 
-import React, { useState, useMemo } from 'react';
-import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore } from '../../stores';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore, useRuntimeViewStore } from '../../stores';
+import type { Device } from '../../types';
 import {
   IconDevice,
   IconServer,
@@ -19,11 +20,13 @@ import {
   IconError,
   IconChevronRight,
   IconChevronDown,
+  IconRuntime,
 } from '../common/Icons';
 
 export const DevicesPanel: React.FC = () => {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
+  const [selectedDeviceFallback, setSelectedDeviceFallback] = useState<Device | null>(null);
 
   const [varName, setVarName] = useState<string>('');
   const [varValue, setVarValue] = useState<string>('');
@@ -41,6 +44,7 @@ export const DevicesPanel: React.FC = () => {
   const activeAutomataId = useAutomataStore((state) => state.activeAutomataId);
   const automataMap = useAutomataStore((state) => state.automata);
   const deviceExecutions = useExecutionStore((state) => state.deviceExecutions);
+  const selectDevice = useExecutionStore((state) => state.selectDevice);
   const startExecution = useExecutionStore((state) => state.startExecution);
   const stopExecution = useExecutionStore((state) => state.stopExecution);
   const pauseExecution = useExecutionStore((state) => state.pauseExecution);
@@ -48,11 +52,40 @@ export const DevicesPanel: React.FC = () => {
   const resetExecution = useExecutionStore((state) => state.resetExecution);
   const fetchSnapshot = useExecutionStore((state) => state.fetchSnapshot);
   const addNotification = useUIStore((state) => state.addNotification);
+  const togglePanel = useUIStore((state) => state.togglePanel);
+  const runtimeVisible = useUIStore((state) => state.layout.panels.runtime?.isVisible ?? false);
+  const setRuntimeScope = useRuntimeViewStore((state) => state.setScope);
+  const upsertRuntimeDeployment = useRuntimeViewStore((state) => state.upsertDeployment);
+  const selectRuntimeDeployment = useRuntimeViewStore((state) => state.toggleSelection);
   
   // Memoize array conversions
   const servers = useMemo(() => Array.from(serversMap.values()), [serversMap]);
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
   const activeAutomata = activeAutomataId ? automataMap.get(activeAutomataId) : undefined;
+
+  useEffect(() => {
+    if (devices.length === 0) {
+      return;
+    }
+
+    const selectedExists = selectedDeviceId ? devices.some((device) => device.id === selectedDeviceId) : false;
+    if (!selectedExists) {
+      const preferred = devices.find((device) => isDeviceReachable(device.status)) ?? devices[0];
+      if (preferred?.id && preferred.id !== selectedDeviceId) {
+        setSelectedDeviceId(preferred.id);
+        setSelectedDeviceFallback(preferred as Device);
+        selectDevice(preferred.id as any);
+      }
+    }
+  }, [devices, selectedDeviceId, selectDevice]);
+
+  useEffect(() => {
+    if (servers.length === 0) return;
+    setExpandedServers((prev) => {
+      if (prev.size > 0) return prev;
+      return new Set(servers.map((server) => server.id));
+    });
+  }, [servers]);
 
   const pickDeployCandidate = (): { id: string; automata: any } | null => {
     if (activeAutomataId && activeAutomata) {
@@ -180,6 +213,45 @@ export const DevicesPanel: React.FC = () => {
       addNotification('error', 'Snapshot', err instanceof Error ? err.message : 'Failed to fetch snapshot');
     }
   };
+
+  const normalizeRuntimeStatus = (
+    status: string,
+    execution?: { isRunning: boolean; isPaused: boolean },
+  ): 'running' | 'loading' | 'paused' | 'stopped' | 'error' | 'offline' | 'unknown' => {
+    if (execution?.isPaused) return 'paused';
+    if (execution?.isRunning) return 'running';
+    if (status === 'offline' || status === 'disconnected') return 'offline';
+    if (status === 'error') return 'error';
+    if (status === 'online' || status === 'connected') return 'stopped';
+    return 'unknown';
+  };
+
+  const handleOpenRuntimeMonitor = (deviceId: string) => {
+    const device = devicesMap.get(deviceId);
+    const automataId = device?.assignedAutomataId;
+
+    if (!device || !automataId) {
+      addNotification('warning', 'Runtime Monitor', 'Deploy an automata to this device first.');
+      return;
+    }
+
+    const deploymentId = `${automataId}:${device.id}`;
+    const execution = getDeviceExecution(device.id);
+    const status = normalizeRuntimeStatus(device.status, execution);
+    upsertRuntimeDeployment({
+      deploymentId,
+      automataId,
+      deviceId: device.id,
+      status,
+      currentState: device.currentState,
+      updatedAt: Date.now(),
+    });
+    selectRuntimeDeployment(deploymentId, true);
+    setRuntimeScope(status === 'running' || status === 'loading' || status === 'paused' ? 'running' : 'project');
+    if (!runtimeVisible) {
+      togglePanel('runtime');
+    }
+  };
   
   const handleOTAUpdate = async (deviceId: string) => {
     // TODO: Implement OTA update
@@ -254,7 +326,15 @@ export const DevicesPanel: React.FC = () => {
     }
   };
   
-  const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+  const selectedDeviceLive = devices.find((d) => d.id === selectedDeviceId) as Device | undefined;
+
+  useEffect(() => {
+    if (selectedDeviceLive) {
+      setSelectedDeviceFallback(selectedDeviceLive);
+    }
+  }, [selectedDeviceLive]);
+
+  const selectedDevice = selectedDeviceLive ?? selectedDeviceFallback;
   
   return (
     <div className="devices-panel">
@@ -280,7 +360,42 @@ export const DevicesPanel: React.FC = () => {
           {/* Server/Device Tree */}
           <div className="device-tree">
             {servers.length === 0 ? (
-              <div className="empty-state">No servers found</div>
+              devices.length === 0 ? (
+                <div className="empty-state">No servers found</div>
+              ) : (
+                <div className="server-group">
+                  <div className="server-header">
+                    <IconServer size={14} />
+                    <span className="server-name">Unassigned</span>
+                    <span className="device-count">({devices.length})</span>
+                  </div>
+                  <div className="device-list">
+                    {devices.map((device) => {
+                      const execution = getDeviceExecution(device.id);
+                      return (
+                        <div
+                          key={device.id}
+                          className={`device-item ${selectedDeviceId === device.id ? 'selected' : ''}`}
+                          onClick={() => {
+                            setSelectedDeviceId(device.id);
+                            setSelectedDeviceFallback(device as Device);
+                            selectDevice(device.id);
+                          }}
+                        >
+                          <IconDevice size={14} />
+                          <span className="device-name">{device.name}</span>
+                          {getStatusIcon(device.status)}
+                          {execution?.isRunning && (
+                            <span className="running-indicator" title="Running">
+                              <IconPlay size={10} />
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )
             ) : (
               servers.map((server) => {
                 const serverDevices = devices.filter((d) => d.serverId === server.id);
@@ -310,7 +425,11 @@ export const DevicesPanel: React.FC = () => {
                             <div
                               key={device.id}
                               className={`device-item ${selectedDeviceId === device.id ? 'selected' : ''}`}
-                              onClick={() => setSelectedDeviceId(device.id)}
+                              onClick={() => {
+                                setSelectedDeviceId(device.id);
+                                setSelectedDeviceFallback(device as Device);
+                                selectDevice(device.id);
+                              }}
                             >
                               <IconDevice size={14} />
                               <span className="device-name">{device.name}</span>
@@ -492,6 +611,16 @@ export const DevicesPanel: React.FC = () => {
                     }
                   >
                     <span>Snapshot</span>
+                  </button>
+
+                  <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => handleOpenRuntimeMonitor(selectedDevice.id)}
+                    disabled={!selectedDevice.assignedAutomataId}
+                    title={selectedDevice.assignedAutomataId ? 'Open runtime monitor for this deployment' : 'Deploy automata first'}
+                  >
+                    <IconRuntime size={12} />
+                    <span>Runtime</span>
                   </button>
                   
                   <button

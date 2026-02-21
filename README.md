@@ -38,6 +38,83 @@ IoT networks need **visual, extensible automata engines** for adaptive behavior 
 
 ---
 
+## Docker Development Workflow (Fast Iteration)
+
+All commands below assume:
+
+```bash
+cd /Users/administratorik/dev/Aetherium_Automata/src
+```
+
+Important naming note:
+- `docker compose` uses **service names** from compose file: `gateway`, `server3`, `device1`.
+- `docker ps` shows **container names**: `elixir-gateway`, `elixir-server-3`, `cpp-device-1`.
+- For compose commands, use service names, not container names.
+
+### Recommended (short) commands
+
+Use the helper Makefile:
+
+```bash
+make help
+make u          # up
+make r          # restart gateway+server3+device1
+make l0         # fresh logs only
+make rb-device  # rebuild/recreate device only
+```
+
+### Raw compose equivalents
+
+First start:
+
+```bash
+docker compose up -d gateway server3 device1
+docker compose logs -f --tail=100 gateway server3 device1
+```
+
+Fast loop by component:
+
+1. Gateway (Elixir code changes):
+```bash
+docker compose restart gateway
+```
+
+2. Server (Elixir code changes):
+```bash
+docker compose restart server3
+```
+
+3. Device/Engine (C++ changes):
+```bash
+docker compose build device1
+docker compose up -d --no-deps --force-recreate device1
+```
+
+Clean restart + fresh logs:
+
+```bash
+docker compose restart gateway server3 device1
+docker compose logs -f --tail=0 gateway server3 device1
+```
+
+### When to use full reset
+
+Use only if environment/state is broken:
+
+```bash
+docker compose down
+docker compose up -d gateway server3 device1
+```
+
+Use this only when you explicitly want to wipe cached deps/build volumes (slow next start):
+
+```bash
+docker compose down -v
+docker compose up -d gateway server3 device1
+```
+
+---
+
 ## Milestones
 
 ### Milestone 1: Core Automata Engine

@@ -66,6 +66,13 @@ export const IconTimeTravel: React.FC<IconProps> = ({ size = 20, className }) =>
   </svg>
 );
 
+export const IconRuntime: React.FC<IconProps> = ({ size = 20, className }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <path d="M3 12h4l2-5 4 10 2-5h6" />
+    <rect x="2" y="3" width="20" height="18" rx="2" />
+  </svg>
+);
+
 export const IconExplorer: React.FC<IconProps> = ({ size = 20, className }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
@@ -525,4 +532,3 @@ export const IconWeight: React.FC<IconProps> = ({ size = 20, className }) => (
     <circle cx="19" cy="12" r="3" />
   </svg>
 );
-

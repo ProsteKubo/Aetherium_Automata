@@ -12,6 +12,7 @@ import {
   IconAutomata,
   IconDevice,
   IconNetwork,
+  IconRuntime,
   IconGateway,
   IconTimeTravel,
   IconConsole,
@@ -79,6 +80,11 @@ export const ActivityBar: React.FC = () => {
           icon={<IconNetwork size={22} />}
           panelId="network"
           label="Network View"
+        />
+        <ActivityBarItem
+          icon={<IconRuntime size={22} />}
+          panelId="runtime"
+          label="Runtime Monitor"
         />
         <ActivityBarItem
           icon={<IconTimeTravel size={22} />}
