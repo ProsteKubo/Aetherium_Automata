@@ -156,6 +156,13 @@ const defaultLayout: LayoutConfig = {
       position: 'right',
       isCollapsed: true,
     },
+    runtime: {
+      id: 'runtime',
+      isVisible: false,
+      size: 300,
+      position: 'center',
+      isCollapsed: true,
+    },
     timetravel: {
       id: 'timetravel',
       isVisible: true,
@@ -257,8 +264,8 @@ export const useUIStore = create<UIStore>()(
               });
             }
             
-            // If enabling a center view panel (network, automata, timetravel), disable the others
-            const centerViewPanels: PanelId[] = ['network', 'automata', 'timetravel'];
+            // If enabling a center view panel, disable the others
+            const centerViewPanels: PanelId[] = ['network', 'automata', 'runtime', 'timetravel'];
             if (willBeVisible && centerViewPanels.includes(panelId)) {
               centerViewPanels.forEach((id) => {
                 if (id !== panelId && state.layout.panels[id]) {
@@ -547,6 +554,21 @@ export const useUIStore = create<UIStore>()(
         theme: state.theme,
         editorMode: state.editorMode,
       }),
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<UIState>;
+        return {
+          ...currentState,
+          ...persisted,
+          layout: {
+            ...currentState.layout,
+            ...(persisted.layout || {}),
+            panels: {
+              ...currentState.layout.panels,
+              ...(persisted.layout?.panels || {}),
+            },
+          },
+        };
+      },
     }
   )
 );

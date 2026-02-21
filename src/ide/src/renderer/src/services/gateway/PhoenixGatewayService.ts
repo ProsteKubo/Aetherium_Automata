@@ -33,6 +33,10 @@ import type {
   TimeTravelNavigateResponse,
   MonitorSubscribeResponse,
   CommandOutcomeEvent,
+  DeploymentStatusEvent,
+  DeploymentListEvent,
+  ConnectionListEvent,
+  DeviceLogEvent,
 } from '../../types/protocol';
 import type { IGatewayService, GatewayEventHandlers } from './IGatewayService';
 
@@ -48,7 +52,13 @@ interface LogEvent {
 }
 
 interface AlertEvent {
-  type: 'device_crash' | 'device_disconnect' | 'lua_error' | 'device_restarted' | 'network_collapse';
+  type:
+    | 'device_crash'
+    | 'device_disconnect'
+    | 'lua_error'
+    | 'device_restarted'
+    | 'network_collapse'
+    | 'metrics';
   severity: 'error' | 'warning' | 'info';
   device_id: string;
   message: string;
@@ -99,6 +109,11 @@ interface PendingCommandOutcome {
   timer: ReturnType<typeof setTimeout>;
 }
 
+interface SnapshotCacheEntry {
+  response: ExecutionSnapshotResponse;
+  cachedAt: number;
+}
+
 // ============================================================================
 // Phoenix Gateway Service
 // ============================================================================
@@ -118,12 +133,20 @@ export class PhoenixGatewayService implements IGatewayService {
   private devices: Map<string, Device> = new Map();
   private servers: Map<string, Server> = new Map();
   private pendingCommandOutcomes: Map<string, PendingCommandOutcome> = new Map();
+  private snapshotCache: Map<string, SnapshotCacheEntry> = new Map();
+  private snapshotInFlight: Map<string, Promise<ExecutionSnapshotResponse>> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private manualDisconnect = false;
+  private connectionGeneration = 0;
+  private hasConnectedOnce = false;
+  private autoReconnectSuppressed = false;
 
   private static readonly DEFAULT_SERVER_ID: ServerId = 'default_server' as ServerId;
   private static readonly RECONNECT_DELAYS_MS = [1000, 2000, 5000, 10000];
+  private static readonly MAX_AUTO_RECONNECT_ATTEMPTS = 6;
+  private static readonly SOCKET_RECONNECT_DISABLED_MS = 2_147_483_647;
+  private static readonly SNAPSHOT_CACHE_TTL_MS = 750;
 
   private emit<K extends keyof GatewayEventHandlers>(
     event: K,
@@ -143,7 +166,19 @@ export class PhoenixGatewayService implements IGatewayService {
   }
 
   private scheduleReconnect(reason: string): void {
-    if (this.manualDisconnect || !this.config || this.reconnectTimer) {
+    // Do not auto-reconnect before at least one successful connection.
+    if (
+      !this.hasConnectedOnce ||
+      this.autoReconnectSuppressed ||
+      this.manualDisconnect ||
+      !this.config ||
+      this.reconnectTimer
+    ) {
+      return;
+    }
+
+    if (this.reconnectAttempts >= PhoenixGatewayService.MAX_AUTO_RECONNECT_ATTEMPTS) {
+      this.setStatus('error', 'Auto-reconnect paused. Please reconnect manually.');
       return;
     }
 
@@ -162,10 +197,35 @@ export class PhoenixGatewayService implements IGatewayService {
         return;
       }
 
-      this.connect(this.config).catch((error) => {
+      this.connect(this.config, true).catch((error) => {
         console.error('[Gateway] Reconnect attempt failed:', error);
       });
     }, delay);
+  }
+
+  private teardownConnectionState(): void {
+    if (this.channel) {
+      this.channel.leave();
+      this.channel = null;
+    }
+
+    if (this.automataChannel) {
+      this.automataChannel.leave();
+      this.automataChannel = null;
+    }
+
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket = null;
+    }
+
+    this.pendingCommandOutcomes.forEach((pending, commandId) => {
+      clearTimeout(pending.timer);
+      pending.reject(new Error(`Disconnected before command outcome (${commandId})`));
+    });
+    this.pendingCommandOutcomes.clear();
+    this.snapshotInFlight.clear();
+    this.snapshotCache.clear();
   }
 
   private makeId(prefix: string): string {
@@ -246,6 +306,37 @@ export class PhoenixGatewayService implements IGatewayService {
     return new Error(`${commandType} ${status}: ${reason}`);
   }
 
+  private getSnapshotCacheKey(deviceId: DeviceId): string {
+    return String(deviceId);
+  }
+
+  private getCachedSnapshot(deviceId: DeviceId): ExecutionSnapshotResponse | null {
+    const key = this.getSnapshotCacheKey(deviceId);
+    const entry = this.snapshotCache.get(key);
+    if (!entry) return null;
+
+    if (Date.now() - entry.cachedAt > PhoenixGatewayService.SNAPSHOT_CACHE_TTL_MS) {
+      this.snapshotCache.delete(key);
+      return null;
+    }
+
+    return entry.response;
+  }
+
+  private setCachedSnapshot(deviceId: DeviceId, response: ExecutionSnapshotResponse): void {
+    const key = this.getSnapshotCacheKey(deviceId);
+    this.snapshotCache.set(key, { response, cachedAt: Date.now() });
+  }
+
+  private invalidateSnapshotCache(deviceId?: DeviceId): void {
+    if (deviceId === undefined || deviceId === null) {
+      this.snapshotCache.clear();
+      return;
+    }
+
+    this.snapshotCache.delete(this.getSnapshotCacheKey(deviceId));
+  }
+
   private inferVariableType(value: unknown): 'number' | 'string' | 'bool' | 'any' | 'table' {
     if (typeof value === 'number') return 'number';
     if (typeof value === 'string') return 'string';
@@ -295,6 +386,10 @@ export class PhoenixGatewayService implements IGatewayService {
   ): Promise<{ response: T; outcome: CommandOutcomeEvent }> {
     const envelope = this.buildEnvelope(command, timeout);
     const commandPayload = { ...payload, ...envelope };
+    const targetDeviceId = (commandPayload.device_id ?? commandPayload.deviceId) as DeviceId | undefined;
+    if (command !== 'request_state' && targetDeviceId) {
+      this.invalidateSnapshotCache(targetDeviceId);
+    }
     const commandId = envelope.command_id;
     const outcomePromise = this.awaitCommandOutcome(commandId, timeout);
 
@@ -471,23 +566,30 @@ export class PhoenixGatewayService implements IGatewayService {
   // Connection Management
   // ========================================================================
   
-  async connect(config: GatewayConfig): Promise<ConnectResponse> {
+  async connect(config: GatewayConfig, isAutoReconnect = false): Promise<ConnectResponse> {
     // Validate config
     if (!config.host || !config.port) {
       throw new Error('Invalid gateway config: host and port are required');
     }
 
-    this.manualDisconnect = false;
+    if (!isAutoReconnect) {
+      this.autoReconnectSuppressed = true;
+      this.reconnectAttempts = 0;
+    }
+
     this.clearReconnectTimer();
+    const generation = ++this.connectionGeneration;
+    this.manualDisconnect = true;
     
-    // Disconnect existing connection first
+    // Disconnect existing connection first and suppress stale close/error callbacks.
     if (this.socket || this.channel || this.automataChannel) {
       console.log('[Gateway] Disconnecting existing connection before reconnecting');
-      await this.disconnect();
-      this.manualDisconnect = false;
+      this.teardownConnectionState();
     }
+    this.manualDisconnect = false;
     
     this.config = config;
+    this.sessionId = null;
     this.setStatus('connecting');
     
     try {
@@ -499,24 +601,25 @@ export class PhoenixGatewayService implements IGatewayService {
       this.socket = new Socket(socketUrl, {
         params: { token: config.password || 'dev_secret_token' },
         timeout: 10000,
-        reconnectAfterMs: (tries) => {
-          // Exponential backoff: 1s, 2s, 5s, 10s, then 10s
-          return [1000, 2000, 5000, 10000][tries - 1] || 10000;
-        },
+        // Disable Phoenix internal reconnect loop; we own retry policy via scheduleReconnect().
+        reconnectAfterMs: () => PhoenixGatewayService.SOCKET_RECONNECT_DISABLED_MS,
       });
       
       // Socket-level event handlers
       this.socket.onOpen(() => {
+        if (generation !== this.connectionGeneration) return;
         console.log('[Gateway] Socket opened');
       });
       
       this.socket.onError((error) => {
+        if (generation !== this.connectionGeneration) return;
         console.error('[Gateway] Socket error:', error);
         this.setStatus('error', 'Socket connection error');
         this.scheduleReconnect('socket_error');
       });
       
       this.socket.onClose(() => {
+        if (generation !== this.connectionGeneration) return;
         console.log('[Gateway] Socket closed');
         this.setStatus('disconnected');
         this.scheduleReconnect('socket_closed');
@@ -533,23 +636,27 @@ export class PhoenixGatewayService implements IGatewayService {
       this.automataChannel = this.socket.channel('automata:control', { token });
 
       this.channel.onError(() => {
+        if (generation !== this.connectionGeneration) return;
         console.error('[Gateway] gateway:control channel error');
         this.setStatus('error', 'gateway:control channel error');
         this.scheduleReconnect('gateway_channel_error');
       });
 
       this.channel.onClose(() => {
+        if (generation !== this.connectionGeneration) return;
         console.warn('[Gateway] gateway:control channel closed');
         this.scheduleReconnect('gateway_channel_closed');
       });
 
       this.automataChannel.onError(() => {
+        if (generation !== this.connectionGeneration) return;
         console.error('[Gateway] automata:control channel error');
         this.setStatus('error', 'automata:control channel error');
         this.scheduleReconnect('automata_channel_error');
       });
 
       this.automataChannel.onClose(() => {
+        if (generation !== this.connectionGeneration) return;
         console.warn('[Gateway] automata:control channel closed');
         this.scheduleReconnect('automata_channel_closed');
       });
@@ -605,6 +712,8 @@ export class PhoenixGatewayService implements IGatewayService {
 
       await Promise.all([joinGateway, joinAutomata]);
 
+      this.hasConnectedOnce = true;
+      this.autoReconnectSuppressed = false;
       this.reconnectAttempts = 0;
       this.setStatus('connected');
 
@@ -616,37 +725,24 @@ export class PhoenixGatewayService implements IGatewayService {
       };
     } catch (error) {
       console.error('[Gateway] Connection error:', error);
+      this.manualDisconnect = true;
+      this.teardownConnectionState();
+      this.manualDisconnect = false;
       this.setStatus('error', error instanceof Error ? error.message : 'Unknown error');
-      this.scheduleReconnect('connect_failed');
+      if (this.hasConnectedOnce && isAutoReconnect) {
+        this.scheduleReconnect('connect_failed');
+      }
       throw error;
     }
   }
   
   async disconnect(): Promise<void> {
+    this.connectionGeneration += 1;
     this.manualDisconnect = true;
+    this.autoReconnectSuppressed = true;
     this.clearReconnectTimer();
     this.reconnectAttempts = 0;
-
-    if (this.channel) {
-      this.channel.leave();
-      this.channel = null;
-    }
-
-    if (this.automataChannel) {
-      this.automataChannel.leave();
-      this.automataChannel = null;
-    }
-    
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-
-    this.pendingCommandOutcomes.forEach((pending, commandId) => {
-      clearTimeout(pending.timer);
-      pending.reject(new Error(`Disconnected before command outcome (${commandId})`));
-    });
-    this.pendingCommandOutcomes.clear();
+    this.teardownConnectionState();
     
     this.setStatus('disconnected');
     this.sessionId = null;
@@ -695,11 +791,45 @@ export class PhoenixGatewayService implements IGatewayService {
       this.logs.push(payload);
       // Emit to UI if needed
     });
+
+    this.channel.on('device_log', (payload: Record<string, any>) => {
+      const deviceLog: DeviceLogEvent = {
+        device_id: payload.device_id ?? payload.deviceId,
+        level: payload.level ?? 'info',
+        message: String(payload.message ?? ''),
+        timestamp: payload.timestamp ?? Date.now(),
+        server_id: payload.server_id ?? payload.serverId,
+      };
+      this.emit('onDeviceLog', deviceLog);
+    });
+
+    this.channel.on('command_outcome', (payload: Record<string, any>) => {
+      this.handleCommandOutcome(payload);
+    });
     
     // Alert events
     this.channel.on('alert', (payload: AlertEvent) => {
-      console.warn(`[Gateway Alert] ${payload.type}: ${payload.message}`);
-      this.alerts.push(payload);
+      const alertType = payload.type ?? 'unknown';
+      const alertMessage =
+        payload.message ??
+        (alertType === 'metrics' ? 'telemetry update' : undefined) ??
+        'no details';
+      if (alertType === 'metrics') {
+        console.debug(`[Gateway Alert] ${alertType}: ${alertMessage}`);
+      } else {
+        console.warn(`[Gateway Alert] ${alertType}: ${alertMessage}`);
+      }
+      this.alerts.push({ ...payload, type: alertType as AlertEvent['type'], message: alertMessage });
+
+      if (alertType === 'metrics') {
+        const telemetry = (payload as any).telemetry;
+        if (payload.device_id && telemetry && typeof telemetry === 'object') {
+          this.emit('onDeviceMetrics', {
+            deviceId: payload.device_id as DeviceId,
+            metrics: telemetry,
+          });
+        }
+      }
       
       // Update device status if applicable
       if (payload.device_id) {
@@ -738,8 +868,6 @@ export class PhoenixGatewayService implements IGatewayService {
     
     // Device list updates
     this.channel.on('device_list', (payload: DeviceListEvent) => {
-      console.log('[Gateway] Device list update:', payload.devices);
-
       const normalized = this.consolidateDevices(payload.devices.map((d) => this.normalizeDevice(d)));
       
       // Collect incoming device IDs
@@ -936,10 +1064,10 @@ export class PhoenixGatewayService implements IGatewayService {
       this.automataChannel.on('deployment_status', (payload: any) => {
         const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
         if (!deviceId) return;
+        const automataId = payload.automata_id ?? payload.automataId;
 
         const device = this.devices.get(deviceId);
         if (device) {
-          const automataId = payload.automata_id ?? payload.automataId;
           const currentState = payload.current_state ?? payload.currentState;
           // Create new object to avoid mutating frozen Immer objects
           this.devices.set(deviceId, {
@@ -949,6 +1077,43 @@ export class PhoenixGatewayService implements IGatewayService {
           });
           this.emit('onDeviceList', Array.from(this.devices.values()));
         }
+
+        const snapshot = this.buildSnapshot(deviceId as any, {
+          automata_id: automataId,
+          current_state: payload.current_state ?? payload.currentState,
+          variables: payload.variables,
+        });
+        this.emit('onExecutionSnapshot', {
+          deviceId: deviceId as any,
+          automataId: (automataId ?? snapshot.automataId) as any,
+          snapshot,
+        });
+        this.setCachedSnapshot(deviceId as any, { snapshot });
+
+        const deploymentStatus: DeploymentStatusEvent = {
+          deployment_id: payload.deployment_id ?? payload.deploymentId,
+          automata_id: automataId,
+          device_id: payload.device_id ?? payload.deviceId,
+          status: payload.status,
+          current_state: payload.current_state ?? payload.currentState,
+          variables: payload.variables,
+          timestamp: payload.timestamp,
+        };
+        this.emit('onDeploymentStatus', deploymentStatus);
+      });
+
+      this.automataChannel.on('deployment_list', (payload: any) => {
+        const deployments: DeploymentListEvent = {
+          deployments: Array.isArray(payload?.deployments) ? payload.deployments : [],
+        };
+        this.emit('onDeploymentList', deployments);
+      });
+
+      this.automataChannel.on('connection_list', (payload: any) => {
+        const connections: ConnectionListEvent = {
+          connections: Array.isArray(payload?.connections) ? payload.connections : [],
+        };
+        this.emit('onConnectionList', connections);
       });
     }
   }
@@ -1262,14 +1427,9 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async undeployAutomata(_deviceId: DeviceId): Promise<ExecutionSnapshot | null> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'stop_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
     return null;
@@ -1301,14 +1461,9 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async startExecution(_deviceId: DeviceId): Promise<ExecutionStartResponse> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'start_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
     const snapshotResponse = await this.getSnapshot(_deviceId);
@@ -1316,14 +1471,9 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async stopExecution(_deviceId: DeviceId): Promise<ExecutionStopResponse> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'stop_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
     const snapshotResponse = await this.getSnapshot(_deviceId);
@@ -1331,40 +1481,25 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async pauseExecution(_deviceId: DeviceId): Promise<void> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'pause_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
   }
   
   async resumeExecution(_deviceId: DeviceId): Promise<void> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'resume_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
   }
 
   async resetExecution(_deviceId: DeviceId): Promise<ExecutionResetResponse> {
-    const device = this.devices.get(String(_deviceId));
     await this.sendAutomataCommandWithOutcome(
       'reset_execution',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
+      { device_id: _deviceId },
       10_000
     );
     const snapshotResponse = await this.getSnapshot(_deviceId);
@@ -1388,25 +1523,42 @@ export class PhoenixGatewayService implements IGatewayService {
   }
   
   async getSnapshot(_deviceId: DeviceId): Promise<ExecutionSnapshotResponse> {
-    const device = this.devices.get(String(_deviceId));
-    const { response, outcome } = await this.sendAutomataCommandWithOutcome(
-      'request_state',
-      {
-        device_id: _deviceId,
-        ...(device?.assignedAutomataId ? { automata_id: device.assignedAutomataId } : {}),
-        ...(device?.serverId ? { server_id: device.serverId } : {}),
-      },
-      10_000
-    );
+    const cached = this.getCachedSnapshot(_deviceId);
+    if (cached) {
+      return cached;
+    }
 
-    const stateData =
-      (outcome.data?.state as Record<string, any> | undefined) ??
-      ((response as any)?.result?.state as Record<string, any> | undefined) ??
-      ((response as any)?.state as Record<string, any> | undefined);
+    const cacheKey = this.getSnapshotCacheKey(_deviceId);
+    const inFlight = this.snapshotInFlight.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
 
-    return {
-      snapshot: this.buildSnapshot(_deviceId, stateData),
-    };
+    const fetchPromise = (async (): Promise<ExecutionSnapshotResponse> => {
+      const { response, outcome } = await this.sendAutomataCommandWithOutcome(
+        'request_state',
+        { device_id: _deviceId },
+        10_000
+      );
+
+      const stateData =
+        (outcome.data?.state as Record<string, any> | undefined) ??
+        ((response as any)?.result?.state as Record<string, any> | undefined) ??
+        ((response as any)?.state as Record<string, any> | undefined);
+
+      const result = {
+        snapshot: this.buildSnapshot(_deviceId, stateData),
+      };
+      this.setCachedSnapshot(_deviceId, result);
+      return result;
+    })();
+
+    this.snapshotInFlight.set(cacheKey, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      this.snapshotInFlight.delete(cacheKey);
+    }
   }
   
   async startTimeTravel(_deviceId: DeviceId, _options?: any): Promise<TimeTravelStartResponse> {

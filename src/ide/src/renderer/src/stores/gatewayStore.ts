@@ -66,6 +66,13 @@ interface GatewayActions {
 
 type GatewayStore = GatewayState & GatewayActions;
 
+let gatewayEventUnsubscribers: Array<() => void> = [];
+
+function clearGatewayEventSubscriptions(): void {
+  gatewayEventUnsubscribers.forEach((unsubscribe) => unsubscribe());
+  gatewayEventUnsubscribers = [];
+}
+
 // ============================================================================
 // Initial State
 // ============================================================================
@@ -98,6 +105,8 @@ export const useGatewayStore = create<GatewayStore>()(
     
     connect: async (config: GatewayConfig) => {
       const { service } = get();
+
+      clearGatewayEventSubscriptions();
       
       set((state) => {
         state.isConnecting = true;
@@ -107,31 +116,38 @@ export const useGatewayStore = create<GatewayStore>()(
       
       try {
         // Setup event handlers
-        service.on('onConnectionChange', (status, error) => {
+        gatewayEventUnsubscribers.push(service.on('onConnectionChange', (status, error) => {
           set((state) => {
             state.status = status;
             if (error) state.error = error;
           });
-        });
+        }));
 
-        service.on('onDeviceList', (devices) => {
+        gatewayEventUnsubscribers.push(service.on('onDeviceList', (devices) => {
           set((state) => {
-            state.devices.clear();
+            const nextDevices = new Map<DeviceId, Device>();
             devices.forEach((device) => {
-              state.devices.set(device.id, device);
+              nextDevices.set(device.id, { ...device });
             });
+            state.devices = nextDevices;
           });
-        });
+        }));
         
-        service.on('onDeviceStatus', (event) => {
+        gatewayEventUnsubscribers.push(service.on('onDeviceStatus', (event) => {
           set((state) => {
-            const device = state.devices.get(event.deviceId);
+            const nextDevices = new Map(state.devices);
+            const device = nextDevices.get(event.deviceId);
             if (device) {
-              device.status = event.currentStatus;
-              // Also update other relevant fields based on the event
-              if (event.reason) {
-                device.error = event.currentStatus === 'error' ? event.reason : null;
-              }
+              nextDevices.set(event.deviceId, {
+                ...device,
+                status: event.currentStatus,
+                error:
+                  event.reason !== undefined
+                    ? event.currentStatus === 'error'
+                      ? event.reason
+                      : null
+                    : device.error,
+              });
             } else if (event.currentStatus === 'offline') {
               // Create a minimal device entry for offline devices if they don't exist
               // This ensures the UI can show devices that have disconnected
@@ -148,34 +164,43 @@ export const useGatewayStore = create<GatewayStore>()(
                 error: event.reason || null,
                 lastSeen: new Date().toISOString(),
               };
-              state.devices.set(event.deviceId, offlineDevice);
+              nextDevices.set(event.deviceId, offlineDevice);
             }
+            state.devices = nextDevices;
           });
-        });
+        }));
         
-        service.on('onDeviceMetrics', (event) => {
+        gatewayEventUnsubscribers.push(service.on('onDeviceMetrics', (event) => {
           set((state) => {
-            const device = state.devices.get(event.deviceId);
+            const nextDevices = new Map(state.devices);
+            const device = nextDevices.get(event.deviceId);
             if (device) {
-              device.metrics = event.metrics;
+              nextDevices.set(event.deviceId, { ...device, metrics: event.metrics });
+              state.devices = nextDevices;
             }
           });
-        });
+        }));
         
-        service.on('onServerStatus', (event) => {
+        gatewayEventUnsubscribers.push(service.on('onServerStatus', (event) => {
           // Try to fetch full server info from the service (if available) and upsert into store.
           service.getServer(event.serverId).then((srv) => {
             set((state) => {
-              state.servers.set(srv.id, srv);
+              const nextServers = new Map(state.servers);
+              nextServers.set(srv.id, srv);
+              state.servers = nextServers;
             });
           }).catch(() => {
             // Fallback: ensure we at least create/update a minimal server record
             set((state) => {
-              const server = state.servers.get(event.serverId);
+              const nextServers = new Map(state.servers);
+              const server = nextServers.get(event.serverId);
               if (server) {
-                server.status = event.currentStatus;
+                nextServers.set(event.serverId, {
+                  ...server,
+                  status: event.currentStatus,
+                });
               } else {
-                state.servers.set(event.serverId, {
+                nextServers.set(event.serverId, {
                   id: event.serverId,
                   name: event.serverId,
                   description: '',
@@ -189,9 +214,10 @@ export const useGatewayStore = create<GatewayStore>()(
                   tags: [],
                 });
               }
+              state.servers = nextServers;
             });
           });
-        });
+        }));
         
         const response = await service.connect(config);
         
@@ -206,11 +232,13 @@ export const useGatewayStore = create<GatewayStore>()(
         await get().fetchServers();
         await get().fetchDevices();
       } catch (error) {
+        const message = error instanceof Error ? error.message : 'Connection failed';
         set((state) => {
-          state.error = error instanceof Error ? error.message : 'Connection failed';
+          state.error = message;
           state.status = 'error';
           state.isConnecting = false;
         });
+        throw error instanceof Error ? error : new Error(message);
       }
     },
     
@@ -220,11 +248,12 @@ export const useGatewayStore = create<GatewayStore>()(
       try {
         await service.disconnect();
       } finally {
+        clearGatewayEventSubscriptions();
         set((state) => {
           state.status = 'disconnected';
           state.sessionId = null;
-          state.servers.clear();
-          state.devices.clear();
+          state.servers = new Map();
+          state.devices = new Map();
         });
       }
     },
@@ -246,10 +275,11 @@ export const useGatewayStore = create<GatewayStore>()(
         const response = await service.listServers();
         
         set((state) => {
-          state.servers.clear();
+          const nextServers = new Map<ServerId, Server>();
           response.servers.forEach((server) => {
-            state.servers.set(server.id, server);
+            nextServers.set(server.id, server);
           });
+          state.servers = nextServers;
           state.isLoadingServers = false;
         });
       } catch (error) {
@@ -273,12 +303,11 @@ export const useGatewayStore = create<GatewayStore>()(
         const response = await service.listDevices(serverId);
         
         set((state) => {
-          if (!serverId) {
-            state.devices.clear();
-          }
+          const nextDevices = serverId ? new Map(state.devices) : new Map<DeviceId, Device>();
           response.devices.forEach((device) => {
-            state.devices.set(device.id, device);
+            nextDevices.set(device.id, device);
           });
+          state.devices = nextDevices;
           state.isLoadingDevices = false;
         });
       } catch (error) {
@@ -295,7 +324,9 @@ export const useGatewayStore = create<GatewayStore>()(
       const response = await service.getDevice(deviceId);
       
       set((state) => {
-        state.devices.set(deviceId, response.device);
+        const nextDevices = new Map(state.devices);
+        nextDevices.set(deviceId, response.device);
+        state.devices = nextDevices;
       });
       
       return response.device;
@@ -307,18 +338,22 @@ export const useGatewayStore = create<GatewayStore>()(
     
     updateDevice: (deviceId: DeviceId, updates: Partial<Device>) => {
       set((state) => {
-        const device = state.devices.get(deviceId);
+        const nextDevices = new Map(state.devices);
+        const device = nextDevices.get(deviceId);
         if (device) {
-          Object.assign(device, updates);
+          nextDevices.set(deviceId, { ...device, ...updates });
+          state.devices = nextDevices;
         }
       });
     },
     
     updateServer: (serverId: ServerId, updates: Partial<Server>) => {
       set((state) => {
-        const server = state.servers.get(serverId);
+        const nextServers = new Map(state.servers);
+        const server = nextServers.get(serverId);
         if (server) {
-          Object.assign(server, updates);
+          nextServers.set(serverId, { ...server, ...updates });
+          state.servers = nextServers;
         }
       });
     },
@@ -337,6 +372,7 @@ export const useGatewayStore = create<GatewayStore>()(
       }
       
       set((state) => {
+        clearGatewayEventSubscriptions();
         state.useMockService = useMock;
         state.service = useMock ? new MockGatewayService() : new PhoenixGatewayService();
       });
@@ -347,8 +383,17 @@ export const useGatewayStore = create<GatewayStore>()(
     // ========================================================================
     
     reset: () => {
+      clearGatewayEventSubscriptions();
       set((state) => {
-        Object.assign(state, initialState);
+        state.status = initialState.status;
+        state.config = initialState.config;
+        state.sessionId = initialState.sessionId;
+        state.error = initialState.error;
+        state.servers = new Map();
+        state.devices = new Map();
+        state.isConnecting = initialState.isConnecting;
+        state.isLoadingServers = initialState.isLoadingServers;
+        state.isLoadingDevices = initialState.isLoadingDevices;
       });
     },
   }))

@@ -16,9 +16,18 @@ defmodule AetheriumServer.AutomataYaml do
     variables = Map.get(automata, :variables) || Map.get(automata, "variables") || []
     state_lookup = build_state_lookup(states)
 
-    state_names = states |> Map.values() |> Enum.map(&to_s(Map.get(&1, :name) || Map.get(&1, "name"))) |> Enum.reject(&(&1 == ""))
-    initial_ref = Map.get(automata, :initial_state) || Map.get(automata, "initial_state") || Map.get(automata, :initialState) || Map.get(automata, "initialState")
-    initial_state = resolve_state_name(initial_ref, state_lookup) || infer_initial_state(states, state_names)
+    state_names =
+      states
+      |> Map.values()
+      |> Enum.map(&to_s(Map.get(&1, :name) || Map.get(&1, "name")))
+      |> Enum.reject(&(&1 == ""))
+
+    initial_ref =
+      Map.get(automata, :initial_state) || Map.get(automata, "initial_state") ||
+        Map.get(automata, :initialState) || Map.get(automata, "initialState")
+
+    initial_state =
+      resolve_state_name(initial_ref, state_lookup) || infer_initial_state(states, state_names)
 
     {states_yaml, state_id_map} = render_states(states)
     {trans_yaml, transition_id_map} = render_transitions(transitions, state_lookup)
@@ -104,7 +113,7 @@ defmodule AetheriumServer.AutomataYaml do
           condition: Map.get(t, :condition) || Map.get(t, "condition"),
           priority: Map.get(t, :priority) || Map.get(t, "priority"),
           weight: Map.get(t, :weight) || Map.get(t, "weight"),
-          timed: Map.get(t, :timed) || Map.get(t, "timed"),
+          timed: timed_from_transition(t),
           probabilistic: Map.get(t, :probabilistic) || Map.get(t, "probabilistic")
         }
       end)
@@ -115,7 +124,9 @@ defmodule AetheriumServer.AutomataYaml do
       Enum.reduce(ordered, {[], %{}, 1}, fn t, {acc, map, id} ->
         entry =
           [
-            "    ", escape_key(t.name), ":\n",
+            "    ",
+            escape_key(t.name),
+            ":\n",
             "      from: #{q(t.from)}\n",
             "      to: #{q(t.to)}\n",
             "      type: #{q(t.type)}\n",
@@ -143,9 +154,15 @@ defmodule AetheriumServer.AutomataYaml do
       default = Map.get(v, :default) || Map.get(v, "default")
 
       [
-        "  - name: ", q(name), "\n",
-        "    type: ", q(type), "\n",
-        "    direction: ", q(direction), "\n",
+        "  - name: ",
+        q(name),
+        "\n",
+        "    type: ",
+        q(type),
+        "\n",
+        "    direction: ",
+        q(direction),
+        "\n",
         if(is_nil(default), do: "", else: ["    default: ", q(to_s(default)), "\n"])
       ]
     end)
@@ -205,6 +222,7 @@ defmodule AetheriumServer.AutomataYaml do
 
   defp maybe_code(k, v) do
     s = to_s(v)
+
     if String.contains?(s, "\n") do
       [k, ": |-\n", indent_block(s, "        ")]
     else
@@ -213,6 +231,7 @@ defmodule AetheriumServer.AutomataYaml do
   end
 
   defp maybe_timed(nil), do: ""
+
   defp maybe_timed(map) when is_map(map) do
     delay =
       first_present(map, [
@@ -226,8 +245,12 @@ defmodule AetheriumServer.AutomataYaml do
 
     jitter = first_present(map, [:jitter_ms, "jitter_ms", :jitterMs, "jitterMs"])
     mode = first_present(map, [:mode, "mode"])
-    repeat_count = first_present(map, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"])
-    window_end = first_present(map, [:window_end_ms, "window_end_ms", :windowEndMs, "windowEndMs"])
+
+    repeat_count =
+      first_present(map, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"])
+
+    window_end =
+      first_present(map, [:window_end_ms, "window_end_ms", :windowEndMs, "windowEndMs"])
 
     absolute_time =
       first_present(map, [
@@ -258,10 +281,91 @@ defmodule AetheriumServer.AutomataYaml do
       if(jitter, do: ["        jitter_ms: ", q(to_s(jitter)), "\n"], else: ""),
       if(repeat_count, do: ["        repeat_count: ", q(to_s(repeat_count)), "\n"], else: ""),
       if(window_end, do: ["        window_end_ms: ", q(to_s(window_end)), "\n"], else: ""),
-      if(absolute_time, do: ["        absolute_time_ms: ", q(to_s(absolute_time)), "\n"], else: ""),
+      if(absolute_time,
+        do: ["        absolute_time_ms: ", q(to_s(absolute_time)), "\n"],
+        else: ""
+      ),
       maybe_code("        condition", additional_condition)
     ]
   end
+
+  defp timed_from_transition(transition) when is_map(transition) do
+    timed = Map.get(transition, :timed) || Map.get(transition, "timed")
+
+    cond do
+      is_map(timed) and map_size(timed) > 0 ->
+        timed
+
+      true ->
+        mode = first_present(transition, [:mode, "mode"])
+
+        delay =
+          first_present(transition, [
+            :delay_ms,
+            "delay_ms",
+            :delayMs,
+            "delayMs",
+            :after,
+            "after"
+          ])
+
+        jitter = first_present(transition, [:jitter_ms, "jitter_ms", :jitterMs, "jitterMs"])
+
+        repeat_count =
+          first_present(transition, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"])
+
+        window_end =
+          first_present(transition, [
+            :window_end_ms,
+            "window_end_ms",
+            :windowEndMs,
+            "windowEndMs",
+            :window_end,
+            "window_end"
+          ])
+
+        absolute_time =
+          first_present(transition, [
+            :absolute_time_ms,
+            "absolute_time_ms",
+            :absoluteTimeMs,
+            "absoluteTimeMs",
+            :at_ms,
+            "at_ms"
+          ])
+
+        additional_condition =
+          first_present(transition, [
+            :additional_condition,
+            "additional_condition",
+            :additionalCondition,
+            "additionalCondition",
+            :timed_condition,
+            "timed_condition"
+          ])
+
+        has_fields =
+          not is_nil(mode) or not is_nil(delay) or not is_nil(jitter) or
+            not is_nil(repeat_count) or not is_nil(window_end) or
+            not is_nil(absolute_time) or not is_nil(additional_condition)
+
+        if has_fields do
+          %{
+            mode: mode,
+            delay_ms: delay,
+            jitter_ms: jitter,
+            repeat_count: repeat_count,
+            window_end_ms: window_end,
+            absolute_time_ms: absolute_time,
+            additional_condition: additional_condition
+          }
+        else
+          nil
+        end
+    end
+  end
+
+  defp timed_from_transition(_), do: nil
 
   defp first_present(map, keys) when is_map(map) and is_list(keys) do
     Enum.find_value(keys, fn key ->
@@ -273,6 +377,7 @@ defmodule AetheriumServer.AutomataYaml do
   end
 
   defp maybe_prob(nil), do: ""
+
   defp maybe_prob(map) when is_map(map) do
     weight = Map.get(map, :weight) || Map.get(map, "weight")
 
@@ -281,7 +386,9 @@ defmodule AetheriumServer.AutomataYaml do
     else
       [
         "      probabilistic:\n",
-        "        weight: ", q(to_s(weight)), "\n"
+        "        weight: ",
+        q(to_s(weight)),
+        "\n"
       ]
     end
   end

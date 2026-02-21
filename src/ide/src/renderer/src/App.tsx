@@ -21,6 +21,7 @@ import {
   TimeTravelPanel,
   DevicesPanel,
   NetworkPanel,
+  RuntimeMonitorPanel,
   AutomataOverviewPanel,
   GatewayPanel,
   TransitionGroupPanel,
@@ -28,6 +29,7 @@ import {
   AutomataConnectionsPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
+import { GatewayEventBridge } from './components/runtime/GatewayEventBridge';
 import './styles/index.css';
 
 // Panel content based on active panel
@@ -47,6 +49,8 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
       return <OutputPanel />;
     case 'network':
       return <NetworkPanel />;
+    case 'runtime':
+      return <RuntimeMonitorPanel />;
     case 'transitions':
       return <TransitionGroupPanel />;
     case 'variables':
@@ -233,6 +237,7 @@ const App: React.FC = () => {
   const propertiesVisible = layout.panels.properties?.isVisible ?? false;
   const consoleVisible = layout.panels.console?.isVisible ?? false;
   const networkVisible = layout.panels.network?.isVisible ?? false;
+  const runtimeVisible = layout.panels.runtime?.isVisible ?? false;
   const automataOverviewVisible = layout.panels.automata?.isVisible ?? false;
   const devicesVisible = layout.panels.devices?.isVisible ?? false;
   const timetravelVisible = layout.panels.timetravel?.isVisible ?? false;
@@ -252,6 +257,7 @@ const App: React.FC = () => {
   
   return (
     <div className="app-container">
+      <GatewayEventBridge />
       {/* Gateway Settings Dialog */}
       {showGatewaySettings && (
         <GatewaySettings
@@ -283,6 +289,10 @@ const App: React.FC = () => {
             {timetravelVisible ? (
               <div className="timetravel-view-container">
                 <TimeTravelPanel />
+              </div>
+            ) : runtimeVisible ? (
+              <div className="runtime-view-container">
+                <RuntimeMonitorPanel />
               </div>
             ) : networkVisible ? (
               <div className="network-view-container">

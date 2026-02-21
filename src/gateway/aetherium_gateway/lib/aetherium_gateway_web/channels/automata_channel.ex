@@ -82,9 +82,20 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
-  def handle_in("deploy", %{"automata_id" => automata_id, "device_id" => device_id, "server_id" => server_id} = payload, socket) do
+  def handle_in(
+        "deploy",
+        %{"automata_id" => automata_id, "device_id" => device_id, "server_id" => server_id} =
+          payload,
+        socket
+      ) do
     with_command("deploy", payload, socket, fn envelope ->
-      case deploy_with_optional_registration(automata_id, device_id, server_id, payload["automata"], envelope) do
+      case deploy_with_optional_registration(
+             automata_id,
+             device_id,
+             server_id,
+             payload["automata"],
+             envelope
+           ) do
         {:ok, deployment} -> {:ok, %{"deployment" => serialize_deployment(deployment)}}
         {:nak, reason, data} -> {:nak, reason, data}
         {:error, reason} -> {:error, reason, %{}}
@@ -102,7 +113,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     with_command("stop_execution", payload, socket, fn envelope ->
       case resolve_device_deployment(device_id, payload) do
         {:ok, deployment} ->
-          AutomataRegistry.update_deployment_status(deployment.automata_id, device_id, :stopped, %{})
+          AutomataRegistry.update_deployment_status(
+            deployment.automata_id,
+            device_id,
+            :stopped,
+            %{}
+          )
 
           command_payload = %{
             "deployment_id" => deployment_id_for(deployment),
@@ -110,7 +126,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "stop_automata", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "stop_automata",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -129,7 +150,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "start_automata", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "start_automata",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -148,7 +174,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "pause_automata", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "pause_automata",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -167,7 +198,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "resume_automata", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "resume_automata",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -186,7 +222,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "reset_automata", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "reset_automata",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -205,7 +246,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "automata_id" => deployment.automata_id
           }
 
-          dispatch_server_command(deployment.server_id, "request_state", command_payload, envelope)
+          dispatch_server_command(
+            deployment.server_id,
+            "request_state",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -281,7 +327,11 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
-  def handle_in("set_variable", %{"device_id" => device_id, "name" => name, "value" => value} = payload, socket) do
+  def handle_in(
+        "set_variable",
+        %{"device_id" => device_id, "name" => name, "value" => value} = payload,
+        socket
+      ) do
     with_command("set_variable", payload, socket, fn envelope ->
       case AutomataRegistry.get_device_deployment(device_id) do
         {:ok, deployment} ->
@@ -313,7 +363,11 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
-  def handle_in("get_transition_stats", %{"automata_id" => automata_id, "from_state" => from_state}, socket) do
+  def handle_in(
+        "get_transition_stats",
+        %{"automata_id" => automata_id, "from_state" => from_state},
+        socket
+      ) do
     stats = AutomataRegistry.get_transition_stats(automata_id, from_state)
     {:reply, {:ok, %{stats: stats}}, socket}
   end
@@ -323,8 +377,18 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     with_command("trigger_event", payload, socket, fn envelope ->
       case AutomataRegistry.get_device_deployment(device_id) do
         {:ok, deployment} ->
-          command_payload = %{"device_id" => device_id, "event" => event, "data" => payload["data"]}
-          dispatch_server_command(deployment.server_id, "trigger_event", command_payload, envelope)
+          command_payload = %{
+            "device_id" => device_id,
+            "event" => event,
+            "data" => payload["data"]
+          }
+
+          dispatch_server_command(
+            deployment.server_id,
+            "trigger_event",
+            command_payload,
+            envelope
+          )
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
@@ -333,7 +397,11 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
-  def handle_in("force_transition", %{"device_id" => device_id, "to_state" => to_state} = payload, socket) do
+  def handle_in(
+        "force_transition",
+        %{"device_id" => device_id, "to_state" => to_state} = payload,
+        socket
+      ) do
     with_command("force_transition", payload, socket, fn envelope ->
       case AutomataRegistry.get_device_deployment(device_id) do
         {:ok, deployment} ->
@@ -352,6 +420,7 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     push(socket, "automata_list", %{automata: Enum.map(automata, &serialize_automata/1)})
 
     deployments = AutomataRegistry.list_deployments()
+
     push(socket, "deployment_list", %{deployments: Enum.map(deployments, &serialize_deployment/1)})
 
     connections = ConnectionManager.list_connections()
@@ -375,7 +444,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
           :not_found ->
             {reply_kind, response} = execute_command_fun(envelope, fun)
             Persistence.record_command(dedupe_key, response)
-            Persistence.append_event(%{kind: "gateway_command", source: "automata_channel", data: response})
+
+            Persistence.append_event(%{
+              kind: "gateway_command",
+              source: "automata_channel",
+              data: response
+            })
 
             case reply_kind do
               :ok -> {:reply, {:ok, response}, socket}
@@ -404,7 +478,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
           "status" => "NAK",
           "reason" => format_reason(reason),
           "result" => stringify_keys(data),
-          "outcome" => CommandEnvelope.outcome(envelope, "NAK", %{"reason" => format_reason(reason)})
+          "outcome" =>
+            CommandEnvelope.outcome(envelope, "NAK", %{"reason" => format_reason(reason)})
         }
 
         {:ok, response}
@@ -414,7 +489,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
           "status" => "ERROR",
           "reason" => format_reason(reason),
           "result" => stringify_keys(data),
-          "outcome" => CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
+          "outcome" =>
+            CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
         }
 
         {:error, response}
@@ -424,7 +500,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
           "status" => "ERROR",
           "reason" => format_reason(reason),
           "result" => %{},
-          "outcome" => CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
+          "outcome" =>
+            CommandEnvelope.outcome(envelope, "ERROR", %{"reason" => format_reason(reason)})
         }
 
         {:error, response}
@@ -447,7 +524,18 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       |> maybe_put_opt(:automata_id, payload["automata_id"])
       |> maybe_put_opt(:server_id, payload["server_id"])
 
-    AutomataRegistry.get_device_deployment(device_id, opts)
+    case AutomataRegistry.get_device_deployment(device_id, opts) do
+      {:ok, deployment} ->
+        {:ok, deployment}
+
+      {:error, :not_found} when opts != [] ->
+        # Frontend metadata can briefly drift (eg reconnect/device list refresh).
+        # Fall back to best deployment by device to keep control commands routable.
+        AutomataRegistry.get_device_deployment(device_id)
+
+      {:error, :not_found} ->
+        {:error, :not_found}
+    end
   end
 
   defp maybe_put_opt(opts, _key, nil), do: opts
@@ -489,9 +577,16 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     }
   end
 
-  defp deploy_with_optional_registration(automata_id, device_id, server_id, automata_payload, envelope) do
+  defp deploy_with_optional_registration(
+         automata_id,
+         device_id,
+         server_id,
+         automata_payload,
+         envelope
+       ) do
     with {:ok, automata} <- ensure_automata_available(automata_id, automata_payload),
-         {:ok, deployment} <- AutomataRegistry.deploy_automata(automata_id, device_id, server_id, dispatch: false),
+         {:ok, deployment} <-
+           AutomataRegistry.deploy_automata(automata_id, device_id, server_id, dispatch: false),
          {:ok, _response} <-
            dispatch_server_command(
              server_id,
@@ -520,7 +615,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp register_automata_from_payload(_automata_id, nil), do: {:error, :automata_not_found}
 
-  defp register_automata_from_payload(automata_id, automata_payload) when is_map(automata_payload) do
+  defp register_automata_from_payload(automata_id, automata_payload)
+       when is_map(automata_payload) do
     normalized =
       automata_payload
       |> to_gateway_automata(automata_id)
@@ -538,7 +634,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     end
   end
 
-  defp register_automata_from_payload(_automata_id, _payload), do: {:error, :invalid_automata_payload}
+  defp register_automata_from_payload(_automata_id, _payload),
+    do: {:error, :invalid_automata_payload}
 
   defp to_gateway_automata(payload, automata_id) when is_map(payload) do
     cfg = payload["config"] || %{}
@@ -578,14 +675,14 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       {id,
        %{
          id: id,
-         from: trans["from"],
-         to: trans["to"],
-         type: parse_transition_type(trans["type"]),
-         condition: trans["condition"],
-         priority: to_int(trans["priority"], 0),
-         weight: trans["weight"],
-         timed: normalize_timed_config(trans["timed"]),
-         event: normalize_event_config(trans["event"])
+         from: field(trans, :from),
+         to: field(trans, :to),
+         type: parse_transition_type(field(trans, :type)),
+         condition: field(trans, :condition),
+         priority: to_int(field(trans, :priority), 0),
+         weight: field(trans, :weight),
+         timed: normalize_timed_config(field(trans, :timed), trans),
+         event: normalize_event_config(field(trans, :event))
        }}
     end)
     |> Enum.into(%{})
@@ -603,15 +700,129 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     end)
   end
 
-  defp normalize_timed_config(nil), do: nil
+  defp normalize_timed_config(config, transition)
 
-  defp normalize_timed_config(config) do
-    %{
-      mode: parse_timed_mode(config["mode"]),
-      delay_ms: to_int(config["delay_ms"] || config["delayMs"], 0),
-      jitter_ms: to_int(config["jitter_ms"] || config["jitterMs"], 0)
-    }
+  defp normalize_timed_config(nil, transition) do
+    normalize_timed_config(%{}, transition)
   end
+
+  defp normalize_timed_config(config, transition) when is_map(config) and is_map(transition) do
+    delay_ms_value =
+      first_present(config, [:delay_ms, "delay_ms", :delayMs, "delayMs"]) ||
+        first_present(transition, [:delay_ms, "delay_ms", :delayMs, "delayMs"])
+
+    after_value =
+      first_present(config, [:after, "after"]) ||
+        first_present(transition, [:after, "after"])
+
+    jitter =
+      first_present(config, [:jitter_ms, "jitter_ms", :jitterMs, "jitterMs"]) ||
+        first_present(transition, [:jitter_ms, "jitter_ms", :jitterMs, "jitterMs"])
+
+    mode =
+      first_present(config, [:mode, "mode"]) ||
+        first_present(transition, [:mode, "mode"])
+
+    repeat_count =
+      first_present(config, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"]) ||
+        first_present(transition, [:repeat_count, "repeat_count", :repeatCount, "repeatCount"])
+
+    window_end_ms_value =
+      first_present(config, [
+        :window_end_ms,
+        "window_end_ms",
+        :windowEndMs,
+        "windowEndMs"
+      ]) ||
+        first_present(transition, [
+          :window_end_ms,
+          "window_end_ms",
+          :windowEndMs,
+          "windowEndMs"
+        ])
+
+    window_end_value =
+      first_present(config, [
+        :window_end,
+        "window_end"
+      ]) ||
+        first_present(transition, [
+          :window_end,
+          "window_end"
+        ])
+
+    absolute_time =
+      first_present(config, [
+        :absolute_time_ms,
+        "absolute_time_ms",
+        :absoluteTimeMs,
+        "absoluteTimeMs",
+        :at_ms,
+        "at_ms"
+      ]) ||
+        first_present(transition, [
+          :absolute_time_ms,
+          "absolute_time_ms",
+          :absoluteTimeMs,
+          "absoluteTimeMs",
+          :at_ms,
+          "at_ms"
+        ])
+
+    additional_condition =
+      first_present(config, [
+        :additional_condition,
+        "additional_condition",
+        :additionalCondition,
+        "additionalCondition",
+        :condition,
+        "condition"
+      ]) ||
+        first_present(transition, [
+          :additional_condition,
+          "additional_condition",
+          :additionalCondition,
+          "additionalCondition"
+        ])
+
+    has_timed_fields =
+      not is_nil(delay_ms_value) or
+        not is_nil(after_value) or
+        not is_nil(jitter) or
+        not is_nil(mode) or
+        not is_nil(repeat_count) or
+        not is_nil(window_end_ms_value) or
+        not is_nil(window_end_value) or
+        not is_nil(absolute_time) or
+        not is_nil(additional_condition)
+
+    if has_timed_fields do
+      %{
+        mode: parse_timed_mode(mode),
+        delay_ms:
+          cond do
+            not is_nil(delay_ms_value) -> parse_duration_ms(delay_ms_value, 0, :milliseconds)
+            true -> parse_duration_ms(after_value, 0, :seconds)
+          end,
+        jitter_ms: parse_duration_ms(jitter, 0),
+        repeat_count: to_int(repeat_count, 0),
+        window_end_ms:
+          cond do
+            not is_nil(window_end_ms_value) ->
+              parse_duration_ms(window_end_ms_value, 0, :milliseconds)
+
+            true ->
+              parse_duration_ms(window_end_value, 0, :seconds)
+          end,
+        absolute_time_ms: parse_duration_ms(absolute_time, 0),
+        additional_condition: additional_condition
+      }
+    else
+      nil
+    end
+  end
+
+  defp normalize_timed_config(_config, _transition), do: nil
 
   defp normalize_event_config(nil), do: nil
 
@@ -626,15 +837,32 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   defp normalize_updates(updates) do
     updates
     |> Enum.reduce(%{}, fn
-      {"states", states}, acc -> Map.put(acc, :states, normalize_states(states))
-      {"transitions", transitions}, acc -> Map.put(acc, :transitions, normalize_transitions(transitions))
-      {"variables", vars}, acc -> Map.put(acc, :variables, normalize_variables(vars))
-      {"name", value}, acc -> Map.put(acc, :name, value)
-      {"description", value}, acc -> Map.put(acc, :description, value)
-      {"version", value}, acc -> Map.put(acc, :version, value)
-      {"inputs", value}, acc -> Map.put(acc, :inputs, value)
-      {"outputs", value}, acc -> Map.put(acc, :outputs, value)
-      {_key, _value}, acc -> acc
+      {"states", states}, acc ->
+        Map.put(acc, :states, normalize_states(states))
+
+      {"transitions", transitions}, acc ->
+        Map.put(acc, :transitions, normalize_transitions(transitions))
+
+      {"variables", vars}, acc ->
+        Map.put(acc, :variables, normalize_variables(vars))
+
+      {"name", value}, acc ->
+        Map.put(acc, :name, value)
+
+      {"description", value}, acc ->
+        Map.put(acc, :description, value)
+
+      {"version", value}, acc ->
+        Map.put(acc, :version, value)
+
+      {"inputs", value}, acc ->
+        Map.put(acc, :inputs, value)
+
+      {"outputs", value}, acc ->
+        Map.put(acc, :outputs, value)
+
+      {_key, _value}, acc ->
+        acc
     end)
   end
 
@@ -719,6 +947,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp to_int(value, _default) when is_integer(value), do: value
 
+  defp to_int(value, _default) when is_float(value), do: trunc(value)
+
   defp to_int(value, default) when is_binary(value) do
     case Integer.parse(value) do
       {n, ""} -> n
@@ -727,6 +957,74 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   defp to_int(_, default), do: default
+
+  defp parse_duration_ms(value, default, default_unit \\ :milliseconds)
+  defp parse_duration_ms(nil, default, _default_unit), do: default
+
+  defp parse_duration_ms(value, _default, default_unit) when is_integer(value) do
+    factor = if default_unit == :seconds, do: 1000, else: 1
+    value * factor
+  end
+
+  defp parse_duration_ms(value, _default, default_unit) when is_float(value) do
+    factor = if default_unit == :seconds, do: 1000, else: 1
+    trunc(value * factor)
+  end
+
+  defp parse_duration_ms(value, default, default_unit) when is_binary(value) do
+    raw = value |> String.trim() |> String.downcase()
+
+    with {number, unit} <- parse_duration_token(raw) do
+      actual_unit =
+        cond do
+          unit in ["ms", "s", "m", "h"] -> unit
+          default_unit == :seconds -> "s"
+          true -> "ms"
+        end
+
+      factor =
+        case actual_unit do
+          "h" -> 3_600_000
+          "m" -> 60_000
+          "s" -> 1_000
+          _ -> 1
+        end
+
+      trunc(number * factor)
+    else
+      :error -> default
+    end
+  end
+
+  defp parse_duration_ms(_, default, _default_unit), do: default
+
+  defp parse_duration_token(raw) when is_binary(raw) do
+    case Regex.run(~r/^(-?\d+(?:\.\d+)?)\s*(ms|s|m|h)?$/, raw) do
+      [_, number, unit] ->
+        case Float.parse(number) do
+          {parsed, ""} when parsed >= 0.0 -> {parsed, unit}
+          _ -> :error
+        end
+
+      [_, number] ->
+        case Float.parse(number) do
+          {parsed, ""} when parsed >= 0.0 -> {parsed, nil}
+          _ -> :error
+        end
+
+      _ ->
+        :error
+    end
+  end
+
+  defp first_present(map, keys) when is_map(map) and is_list(keys) do
+    Enum.find_value(keys, fn key ->
+      case Map.fetch(map, key) do
+        {:ok, value} -> value
+        :error -> nil
+      end
+    end)
+  end
 
   defp stringify_keys(%_{} = struct), do: struct
 

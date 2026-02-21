@@ -446,7 +446,8 @@ void Engine::registerCommandHandlers() {
 
     commandBus_.registerHandler(protocol::MessageType::Start, [](Engine& engine, const protocol::Message& request) {
         if (!engine.runIdMatches(request)) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), "run_id mismatch");
+            engine.logHub_.log(LogLevel::Warn, "command",
+                               "start requested with stale run_id; applying to active run");
         }
         if (!engine.isLoaded()) {
             return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::NotLoaded), "no automata loaded");
@@ -469,7 +470,8 @@ void Engine::registerCommandHandlers() {
 
     commandBus_.registerHandler(protocol::MessageType::Stop, [](Engine& engine, const protocol::Message& request) {
         if (!engine.runIdMatches(request)) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), "run_id mismatch");
+            engine.logHub_.log(LogLevel::Warn, "command",
+                               "stop requested with stale run_id; applying to active run");
         }
         if (!engine.isLoaded() || engine.runtime_.state() == ExecutionState::Stopped) {
             return engine.ackWithStatus(request, "already_stopped");
@@ -529,7 +531,8 @@ void Engine::registerCommandHandlers() {
 
     commandBus_.registerHandler(protocol::MessageType::Input, [](Engine& engine, const protocol::Message& request) {
         if (!engine.runIdMatches(request)) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), "run_id mismatch");
+            engine.logHub_.log(LogLevel::Warn, "command",
+                               "input requested with stale run_id; applying to active run");
         }
         auto* input = dynamic_cast<const protocol::InputMessage*>(&request);
         if (!input) {
@@ -550,7 +553,8 @@ void Engine::registerCommandHandlers() {
 
     commandBus_.registerHandler(protocol::MessageType::Variable, [](Engine& engine, const protocol::Message& request) {
         if (!engine.runIdMatches(request)) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), "run_id mismatch");
+            engine.logHub_.log(LogLevel::Warn, "command",
+                               "variable requested with stale run_id; applying to active run");
         }
         auto* variable = dynamic_cast<const protocol::VariableMessage*>(&request);
         if (!variable) {

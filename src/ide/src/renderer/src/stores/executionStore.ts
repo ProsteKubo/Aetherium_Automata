@@ -53,6 +53,7 @@ interface ExecutionActions {
   
   // Snapshot management
   updateSnapshot: (deviceId: DeviceId, snapshot: ExecutionSnapshot) => void;
+  applyDeploymentStatus: (deviceId: DeviceId, status: string, automataId?: AutomataId | null) => void;
   fetchSnapshot: (deviceId: DeviceId) => Promise<ExecutionSnapshot>;
   
   // Time travel
@@ -225,7 +226,7 @@ export const useExecutionStore = create<ExecutionStore>()(
         let execution = state.deviceExecutions.get(deviceId);
         if (!execution) {
           execution = {
-            isRunning: true,
+            isRunning: false,
             isPaused: false,
             currentSnapshot: null,
             automataId: snapshot.automataId,
@@ -233,6 +234,32 @@ export const useExecutionStore = create<ExecutionStore>()(
           state.deviceExecutions.set(deviceId, execution);
         }
         execution.currentSnapshot = snapshot;
+      });
+    },
+
+    applyDeploymentStatus: (deviceId: DeviceId, status: string, automataId?: AutomataId | null) => {
+      const normalized = String(status || '').toLowerCase();
+      const isPaused = normalized === 'paused';
+      const isRunning = normalized === 'running' || normalized === 'loading' || isPaused;
+
+      set((state) => {
+        let execution = state.deviceExecutions.get(deviceId);
+        if (!execution) {
+          execution = {
+            isRunning,
+            isPaused,
+            currentSnapshot: null,
+            automataId: automataId ?? null,
+          };
+          state.deviceExecutions.set(deviceId, execution);
+          return;
+        }
+
+        execution.isRunning = isRunning;
+        execution.isPaused = isPaused;
+        if (automataId) {
+          execution.automataId = automataId;
+        }
       });
     },
     

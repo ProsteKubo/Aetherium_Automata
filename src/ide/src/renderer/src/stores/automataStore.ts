@@ -65,6 +65,10 @@ interface AutomataActions {
   
   // Active automata
   setActiveAutomata: (automataId: AutomataId | null) => void;
+  updateAutomataMeta: (
+    automataId: AutomataId,
+    updates: Partial<Automata['config']> & { initialState?: StateId },
+  ) => void;
   
   // Automata-level I/O
   updateAutomataIO: (automataId: AutomataId, updates: { inputs?: string[]; outputs?: string[]; variables?: VariableSpec[] }) => void;
@@ -319,6 +323,33 @@ export const useAutomataStore = create<AutomataStore>()(
         state.selectedTransitionIds = [];
         state.history = { past: [], future: [] };
       });
+    },
+
+    updateAutomataMeta: (automataId, updates) => {
+      set((state) => {
+        const automata = state.automata.get(automataId);
+        if (!automata) return;
+
+        if (updates.initialState !== undefined) {
+          automata.initialState = updates.initialState;
+        }
+
+        const configUpdates = { ...updates };
+        delete (configUpdates as any).initialState;
+
+        automata.config = {
+          ...automata.config,
+          ...configUpdates,
+          modified: Date.now(),
+        };
+        automata.isDirty = true;
+      });
+
+      try {
+        projectStoreGetter?.()?.markDirty?.();
+      } catch {
+        // Project store might not be available
+      }
     },
     
     // ========================================================================

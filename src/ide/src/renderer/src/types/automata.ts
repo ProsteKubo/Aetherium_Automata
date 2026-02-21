@@ -411,7 +411,19 @@ export interface GatewayConnection {
 // ============================================================================
 
 export type EditorMode = 'visual' | 'code' | 'split';
-export type PanelId = 'automata' | 'devices' | 'network' | 'timetravel' | 'properties' | 'console' | 'explorer' | 'gateway' | 'transitions' | 'variables' | 'connections';
+export type PanelId =
+  | 'automata'
+  | 'devices'
+  | 'network'
+  | 'runtime'
+  | 'timetravel'
+  | 'properties'
+  | 'console'
+  | 'explorer'
+  | 'gateway'
+  | 'transitions'
+  | 'variables'
+  | 'connections';
 
 export interface EditorTab {
   id: string;

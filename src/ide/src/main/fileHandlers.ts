@@ -524,9 +524,27 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
     const id = toStringSafe(transition.id, transitionKey);
     const from = resolveStateRef(transition.from);
     const to = resolveStateRef(transition.to);
-    const timed = asRecord(transition.timed);
+    const timedRaw = asRecord(transition.timed);
+    const timedSource =
+      Object.keys(timedRaw).length > 0
+        ? timedRaw
+        : inferTimedConfigFromTransition(transition);
     const event = asRecord(transition.event);
     const probabilistic = asRecord(transition.probabilistic);
+
+    const hasExplicitDelayMs =
+      timedSource &&
+      (timedSource.delayMs !== undefined || timedSource.delay_ms !== undefined);
+    const delayRaw = hasExplicitDelayMs
+      ? timedSource?.delayMs ?? timedSource?.delay_ms
+      : timedSource?.after;
+
+    const hasExplicitWindowMs =
+      timedSource &&
+      (timedSource.windowEndMs !== undefined || timedSource.window_end_ms !== undefined);
+    const windowRaw = hasExplicitWindowMs
+      ? timedSource?.windowEndMs ?? timedSource?.window_end_ms
+      : timedSource?.window_end;
 
     acc[id] = {
       id,
@@ -538,16 +556,31 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
       body: toStringSafe(transition.body, ''),
       priority: toNumber(transition.priority, 0),
       weight: toNumber(transition.weight ?? probabilistic.weight, 1),
-      timed: Object.keys(timed).length > 0
+      timed: timedSource
         ? {
-            mode: toStringSafe(timed.mode, 'after'),
-            delayMs: toNumber(timed.delayMs ?? timed.delay_ms, 0),
-            jitterMs: toNumber(timed.jitterMs ?? timed.jitter_ms, 0),
-            absoluteTime: toOptionalNumber(timed.absoluteTime),
-            repeatCount: toOptionalNumber(timed.repeatCount),
-            windowEndMs: toOptionalNumber(timed.windowEndMs),
-            additionalCondition: toOptionalString(timed.additionalCondition),
-            showCountdown: timed.showCountdown === undefined ? true : Boolean(timed.showCountdown),
+            mode: parseTimedMode(timedSource.mode),
+            delayMs: parseDurationMs(delayRaw, 0, hasExplicitDelayMs ? 'ms' : 's'),
+            jitterMs: parseDurationMs(timedSource.jitterMs ?? timedSource.jitter_ms, 0),
+            absoluteTime: toOptionalNumber(
+              timedSource.absoluteTime ??
+              timedSource.absolute_time_ms ??
+              timedSource.absoluteTimeMs ??
+              timedSource.at_ms
+            ),
+            repeatCount: toOptionalNumber(timedSource.repeatCount ?? timedSource.repeat_count),
+            windowEndMs: toOptionalNumber(
+              parseDurationMs(
+                windowRaw,
+                Number.NaN,
+                hasExplicitWindowMs ? 'ms' : 's'
+              )
+            ),
+            additionalCondition: toOptionalString(
+              timedSource.additionalCondition ??
+              timedSource.additional_condition ??
+              timedSource.condition
+            ),
+            showCountdown: timedSource.showCountdown === undefined ? true : Boolean(timedSource.showCountdown),
           }
         : undefined,
       event: Object.keys(event).length > 0
@@ -673,10 +706,94 @@ function toOptionalNumber(value: unknown): number | undefined {
 
 function inferTransitionTypeFromData(transition: Record<string, unknown>): string {
   if (transition.timed && Object.keys(asRecord(transition.timed)).length > 0) return 'timed';
+  if (inferTimedConfigFromTransition(transition)) return 'timed';
   if (transition.event && Object.keys(asRecord(transition.event)).length > 0) return 'event';
   if (transition.probabilistic && Object.keys(asRecord(transition.probabilistic)).length > 0) return 'probabilistic';
   if (toStringSafe(transition.condition, '').trim() === 'true') return 'immediate';
   return 'classic';
+}
+
+function parseTimedMode(value: unknown): string {
+  const mode = toStringSafe(value, '').toLowerCase();
+  if (mode === 'after' || mode === 'at' || mode === 'every' || mode === 'timeout' || mode === 'window') {
+    return mode;
+  }
+  return 'after';
+}
+
+function parseDurationMs(value: unknown, fallback: number, defaultUnit: 'ms' | 's' = 'ms'): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    const factor = defaultUnit === 's' ? 1000 : 1;
+    return Math.max(0, Math.round(value * factor));
+  }
+
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+
+  const raw = value.trim().toLowerCase();
+  if (!raw) return fallback;
+
+  const match = raw.match(/^(-?\d+(?:\.\d+)?)\s*(ms|s|m|h)?$/);
+  if (!match) return fallback;
+
+  const numeric = Number(match[1]);
+  if (!Number.isFinite(numeric) || numeric < 0) return fallback;
+
+  const unit = match[2] || defaultUnit;
+  const factor =
+    unit === 'h' ? 3_600_000 :
+    unit === 'm' ? 60_000 :
+    unit === 's' ? 1_000 :
+    1;
+
+  return Math.round(numeric * factor);
+}
+
+function inferTimedConfigFromTransition(transition: Record<string, unknown>): Record<string, unknown> | undefined {
+  const mode = transition.mode;
+  const delayMs = transition.delay_ms ?? transition.delayMs;
+  const after = transition.after;
+  const jitter = transition.jitter_ms ?? transition.jitterMs;
+  const repeatCount = transition.repeat_count ?? transition.repeatCount;
+  const windowEndMs = transition.window_end_ms ?? transition.windowEndMs;
+  const windowEnd = transition.window_end;
+  const absoluteTime =
+    transition.absolute_time_ms ??
+    transition.absoluteTimeMs ??
+    transition.absoluteTime ??
+    transition.at_ms;
+  const additionalCondition =
+    transition.additional_condition ??
+    transition.additionalCondition ??
+    transition.timed_condition;
+
+  const hasAny =
+    mode !== undefined ||
+    delayMs !== undefined ||
+    after !== undefined ||
+    jitter !== undefined ||
+    repeatCount !== undefined ||
+    windowEndMs !== undefined ||
+    windowEnd !== undefined ||
+    absoluteTime !== undefined ||
+    additionalCondition !== undefined;
+
+  if (!hasAny) {
+    return undefined;
+  }
+
+  return {
+    mode,
+    ...(delayMs !== undefined ? { delay_ms: delayMs } : {}),
+    ...(after !== undefined ? { after } : {}),
+    jitter_ms: jitter,
+    repeat_count: repeatCount,
+    ...(windowEndMs !== undefined ? { window_end_ms: windowEndMs } : {}),
+    ...(windowEnd !== undefined ? { window_end: windowEnd } : {}),
+    absolute_time_ms: absoluteTime,
+    additional_condition: additionalCondition,
+  };
 }
 
 // ============================================================================

@@ -503,7 +503,7 @@ defmodule AetheriumGateway.AutomataRegistry do
     matches_server? =
       case Keyword.get(opts, :server_id) do
         nil -> true
-        expected -> expected == deployment.server_id
+        expected -> expected == deployment_field(deployment, :server_id)
       end
 
     matches_automata? and matches_server?
@@ -513,12 +513,27 @@ defmodule AetheriumGateway.AutomataRegistry do
 
   defp select_best_deployment(candidates) do
     Enum.max_by(candidates, fn {{automata_id, _device_id}, dep} ->
-      {deployment_status_rank(dep.status), deployment_timestamp(dep), automata_id}
+      status = deployment_field(dep, :status, :pending)
+      {deployment_status_rank(status), deployment_timestamp(dep), automata_id}
     end)
   end
 
   defp deployment_timestamp(dep) do
-    dep.updated_at || dep.deployed_at || dep.created_at || DateTime.from_unix!(0)
+    dep
+    |> deployment_field(:updated_at)
+    |> case do
+      nil ->
+        dep
+        |> deployment_field(:deployed_at)
+        |> case do
+          nil -> deployment_field(dep, :created_at)
+          value -> value
+        end
+
+      value ->
+        value
+    end
+    |> normalize_timestamp()
   end
 
   defp deployment_status_rank(:running), do: 6
@@ -527,7 +542,36 @@ defmodule AetheriumGateway.AutomataRegistry do
   defp deployment_status_rank(:pending), do: 3
   defp deployment_status_rank(:stopped), do: 2
   defp deployment_status_rank(:error), do: 1
+  defp deployment_status_rank("running"), do: 6
+  defp deployment_status_rank("paused"), do: 5
+  defp deployment_status_rank("deploying"), do: 4
+  defp deployment_status_rank("pending"), do: 3
+  defp deployment_status_rank("stopped"), do: 2
+  defp deployment_status_rank("error"), do: 1
   defp deployment_status_rank(_), do: 0
+
+  defp deployment_field(dep, key, default \\ nil) when is_map(dep) and is_atom(key) do
+    Map.get(dep, key, Map.get(dep, Atom.to_string(key), default))
+  end
+
+  defp normalize_timestamp(%DateTime{} = dt), do: DateTime.to_unix(dt, :millisecond)
+
+  defp normalize_timestamp(%NaiveDateTime{} = dt) do
+    dt
+    |> DateTime.from_naive!("Etc/UTC")
+    |> DateTime.to_unix(:millisecond)
+  end
+
+  defp normalize_timestamp(value) when is_integer(value), do: value
+
+  defp normalize_timestamp(value) when is_binary(value) do
+    case DateTime.from_iso8601(value) do
+      {:ok, dt, _offset} -> DateTime.to_unix(dt, :millisecond)
+      _ -> 0
+    end
+  end
+
+  defp normalize_timestamp(_), do: 0
 
   defp send_deployment_to_server(server_id, automata, device_id) do
     payload = %{"automata_id" => automata.id, "device_id" => device_id, "automata" => automata}

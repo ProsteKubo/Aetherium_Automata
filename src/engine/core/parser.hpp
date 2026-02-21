@@ -52,6 +52,11 @@ public:
     ParseResult parseString(const std::string& yaml, const std::string& basePath = "");
 
 private:
+    enum class DurationDefaultUnit {
+        Milliseconds,
+        Seconds,
+    };
+
     // Context during parsing
     struct ParseContext {
         std::string basePath;
@@ -99,7 +104,9 @@ private:
     std::string getString(ryml::ConstNodeRef node);
     std::optional<std::string> getOptString(ryml::ConstNodeRef node, const char* key);
     int getInt(ryml::ConstNodeRef node, int defaultVal = 0);
-    int parseDurationMs(ryml::ConstNodeRef node, int defaultVal = 0);
+    int parseDurationMs(ryml::ConstNodeRef node,
+                        int defaultVal = 0,
+                        DurationDefaultUnit defaultUnit = DurationDefaultUnit::Milliseconds);
     double getDouble(ryml::ConstNodeRef node, double defaultVal = 0.0);
     bool getBool(ryml::ConstNodeRef node, bool defaultVal = false);
     
@@ -463,7 +470,9 @@ inline Transition AutomataParser::parseTransition(ryml::ConstNodeRef node,
                 } else if (auto delayNode = findChild(node, "delayMs")) {
                     trans.timedConfig.delayMs = parseDurationMs(*delayNode);
                 } else if (auto afterNode = findChild(node, "after")) {
-                    trans.timedConfig.delayMs = parseDurationMs(*afterNode);
+                    // `after` is human-facing shorthand; bare numbers are seconds.
+                    trans.timedConfig.delayMs = parseDurationMs(
+                        *afterNode, 0, DurationDefaultUnit::Seconds);
                 }
             }
             // Also check for top-level condition (additional to timer)
@@ -588,7 +597,8 @@ inline TimedConfig AutomataParser::parseTimedConfig(ryml::ConstNodeRef node,
     } else if (auto delayNode = findChild(node, "delayMs")) {
         config.delayMs = parseDurationMs(*delayNode);
     } else if (auto afterNode = findChild(node, "after")) {
-        config.delayMs = parseDurationMs(*afterNode);
+        // `after` is human-facing shorthand; bare numbers are seconds.
+        config.delayMs = parseDurationMs(*afterNode, 0, DurationDefaultUnit::Seconds);
     }
     if (auto jitterNode = findChild(node, "jitter_ms")) {
         config.jitterMs = parseDurationMs(*jitterNode);
@@ -605,14 +615,24 @@ inline TimedConfig AutomataParser::parseTimedConfig(ryml::ConstNodeRef node,
     } else if (auto windowNode = findChild(node, "windowEndMs")) {
         config.windowEndMs = parseDurationMs(*windowNode);
     } else if (auto windowNode = findChild(node, "window_end")) {
-        config.windowEndMs = parseDurationMs(*windowNode);
+        config.windowEndMs = parseDurationMs(*windowNode, 0, DurationDefaultUnit::Seconds);
     }
+    std::optional<int> absoluteMs;
     if (auto absoluteNode = findChild(node, "absolute_time_ms")) {
-        config.delayMs = parseDurationMs(*absoluteNode);
+        absoluteMs = parseDurationMs(*absoluteNode);
     } else if (auto absoluteNode = findChild(node, "absoluteTimeMs")) {
-        config.delayMs = parseDurationMs(*absoluteNode);
+        absoluteMs = parseDurationMs(*absoluteNode);
     } else if (auto absoluteNode = findChild(node, "at_ms")) {
-        config.delayMs = parseDurationMs(*absoluteNode);
+        absoluteMs = parseDurationMs(*absoluteNode);
+    }
+    if (absoluteMs) {
+        if (config.mode == TimedMode::At) {
+            config.delayMs = *absoluteMs;
+        } else if (*absoluteMs > 0 && config.delayMs == 0) {
+            // Backward compatibility for payloads that provide only absolute time.
+            config.mode = TimedMode::At;
+            config.delayMs = *absoluteMs;
+        }
     }
     if (auto condNode = findChild(node, "condition")) {
         config.additionalCondition = parseCode(*condNode);
@@ -829,7 +849,22 @@ inline void AutomataParser::resolveFolderLayoutCode(Automata& automata, ParseCon
 // Utility implementations
 inline std::string AutomataParser::getString(ryml::ConstNodeRef node) {
     if (node.is_keyval() || node.is_val()) {
-        return std::string(node.val().str, node.val().len);
+        std::string value(node.val().str, node.val().len);
+        auto trim = [](std::string& s) {
+            auto notSpace = [](unsigned char ch) { return !std::isspace(ch); };
+            s.erase(s.begin(), std::find_if(s.begin(), s.end(), notSpace));
+            s.erase(std::find_if(s.rbegin(), s.rend(), notSpace).base(), s.end());
+        };
+
+        trim(value);
+        if (value.size() >= 2) {
+            const char first = value.front();
+            const char last = value.back();
+            if ((first == '"' && last == '"') || (first == '\'' && last == '\'')) {
+                value = value.substr(1, value.size() - 2);
+            }
+        }
+        return value;
     }
     return "";
 }
@@ -852,7 +887,9 @@ inline int AutomataParser::getInt(ryml::ConstNodeRef node, int defaultVal) {
     }
 }
 
-inline int AutomataParser::parseDurationMs(ryml::ConstNodeRef node, int defaultVal) {
+inline int AutomataParser::parseDurationMs(ryml::ConstNodeRef node,
+                                           int defaultVal,
+                                           DurationDefaultUnit defaultUnit) {
     std::string raw = getString(node);
     if (raw.empty()) return defaultVal;
 
@@ -869,7 +906,7 @@ inline int AutomataParser::parseDurationMs(ryml::ConstNodeRef node, int defaultV
     std::transform(lower.begin(), lower.end(), lower.begin(),
                    [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 
-    long long factor = 1;  // default: milliseconds
+    long long factor = (defaultUnit == DurationDefaultUnit::Seconds) ? 1000 : 1;
     std::string number = lower;
 
     if (lower.size() > 2 && lower.substr(lower.size() - 2) == "ms") {

@@ -26,12 +26,13 @@ import { StateNode } from './StateNode';
 import { TransitionEdge } from './TransitionEdge';
 import { TransitionDialog } from './TransitionDialog';
 import { EnhancedTransitionDialog } from './EnhancedTransitionDialog';
-import { useAutomataStore, useGatewayStore, useUIStore } from '../../stores';
+import { useAutomataStore, useGatewayStore, useUIStore, useRuntimeViewStore } from '../../stores';
 import {
   IconPlus,
   IconLock,
   IconUnlock,
   IconTransition,
+  IconRuntime,
 } from '../common/Icons';
 
 // Node types registration
@@ -42,6 +43,15 @@ const nodeTypes = {
 // Edge types registration
 const edgeTypes = {
   transitionEdge: TransitionEdge,
+};
+
+const defaultEdgeOptions = {
+  type: 'transitionEdge',
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    width: 20,
+    height: 20,
+  },
 };
 
 interface AutomataEditorProps {
@@ -79,6 +89,11 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const openTab = useUIStore((state) => state.openTab);
   const addNotification = useUIStore((state) => state.addNotification);
+  const togglePanel = useUIStore((state) => state.togglePanel);
+  const runtimeVisible = useUIStore((state) => state.layout.panels.runtime?.isVisible ?? false);
+  const upsertRuntimeDeployment = useRuntimeViewStore((state) => state.upsertDeployment);
+  const selectRuntimeDeployment = useRuntimeViewStore((state) => state.toggleSelection);
+  const setRuntimeScope = useRuntimeViewStore((state) => state.setScope);
 
   const reachableDevices = useMemo(
     () =>
@@ -397,6 +412,47 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
       setIsUploading(false);
     }
   }, [targetDeviceId, automata, gatewayService, automataId, addNotification]);
+
+  const handleViewRuntime = useCallback(() => {
+    if (!automata) {
+      addNotification('warning', 'Runtime Monitor', 'Automata is not available.');
+      return;
+    }
+
+    const targetDevice =
+      (targetDeviceId ? devicesMap.get(targetDeviceId as any) : undefined) ||
+      Array.from(devicesMap.values()).find((device) => device.assignedAutomataId === automata.id);
+
+    if (!targetDevice) {
+      addNotification('warning', 'Runtime Monitor', 'No deployment found for this automata.');
+      return;
+    }
+
+    const deploymentId = `${automata.id}:${targetDevice.id}`;
+    upsertRuntimeDeployment({
+      deploymentId,
+      automataId: automata.id,
+      deviceId: targetDevice.id,
+      status: targetDevice.status === 'online' ? 'running' : targetDevice.status === 'error' ? 'error' : 'unknown',
+      currentState: targetDevice.currentState,
+      updatedAt: Date.now(),
+    });
+    selectRuntimeDeployment(deploymentId, true);
+    setRuntimeScope('running');
+    if (!runtimeVisible) {
+      togglePanel('runtime');
+    }
+  }, [
+    addNotification,
+    automata,
+    devicesMap,
+    runtimeVisible,
+    selectRuntimeDeployment,
+    setRuntimeScope,
+    targetDeviceId,
+    togglePanel,
+    upsertRuntimeDeployment,
+  ]);
   
   if (!automata) {
     return (
@@ -420,14 +476,7 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
         fitView
         snapToGrid
         snapGrid={[16, 16]}
-        defaultEdgeOptions={{
-          type: 'transitionEdge',
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            width: 20,
-            height: 20,
-          },
-        }}
+        defaultEdgeOptions={defaultEdgeOptions}
         proOptions={{ hideAttribution: true }}
       >
         {/* Background grid */}
@@ -512,6 +561,15 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
               title="Upload currently open automata to selected device"
             >
               {isUploading ? 'Uploading...' : 'Upload'}
+            </button>
+
+            <button
+              className="btn btn-ghost btn-sm"
+              onClick={handleViewRuntime}
+              title="Open runtime monitor"
+            >
+              <IconRuntime size={12} />
+              <span>View Runtime</span>
             </button>
           </div>
         </Panel>

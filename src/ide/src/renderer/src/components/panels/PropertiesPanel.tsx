@@ -1,237 +1,510 @@
 /**
  * Aetherium Automata - Properties Panel Component
- * 
- * Shows and edits properties of selected automata, states, or transitions.
- * Includes full transition type information and probabilistic grouping.
+ *
+ * Implemented-only property editors for automata, state, and transition entities.
  */
 
-import React, { useMemo } from 'react';
-import { useAutomataStore } from '../../stores';
+import React, { useEffect, useMemo } from 'react';
+import { useAutomataStore, useUIStore } from '../../stores';
 import { IconSettings, IconAutomata, IconState, IconTransition } from '../common/Icons';
 import { IOVariablesPanel } from './IOVariablesPanel';
-import type { State, Transition } from '../../types';
+import type { EventTransitionRuntimeConfig, State, Transition } from '../../types';
 
-// ============================================================================
-// Transition Type Icons
-// ============================================================================
+type TransitionType = NonNullable<Transition['type']>;
 
-const GuardIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M8 1L2 3v5c0 4 2.5 6 6 7 3.5-1 6-3 6-7V3L8 1zm0 1.3l5 1.6v4.6c0 3.2-2 4.8-5 5.8-3-.9-5-2.6-5-5.8V3.9l5-1.6z"/>
-  </svg>
-);
-
-const TimerIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M8 2a6 6 0 100 12A6 6 0 008 2zM1 8a7 7 0 1114 0A7 7 0 011 8z"/>
-    <path d="M8 4v4.5l3 1.5-.5 1L7 9V4h1z"/>
-  </svg>
-);
-
-const EventIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M1 8h2l2-4 2 8 2-4 2 2 2-1 2 1V8h1v2l-3 1-2-2-2 4-2-8-2 4H1V8z"/>
-  </svg>
-);
-
-const DiceIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M2 2h12v12H2V2zm1 1v10h10V3H3z"/>
-    <circle cx="5" cy="5" r="1"/>
-    <circle cx="11" cy="5" r="1"/>
-    <circle cx="8" cy="8" r="1"/>
-    <circle cx="5" cy="11" r="1"/>
-    <circle cx="11" cy="11" r="1"/>
-  </svg>
-);
-
-const LightningIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
-  <svg width={size} height={size} viewBox="0 0 16 16" fill="currentColor">
-    <path d="M9 1L3 9h4l-1 6 6-8H8l1-6z"/>
-  </svg>
-);
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-type TransitionTypeLabel = 'classic' | 'timed' | 'event' | 'probabilistic' | 'immediate';
-
-function inferTransitionType(transition: Transition): TransitionTypeLabel {
-  if (transition.condition === 'true' || transition.condition === '') {
-    return 'immediate';
-  }
-  if (transition.condition?.includes('after(') || 
-      transition.condition?.includes('timeout(') ||
-      transition.condition?.includes('elapsed(')) {
-    return 'timed';
-  }
-  if (transition.condition?.includes('check(') ||
-      transition.condition?.includes('input(') ||
-      transition.condition?.includes('signal(')) {
-    return 'event';
-  }
-  if (transition.probabilistic?.enabled || (transition.weight && transition.weight !== 1)) {
-    return 'probabilistic';
-  }
+function inferTransitionType(transition: Transition): TransitionType {
+  if (transition.type) return transition.type;
+  if (transition.timed) return 'timed';
+  if (transition.event) return 'event';
+  if (transition.probabilistic?.enabled || (transition.weight ?? 1) !== 1) return 'probabilistic';
+  if ((transition.condition || '').trim() === 'true') return 'immediate';
   return 'classic';
 }
 
-function getTransitionTypeColor(type: TransitionTypeLabel): string {
-  switch (type) {
-    case 'classic': return 'var(--color-success)';
-    case 'timed': return 'var(--color-info)';
-    case 'event': return 'var(--color-warning)';
-    case 'probabilistic': return 'var(--color-accent)';
-    case 'immediate': return 'var(--color-danger)';
+function toSeconds(ms: unknown, fallback = 1): number {
+  if (typeof ms === 'number' && Number.isFinite(ms)) return Math.max(0.001, ms / 1000);
+  if (typeof ms === 'string') {
+    const parsed = Number(ms);
+    if (!Number.isNaN(parsed) && Number.isFinite(parsed)) return Math.max(0.001, parsed / 1000);
   }
+  return fallback;
 }
 
-function getTransitionTypeIcon(type: TransitionTypeLabel): React.ReactNode {
-  switch (type) {
-    case 'classic': return <GuardIcon />;
-    case 'timed': return <TimerIcon />;
-    case 'event': return <EventIcon />;
-    case 'probabilistic': return <DiceIcon />;
-    case 'immediate': return <LightningIcon />;
-  }
+function toMs(seconds: number): number {
+  if (!Number.isFinite(seconds)) return 1000;
+  return Math.max(1, Math.round(seconds * 1000));
 }
 
-// ============================================================================
-// Probabilistic Group Component
-// ============================================================================
+function parseValue(raw: string): string | number | boolean {
+  const trimmed = raw.trim();
+  if (trimmed === 'true') return true;
+  if (trimmed === 'false') return false;
 
-interface ProbabilisticGroupProps {
-  transitions: Transition[];
-  selectedTransitionId: string;
-  stateNames: Record<string, string>;
+  const numeric = Number(trimmed);
+  if (!Number.isNaN(numeric) && trimmed !== '') return numeric;
+  return raw;
 }
 
-const ProbabilisticGroup: React.FC<ProbabilisticGroupProps> = ({ 
-  transitions, 
-  selectedTransitionId,
-  stateNames,
-}) => {
-  const totalWeight = transitions.reduce((sum, t) => sum + (t.weight || 1), 0);
-  
+function TransitionTypeEditor({
+  transition,
+  onChange,
+}: {
+  transition: Transition;
+  onChange: (updates: Partial<Transition>) => void;
+}) {
+  const type = inferTransitionType(transition);
+
+  const eventConfig: EventTransitionRuntimeConfig = transition.event || {
+    triggers: [{ signalName: '', signalType: 'input', triggerType: 'onChange' }],
+    debounceMs: 0,
+    requireAll: false,
+  };
+
   return (
-    <div style={{
-      marginTop: 'var(--spacing-3)',
-      padding: 'var(--spacing-3)',
-      backgroundColor: 'var(--color-bg-tertiary)',
-      borderRadius: 'var(--radius-md)',
-      border: '1px solid var(--color-accent)',
-    }}>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        marginBottom: 'var(--spacing-2)',
-        gap: 'var(--spacing-2)',
-      }}>
-        <DiceIcon size={14} />
-        <span style={{ fontWeight: 500, fontSize: 'var(--font-size-sm)' }}>
-          Probabilistic Group
-        </span>
-        <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
-          ({transitions.length} transitions)
-        </span>
+    <>
+      <div className="property-group">
+        <label className="property-label">Type</label>
+        <select
+          className="property-select"
+          value={type}
+          onChange={(e) => {
+            const next = e.target.value as TransitionType;
+            if (next === 'immediate') {
+              onChange({ type: next, condition: 'true' });
+              return;
+            }
+            if (next === 'timed') {
+              onChange({
+                type: next,
+                timed: transition.timed || { mode: 'after', delayMs: 1000, showCountdown: true },
+                condition: transition.condition || '',
+              });
+              return;
+            }
+            if (next === 'event') {
+              onChange({
+                type: next,
+                event: transition.event || {
+                  triggers: [{ signalName: '', signalType: 'input', triggerType: 'onChange' }],
+                  debounceMs: 0,
+                  requireAll: false,
+                },
+                condition: transition.condition || '',
+              });
+              return;
+            }
+            if (next === 'probabilistic') {
+              onChange({
+                type: next,
+                weight: transition.weight || 1,
+                probabilistic: transition.probabilistic || {
+                  enabled: true,
+                  weight: transition.weight || 1,
+                },
+              });
+              return;
+            }
+            onChange({ type: next });
+          }}
+        >
+          <option value="classic">Classic</option>
+          <option value="timed">Timed</option>
+          <option value="event">Event</option>
+          <option value="probabilistic">Probabilistic</option>
+          <option value="immediate">Immediate</option>
+        </select>
       </div>
-      
-      <div style={{
-        display: 'flex',
-        height: 20,
-        borderRadius: 'var(--radius-sm)',
-        overflow: 'hidden',
-        marginBottom: 'var(--spacing-2)',
-      }}>
-        {transitions.map((t, i) => {
-          const weight = t.weight || 1;
-          const percent = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
-          const isSelected = t.id === selectedTransitionId;
-          
-          return (
-            <div
-              key={t.id}
-              style={{
-                width: `${percent}%`,
-                backgroundColor: isSelected ? 'var(--color-primary)' : `hsl(${i * 60}, 60%, 50%)`,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: 'var(--font-size-xs)',
-                color: 'white',
-                fontWeight: 500,
-                borderRight: i < transitions.length - 1 ? '1px solid var(--color-bg-primary)' : 'none',
-              }}
-              title={`${t.name}: ${percent.toFixed(1)}%`}
+
+      {type === 'classic' && (
+        <div className="property-group">
+          <label className="property-label">Guard Condition</label>
+          <textarea
+            className="property-textarea"
+            value={transition.condition || ''}
+            rows={2}
+            onChange={(e) => onChange({ condition: e.target.value })}
+            placeholder="e.g. check('input1') and value('temp') > 30"
+          />
+        </div>
+      )}
+
+      {type === 'timed' && (
+        <>
+          <div className="property-group">
+            <label className="property-label">Timed Mode</label>
+            <select
+              className="property-select"
+              value={transition.timed?.mode || 'after'}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    mode: e.target.value as 'after' | 'at' | 'every' | 'timeout' | 'window',
+                  },
+                })
+              }
             >
-              {percent >= 10 ? `${percent.toFixed(0)}%` : ''}
-            </div>
-          );
-        })}
-      </div>
-      
-      <div style={{ fontSize: 'var(--font-size-xs)' }}>
-        {transitions.map((t, i) => {
-          const weight = t.weight || 1;
-          const percent = totalWeight > 0 ? (weight / totalWeight) * 100 : 0;
-          const isSelected = t.id === selectedTransitionId;
-          
-          return (
-            <div
-              key={t.id}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: 'var(--spacing-1) 0',
-                opacity: isSelected ? 1 : 0.7,
-                fontWeight: isSelected ? 500 : 400,
-              }}
+              <option value="after">After</option>
+              <option value="at">At</option>
+              <option value="every">Every</option>
+              <option value="timeout">Timeout</option>
+              <option value="window">Window</option>
+            </select>
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Delay (seconds)</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0.001}
+              step={0.1}
+              value={toSeconds(transition.timed?.delayMs ?? transition.timed?.delay_ms, 1)}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    delayMs: toMs(Number(e.target.value)),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Jitter (seconds)</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0}
+              step={0.1}
+              value={toSeconds(transition.timed?.jitterMs ?? transition.timed?.jitter_ms, 0)}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    jitterMs: toMs(Number(e.target.value || 0)),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Repeat Count (every mode)</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0}
+              value={transition.timed?.repeatCount ?? 0}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    repeatCount: Number(e.target.value),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Window End (seconds)</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0}
+              step={0.1}
+              value={toSeconds(transition.timed?.windowEndMs, 0)}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    windowEndMs: toMs(Number(e.target.value || 0)),
+                  },
+                })
+              }
+            />
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Additional Condition</label>
+            <textarea
+              className="property-textarea"
+              rows={2}
+              value={transition.timed?.additionalCondition || ''}
+              onChange={(e) =>
+                onChange({
+                  timed: {
+                    ...(transition.timed || {}),
+                    additionalCondition: e.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {type === 'event' && (
+        <>
+          <div className="property-group">
+            <label className="property-label">Require All Triggers</label>
+            <select
+              className="property-select"
+              value={eventConfig.requireAll ? 'yes' : 'no'}
+              onChange={(e) =>
+                onChange({
+                  event: {
+                    ...eventConfig,
+                    requireAll: e.target.value === 'yes',
+                  },
+                })
+              }
             >
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: '50%',
-                  backgroundColor: isSelected ? 'var(--color-primary)' : `hsl(${i * 60}, 60%, 50%)`,
-                  marginRight: 'var(--spacing-2)',
+              <option value="no">No (OR)</option>
+              <option value="yes">Yes (AND)</option>
+            </select>
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Debounce (ms)</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0}
+              value={eventConfig.debounceMs || eventConfig.debounce_ms || 0}
+              onChange={(e) =>
+                onChange({
+                  event: {
+                    ...eventConfig,
+                    debounceMs: Number(e.target.value || 0),
+                  },
+                })
+              }
+            />
+          </div>
+
+          {(eventConfig.triggers || []).map((trigger, index) => (
+            <div key={`trigger-${index}`} className="property-group" style={{ border: '1px solid var(--color-border)', padding: 'var(--spacing-2)', borderRadius: 'var(--radius-sm)' }}>
+              <label className="property-label">Trigger {index + 1}</label>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-2)' }}>
+                <input
+                  className="property-input"
+                  value={trigger.signalName || ''}
+                  onChange={(e) => {
+                    const triggers = [...(eventConfig.triggers || [])];
+                    triggers[index] = { ...triggers[index], signalName: e.target.value };
+                    onChange({ event: { ...eventConfig, triggers } });
+                  }}
+                  placeholder="signal name"
+                />
+                <select
+                  className="property-select"
+                  value={trigger.signalType || 'input'}
+                  onChange={(e) => {
+                    const triggers = [...(eventConfig.triggers || [])];
+                    triggers[index] = {
+                      ...triggers[index],
+                      signalType: e.target.value as 'input' | 'output' | 'variable',
+                    };
+                    onChange({ event: { ...eventConfig, triggers } });
+                  }}
+                >
+                  <option value="input">input</option>
+                  <option value="output">output</option>
+                  <option value="variable">variable</option>
+                </select>
+                <select
+                  className="property-select"
+                  value={trigger.triggerType || 'onChange'}
+                  onChange={(e) => {
+                    const triggers = [...(eventConfig.triggers || [])];
+                    triggers[index] = {
+                      ...triggers[index],
+                      triggerType: e.target.value as 'onChange' | 'onRise' | 'onFall' | 'onThreshold' | 'onMatch',
+                    };
+                    onChange({ event: { ...eventConfig, triggers } });
+                  }}
+                >
+                  <option value="onChange">onChange</option>
+                  <option value="onRise">onRise</option>
+                  <option value="onFall">onFall</option>
+                  <option value="onThreshold">onThreshold</option>
+                  <option value="onMatch">onMatch</option>
+                </select>
+                <input
+                  className="property-input"
+                  value={trigger.pattern || ''}
+                  onChange={(e) => {
+                    const triggers = [...(eventConfig.triggers || [])];
+                    triggers[index] = { ...triggers[index], pattern: e.target.value };
+                    onChange({ event: { ...eventConfig, triggers } });
+                  }}
+                  placeholder="pattern (onMatch)"
+                />
+              </div>
+
+              {trigger.triggerType === 'onThreshold' && (
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 'var(--spacing-2)', marginTop: 'var(--spacing-2)' }}>
+                  <select
+                    className="property-select"
+                    value={trigger.threshold?.operator || '>'}
+                    onChange={(e) => {
+                      const triggers = [...(eventConfig.triggers || [])];
+                      triggers[index] = {
+                        ...triggers[index],
+                        threshold: {
+                          ...(trigger.threshold || {}),
+                          operator: e.target.value as '>' | '<' | '>=' | '<=' | '==' | '!=',
+                        },
+                      };
+                      onChange({ event: { ...eventConfig, triggers } });
+                    }}
+                  >
+                    <option value=">">&gt;</option>
+                    <option value="<">&lt;</option>
+                    <option value=">=">&gt;=</option>
+                    <option value="<=">&lt;=</option>
+                    <option value="==">==</option>
+                    <option value="!=">!=</option>
+                  </select>
+                  <input
+                    className="property-input"
+                    value={String(trigger.threshold?.value ?? '')}
+                    onChange={(e) => {
+                      const triggers = [...(eventConfig.triggers || [])];
+                      triggers[index] = {
+                        ...triggers[index],
+                        threshold: {
+                          ...(trigger.threshold || {}),
+                          value: parseValue(e.target.value),
+                        },
+                      };
+                      onChange({ event: { ...eventConfig, triggers } });
+                    }}
+                    placeholder="threshold"
+                  />
+                  <select
+                    className="property-select"
+                    value={trigger.threshold?.oneShot ? 'yes' : 'no'}
+                    onChange={(e) => {
+                      const triggers = [...(eventConfig.triggers || [])];
+                      triggers[index] = {
+                        ...triggers[index],
+                        threshold: {
+                          ...(trigger.threshold || {}),
+                          oneShot: e.target.value === 'yes',
+                        },
+                      };
+                      onChange({ event: { ...eventConfig, triggers } });
+                    }}
+                  >
+                    <option value="no">repeat</option>
+                    <option value="yes">one-shot</option>
+                  </select>
+                </div>
+              )}
+
+              <button
+                className="btn btn-ghost btn-sm"
+                type="button"
+                onClick={() => {
+                  const triggers = [...(eventConfig.triggers || [])];
+                  triggers.splice(index, 1);
+                  onChange({ event: { ...eventConfig, triggers } });
                 }}
-              />
-              <span style={{ flex: 1 }}>→ {stateNames[t.to] || t.to}</span>
-              <span style={{ color: 'var(--color-text-tertiary)' }}>{percent.toFixed(1)}%</span>
+              >
+                Remove Trigger
+              </button>
             </div>
-          );
-        })}
-      </div>
-    </div>
+          ))}
+
+          <div className="property-group">
+            <button
+              className="btn btn-secondary btn-sm"
+              type="button"
+              onClick={() => {
+                const triggers = [...(eventConfig.triggers || [])];
+                triggers.push({ signalName: '', signalType: 'input', triggerType: 'onChange' });
+                onChange({ event: { ...eventConfig, triggers } });
+              }}
+            >
+              Add Trigger
+            </button>
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Additional Condition</label>
+            <textarea
+              className="property-textarea"
+              rows={2}
+              value={eventConfig.additionalCondition || ''}
+              onChange={(e) =>
+                onChange({
+                  event: {
+                    ...eventConfig,
+                    additionalCondition: e.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {type === 'probabilistic' && (
+        <>
+          <div className="property-group">
+            <label className="property-label">Weight</label>
+            <input
+              className="property-input"
+              type="number"
+              min={0}
+              step={0.01}
+              value={transition.weight || transition.probabilistic?.weight || 1}
+              onChange={(e) => {
+                const weight = Number(e.target.value || 0);
+                onChange({
+                  weight,
+                  probabilistic: {
+                    ...(transition.probabilistic || { enabled: true }),
+                    enabled: true,
+                    weight,
+                  },
+                });
+              }}
+            />
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Weight Condition (optional)</label>
+            <textarea
+              className="property-textarea"
+              rows={2}
+              value={transition.probabilistic?.condition || ''}
+              onChange={(e) =>
+                onChange({
+                  probabilistic: {
+                    ...(transition.probabilistic || { enabled: true, weight: transition.weight || 1 }),
+                    condition: e.target.value,
+                  },
+                })
+              }
+            />
+          </div>
+        </>
+      )}
+
+      {type === 'immediate' && (
+        <div className="property-group">
+          <div className="property-code-hint">Immediate transitions fire without guard checks.</div>
+        </div>
+      )}
+    </>
   );
-};
-
-// ============================================================================
-// Transition Type Badge
-// ============================================================================
-
-const TransitionTypeBadge: React.FC<{ type: TransitionTypeLabel }> = ({ type }) => (
-  <div style={{
-    display: 'inline-flex',
-    alignItems: 'center',
-    gap: 'var(--spacing-1)',
-    padding: 'var(--spacing-1) var(--spacing-2)',
-    backgroundColor: getTransitionTypeColor(type),
-    borderRadius: 'var(--radius-sm)',
-    fontSize: 'var(--font-size-xs)',
-    color: 'white',
-    fontWeight: 500,
-    textTransform: 'capitalize',
-  }}>
-    {getTransitionTypeIcon(type)}
-    <span>{type}</span>
-  </div>
-);
-
-// ============================================================================
-// Main Panel Component
-// ============================================================================
+}
 
 export const PropertiesPanel: React.FC = () => {
   const activeAutomata = useAutomataStore((state) => {
@@ -240,51 +513,49 @@ export const PropertiesPanel: React.FC = () => {
   });
   const selectedStateIds = useAutomataStore((state) => state.selectedStateIds);
   const selectedTransitionIds = useAutomataStore((state) => state.selectedTransitionIds);
+  const updateAutomataMeta = useAutomataStore((state) => state.updateAutomataMeta);
   const updateState = useAutomataStore((state) => state.updateState);
   const updateTransition = useAutomataStore((state) => state.updateTransition);
   const normalizeProbabilities = useAutomataStore((state) => state.normalizeProbabilities);
-  
-  const selectedState: State | undefined = activeAutomata && selectedStateIds.length === 1
-    ? activeAutomata.states[selectedStateIds[0]]
-    : undefined;
-  
-  const selectedTransition: Transition | undefined = activeAutomata && selectedTransitionIds.length === 1
-    ? activeAutomata.transitions[selectedTransitionIds[0]]
-    : undefined;
-  
-  // Get probabilistic group for selected transition
-  const probabilisticGroup = useMemo(() => {
-    if (!activeAutomata || !selectedTransition) return null;
-    const siblings = Object.values(activeAutomata.transitions).filter(
-      (t) => t.from === selectedTransition.from
-    );
-    const hasProbabilistic = siblings.some(
-      (t) => t.probabilistic?.enabled || (t.weight && t.weight !== 1)
-    );
-    if (hasProbabilistic && siblings.length > 1) {
-      return siblings;
-    }
-    return null;
-  }, [activeAutomata, selectedTransition]);
-  
-  const stateNames = useMemo(() => {
-    if (!activeAutomata) return {};
-    const names: Record<string, string> = {};
-    Object.values(activeAutomata.states).forEach((s) => {
-      names[s.id] = s.name;
-    });
-    return names;
+  const openTab = useUIStore((state) => state.openTab);
+
+  const selectedState: State | undefined =
+    activeAutomata && selectedStateIds.length === 1 ? activeAutomata.states[selectedStateIds[0]] : undefined;
+
+  const selectedTransition: Transition | undefined =
+    activeAutomata && selectedTransitionIds.length === 1
+      ? activeAutomata.transitions[selectedTransitionIds[0]]
+      : undefined;
+
+  useEffect(() => {
+    if (!selectedTransition) return;
+    if (selectedTransition.type) return;
+
+    const inferred = inferTransitionType(selectedTransition);
+    updateTransition(selectedTransition.id, { type: inferred });
+  }, [selectedTransition, updateTransition]);
+
+  const stateEntries = useMemo(() => {
+    if (!activeAutomata) return [] as Array<[string, State]>;
+    return Object.entries(activeAutomata.states);
   }, [activeAutomata]);
-  
-  // Show state properties
+
   if (selectedState && activeAutomata) {
+    const hooks = selectedState.hooks || {};
+    const availableHooks = [
+      hooks.onEnter ? 'onEnter' : null,
+      hooks.onExit ? 'onExit' : null,
+      hooks.onTick ? 'onTick' : null,
+      hooks.onError ? 'onError' : null,
+    ].filter(Boolean) as string[];
+
     return (
       <div className="properties-panel">
         <div className="panel-header">
           <IconState size={14} />
           <span>State Properties</span>
         </div>
-        
+
         <div className="properties-content">
           <div className="property-group">
             <label className="property-label">Name</label>
@@ -295,7 +566,17 @@ export const PropertiesPanel: React.FC = () => {
               onChange={(e) => updateState(selectedState.id, { name: e.target.value })}
             />
           </div>
-          
+
+          <div className="property-group">
+            <label className="property-label">Description</label>
+            <textarea
+              className="property-textarea"
+              value={selectedState.description || ''}
+              rows={3}
+              onChange={(e) => updateState(selectedState.id, { description: e.target.value })}
+            />
+          </div>
+
           <div className="property-group">
             <label className="property-label">Composite</label>
             <select
@@ -303,90 +584,78 @@ export const PropertiesPanel: React.FC = () => {
               value={selectedState.isComposite ? 'yes' : 'no'}
               onChange={(e) => updateState(selectedState.id, { isComposite: e.target.value === 'yes' })}
             >
-              <option value="no">Normal State</option>
-              <option value="yes">Composite (Nested)</option>
+              <option value="no">No</option>
+              <option value="yes">Yes</option>
             </select>
           </div>
-          
-          <div className="property-group">
-            <label className="property-label">Description</label>
-            <textarea
-              className="property-textarea"
-              value={selectedState.description || ''}
-              onChange={(e) => updateState(selectedState.id, { description: e.target.value })}
-              rows={3}
-            />
-          </div>
-          
+
           <div className="property-group">
             <label className="property-label">Position</label>
-            <div style={{ display: 'flex', gap: 'var(--spacing-2)' }}>
-              <div style={{ flex: 1 }}>
-                <label className="property-sublabel">X</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={selectedState.position.x}
-                  onChange={(e) => updateState(selectedState.id, {
-                    position: { ...selectedState.position, x: parseFloat(e.target.value) || 0 }
-                  })}
-                />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label className="property-sublabel">Y</label>
-                <input
-                  type="number"
-                  className="property-input"
-                  value={selectedState.position.y}
-                  onChange={(e) => updateState(selectedState.id, {
-                    position: { ...selectedState.position, y: parseFloat(e.target.value) || 0 }
-                  })}
-                />
-              </div>
-            </div>
-          </div>
-          
-          <div className="property-group">
-            <label className="property-label">Lua Code</label>
-            <div className="property-code-hint">
-              Double-click state in editor to edit Lua code
-            </div>
-          </div>
-          
-          {selectedState.color && (
-            <div className="property-group">
-              <label className="property-label">Color</label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--spacing-2)' }}>
               <input
-                type="color"
+                type="number"
                 className="property-input"
-                value={selectedState.color}
-                onChange={(e) => updateState(selectedState.id, { color: e.target.value })}
+                value={selectedState.position.x}
+                onChange={(e) =>
+                  updateState(selectedState.id, {
+                    position: {
+                      ...selectedState.position,
+                      x: Number(e.target.value || 0),
+                    },
+                  })
+                }
+              />
+              <input
+                type="number"
+                className="property-input"
+                value={selectedState.position.y}
+                onChange={(e) =>
+                  updateState(selectedState.id, {
+                    position: {
+                      ...selectedState.position,
+                      y: Number(e.target.value || 0),
+                    },
+                  })
+                }
               />
             </div>
-          )}
+          </div>
+
+          <div className="property-group">
+            <label className="property-label">Hooks</label>
+            <div className="property-code-hint">
+              {availableHooks.length > 0 ? availableHooks.join(', ') : 'No hooks defined'}
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() =>
+                openTab({
+                  type: 'code',
+                  targetId: selectedState.id,
+                  name: `${selectedState.name}.lua`,
+                  isDirty: Boolean(activeAutomata.isDirty),
+                })
+              }
+              style={{ marginTop: 'var(--spacing-2)' }}
+            >
+              Open Code
+            </button>
+          </div>
         </div>
       </div>
     );
   }
-  
-  // Show transition properties
+
   if (selectedTransition && activeAutomata) {
-    const stateEntries = Object.entries(activeAutomata.states);
-    const transitionType = inferTransitionType(selectedTransition);
-    
     return (
       <div className="properties-panel">
         <div className="panel-header">
           <IconTransition size={14} />
           <span>Transition Properties</span>
         </div>
-        
+
         <div className="properties-content">
-          {/* Transition Type Badge */}
-          <div className="property-group">
-            <TransitionTypeBadge type={transitionType} />
-          </div>
-          
           <div className="property-group">
             <label className="property-label">Name</label>
             <input
@@ -396,7 +665,7 @@ export const PropertiesPanel: React.FC = () => {
               onChange={(e) => updateTransition(selectedTransition.id, { name: e.target.value })}
             />
           </div>
-          
+
           <div className="property-group">
             <label className="property-label">From State</label>
             <select
@@ -404,12 +673,14 @@ export const PropertiesPanel: React.FC = () => {
               value={selectedTransition.from}
               onChange={(e) => updateTransition(selectedTransition.id, { from: e.target.value })}
             >
-              {stateEntries.map(([id, s]) => (
-                <option key={id} value={id}>{s.name}</option>
+              {stateEntries.map(([id, state]) => (
+                <option key={id} value={id}>
+                  {state.name}
+                </option>
               ))}
             </select>
           </div>
-          
+
           <div className="property-group">
             <label className="property-label">To State</label>
             <select
@@ -417,243 +688,156 @@ export const PropertiesPanel: React.FC = () => {
               value={selectedTransition.to}
               onChange={(e) => updateTransition(selectedTransition.id, { to: e.target.value })}
             >
-              {stateEntries.map(([id, s]) => (
-                <option key={id} value={id}>{s.name}</option>
+              {stateEntries.map(([id, state]) => (
+                <option key={id} value={id}>
+                  {state.name}
+                </option>
               ))}
             </select>
           </div>
-          
-          {/* Guard Condition */}
+
           <div className="property-group">
-            <label className="property-label">Guard Condition</label>
-            <textarea
-              className="property-textarea"
-              value={selectedTransition.condition || ''}
-              onChange={(e) => updateTransition(selectedTransition.id, { condition: e.target.value })}
-              rows={2}
-              placeholder="e.g., check('input1') and value('temp') > 30"
-              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)' }}
+            <label className="property-label">Priority (lower = higher)</label>
+            <input
+              type="number"
+              className="property-input"
+              value={selectedTransition.priority || 0}
+              onChange={(e) => updateTransition(selectedTransition.id, { priority: Number(e.target.value || 0) })}
             />
           </div>
-          
-          {/* Action Body */}
+
+          <TransitionTypeEditor
+            transition={selectedTransition}
+            onChange={(updates) => updateTransition(selectedTransition.id, updates)}
+          />
+
           <div className="property-group">
-            <label className="property-label">Action (Lua)</label>
+            <label className="property-label">Action Body (Lua)</label>
             <textarea
               className="property-textarea"
+              rows={4}
               value={selectedTransition.body || ''}
               onChange={(e) => updateTransition(selectedTransition.id, { body: e.target.value })}
-              rows={3}
-              placeholder="-- Code to execute on transition"
-              style={{ fontFamily: 'var(--font-mono)', fontSize: 'var(--font-size-xs)' }}
             />
           </div>
-          
-          <div className="property-group">
-            <label className="property-label">Priority: {selectedTransition.priority || 0}</label>
-            <input
-              type="range"
-              min={-10}
-              max={10}
-              value={selectedTransition.priority || 0}
-              onChange={(e) => updateTransition(selectedTransition.id, { 
-                priority: parseInt(e.target.value) || 0 
-              })}
-              style={{ width: '100%' }}
-            />
-            <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
-              Lower values = higher priority
-            </span>
-          </div>
-          
-          <div className="property-group">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <label className="property-label" style={{ marginBottom: 0 }}>
-                Weight: {((selectedTransition.weight || 1) * 100).toFixed(0)}%
-              </label>
-              {probabilisticGroup && probabilisticGroup.length > 1 && (
-                <button
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => normalizeProbabilities(selectedTransition.from)}
-                  title="Normalize all weights from this state to 100%"
-                  style={{ fontSize: 'var(--font-size-xs)' }}
-                >
-                  Normalize to 100%
-                </button>
-              )}
-            </div>
-            <input
-              type="range"
-              min={1}
-              max={100}
-              value={Math.round((selectedTransition.weight || 1) * 100)}
-              onChange={(e) => updateTransition(selectedTransition.id, { 
-                weight: parseInt(e.target.value) / 100
-              })}
-              style={{ width: '100%' }}
-            />
-            {probabilisticGroup && probabilisticGroup.length > 1 && (
-              <span style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-tertiary)' }}>
-                Total from this state: {Math.round(probabilisticGroup.reduce((sum, t) => sum + (t.weight || 1), 0) * 100)}%
-              </span>
-            )}
-          </div>
-          
-          {/* Probabilistic Group Visualization */}
-          {probabilisticGroup && (
-            <ProbabilisticGroup
-              transitions={probabilisticGroup}
-              selectedTransitionId={selectedTransition.id}
-              stateNames={stateNames}
-            />
-          )}
-          
+
           <div className="property-group">
             <label className="property-label">Description</label>
             <textarea
               className="property-textarea"
+              rows={3}
               value={selectedTransition.description || ''}
               onChange={(e) => updateTransition(selectedTransition.id, { description: e.target.value })}
-              rows={3}
             />
           </div>
-          
-          {/* Fuzzy Logic Guard */}
-          <div className="property-group">
-            <label className="property-label">
-              <span>Fuzzy Guard</span>
-              <span className="property-badge">Optional</span>
-            </label>
-            {selectedTransition.fuzzyGuard?.enabled ? (
-              <div className="property-fuzzy">
-                <div className="fuzzy-expression">Fuzzy logic enabled</div>
-              </div>
-            ) : (
-              <button className="btn btn-ghost btn-sm">+ Add Fuzzy Guard</button>
-            )}
-          </div>
-          
-          {/* Probabilistic Weight */}
-          <div className="property-group">
-            <label className="property-label">
-              <span>Probabilistic Selection</span>
-              <span className="property-badge">Markov</span>
-            </label>
-            {selectedTransition.probabilistic?.enabled ? (
-              <div className="property-probability">
-                <div>Weight: {selectedTransition.probabilistic.weight}</div>
-                {selectedTransition.probabilistic.condition && (
-                  <div className="probability-condition">
-                    Condition: {selectedTransition.probabilistic.condition}
-                  </div>
-                )}
-              </div>
-            ) : (
-              <button className="btn btn-ghost btn-sm">+ Enable Probabilistic</button>
-            )}
-          </div>
+
+          {inferTransitionType(selectedTransition) === 'probabilistic' && (
+            <div className="property-group">
+              <button type="button" className="btn btn-secondary btn-sm" onClick={() => normalizeProbabilities(selectedTransition.from)}>
+                Normalize Sibling Weights
+              </button>
+            </div>
+          )}
         </div>
       </div>
     );
   }
-  
-  // Show automata properties
+
   if (activeAutomata) {
     const stateCount = Object.keys(activeAutomata.states).length;
     const transitionCount = Object.keys(activeAutomata.transitions).length;
-    
+
     return (
       <div className="properties-panel">
         <div className="panel-header">
           <IconAutomata size={14} />
           <span>Automata Properties</span>
         </div>
-        
+
         <div className="properties-content">
           <div className="property-group">
             <label className="property-label">Name</label>
             <input
-              type="text"
               className="property-input"
+              type="text"
               value={activeAutomata.config.name}
-              readOnly
+              onChange={(e) => updateAutomataMeta(activeAutomata.id, { name: e.target.value })}
             />
           </div>
-          
-          <div className="property-group">
-            <label className="property-label">Version</label>
-            <input
-              type="text"
-              className="property-input"
-              value={activeAutomata.config.version}
-              readOnly
-            />
-          </div>
-          
+
           <div className="property-group">
             <label className="property-label">Description</label>
             <textarea
               className="property-textarea"
-              value={activeAutomata.config.description || ''}
-              readOnly
               rows={3}
+              value={activeAutomata.config.description || ''}
+              onChange={(e) => updateAutomataMeta(activeAutomata.id, { description: e.target.value })}
             />
           </div>
-          
+
           <div className="property-group">
-            <label className="property-label">Author</label>
+            <label className="property-label">Tags (comma separated)</label>
             <input
-              type="text"
               className="property-input"
-              value={activeAutomata.config.author || ''}
-              readOnly
+              type="text"
+              value={(activeAutomata.config.tags || []).join(', ')}
+              onChange={(e) =>
+                updateAutomataMeta(activeAutomata.id, {
+                  tags: e.target.value
+                    .split(',')
+                    .map((tag) => tag.trim())
+                    .filter(Boolean),
+                })
+              }
             />
           </div>
-          
+
+          <div className="property-group">
+            <label className="property-label">Initial State</label>
+            <select
+              className="property-select"
+              value={activeAutomata.initialState}
+              onChange={(e) => updateAutomataMeta(activeAutomata.id, { initialState: e.target.value })}
+            >
+              {stateEntries.map(([id, state]) => (
+                <option key={id} value={id}>
+                  {state.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="property-info">
             <div className="info-row">
-              <span className="info-label">States:</span>
+              <span className="info-label">States</span>
               <span className="info-value">{stateCount}</span>
             </div>
             <div className="info-row">
-              <span className="info-label">Transitions:</span>
+              <span className="info-label">Transitions</span>
               <span className="info-value">{transitionCount}</span>
             </div>
             <div className="info-row">
-              <span className="info-label">Created:</span>
+              <span className="info-label">Modified</span>
               <span className="info-value">
-                {new Date(activeAutomata.config.created || Date.now()).toLocaleDateString()}
-              </span>
-            </div>
-            <div className="info-row">
-              <span className="info-label">Modified:</span>
-              <span className="info-value">
-                {new Date(activeAutomata.config.modified || Date.now()).toLocaleDateString()}
+                {new Date(activeAutomata.config.modified || activeAutomata.config.created || Date.now()).toLocaleString()}
               </span>
             </div>
           </div>
-          
-          {/* Integrated I/O & Variables Section */}
-          <div style={{ 
-            marginTop: 'var(--spacing-4)',
-            borderTop: '1px solid var(--color-border)',
-            paddingTop: 'var(--spacing-3)',
-          }}>
+
+          <div style={{ marginTop: 'var(--spacing-4)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-3)' }}>
             <IOVariablesPanel embedded />
           </div>
         </div>
       </div>
     );
   }
-  
-  // Empty state
+
   return (
     <div className="properties-panel">
       <div className="panel-header">
         <IconSettings size={14} />
         <span>Properties</span>
       </div>
-      
       <div className="properties-empty">
         <p>Select an automata, state, or transition to view its properties.</p>
       </div>
