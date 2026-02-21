@@ -6,7 +6,7 @@ import React from 'react';
 import { useUIStore } from '../../stores';
 import { IconInfo, IconSuccess, IconWarning, IconError, IconX } from './Icons';
 
-const getIcon = (type: string) => {
+const getIcon = (type: string): React.ReactNode => {
   switch (type) {
     case 'success':
       return <IconSuccess size={18} />;
@@ -36,12 +36,14 @@ export const NotificationToasts: React.FC = () => {
             <div className="toast-title">{notification.title}</div>
             <div className="toast-message">{notification.message}</div>
           </div>
-          <span
+          <button
+            type="button"
             className="toast-close"
+            aria-label="Dismiss notification"
             onClick={() => removeNotification(notification.id)}
           >
             <IconX size={14} />
-          </span>
+          </button>
         </div>
       ))}
     </div>

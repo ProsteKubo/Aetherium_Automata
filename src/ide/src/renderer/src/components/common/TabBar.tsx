@@ -6,7 +6,7 @@ import React from 'react';
 import { useUIStore } from '../../stores';
 import { IconX, IconAutomata, IconDevice, IconSettings } from './Icons';
 
-const getTabIcon = (type: string) => {
+const getTabIcon = (type: string): React.ReactNode => {
   switch (type) {
     case 'automata':
       return <IconAutomata size={14} />;
@@ -32,24 +32,34 @@ export const TabBar: React.FC = () => {
     <div className="tab-bar">
       <div className="tab-bar-tabs">
         {tabs.map((tab) => (
-          <button
+          <div
             key={tab.id}
             className={`editor-tab ${tab.isActive ? 'active' : ''}`}
             onClick={() => setActiveTab(tab.id)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                setActiveTab(tab.id);
+              }
+            }}
+            role="button"
+            tabIndex={0}
           >
             <span className="editor-tab-icon">{getTabIcon(tab.type)}</span>
             <span className="editor-tab-name">{tab.name}</span>
             {tab.isDirty && <span className="editor-tab-dirty" />}
-            <span
+            <button
+              type="button"
               className="editor-tab-close"
+              aria-label={`Close ${tab.name}`}
               onClick={(e) => {
                 e.stopPropagation();
                 closeTab(tab.id);
               }}
             >
               <IconX size={12} />
-            </span>
-          </button>
+            </button>
+          </div>
         ))}
       </div>
       
