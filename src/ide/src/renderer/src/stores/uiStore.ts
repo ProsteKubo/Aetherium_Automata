@@ -119,6 +119,10 @@ type UIStore = UIState & UIActions;
 // Default Layout
 // ============================================================================
 
+const SIDEBAR_PANELS: PanelId[] = ['explorer', 'devices', 'gateway'];
+const CENTER_VIEW_PANELS: PanelId[] = ['automata', 'network', 'runtime', 'timetravel'];
+const RIGHT_PANEL_PANELS: PanelId[] = ['properties', 'transitions', 'variables', 'connections'];
+
 const defaultLayout: LayoutConfig = {
   panels: {
     explorer: {
@@ -137,7 +141,7 @@ const defaultLayout: LayoutConfig = {
     },
     devices: {
       id: 'devices',
-      isVisible: true,
+      isVisible: false,
       size: 300,
       position: 'right',
       isCollapsed: false,
@@ -165,7 +169,7 @@ const defaultLayout: LayoutConfig = {
     },
     timetravel: {
       id: 'timetravel',
-      isVisible: true,
+      isVisible: false,
       size: 200,
       position: 'bottom',
       isCollapsed: true,
@@ -211,12 +215,48 @@ const defaultLayout: LayoutConfig = {
   rightPanelWidth: 300,
 };
 
+const normalizePanelGroupVisibility = (
+  layout: LayoutConfig,
+  group: PanelId[],
+  preferred: PanelId,
+): void => {
+  const visible = group.filter((panelId) => layout.panels[panelId]?.isVisible);
+
+  if (visible.length <= 1) {
+    return;
+  }
+
+  const winner = visible.includes(preferred) ? preferred : visible[0];
+
+  group.forEach((panelId) => {
+    const panel = layout.panels[panelId];
+    if (panel) {
+      panel.isVisible = panelId === winner;
+    }
+  });
+};
+
+const normalizeLayout = (layout: LayoutConfig): LayoutConfig => {
+  const normalized: LayoutConfig = {
+    ...layout,
+    panels: Object.fromEntries(
+      Object.entries(layout.panels).map(([panelId, panel]) => [panelId, { ...panel }]),
+    ) as LayoutConfig['panels'],
+  };
+
+  normalizePanelGroupVisibility(normalized, SIDEBAR_PANELS, 'explorer');
+  normalizePanelGroupVisibility(normalized, CENTER_VIEW_PANELS, 'automata');
+  normalizePanelGroupVisibility(normalized, RIGHT_PANEL_PANELS, 'properties');
+
+  return normalized;
+};
+
 // ============================================================================
 // Initial State
 // ============================================================================
 
 const initialState: UIState = {
-  layout: defaultLayout,
+  layout: normalizeLayout(defaultLayout),
   sidebarCollapsed: false,
   editorMode: 'split',
   tabs: [],
@@ -255,9 +295,8 @@ export const useUIStore = create<UIStore>()(
             panel.isVisible = willBeVisible;
             
             // If enabling a sidebar panel, disable other sidebar panels
-            const sidebarPanels: PanelId[] = ['explorer', 'devices', 'gateway'];
-            if (willBeVisible && sidebarPanels.includes(panelId)) {
-              sidebarPanels.forEach((id) => {
+            if (willBeVisible && SIDEBAR_PANELS.includes(panelId)) {
+              SIDEBAR_PANELS.forEach((id) => {
                 if (id !== panelId && state.layout.panels[id]) {
                   state.layout.panels[id]!.isVisible = false;
                 }
@@ -265,9 +304,17 @@ export const useUIStore = create<UIStore>()(
             }
             
             // If enabling a center view panel, disable the others
-            const centerViewPanels: PanelId[] = ['network', 'automata', 'runtime', 'timetravel'];
-            if (willBeVisible && centerViewPanels.includes(panelId)) {
-              centerViewPanels.forEach((id) => {
+            if (willBeVisible && CENTER_VIEW_PANELS.includes(panelId)) {
+              CENTER_VIEW_PANELS.forEach((id) => {
+                if (id !== panelId && state.layout.panels[id]) {
+                  state.layout.panels[id]!.isVisible = false;
+                }
+              });
+            }
+
+            // If enabling a right-side inspector panel, disable the others
+            if (willBeVisible && RIGHT_PANEL_PANELS.includes(panelId)) {
+              RIGHT_PANEL_PANELS.forEach((id) => {
                 if (id !== panelId && state.layout.panels[id]) {
                   state.layout.panels[id]!.isVisible = false;
                 }
@@ -541,7 +588,7 @@ export const useUIStore = create<UIStore>()(
       
       resetLayout: () => {
         set((state) => {
-          state.layout = defaultLayout;
+          state.layout = normalizeLayout(defaultLayout);
           state.sidebarCollapsed = false;
         });
       },
@@ -556,17 +603,19 @@ export const useUIStore = create<UIStore>()(
       }),
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<UIState>;
+        const mergedLayout: LayoutConfig = {
+          ...currentState.layout,
+          ...(persisted.layout || {}),
+          panels: {
+            ...currentState.layout.panels,
+            ...(persisted.layout?.panels || {}),
+          },
+        };
+
         return {
           ...currentState,
           ...persisted,
-          layout: {
-            ...currentState.layout,
-            ...(persisted.layout || {}),
-            panels: {
-              ...currentState.layout.panels,
-              ...(persisted.layout?.panels || {}),
-            },
-          },
+          layout: normalizeLayout(mergedLayout),
         };
       },
     }
@@ -577,7 +626,7 @@ export const useUIStore = create<UIStore>()(
 // Selectors
 // ============================================================================
 
-export const selectActiveTab = (state: UIStore) =>
+export const selectActiveTab = (state: UIStore): EditorTab | null =>
   state.tabs.find((t) => t.isActive) || null;
 
 export const selectPanelState = (panelId: PanelId) => (state: UIStore) =>

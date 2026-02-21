@@ -1,38 +1,46 @@
 /**
  * Aetherium Automata - Main Application Component
- * 
+ *
  * Root component that assembles the complete IDE layout.
  */
 
-import React, { useState, useEffect } from 'react';
-import { useUIStore, useAutomataStore, useGatewayStore } from './stores';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
-  AppHeader,
+  useAutomataStore,
+  useGatewayStore,
+  useProjectStore,
+  useUIStore,
+} from './stores';
+import type { PanelId } from './types';
+import {
   ActivityBar,
+  AppHeader,
+  GatewaySettings,
+  NotificationToasts,
   StatusBar,
   TabBar,
-  NotificationToasts,
-  GatewaySettings,
 } from './components/common';
 import {
-  ExplorerPanel,
-  PropertiesPanel,
-  OutputPanel,
-  TimeTravelPanel,
+  AutomataConnectionsPanel,
   DevicesPanel,
-  NetworkPanel,
-  RuntimeMonitorPanel,
-  AutomataOverviewPanel,
+  ExplorerPanel,
   GatewayPanel,
+  NetworkPanel,
+  OutputPanel,
+  PropertiesPanel,
+  RuntimeMonitorPanel,
+  TimeTravelPanel,
   TransitionGroupPanel,
   VariableManagementPanel,
-  AutomataConnectionsPanel,
 } from './components/panels';
 import { AutomataEditor, CodeEditor } from './components/editor';
 import { GatewayEventBridge } from './components/runtime/GatewayEventBridge';
 import './styles/index.css';
 
-// Panel content based on active panel
+type SidebarPanelId = 'explorer' | 'devices' | 'gateway';
+type CenterPanelId = 'automata' | 'network' | 'runtime' | 'timetravel';
+type RightPanelId = 'properties' | 'transitions' | 'variables' | 'connections';
+
 const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
   switch (panelId) {
     case 'explorer':
@@ -62,17 +70,18 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
   }
 };
 
-// Editor content based on active tab
 const EditorContent: React.FC = () => {
   const tabs = useUIStore((state) => state.tabs);
   const activeTabId = useUIStore((state) => state.activeTabId);
-  const activeTab = tabs.find((t) => t.id === activeTabId);
+  const addNotification = useUIStore((state) => state.addNotification);
+  const activeTab = tabs.find((tab) => tab.id === activeTabId);
   const createAutomata = useAutomataStore((state) => state.createAutomata);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
-  const openTab = useUIStore((state) => state.openTab);
   const automataMap = useAutomataStore((state) => state.automata);
-  
-  const handleNewAutomata = async () => {
+  const openTab = useUIStore((state) => state.openTab);
+  const openProject = useProjectStore((state) => state.openProject);
+
+  const handleNewAutomata = async (): Promise<void> => {
     try {
       const automata = await createAutomata('New Automata', 'A new automata project');
       setActiveAutomata(automata.id);
@@ -84,73 +93,74 @@ const EditorContent: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to create automata:', error);
+      addNotification('error', 'Create Automata', 'Failed to create a new automata.');
     }
   };
-  
-  // Find which automata a state belongs to
+
+  const handleOpenProject = async (): Promise<void> => {
+    try {
+      await openProject();
+    } catch (error) {
+      console.error('Failed to open project:', error);
+      addNotification('error', 'Open Project', 'Project open failed.');
+    }
+  };
+
   const findAutomataForState = (stateId: string): string => {
     for (const [automataId, automata] of automataMap) {
       if (automata.states[stateId]) {
         return automataId;
       }
     }
+
     return '';
   };
-  
+
   if (!activeTab) {
     return (
       <div className="editor-welcome">
         <div className="welcome-content">
-          <div className="welcome-logo">
-            <svg viewBox="0 0 100 100" width="120" height="120">
-              <defs>
-                <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                  <stop offset="0%" stopColor="var(--color-primary)" />
-                  <stop offset="100%" stopColor="var(--color-secondary)" />
-                </linearGradient>
-              </defs>
-              <circle cx="50" cy="50" r="45" fill="none" stroke="url(#logoGrad)" strokeWidth="2" />
-              <circle cx="50" cy="30" r="8" fill="var(--color-primary)" />
-              <circle cx="30" cy="60" r="8" fill="var(--color-primary)" />
-              <circle cx="70" cy="60" r="8" fill="var(--color-primary)" />
-              <line x1="50" y1="38" x2="35" y2="54" stroke="var(--color-primary)" strokeWidth="2" />
-              <line x1="50" y1="38" x2="65" y2="54" stroke="var(--color-primary)" strokeWidth="2" />
-              <line x1="38" y1="60" x2="62" y2="60" stroke="var(--color-primary)" strokeWidth="2" />
-            </svg>
-          </div>
+          <div className="welcome-badge">Automation Workbench</div>
           <h1 className="welcome-title">Aetherium Automata</h1>
-          <p className="welcome-subtitle">Intelligent Automata Development Environment</p>
+          <p className="welcome-subtitle">
+            Build, simulate, and deploy deterministic state machines from one command console.
+          </p>
+
           <div className="welcome-actions">
-            <button className="btn btn-primary" onClick={handleNewAutomata}>
-              <span>New Automata</span>
+            <button className="btn btn-primary btn-lg" onClick={() => void handleNewAutomata()}>
+              New Automata
             </button>
-            <button className="btn btn-secondary">
-              <span>Open Project</span>
+            <button className="btn btn-secondary btn-lg" onClick={() => void handleOpenProject()}>
+              Open Project
             </button>
           </div>
+
           <div className="welcome-shortcuts">
             <div className="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>N</kbd>
-              <span>New Automata</span>
+              <kbd>Ctrl</kbd>
+              <kbd>N</kbd>
+              <span>Create automata</span>
             </div>
             <div className="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>O</kbd>
-              <span>Open File</span>
+              <kbd>Ctrl</kbd>
+              <kbd>O</kbd>
+              <span>Open project</span>
             </div>
             <div className="shortcut-item">
-              <kbd>Ctrl</kbd> + <kbd>Shift</kbd> + <kbd>P</kbd>
-              <span>Command Palette</span>
+              <kbd>Ctrl</kbd>
+              <kbd>K</kbd>
+              <span>Quick search</span>
             </div>
           </div>
         </div>
       </div>
     );
   }
-  
+
   switch (activeTab.type) {
     case 'automata':
       return <AutomataEditor automataId={activeTab.targetId} />;
-    case 'code':
+    case 'code': {
       const parentAutomataId = findAutomataForState(activeTab.targetId);
       if (!parentAutomataId) {
         return (
@@ -159,12 +169,9 @@ const EditorContent: React.FC = () => {
           </div>
         );
       }
-      return (
-        <CodeEditor
-          stateId={activeTab.targetId}
-          automataId={parentAutomataId}
-        />
-      );
+
+      return <CodeEditor stateId={activeTab.targetId} automataId={parentAutomataId} />;
+    }
     default:
       return (
         <div className="editor-unsupported">
@@ -175,163 +182,320 @@ const EditorContent: React.FC = () => {
 };
 
 const App: React.FC = () => {
-  // Gateway connection state
-  const [showGatewaySettings, setShowGatewaySettings] = useState(false);
+  const [showGatewaySettings, setShowGatewaySettings] = useState<boolean>(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    return !window.localStorage.getItem('gateway_settings_shown');
+  });
   const connect = useGatewayStore((state) => state.connect);
   const setUseMockService = useGatewayStore((state) => state.setUseMockService);
   const addNotification = useUIStore((state) => state.addNotification);
-  
-  // Check if we should show settings on first load
-  useEffect(() => {
-    const hasShownSettings = localStorage.getItem('gateway_settings_shown');
-    if (!hasShownSettings) {
-      setShowGatewaySettings(true);
+  const layout = useUIStore((state) => state.layout);
+  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
+  const togglePanel = useUIStore((state) => state.togglePanel);
+  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
+  const [viewport, setViewport] = useState<{ width: number; height: number }>(() => {
+    if (typeof window === 'undefined') {
+      return { width: 1440, height: 900 };
     }
+
+    return {
+      width: window.innerWidth,
+      height: window.innerHeight,
+    };
+  });
+
+  useEffect(() => {
+    let rafId = 0;
+    const handleResize = (): void => {
+      cancelAnimationFrame(rafId);
+      rafId = requestAnimationFrame(() => {
+        setViewport({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      });
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      cancelAnimationFrame(rafId);
+    };
   }, []);
-  
-  const handleGatewayConnect = async (host: string, port: string) => {
-    // Validate inputs
+
+  const handleGatewayConnect = async (host: string, port: string): Promise<void> => {
     if (!host || !port) {
       addNotification('warning', 'Gateway Connection', 'Please enter both host and port');
       return;
     }
-    
-    const portNum = parseInt(port);
-    if (isNaN(portNum) || portNum <= 0 || portNum > 65535) {
+
+    const portNum = parseInt(port, 10);
+    if (Number.isNaN(portNum) || portNum <= 0 || portNum > 65535) {
       addNotification('warning', 'Gateway Connection', 'Please enter a valid port number (1-65535)');
       return;
     }
-    
-    console.log('[App] Attempting to connect to gateway:', { host, port: portNum });
-    
+
     try {
-      await connect({
-        host,
-        port: portNum,
-      });
+      await connect({ host, port: portNum });
       localStorage.setItem('gateway_settings_shown', 'true');
       setShowGatewaySettings(false);
       addNotification('success', 'Gateway Connection', `Connected to ${host}:${portNum}`);
-      console.log('[App] Successfully connected to gateway');
     } catch (error) {
-      console.error('[App] Failed to connect to gateway:', error);
       const errorMsg = error instanceof Error ? error.message : 'Unknown error';
       addNotification('error', 'Gateway Connection', `Failed to connect: ${errorMsg}`);
-      // Don't close dialog on error - let user try again
     }
   };
-  
-  const handleSkipGateway = () => {
-    // Use mock service for everything
+
+  const handleSkipGateway = (): void => {
     setUseMockService(true);
     localStorage.setItem('gateway_settings_shown', 'true');
     setShowGatewaySettings(false);
   };
-  
-  // UI state
-  const layout = useUIStore((state) => state.layout);
-  const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
-  
-  // Get panel visibility from layout
-  const explorerVisible = layout.panels.explorer?.isVisible ?? false;
-  const propertiesVisible = layout.panels.properties?.isVisible ?? false;
+
+  const activeSidebarPanel = useMemo<SidebarPanelId | null>(() => {
+    const order: SidebarPanelId[] = ['explorer', 'devices', 'gateway'];
+    return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
+  }, [layout.panels]);
+
+  const activeCenterPanel = useMemo<CenterPanelId | null>(() => {
+    const order: CenterPanelId[] = ['automata', 'network', 'runtime', 'timetravel'];
+    return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
+  }, [layout.panels]);
+
+  const activeRightPanel = useMemo<RightPanelId | null>(() => {
+    const order: RightPanelId[] = ['properties', 'transitions', 'variables', 'connections'];
+    return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
+  }, [layout.panels]);
+
   const consoleVisible = layout.panels.console?.isVisible ?? false;
-  const networkVisible = layout.panels.network?.isVisible ?? false;
-  const runtimeVisible = layout.panels.runtime?.isVisible ?? false;
-  const automataOverviewVisible = layout.panels.automata?.isVisible ?? false;
-  const devicesVisible = layout.panels.devices?.isVisible ?? false;
-  const timetravelVisible = layout.panels.timetravel?.isVisible ?? false;
-  const gatewayVisible = layout.panels.gateway?.isVisible ?? false;
-  
-  // Determine which sidebar panel to show (only one can be active due to togglePanel logic)
-  const getActiveSidebarPanel = (): string | null => {
-    if (explorerVisible) return 'explorer';
-    if (devicesVisible) return 'devices';
-    if (gatewayVisible) return 'gateway';
-    return null;
+  const isNarrowViewport = viewport.width < 1280;
+  const isCompactViewport = viewport.width < 980;
+  const viewportClass = isCompactViewport
+    ? 'viewport-compact'
+    : isNarrowViewport
+      ? 'viewport-narrow'
+      : 'viewport-wide';
+
+  const sidebarInlineWidth = useMemo(() => {
+    const maxWidth = Math.max(220, Math.floor(viewport.width * 0.3));
+    return Math.min(Math.max(layout.sidebarWidth, 220), maxWidth);
+  }, [layout.sidebarWidth, viewport.width]);
+
+  const rightInlineWidth = useMemo(() => {
+    const maxWidth = Math.max(260, Math.floor(viewport.width * 0.32));
+    return Math.min(Math.max(layout.rightPanelWidth, 260), maxWidth);
+  }, [layout.rightPanelWidth, viewport.width]);
+
+  const overlayPanelWidth = useMemo(
+    () => Math.min(420, Math.max(280, Math.floor(viewport.width * 0.84))),
+    [viewport.width],
+  );
+
+  const bottomPanelHeight = useMemo(() => {
+    const maxHeight = Math.max(140, Math.floor(viewport.height * (isCompactViewport ? 0.3 : 0.36)));
+    return Math.min(Math.max(layout.bottomPanelHeight, 120), maxHeight);
+  }, [isCompactViewport, layout.bottomPanelHeight, viewport.height]);
+
+  const showSidebarInline = Boolean(!sidebarCollapsed && activeSidebarPanel && !isCompactViewport);
+  const showSidebarOverlay = Boolean(!sidebarCollapsed && activeSidebarPanel && isCompactViewport);
+  const showRightInline = Boolean(activeRightPanel && !isNarrowViewport);
+  const showRightOverlay = Boolean(activeRightPanel && isNarrowViewport && !showSidebarOverlay);
+  const showPanelBackdrop = showSidebarOverlay || showRightOverlay;
+
+  const activatePanel = (panelId: PanelId): void => {
+    const isVisible = layout.panels[panelId]?.isVisible ?? false;
+    if (!isVisible) {
+      togglePanel(panelId);
+    }
   };
-  
-  // Check if any sidebar panel is active
-  const activeSidebarPanel = getActiveSidebarPanel();
-  const hasSidebarPanel = activeSidebarPanel !== null;
-  
-  return (
-    <div className="app-container">
-      <GatewayEventBridge />
-      {/* Gateway Settings Dialog */}
-      {showGatewaySettings && (
-        <GatewaySettings
-          onConnect={handleGatewayConnect}
-          onSkip={handleSkipGateway}
-        />
-      )}
-      
-      {/* Header */}
-      <AppHeader />
-      
-      {/* Main content area */}
-      <div className="app-main">
-        {/* Activity Bar */}
-        <ActivityBar />
-        
-        {/* Main layout */}
-        <div className="app-content">
-          {/* Left sidebar panel */}
-          {!sidebarCollapsed && hasSidebarPanel && activeSidebarPanel && (
-            <div className="panel-left" style={{ width: layout.sidebarWidth }}>
-              <PanelContent panelId={activeSidebarPanel} />
+
+  const dismissOverlayPanels = (): void => {
+    if (showSidebarOverlay) {
+      toggleSidebar();
+    }
+
+    if (showRightOverlay && activeRightPanel) {
+      togglePanel(activeRightPanel);
+    }
+  };
+
+  const renderMainView = (): React.ReactNode => {
+    switch (activeCenterPanel) {
+      case 'timetravel':
+        return (
+          <div className="timetravel-view-container">
+            <TimeTravelPanel />
+          </div>
+        );
+      case 'runtime':
+        return (
+          <div className="runtime-view-container">
+            <RuntimeMonitorPanel />
+          </div>
+        );
+      case 'network':
+        return (
+          <div className="network-view-container">
+            <NetworkPanel />
+          </div>
+        );
+      case 'automata':
+      default:
+        return (
+          <div className="editor-area">
+            <TabBar />
+            <div className="editor-content">
+              <EditorContent />
             </div>
+          </div>
+        );
+    }
+  };
+
+  const renderSidebarPanel = (className: string, width: number): React.ReactNode => {
+    if (!activeSidebarPanel) {
+      return null;
+    }
+
+    return (
+      <aside className={`${className} panel-left panel-frame`} style={{ width }}>
+        <div className="panel-shell-header">
+          <div className="panel-shell-tabs">
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeSidebarPanel === 'explorer' ? 'active' : ''}`}
+              onClick={() => activatePanel('explorer')}
+            >
+              Explorer
+            </button>
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeSidebarPanel === 'devices' ? 'active' : ''}`}
+              onClick={() => activatePanel('devices')}
+            >
+              Devices
+            </button>
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeSidebarPanel === 'gateway' ? 'active' : ''}`}
+              onClick={() => activatePanel('gateway')}
+            >
+              Gateway
+            </button>
+          </div>
+          <button type="button" className="panel-shell-close" onClick={toggleSidebar} title="Collapse sidebar">
+            Collapse
+          </button>
+        </div>
+        <div className="panel-shell-body">
+          <PanelContent panelId={activeSidebarPanel} />
+        </div>
+      </aside>
+    );
+  };
+
+  const renderRightPanel = (className: string, width: number): React.ReactNode => {
+    if (!activeRightPanel) {
+      return null;
+    }
+
+    return (
+      <aside className={`${className} panel-right panel-frame`} style={{ width }}>
+        <div className="panel-shell-header">
+          <div className="panel-shell-tabs">
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeRightPanel === 'properties' ? 'active' : ''}`}
+              onClick={() => activatePanel('properties')}
+            >
+              Properties
+            </button>
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeRightPanel === 'transitions' ? 'active' : ''}`}
+              onClick={() => activatePanel('transitions')}
+            >
+              Transitions
+            </button>
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeRightPanel === 'variables' ? 'active' : ''}`}
+              onClick={() => activatePanel('variables')}
+            >
+              Variables
+            </button>
+            <button
+              type="button"
+              className={`panel-shell-tab ${activeRightPanel === 'connections' ? 'active' : ''}`}
+              onClick={() => activatePanel('connections')}
+            >
+              Links
+            </button>
+          </div>
+          <button
+            type="button"
+            className="panel-shell-close"
+            onClick={() => togglePanel(activeRightPanel)}
+            title="Hide inspector"
+          >
+            Hide
+          </button>
+        </div>
+        <div className="panel-shell-body">
+          {activeRightPanel === 'properties' ? (
+            <PropertiesPanel />
+          ) : (
+            <PanelContent panelId={activeRightPanel} />
           )}
-          
-          {/* Center area with editor and bottom panel */}
-          <div className="panel-center">
-            {/* Network panel, Time Travel, Automata Overview, or Editor tabs and content */}
-            {timetravelVisible ? (
-              <div className="timetravel-view-container">
-                <TimeTravelPanel />
-              </div>
-            ) : runtimeVisible ? (
-              <div className="runtime-view-container">
-                <RuntimeMonitorPanel />
-              </div>
-            ) : networkVisible ? (
-              <div className="network-view-container">
-                <NetworkPanel />
-              </div>
-            ) : automataOverviewVisible ? (
-              <div className="overview-view-container">
-                <AutomataOverviewPanel />
-              </div>
-            ) : (
-              <div className="editor-area">
-                <TabBar />
-                <div className="editor-content">
-                  <EditorContent />
-                </div>
-              </div>
-            )}
-            
-            {/* Bottom panel */}
+        </div>
+      </aside>
+    );
+  };
+
+  return (
+    <div className={`app-container ${viewportClass}`}>
+      <GatewayEventBridge />
+      {showGatewaySettings && (
+        <GatewaySettings onConnect={handleGatewayConnect} onSkip={handleSkipGateway} />
+      )}
+
+      <AppHeader />
+      <ActivityBar />
+
+      <div className="app-main">
+        <div className="app-content">
+          {showSidebarInline && renderSidebarPanel('', sidebarInlineWidth)}
+
+          {showPanelBackdrop && (
+            <button
+              type="button"
+              className="panel-overlay-backdrop"
+              aria-label="Close overlay panels"
+              onClick={dismissOverlayPanels}
+            />
+          )}
+
+          {showSidebarOverlay && renderSidebarPanel('panel-overlay panel-overlay-left', overlayPanelWidth)}
+
+          <section className="panel-center">
+            {renderMainView()}
+
             {consoleVisible && (
-              <div className="panel-bottom" style={{ height: layout.bottomPanelHeight }}>
+              <div className="panel-bottom panel-frame" style={{ height: bottomPanelHeight }}>
                 <OutputPanel />
               </div>
             )}
-          </div>
-          
-          {/* Right panel - properties */}
-          {propertiesVisible && (
-            <div className="panel-right" style={{ width: layout.rightPanelWidth }}>
-              <PropertiesPanel />
-            </div>
-          )}
+          </section>
+
+          {showRightInline && renderRightPanel('', rightInlineWidth)}
+          {showRightOverlay && renderRightPanel('panel-overlay panel-overlay-right', overlayPanelWidth)}
         </div>
       </div>
-      
-      {/* Status Bar */}
+
       <StatusBar />
-      
-      {/* Notification Toasts */}
       <NotificationToasts />
     </div>
   );

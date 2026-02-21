@@ -17,14 +17,11 @@ export const StatusBar: React.FC = () => {
   return (
     <footer className="status-bar">
       <div className="status-bar-left">
-        <div className={`status-bar-item ${gatewayStatus === 'connected' ? 'connected' : 'disconnected'}`}>
-          <span 
-            className={`status-indicator ${gatewayStatus === 'connected' ? 'online' : 'offline'}`}
-            style={{ width: 6, height: 6 }}
-          />
-          <span>{gatewayStatus === 'connected' ? 'Connected' : 'Disconnected'}</span>
+        <div className={`status-bar-item status-pill ${gatewayStatus === 'connected' ? 'connected' : 'disconnected'}`}>
+          <span className={`status-indicator ${gatewayStatus === 'connected' ? 'online' : 'offline'}`} />
+          <span>{gatewayStatus === 'connected' ? 'Gateway Online' : 'Gateway Offline'}</span>
         </div>
-        
+
         {gatewayStatus === 'connected' && (
           <>
             <div className="status-bar-item">
@@ -43,20 +40,18 @@ export const StatusBar: React.FC = () => {
             <span>Device: {selectedDeviceId}</span>
           </div>
         )}
-        
+
         {automata && (
           <div className="status-bar-item">
             <span>{automata.config.name}</span>
-            {automata.isDirty && (
-              <span style={{ color: 'var(--color-warning)' }}>●</span>
-            )}
+            {automata.isDirty && <span className="status-dirty-dot">●</span>}
           </div>
         )}
-        
+
         <div className="status-bar-item">
           <span>Lua</span>
         </div>
-        
+
         <div className="status-bar-item">
           <span>UTF-8</span>
         </div>
