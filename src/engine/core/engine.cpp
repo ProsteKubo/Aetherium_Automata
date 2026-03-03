@@ -1,9 +1,32 @@
 #include "engine.hpp"
+#include "script_engine.hpp"
+
+#if !defined(AETHERIUM_RUNTIME_CORE_ONLY)
+#include "automata_loader.hpp"
+#endif
+
+#if !defined(AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE)
+#include "lua_engine.hpp"
+#endif
+
+#ifdef abs
+#undef abs
+#endif
 
 #include <chrono>
+#include <sstream>
 #include <unordered_map>
+#include <unordered_set>
 
 namespace aeth {
+
+#if !defined(AETHERIUM_RUNTIME_CORE_ONLY)
+struct EngineFrontendLoaderHandle {
+    AutomataLoader loader;
+};
+#else
+struct EngineFrontendLoaderHandle {};
+#endif
 
 namespace {
 
@@ -16,16 +39,182 @@ uint16_t toReasonCode(protocol::ErrorCode code) {
     return static_cast<uint16_t>(code);
 }
 
+std::string joinErrors(const std::vector<std::string>& errors) {
+    std::ostringstream oss;
+    for (size_t i = 0; i < errors.size(); ++i) {
+        if (i > 0) {
+            oss << "; ";
+        }
+        oss << errors[i];
+    }
+    return oss.str();
+}
+
+Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineBytecodeProgram& program) {
+    auto automata = std::make_unique<Automata>();
+    automata->config.name = program.name;
+    automata->initialState = program.initialState;
+
+    std::unordered_set<StateId> stateIds;
+    stateIds.reserve(program.states.size());
+
+    for (const auto& s : program.states) {
+        if (s.id == INVALID_STATE) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode state has invalid id");
+        }
+        if (s.name.empty()) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode state name cannot be empty");
+        }
+        if (!stateIds.insert(s.id).second) {
+            return Result<std::unique_ptr<Automata>>::error("duplicate bytecode state id");
+        }
+        automata->addState(State{s.id, s.name});
+    }
+
+    std::unordered_set<VariableId> variableIds;
+    variableIds.reserve(program.variables.size());
+    for (const auto& v : program.variables) {
+        if (v.id == INVALID_VARIABLE) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode variable has invalid id");
+        }
+        if (v.name.empty()) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode variable name cannot be empty");
+        }
+        if (!variableIds.insert(v.id).second) {
+            return Result<std::unique_ptr<Automata>>::error("duplicate bytecode variable id");
+        }
+        if (v.type != ValueType::Void && v.initialValue.type() != ValueType::Void && v.initialValue.type() != v.type) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode variable initial value type mismatch");
+        }
+
+        VariableSpec spec;
+        spec.id = v.id;
+        spec.name = v.name;
+        spec.type = v.type;
+        spec.direction = v.direction;
+        spec.initialValue = v.initialValue;
+        automata->addVariable(std::move(spec));
+    }
+
+    std::unordered_set<TransitionId> transitionIds;
+    transitionIds.reserve(program.transitions.size());
+    for (const auto& t : program.transitions) {
+        if (t.id == INVALID_TRANSITION) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode transition has invalid id");
+        }
+        if (!transitionIds.insert(t.id).second) {
+            return Result<std::unique_ptr<Automata>>::error("duplicate bytecode transition id");
+        }
+        if (stateIds.find(t.from) == stateIds.end() || stateIds.find(t.to) == stateIds.end()) {
+            return Result<std::unique_ptr<Automata>>::error("bytecode transition references unknown state");
+        }
+
+        Transition tr(t.id, t.name.empty() ? ("t" + std::to_string(t.id)) : t.name, t.from, t.to);
+        tr.priority = t.priority;
+        tr.enabled = t.enabled;
+
+        switch (t.kind) {
+            case ir::BytecodeTransitionKind::Immediate:
+                tr.type = TransitionType::Immediate;
+                break;
+            case ir::BytecodeTransitionKind::TimedAfter:
+                tr.type = TransitionType::Timed;
+                tr.timedConfig.mode = TimedMode::After;
+                tr.timedConfig.delayMs = t.delayMs;
+                break;
+            case ir::BytecodeTransitionKind::ClassicCondition:
+                if (t.conditionExpression.empty()) {
+                    return Result<std::unique_ptr<Automata>>::error("classic bytecode transition missing condition");
+                }
+                tr.type = TransitionType::Classic;
+                tr.classicConfig.condition.source = t.conditionExpression;
+                break;
+            case ir::BytecodeTransitionKind::EventSignal: {
+                if (t.eventSignalName.empty()) {
+                    return Result<std::unique_ptr<Automata>>::error("event bytecode transition missing signal");
+                }
+                switch (t.eventTriggerType) {
+                    case EventTrigger::OnChange:
+                    case EventTrigger::OnRise:
+                    case EventTrigger::OnFall:
+                    case EventTrigger::OnThreshold:
+                    case EventTrigger::OnMatch:
+                        break;
+                    default:
+                        return Result<std::unique_ptr<Automata>>::error("unsupported bytecode event trigger type");
+                }
+                tr.type = TransitionType::Event;
+                SignalTrigger trigger;
+                trigger.signalName = t.eventSignalName;
+                trigger.signalType = t.eventSignalDirection;
+                trigger.triggerType = t.eventTriggerType;
+                if (t.eventTriggerType == EventTrigger::OnThreshold) {
+                    if (!t.eventHasThreshold) {
+                        return Result<std::unique_ptr<Automata>>::error("threshold event bytecode transition missing threshold");
+                    }
+                    ThresholdConfig threshold;
+                    threshold.op = t.eventThresholdOp;
+                    threshold.value = t.eventThresholdValue;
+                    threshold.oneShot = t.eventThresholdOneShot;
+                    trigger.threshold = std::move(threshold);
+                }
+                if (t.eventTriggerType == EventTrigger::OnMatch) {
+                    if (t.eventPattern.empty()) {
+                        return Result<std::unique_ptr<Automata>>::error("match event bytecode transition missing pattern");
+                    }
+                    trigger.pattern = t.eventPattern;
+                }
+                tr.eventConfig.requireAll = false;
+                tr.eventConfig.debounceMs = 0;
+                tr.eventConfig.triggers.push_back(std::move(trigger));
+                break;
+            }
+            default:
+                return Result<std::unique_ptr<Automata>>::error("unsupported bytecode transition kind");
+        }
+
+        automata->addTransition(std::move(tr));
+    }
+
+    const auto errors = automata->validate();
+    if (!errors.empty()) {
+        return Result<std::unique_ptr<Automata>>::error("bytecode automata invalid: " + joinErrors(errors));
+    }
+
+    return Result<std::unique_ptr<Automata>>::ok(std::move(automata));
+}
+
+std::unique_ptr<IScriptEngine> makeDefaultScriptEngine() {
+#if defined(AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE)
+    return std::make_unique<SimpleScriptEngine>();
+#else
+    return std::make_unique<LuaScriptEngine>();
+#endif
+}
+
 } // namespace
 
 Engine::Engine()
     : runtime_(std::make_unique<StdClock>(),
                std::make_unique<StdRandomSource>(),
-               std::make_unique<LuaScriptEngine>())
+               makeDefaultScriptEngine())
+    , frontendLoader_(std::make_unique<EngineFrontendLoaderHandle>())
     , logHub_(2048) {
     registerCommandHandlers();
     configureRuntimeCallbacks();
 }
+
+Engine::Engine(std::unique_ptr<IClock> clock,
+               std::unique_ptr<IRandomSource> random,
+               std::unique_ptr<IScriptEngine> script)
+    : runtime_(std::move(clock), std::move(random), std::move(script))
+    , frontendLoader_(std::make_unique<EngineFrontendLoaderHandle>())
+    , logHub_(2048) {
+    registerCommandHandlers();
+    configureRuntimeCallbacks();
+}
+
+Engine::~Engine() = default;
 
 Result<void> Engine::initialize(const EngineInitOptions& options) {
     runtime_.setMaxTickRate(options.maxTickRate);
@@ -39,7 +228,17 @@ Result<RunId> Engine::loadAutomataFromFile(const std::string& filePath,
                                            protocolv2::LoadReplaceMode mode,
                                            bool startAfterLoad,
                                            std::optional<RunId> requestedRunId) {
-    auto loaded = loader_.loadFromFile(filePath);
+#if defined(AETHERIUM_RUNTIME_CORE_ONLY)
+    (void) filePath;
+    (void) mode;
+    (void) startAfterLoad;
+    (void) requestedRunId;
+    return Result<RunId>::error("runtime_core build does not include file/YAML loader");
+#else
+    if (!frontendLoader_) {
+        return Result<RunId>::error("loader frontend unavailable");
+    }
+    auto loaded = frontendLoader_->loader.loadFromFile(filePath);
     if (loaded.isError()) {
         return Result<RunId>::error(loaded.error());
     }
@@ -47,6 +246,7 @@ Result<RunId> Engine::loadAutomataFromFile(const std::string& filePath,
         logHub_.log(LogLevel::Warn, "loader", warn);
     }
     return applyLoadedAutomata(std::move(loaded.value().automata), mode, startAfterLoad, requestedRunId);
+#endif
 }
 
 Result<RunId> Engine::loadAutomataFromYaml(const std::string& yaml,
@@ -54,7 +254,18 @@ Result<RunId> Engine::loadAutomataFromYaml(const std::string& yaml,
                                            protocolv2::LoadReplaceMode mode,
                                            bool startAfterLoad,
                                            std::optional<RunId> requestedRunId) {
-    auto loaded = loader_.loadFromString(yaml, basePath);
+#if defined(AETHERIUM_RUNTIME_CORE_ONLY)
+    (void) yaml;
+    (void) basePath;
+    (void) mode;
+    (void) startAfterLoad;
+    (void) requestedRunId;
+    return Result<RunId>::error("runtime_core build does not include YAML loader");
+#else
+    if (!frontendLoader_) {
+        return Result<RunId>::error("loader frontend unavailable");
+    }
+    auto loaded = frontendLoader_->loader.loadFromString(yaml, basePath);
     if (loaded.isError()) {
         return Result<RunId>::error(loaded.error());
     }
@@ -62,6 +273,44 @@ Result<RunId> Engine::loadAutomataFromYaml(const std::string& yaml,
         logHub_.log(LogLevel::Warn, "loader", warn);
     }
     return applyLoadedAutomata(std::move(loaded.value().automata), mode, startAfterLoad, requestedRunId);
+#endif
+}
+
+Result<RunId> Engine::loadAutomataFromArtifact(const ir::AutomataArtifact& artifact,
+                                               protocolv2::LoadReplaceMode mode,
+                                               bool startAfterLoad,
+                                               std::optional<RunId> requestedRunId) {
+    switch (artifact.payloadKind) {
+        case ir::PayloadKind::YamlText: {
+            const std::string yaml(artifact.payloadBytes.begin(), artifact.payloadBytes.end());
+            const std::string basePath = artifact.sourceLabel.empty() ? "." : artifact.sourceLabel;
+            return loadAutomataFromYaml(yaml, basePath, mode, startAfterLoad, requestedRunId);
+        }
+        case ir::PayloadKind::EngineBytecode: {
+            auto program = ir::deserializeEngineBytecodeProgram(artifact.payloadBytes);
+            if (program.isError()) {
+                return Result<RunId>::error("engine bytecode decode failed: " + program.error());
+            }
+            auto automata = automataFromEngineBytecode(program.value());
+            if (automata.isError()) {
+                return Result<RunId>::error(automata.error());
+            }
+            return applyLoadedAutomata(std::move(automata.value()), mode, startAfterLoad, requestedRunId);
+        }
+    }
+
+    return Result<RunId>::error("unsupported artifact payload kind");
+}
+
+Result<RunId> Engine::loadAutomataFromBytes(const std::vector<uint8_t>& bytes,
+                                            protocolv2::LoadReplaceMode mode,
+                                            bool startAfterLoad,
+                                            std::optional<RunId> requestedRunId) {
+    auto parsed = ir::deserializeArtifact(bytes);
+    if (parsed.isError()) {
+        return Result<RunId>::error(parsed.error());
+    }
+    return loadAutomataFromArtifact(parsed.value(), mode, startAfterLoad, requestedRunId);
 }
 
 Result<RunId> Engine::applyLoadedAutomata(std::unique_ptr<Automata> automata,
@@ -122,6 +371,92 @@ Result<RunId> Engine::applyLoadedAutomata(std::unique_ptr<Automata> automata,
 
     logHub_.event(EventKind::Lifecycle, LogLevel::Info, "engine", "automata loaded", runId);
     return Result<RunId>::ok(runId);
+}
+
+void Engine::resetPendingChunkedLoad() {
+    pendingChunkedLoad_ = PendingChunkedLoad{};
+}
+
+Result<bool> Engine::appendChunkedLoad(const protocol::LoadAutomataMessage& load,
+                                       std::vector<uint8_t>& assembledData) {
+    if (load.totalChunks == 0) {
+        resetPendingChunkedLoad();
+        return Result<bool>::error("chunked load has zero total_chunks");
+    }
+    if (load.chunkIndex >= load.totalChunks) {
+        resetPendingChunkedLoad();
+        return Result<bool>::error("chunked load index out of range");
+    }
+
+    auto& pending = pendingChunkedLoad_;
+    const bool beginNew = (load.chunkIndex == 0);
+
+    if (!pending.active || beginNew) {
+        if (!beginNew) {
+            return Result<bool>::error("chunked load missing initial chunk");
+        }
+        resetPendingChunkedLoad();
+        pending.active = true;
+        pending.sourceId = load.sourceId;
+        pending.runId = load.runId;
+        pending.format = load.format;
+        pending.startAfterLoad = load.startAfterLoad;
+        pending.replaceExisting = load.replaceExisting;
+        pending.totalChunks = load.totalChunks;
+        pending.nextChunkIndex = 0;
+        pending.totalBytes = 0;
+        pending.data.clear();
+    } else {
+        if (load.sourceId != pending.sourceId ||
+            load.runId != pending.runId ||
+            load.format != pending.format ||
+            load.startAfterLoad != pending.startAfterLoad ||
+            load.replaceExisting != pending.replaceExisting ||
+            load.totalChunks != pending.totalChunks) {
+            resetPendingChunkedLoad();
+            return Result<bool>::error("chunked load metadata mismatch");
+        }
+    }
+
+    if (load.chunkIndex != pending.nextChunkIndex) {
+        resetPendingChunkedLoad();
+        return Result<bool>::error("chunked load arrived out of order");
+    }
+
+    if (pending.totalBytes + load.data.size() > kMaxChunkedLoadBytes) {
+        resetPendingChunkedLoad();
+        return Result<bool>::error("chunked load exceeds assembly limit");
+    }
+
+    pending.data.insert(pending.data.end(), load.data.begin(), load.data.end());
+    pending.totalBytes += load.data.size();
+    pending.nextChunkIndex++;
+
+    if (pending.nextChunkIndex < pending.totalChunks) {
+        return Result<bool>::ok(false);
+    }
+
+    assembledData.swap(pending.data);
+    resetPendingChunkedLoad();
+    return Result<bool>::ok(true);
+}
+
+Result<RunId> Engine::applyProtocolLoad(const protocol::LoadAutomataMessage& load,
+                                        const std::vector<uint8_t>& data) {
+    const auto mode = load.replaceExisting
+        ? protocolv2::LoadReplaceMode::HardReset
+        : protocolv2::LoadReplaceMode::CarryOverCompatible;
+
+    switch (load.format) {
+        case protocol::AutomataFormat::YAML: {
+            const std::string yaml(data.begin(), data.end());
+            return loadAutomataFromYaml(yaml, ".", mode, load.startAfterLoad, load.runId);
+        }
+        case protocol::AutomataFormat::Binary:
+            return loadAutomataFromBytes(data, mode, load.startAfterLoad, load.runId);
+        default:
+            return Result<RunId>::error("unsupported automata format");
+    }
 }
 
 Result<void> Engine::start(std::optional<StateId> from) {
@@ -330,21 +665,38 @@ bool Engine::runIdMatches(const protocol::Message& message) const {
 }
 
 std::optional<RunId> Engine::extractRunId(const protocol::Message& message) {
-    if (auto* load = dynamic_cast<const protocol::LoadAutomataMessage*>(&message)) return load->runId;
-    if (auto* loadAck = dynamic_cast<const protocol::LoadAckMessage*>(&message)) return loadAck->runId;
-    if (auto* start = dynamic_cast<const protocol::StartMessage*>(&message)) return start->runId;
-    if (auto* stop = dynamic_cast<const protocol::StopMessage*>(&message)) return stop->runId;
-    if (auto* reset = dynamic_cast<const protocol::ResetMessage*>(&message)) return reset->runId;
-    if (auto* status = dynamic_cast<const protocol::StatusMessage*>(&message)) return status->runId;
-    if (auto* pause = dynamic_cast<const protocol::PauseMessage*>(&message)) return pause->runId;
-    if (auto* resume = dynamic_cast<const protocol::ResumeMessage*>(&message)) return resume->runId;
-    if (auto* input = dynamic_cast<const protocol::InputMessage*>(&message)) return input->runId;
-    if (auto* output = dynamic_cast<const protocol::OutputMessage*>(&message)) return output->runId;
-    if (auto* variable = dynamic_cast<const protocol::VariableMessage*>(&message)) return variable->runId;
-    if (auto* state = dynamic_cast<const protocol::StateChangeMessage*>(&message)) return state->runId;
-    if (auto* telemetry = dynamic_cast<const protocol::TelemetryMessage*>(&message)) return telemetry->runId;
-    if (auto* fired = dynamic_cast<const protocol::TransitionFiredMessage*>(&message)) return fired->runId;
-    return std::nullopt;
+    switch (message.type()) {
+        case protocol::MessageType::LoadAutomata:
+            return static_cast<const protocol::LoadAutomataMessage&>(message).runId;
+        case protocol::MessageType::LoadAck:
+            return static_cast<const protocol::LoadAckMessage&>(message).runId;
+        case protocol::MessageType::Start:
+            return static_cast<const protocol::StartMessage&>(message).runId;
+        case protocol::MessageType::Stop:
+            return static_cast<const protocol::StopMessage&>(message).runId;
+        case protocol::MessageType::Reset:
+            return static_cast<const protocol::ResetMessage&>(message).runId;
+        case protocol::MessageType::Status:
+            return static_cast<const protocol::StatusMessage&>(message).runId;
+        case protocol::MessageType::Pause:
+            return static_cast<const protocol::PauseMessage&>(message).runId;
+        case protocol::MessageType::Resume:
+            return static_cast<const protocol::ResumeMessage&>(message).runId;
+        case protocol::MessageType::Input:
+            return static_cast<const protocol::InputMessage&>(message).runId;
+        case protocol::MessageType::Output:
+            return static_cast<const protocol::OutputMessage&>(message).runId;
+        case protocol::MessageType::Variable:
+            return static_cast<const protocol::VariableMessage&>(message).runId;
+        case protocol::MessageType::StateChange:
+            return static_cast<const protocol::StateChangeMessage&>(message).runId;
+        case protocol::MessageType::Telemetry:
+            return static_cast<const protocol::TelemetryMessage&>(message).runId;
+        case protocol::MessageType::TransitionFired:
+            return static_cast<const protocol::TransitionFiredMessage&>(message).runId;
+        default:
+            return std::nullopt;
+    }
 }
 
 void Engine::registerCommandHandlers() {
@@ -375,10 +727,9 @@ void Engine::registerCommandHandlers() {
     commandBus_.registerHandler(protocol::MessageType::Ping, [](Engine& engine, const protocol::Message& request) {
         protocol::PongMessage pong;
         pong.targetId = request.sourceId;
-        if (auto* ping = dynamic_cast<const protocol::PingMessage*>(&request)) {
-            pong.originalTimestamp = ping->timestamp;
-            pong.sequenceNumber = ping->sequenceNumber;
-        }
+        const auto& ping = static_cast<const protocol::PingMessage&>(request);
+        pong.originalTimestamp = ping.timestamp;
+        pong.sequenceNumber = ping.sequenceNumber;
         pong.responseTimestamp = wallClockMs();
         Engine::Replies replies;
         replies.push_back(std::make_unique<protocol::PongMessage>(pong));
@@ -402,36 +753,45 @@ void Engine::registerCommandHandlers() {
     });
 
     commandBus_.registerHandler(protocol::MessageType::LoadAutomata, [](Engine& engine, const protocol::Message& request) {
-        auto* load = dynamic_cast<const protocol::LoadAutomataMessage*>(&request);
-        if (!load) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidMessage), "load payload mismatch");
+        const auto* load = &static_cast<const protocol::LoadAutomataMessage&>(request);
+
+        Result<RunId> result = Result<RunId>::error("unsupported automata format");
+        const bool chunked = load->isChunked || load->totalChunks > 1;
+
+        if (chunked) {
+            std::vector<uint8_t> assembledData;
+            auto appendResult = engine.appendChunkedLoad(*load, assembledData);
+            if (appendResult.isError()) {
+                protocol::LoadAckMessage loadAck;
+                loadAck.targetId = request.sourceId;
+                loadAck.runId = load->runId;
+                loadAck.success = false;
+                loadAck.errorMessage = appendResult.error();
+
+                Engine::Replies replies;
+                replies.push_back(std::make_unique<protocol::LoadAckMessage>(loadAck));
+                replies.push_back(engine.buildStatusMessage(request.sourceId));
+                return replies;
+            }
+
+            if (!appendResult.value()) {
+                return engine.ackWithStatus(request, "load_chunk_received");
+            }
+
+            result = engine.applyProtocolLoad(*load, assembledData);
+        } else {
+            engine.resetPendingChunkedLoad();
+            result = engine.applyProtocolLoad(*load, load->data);
         }
 
         protocol::LoadAckMessage loadAck;
         loadAck.targetId = request.sourceId;
         loadAck.runId = load->runId;
-
-        if (load->format != protocol::AutomataFormat::YAML) {
-            loadAck.success = false;
-            loadAck.errorMessage = "only YAML automata format is implemented";
-            Engine::Replies replies;
-            replies.push_back(std::make_unique<protocol::LoadAckMessage>(loadAck));
-            replies.push_back(engine.buildStatusMessage(request.sourceId));
-            return replies;
-        }
-
-        const std::string yaml(reinterpret_cast<const char*>(load->data.data()), load->data.size());
-        const auto mode = load->replaceExisting
-            ? protocolv2::LoadReplaceMode::HardReset
-            : protocolv2::LoadReplaceMode::CarryOverCompatible;
-
-        auto result = engine.loadAutomataFromYaml(yaml, ".", mode, load->startAfterLoad, load->runId);
         if (result.isError()) {
             loadAck.success = false;
             loadAck.errorMessage = result.error();
         } else {
             loadAck.success = true;
-            loadAck.errorMessage.clear();
         }
 
         Engine::Replies replies;
@@ -457,9 +817,8 @@ void Engine::registerCommandHandlers() {
         }
 
         std::optional<StateId> from;
-        if (const auto* start = dynamic_cast<const protocol::StartMessage*>(&request)) {
-            from = start->startFromState;
-        }
+        const auto& start = static_cast<const protocol::StartMessage&>(request);
+        from = start.startFromState;
 
         auto result = engine.start(from);
         if (result.isError()) {
@@ -534,10 +893,7 @@ void Engine::registerCommandHandlers() {
             engine.logHub_.log(LogLevel::Warn, "command",
                                "input requested with stale run_id; applying to active run");
         }
-        auto* input = dynamic_cast<const protocol::InputMessage*>(&request);
-        if (!input) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidMessage), "input payload mismatch");
-        }
+        const auto* input = &static_cast<const protocol::InputMessage&>(request);
         Result<void> result = input->variableName.empty()
             ? engine.setInput(input->variableId, input->value)
             : engine.setInput(input->variableName, input->value);
@@ -556,10 +912,7 @@ void Engine::registerCommandHandlers() {
             engine.logHub_.log(LogLevel::Warn, "command",
                                "variable requested with stale run_id; applying to active run");
         }
-        auto* variable = dynamic_cast<const protocol::VariableMessage*>(&request);
-        if (!variable) {
-            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidMessage), "variable payload mismatch");
-        }
+        const auto* variable = &static_cast<const protocol::VariableMessage&>(request);
         Result<void> result = variable->variableName.empty()
             ? engine.setVariable(variable->variableId, variable->value)
             : engine.setVariable(variable->variableName, variable->value);
@@ -586,16 +939,14 @@ void Engine::registerCommandHandlers() {
     });
 
     commandBus_.registerHandler(protocol::MessageType::Debug, [](Engine& engine, const protocol::Message& request) {
-        if (const auto* debug = dynamic_cast<const protocol::DebugMessage*>(&request)) {
-            engine.logHub_.log(LogLevel::Debug, debug->source.empty() ? "remote" : debug->source, debug->message);
-        }
+        const auto& debug = static_cast<const protocol::DebugMessage&>(request);
+        engine.logHub_.log(LogLevel::Debug, debug.source.empty() ? "remote" : debug.source, debug.message);
         return engine.ackWithStatus(request, "debug_received");
     });
 
     commandBus_.registerHandler(protocol::MessageType::Error, [](Engine& engine, const protocol::Message& request) {
-        if (const auto* error = dynamic_cast<const protocol::ErrorMessage*>(&request)) {
-            engine.logHub_.event(EventKind::Error, LogLevel::Error, "remote", error->message, error->runId);
-        }
+        const auto& error = static_cast<const protocol::ErrorMessage&>(request);
+        engine.logHub_.event(EventKind::Error, LogLevel::Error, "remote", error.message, error.runId);
         return engine.ackWithStatus(request, "error_received");
     });
 

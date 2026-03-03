@@ -9,7 +9,7 @@
  */
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { useUIStore } from '../../stores';
+import { selectActiveTimeTravelSession, useExecutionStore, useUIStore } from '../../stores';
 import {
   IconTimeTravel,
   IconRewind,
@@ -216,6 +216,7 @@ export const TimeTravelPanel: React.FC = () => {
   
   // Store data
   const addNotification = useUIStore((state) => state.addNotification);
+  const activeGatewayTimeTravelSession = useExecutionStore(selectActiveTimeTravelSession);
   
   // Note: In production, mock data would be replaced with real store data
   // Real implementation would use: useGatewayStore for devices/servers
@@ -409,6 +410,45 @@ export const TimeTravelPanel: React.FC = () => {
           <div className="header-title">
             <h2>Time Travel Debugger</h2>
             <span className="header-subtitle">Network-Wide Recording &amp; Replay</span>
+            {activeGatewayTimeTravelSession && (
+              <div className="header-backend-meta">
+                <span className="backend-chip">
+                  Timeline Source: {activeGatewayTimeTravelSession.timelineSource ?? 'unknown'}
+                </span>
+                {activeGatewayTimeTravelSession.timelineBackendError && (
+                  <span className="backend-chip backend-chip-warn">
+                    Timeline Fallback: {activeGatewayTimeTravelSession.timelineBackendError}
+                  </span>
+                )}
+                {activeGatewayTimeTravelSession.lastRewindSource && (
+                  <span className="backend-chip">
+                    Last Rewind Source: {activeGatewayTimeTravelSession.lastRewindSource}
+                  </span>
+                )}
+                {activeGatewayTimeTravelSession.lastRewindBackendError && (
+                  <span className="backend-chip backend-chip-warn">
+                    Rewind Fallback: {activeGatewayTimeTravelSession.lastRewindBackendError}
+                  </span>
+                )}
+                {typeof activeGatewayTimeTravelSession.lastRewindEventsReplayed === 'number' && (
+                  <span className="backend-chip">
+                    Replayed Events: {activeGatewayTimeTravelSession.lastRewindEventsReplayed}
+                  </span>
+                )}
+                {typeof activeGatewayTimeTravelSession.lastRewindEventCursorStart === 'number' &&
+                  typeof activeGatewayTimeTravelSession.lastRewindEventCursorEnd === 'number' && (
+                    <span className="backend-chip">
+                      Cursor Range: {activeGatewayTimeTravelSession.lastRewindEventCursorStart}-
+                      {activeGatewayTimeTravelSession.lastRewindEventCursorEnd}
+                    </span>
+                  )}
+                {activeGatewayTimeTravelSession.lastRewindStateFingerprint && (
+                  <span className="backend-chip">
+                    State FP: {activeGatewayTimeTravelSession.lastRewindStateFingerprint.slice(0, 12)}
+                  </span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="header-right">

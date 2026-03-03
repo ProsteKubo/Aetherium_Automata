@@ -22,7 +22,7 @@ services:
       - GATEWAY_OPERATOR_TOKEN=dev_secret_token
       - GATEWAY_SERVER_TOKEN=server_secret_token
       - GATEWAY_DEVICE_TOKEN=device_secret_token
-    command: ["sh", "-c", "mix deps.compile && mix compile && mix phx.server"]
+    command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix phx.server"]
 
   server1:
     build:
@@ -36,8 +36,8 @@ services:
       - "8081:4000"
     volumes:
       - ./server/aetherium_server:/app
-      - server_deps:/app/deps
-      - server_build:/app/_build
+      - server1_deps:/app/deps
+      - server1_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
@@ -45,6 +45,7 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_01
       - HEARTBEAT_INTERVAL=30000
+    command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix run --no-halt"]
 
   server2:
     build:
@@ -56,8 +57,8 @@ services:
         ipv4_address: 172.20.0.22
     volumes:
       - ./server/aetherium_server:/app
-      - server_deps:/app/deps
-      - server_build:/app/_build
+      - server2_deps:/app/deps
+      - server2_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
@@ -65,6 +66,7 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_02
       - HEARTBEAT_INTERVAL=30000
+    command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix run --no-halt"]
 
   server3:
     build:
@@ -74,10 +76,12 @@ services:
     networks:
       elixir-net:
         ipv4_address: 172.20.0.23
+    ports:
+      - "5501:5501"
     volumes:
       - ./server/aetherium_server:/app
-      - server_deps:/app/deps
-      - server_build:/app/_build
+      - server3_deps:/app/deps
+      - server3_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
@@ -86,7 +90,35 @@ services:
       - SERVER_ID=svr_03
       - HEARTBEAT_INTERVAL=30000
       - AETHERIUM_DUMP_DEPLOY_YAML=1
-    command: ["sh", "-c", "mix deps.compile && mix compile && mix run --no-halt"]
+      - ENABLE_ROS2_DEVICE_TRANSPORT=1
+      - ROS2_BIND_IP=0.0.0.0
+      - ROS2_PORT=5501
+      - ENABLE_TIME_SERIES_INFLUX=${ENABLE_TIME_SERIES_INFLUX:-0}
+      - INFLUXDB_URL=${INFLUXDB_URL:-http://influxdb:8086}
+      - INFLUXDB_ORG=${INFLUXDB_ORG:-aetherium}
+      - INFLUXDB_BUCKET=${INFLUXDB_BUCKET:-aetherium_ts}
+      - INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-aetherium-dev-token}
+    command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix run --no-halt"]
+
+  influxdb:
+    profiles: ["timeseries"]
+    image: influxdb:2.7
+    container_name: aetherium-influxdb
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.51
+    ports:
+      - "8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=${INFLUXDB_ADMIN_USER:-admin}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${INFLUXDB_ADMIN_PASSWORD:-adminadmin}
+      - DOCKER_INFLUXDB_INIT_ORG=${INFLUXDB_ORG:-aetherium}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${INFLUXDB_BUCKET:-aetherium_ts}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${INFLUXDB_TOKEN:-aetherium-dev-token}
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+      - influxdb_config:/etc/influxdb2
 
   device1:
     build:
@@ -105,6 +137,66 @@ services:
       "--server", "ws://172.20.0.23:4000/socket/device/websocket"
     ]
 
+  ros2-bridge:
+    profiles: ["ros2"]
+    build:
+      context: ./transport/ros2_bridge
+      dockerfile: Dockerfile
+    container_name: ros2-bridge
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.41
+    environment:
+      - AETHERIUM_ROS2_CONNECTOR_HOST=172.20.0.23
+      - AETHERIUM_ROS2_CONNECTOR_PORT=5501
+      - AETHERIUM_ROS2_UPLINK_TOPIC=/aetherium/bridge/uplink_b64
+      - AETHERIUM_ROS2_DOWNLINK_TOPIC=/aetherium/bridge/downlink_b64
+      - AETHERIUM_ROS2_STATUS_TOPIC=/aetherium/bridge/status
+    depends_on:
+      - server3
+    command: ["python3", "-m", "aetherium_ros2_bridge.tcp_bridge_node"]
+
+  ros2-emulator:
+    profiles: ["ros2-demo"]
+    build:
+      context: ./transport/ros2_bridge
+      dockerfile: Dockerfile
+    container_name: ros2-emulator
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.42
+    environment:
+      - AETHERIUM_EMULATOR_DEVICE_ID=ros2_emulator_01
+      - AETHERIUM_EMULATOR_SOURCE_ID=4101
+      - AETHERIUM_ROS2_UPLINK_TOPIC=/aetherium/bridge/uplink_b64
+      - AETHERIUM_ROS2_DOWNLINK_TOPIC=/aetherium/bridge/downlink_b64
+      - AETHERIUM_EMULATOR_SENSOR_TOPIC=/aetherium/demo/sensor_temp
+      - AETHERIUM_EMULATOR_HELLO_SEC=3.0
+      - AETHERIUM_EMULATOR_PING_SEC=4.0
+      - AETHERIUM_EMULATOR_TELEMETRY_SEC=2.0
+    depends_on:
+      - ros2-bridge
+    command: ["python3", "-m", "aetherium_ros2_bridge.engine_emulator_node"]
+
+  ros2-sensor:
+    profiles: ["ros2-demo"]
+    build:
+      context: ./transport/ros2_bridge
+      dockerfile: Dockerfile
+    container_name: ros2-sensor
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.43
+    environment:
+      - AETHERIUM_EMULATOR_SENSOR_TOPIC=/aetherium/demo/sensor_temp
+      - AETHERIUM_DEMO_SENSOR_MODE=wave
+      - AETHERIUM_DEMO_SENSOR_MIN=24
+      - AETHERIUM_DEMO_SENSOR_MAX=35
+      - AETHERIUM_DEMO_SENSOR_PERIOD_SEC=0.6
+    depends_on:
+      - ros2-emulator
+    command: ["python3", "-m", "aetherium_ros2_bridge.sensor_publisher_node"]
+
 networks:
   elixir-net:
     driver: bridge
@@ -116,5 +208,11 @@ volumes:
   gateway_deps:
   gateway_build:
   gateway_node:
-  server_deps:
-  server_build:
+  server1_deps:
+  server1_build:
+  server2_deps:
+  server2_build:
+  server3_deps:
+  server3_build:
+  influxdb_data:
+  influxdb_config:

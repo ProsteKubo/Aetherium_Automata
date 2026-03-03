@@ -10,6 +10,7 @@ import type {
   GatewayStatus,
   Server,
   Device,
+  ConnectorStatus,
   Automata,
   ExecutionSnapshot,
   TimeTravelSession,
@@ -34,11 +35,16 @@ import type {
   MonitorSubscribeResponse,
   CommandOutcomeEvent,
   DeploymentStatusEvent,
+  DeploymentTransferEvent,
   DeploymentListEvent,
   ConnectionListEvent,
   DeviceLogEvent,
 } from '../../types/protocol';
-import type { IGatewayService, GatewayEventHandlers } from './IGatewayService';
+import type {
+  IGatewayService,
+  GatewayEventHandlers,
+  PersistedGatewayEvent,
+} from './IGatewayService';
 
 // ============================================================================
 // Types
@@ -132,9 +138,11 @@ export class PhoenixGatewayService implements IGatewayService {
   private alerts: AlertEvent[] = [];
   private devices: Map<string, Device> = new Map();
   private servers: Map<string, Server> = new Map();
+  private connectors: Map<string, ConnectorStatus> = new Map();
   private pendingCommandOutcomes: Map<string, PendingCommandOutcome> = new Map();
   private snapshotCache: Map<string, SnapshotCacheEntry> = new Map();
   private snapshotInFlight: Map<string, Promise<ExecutionSnapshotResponse>> = new Map();
+  private timeTravelSessions: Map<string, TimeTravelSession> = new Map();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private manualDisconnect = false;
@@ -226,6 +234,7 @@ export class PhoenixGatewayService implements IGatewayService {
     this.pendingCommandOutcomes.clear();
     this.snapshotInFlight.clear();
     this.snapshotCache.clear();
+    this.connectors.clear();
   }
 
   private makeId(prefix: string): string {
@@ -271,6 +280,49 @@ export class PhoenixGatewayService implements IGatewayService {
       reason: payload.reason,
       data,
       timestamp: Number.isNaN(timestamp) ? Date.now() : timestamp,
+    };
+  }
+
+  private normalizeDeploymentTransfer(payload: Record<string, any>): DeploymentTransferEvent {
+    const toNumber = (value: unknown): number | undefined => {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'string' && value.trim() !== '') {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : undefined;
+      }
+      return undefined;
+    };
+
+    return {
+      deployment_id: payload.deployment_id ?? payload.deploymentId,
+      deploymentId: payload.deploymentId ?? payload.deployment_id,
+      automata_id: payload.automata_id ?? payload.automataId,
+      automataId: payload.automataId ?? payload.automata_id,
+      device_id: payload.device_id ?? payload.deviceId,
+      deviceId: payload.deviceId ?? payload.device_id,
+      server_id: payload.server_id ?? payload.serverId,
+      serverId: payload.serverId ?? payload.server_id,
+      run_id: toNumber(payload.run_id ?? payload.runId),
+      runId: toNumber(payload.runId ?? payload.run_id),
+      format: payload.format ? String(payload.format) : undefined,
+      phase: payload.phase ? String(payload.phase) : undefined,
+      stage: payload.stage ? String(payload.stage) : undefined,
+      total_chunks: toNumber(payload.total_chunks ?? payload.totalChunks),
+      awaiting_chunk_index: toNumber(payload.awaiting_chunk_index ?? payload.awaitingChunkIndex),
+      awaitingChunkIndex: toNumber(payload.awaitingChunkIndex ?? payload.awaiting_chunk_index),
+      next_chunk_index: toNumber(payload.next_chunk_index ?? payload.nextChunkIndex),
+      nextChunkIndex: toNumber(payload.nextChunkIndex ?? payload.next_chunk_index),
+      chunk_index: toNumber(payload.chunk_index ?? payload.chunkIndex),
+      chunkIndex: toNumber(payload.chunkIndex ?? payload.chunk_index),
+      message_id: toNumber(payload.message_id ?? payload.messageId),
+      messageId: toNumber(payload.messageId ?? payload.message_id),
+      retry_count: toNumber(payload.retry_count ?? payload.retryCount),
+      retryCount: toNumber(payload.retryCount ?? payload.retry_count),
+      max_retries: toNumber(payload.max_retries ?? payload.maxRetries),
+      maxRetries: toNumber(payload.maxRetries ?? payload.max_retries),
+      success: typeof payload.success === 'boolean' ? payload.success : undefined,
+      error: payload.error ? String(payload.error) : undefined,
+      warnings: Array.isArray(payload.warnings) ? payload.warnings : undefined,
     };
   }
 
@@ -473,6 +525,10 @@ export class PhoenixGatewayService implements IGatewayService {
       serverId: serverIdFromRaw,
       address: previous?.address ?? 'unknown',
       port: previous?.port ?? 0,
+      connectorId: (raw as any).connector_id ?? (raw as any).connectorId ?? previous?.connectorId,
+      connectorType: (raw as any).connector_type ?? (raw as any).connectorType ?? previous?.connectorType,
+      transport: (raw as any).transport ?? previous?.transport,
+      link: (raw as any).link ?? previous?.link,
       capabilities: previous?.capabilities ?? [],
       engineVersion: previous?.engineVersion ?? 'unknown',
       tags: previous?.tags ?? [],
@@ -560,6 +616,33 @@ export class PhoenixGatewayService implements IGatewayService {
       latency: raw.latency ?? 0,
       region: raw.region,
       tags: raw.tags ?? [],
+    };
+  }
+
+  private normalizeConnectorStatus(raw: Record<string, any>): ConnectorStatus {
+    const id = String(raw.id ?? raw.connector_id ?? raw.connectorId ?? 'unknown_connector');
+    const statusRaw = String(raw.status ?? 'unknown').toLowerCase();
+    const status: ConnectorStatus['status'] =
+      statusRaw === 'running' || statusRaw === 'stopped' || statusRaw === 'disabled'
+        ? statusRaw
+        : 'unknown';
+
+    const timestampRaw = raw.timestamp;
+    const timestamp =
+      typeof timestampRaw === 'number'
+        ? timestampRaw
+        : typeof timestampRaw === 'string'
+          ? Date.parse(timestampRaw)
+          : Date.now();
+
+    return {
+      id,
+      type: String(raw.type ?? raw.connector_type ?? raw.connectorType ?? 'unknown'),
+      status,
+      enabled: raw.enabled !== false,
+      pid: raw.pid ? String(raw.pid) : undefined,
+      serverId: (raw.server_id ?? raw.serverId) as ServerId | undefined,
+      timestamp: Number.isNaN(timestamp) ? Date.now() : timestamp,
     };
   }
   
@@ -747,6 +830,7 @@ export class PhoenixGatewayService implements IGatewayService {
     this.setStatus('disconnected');
     this.sessionId = null;
     this.config = null;
+    this.timeTravelSessions.clear();
   }
   
   getStatus(): GatewayStatus {
@@ -806,7 +890,7 @@ export class PhoenixGatewayService implements IGatewayService {
     this.channel.on('command_outcome', (payload: Record<string, any>) => {
       this.handleCommandOutcome(payload);
     });
-    
+
     // Alert events
     this.channel.on('alert', (payload: AlertEvent) => {
       const alertType = payload.type ?? 'unknown';
@@ -954,6 +1038,30 @@ export class PhoenixGatewayService implements IGatewayService {
       this.emit('onDeviceList', Array.from(this.devices.values()));
     });
 
+    this.channel.on('connector_status', (payload: Record<string, any>) => {
+      const connectorsRaw = Array.isArray(payload.connectors) ? payload.connectors : [];
+      const serverId = payload.server_id ?? payload.serverId;
+      const timestamp = payload.timestamp ?? Date.now();
+
+      const normalized = connectorsRaw.map((connector) =>
+        this.normalizeConnectorStatus({
+          ...(connector && typeof connector === 'object' ? connector : {}),
+          server_id: serverId,
+          timestamp,
+        })
+      );
+
+      normalized.forEach((connector) => {
+        this.connectors.set(connector.id, connector);
+      });
+
+      this.emit('onConnectorStatus', {
+        connectors: normalized,
+        server_id: serverId,
+        timestamp,
+      });
+    });
+
     // Devices updated for a specific server (streamed from server processes)
     this.channel.on('devices_updated', (payload: { server_id?: string; serverId?: string; devices?: any[]; timestamp?: string }) => {
       const serverId = payload.server_id ?? payload.serverId;
@@ -1046,6 +1154,10 @@ export class PhoenixGatewayService implements IGatewayService {
     if (this.automataChannel) {
       this.automataChannel.on('command_outcome', (payload: Record<string, any>) => {
         this.handleCommandOutcome(payload);
+      });
+
+      this.automataChannel.on('deployment_transfer', (payload: Record<string, any>) => {
+        this.emit('onDeploymentTransfer', this.normalizeDeploymentTransfer(payload));
       });
 
       this.automataChannel.on('state_changed', (payload: StateChangedEvent) => {
@@ -1300,6 +1412,29 @@ export class PhoenixGatewayService implements IGatewayService {
       servers,
       totalCount: servers.length,
     };
+  }
+
+  async listRecentEvents(limit: number = 100): Promise<PersistedGatewayEvent[]> {
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 100;
+    const result = await this.sendCommand<{ events?: PersistedGatewayEvent[] }>(
+      'list_recent_events',
+      { limit: safeLimit },
+      5000
+    );
+
+    return Array.isArray(result.events) ? result.events : [];
+  }
+
+  async listEvents(cursor: number = 0, limit: number = 100): Promise<PersistedGatewayEvent[]> {
+    const safeCursor = Number.isFinite(cursor) ? Math.max(0, Math.floor(cursor)) : 0;
+    const safeLimit = Number.isFinite(limit) ? Math.max(1, Math.floor(limit)) : 100;
+    const result = await this.sendCommand<{ events?: PersistedGatewayEvent[] }>(
+      'list_events',
+      { cursor: safeCursor, limit: safeLimit },
+      5000
+    );
+
+    return Array.isArray(result.events) ? result.events : [];
   }
   
   async getServer(_serverId: ServerId): Promise<Server> {
@@ -1561,20 +1696,223 @@ export class PhoenixGatewayService implements IGatewayService {
     }
   }
   
-  async startTimeTravel(_deviceId: DeviceId, _options?: any): Promise<TimeTravelStartResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+  async startTimeTravel(deviceId: DeviceId, options?: any): Promise<TimeTravelStartResponse> {
+    const maxSnapshots = Number.isFinite(options?.maxSnapshots)
+      ? Math.max(1, Math.floor(options.maxSnapshots))
+      : 500;
+
+    const { response, outcome } = await this.sendAutomataCommandWithOutcome(
+      'time_travel_query',
+      { device_id: deviceId, limit: maxSnapshots },
+      15_000
+    );
+
+    const timeline =
+      (outcome.data?.timeline as Record<string, any> | undefined) ??
+      ((response as any)?.result?.timeline as Record<string, any> | undefined) ??
+      ((response as any)?.timeline as Record<string, any> | undefined) ??
+      {};
+    const timelineSource =
+      typeof timeline.source === 'string' ? timeline.source : 'unknown';
+    const timelineBackendError =
+      typeof timeline.backend_error === 'string' ? timeline.backend_error : undefined;
+
+    const snapshotsRaw = Array.isArray(timeline.snapshots) ? timeline.snapshots : [];
+
+    const snapshots: ExecutionSnapshot[] = snapshotsRaw.map((entry: any, index: number) => {
+      const state = entry?.state ?? {};
+      const timestamp = Number(entry?.timestamp ?? Date.now());
+      const automataId =
+        (state?.automata_id as AutomataId | undefined) ??
+        (this.devices.get(String(deviceId))?.assignedAutomataId as AutomataId | undefined) ??
+        ('unknown' as AutomataId);
+
+      const variables = Object.entries(state?.variables ?? {}).reduce((acc, [name, value]) => {
+        acc[name] = {
+          name,
+          value,
+          type: this.inferVariableType(value),
+          timestamp,
+        };
+        return acc;
+      }, {} as ExecutionSnapshot['variables']);
+
+      return {
+        id: `${String(deviceId)}:tt:${entry?.snapshot_cursor ?? index}`,
+        timestamp,
+        automataId,
+        deviceId,
+        currentState: String(state?.current_state ?? 'unknown'),
+        variables,
+        inputs: {},
+        outputs: {},
+        executionCycle: Number(entry?.snapshot_cursor ?? index),
+        ...(state?.error ? { errorState: String(state.error) } : {}),
+      };
+    });
+
+    const latestSnapshot =
+      snapshots[snapshots.length - 1] ?? (await this.getSnapshot(deviceId)).snapshot;
+
+    const sessionId = this.makeId('tt');
+    const session: TimeTravelSession = {
+      id: sessionId,
+      deviceId,
+      automataId: latestSnapshot.automataId,
+      startTime: Date.now(),
+      history: {
+        automataId: latestSnapshot.automataId,
+        deviceId,
+        snapshots: snapshots.length > 0 ? snapshots : [latestSnapshot],
+        maxSnapshots,
+        currentIndex: Math.max((snapshots.length > 0 ? snapshots.length : 1) - 1, 0),
+      },
+      bookmarks: [],
+      isRecording: false,
+      isReplaying: false,
+      replaySpeed: 1,
+      currentReplayIndex: Math.max((snapshots.length > 0 ? snapshots.length : 1) - 1, 0),
+      timelineSource,
+      timelineBackendError,
+    };
+
+    this.timeTravelSessions.set(sessionId, session);
+    return { session };
   }
   
-  async stopTimeTravel(_sessionId: string): Promise<TimeTravelSession> {
-    throw new Error('Not implemented yet - use Mock service');
+  async stopTimeTravel(sessionId: string): Promise<TimeTravelSession> {
+    const session = this.timeTravelSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Time travel session not found: ${sessionId}`);
+    }
+
+    const updated: TimeTravelSession = {
+      ...session,
+      endTime: Date.now(),
+      isReplaying: false,
+      isRecording: false,
+    };
+
+    this.timeTravelSessions.set(sessionId, updated);
+    return updated;
   }
   
-  async navigateTimeTravel(_sessionId: string, _options: any): Promise<TimeTravelNavigateResponse> {
-    throw new Error('Not implemented yet - use Mock service');
+  async navigateTimeTravel(sessionId: string, options: any): Promise<TimeTravelNavigateResponse> {
+    const session = this.timeTravelSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Time travel session not found: ${sessionId}`);
+    }
+
+    const snapshots = session.history.snapshots;
+    if (snapshots.length === 0) {
+      throw new Error('Time travel session has no snapshots');
+    }
+
+    let targetIndex = session.currentReplayIndex;
+
+    if (Number.isFinite(options?.targetIndex)) {
+      targetIndex = Math.floor(Number(options.targetIndex));
+    } else if (Number.isFinite(options?.targetTimestamp)) {
+      const ts = Number(options.targetTimestamp);
+      const found = snapshots.findIndex((snapshot) => snapshot.timestamp >= ts);
+      targetIndex = found >= 0 ? found : snapshots.length - 1;
+    } else if (options?.direction === 'backward') {
+      const steps = Number.isFinite(options?.steps) ? Math.max(1, Math.floor(Number(options.steps))) : 1;
+      targetIndex = targetIndex - steps;
+    } else if (options?.direction === 'forward') {
+      const steps = Number.isFinite(options?.steps) ? Math.max(1, Math.floor(Number(options.steps))) : 1;
+      targetIndex = targetIndex + steps;
+    }
+
+    targetIndex = Math.max(0, Math.min(snapshots.length - 1, targetIndex));
+    const snapshot = snapshots[targetIndex];
+
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'rewind_deployment',
+      { device_id: session.deviceId, target_timestamp: snapshot.timestamp },
+      15_000
+    );
+
+    const rewindSource =
+      typeof outcome.data?.source === 'string'
+        ? outcome.data.source
+        : session.lastRewindSource;
+    const rewindBackendError =
+      typeof outcome.data?.backend_error === 'string'
+        ? outcome.data.backend_error
+        : undefined;
+    const rewindEventsReplayed =
+      typeof outcome.data?.events_replayed === 'number'
+        ? outcome.data.events_replayed
+        : undefined;
+    const rewindRequestedTimestamp =
+      typeof outcome.data?.requested_timestamp === 'number'
+        ? outcome.data.requested_timestamp
+        : undefined;
+    const rewindStateFingerprint =
+      typeof outcome.data?.state_fingerprint === 'string'
+        ? outcome.data.state_fingerprint
+        : undefined;
+    const rewindEventCursorStart =
+      typeof outcome.data?.event_cursor_start === 'number'
+        ? outcome.data.event_cursor_start
+        : undefined;
+    const rewindEventCursorEnd =
+      typeof outcome.data?.event_cursor_end === 'number'
+        ? outcome.data.event_cursor_end
+        : undefined;
+
+    const updated: TimeTravelSession = {
+      ...session,
+      isReplaying: true,
+      currentReplayIndex: targetIndex,
+      lastRewindSource: rewindSource,
+      lastRewindBackendError: rewindBackendError,
+      lastRewindEventsReplayed: rewindEventsReplayed,
+      lastRewindRequestedTimestamp: rewindRequestedTimestamp,
+      lastRewindStateFingerprint: rewindStateFingerprint,
+      lastRewindEventCursorStart: rewindEventCursorStart,
+      lastRewindEventCursorEnd: rewindEventCursorEnd,
+      history: {
+        ...session.history,
+        currentIndex: targetIndex,
+      },
+    };
+
+    this.timeTravelSessions.set(sessionId, updated);
+
+    return {
+      currentIndex: targetIndex,
+      snapshot,
+      canGoForward: targetIndex < snapshots.length - 1,
+      canGoBackward: targetIndex > 0,
+      eventsReplayed: rewindEventsReplayed,
+      requestedTimestamp: rewindRequestedTimestamp,
+      stateFingerprint: rewindStateFingerprint,
+      eventCursorStart: rewindEventCursorStart,
+      eventCursorEnd: rewindEventCursorEnd,
+    };
   }
   
-  async createBookmark(_sessionId: string, _name: string, _description?: string): Promise<void> {
-    throw new Error('Not implemented yet - use Mock service');
+  async createBookmark(sessionId: string, name: string, description?: string): Promise<void> {
+    const session = this.timeTravelSessions.get(sessionId);
+    if (!session) {
+      throw new Error(`Time travel session not found: ${sessionId}`);
+    }
+
+    const bookmark = {
+      id: this.makeId('tt_bookmark'),
+      name,
+      description,
+      snapshotIndex: session.currentReplayIndex,
+      timestamp: Date.now(),
+      tags: [] as string[],
+    };
+
+    this.timeTravelSessions.set(sessionId, {
+      ...session,
+      bookmarks: [...session.bookmarks, bookmark],
+    });
   }
   
   async subscribeToDevice(

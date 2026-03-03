@@ -5,8 +5,10 @@
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore, useRuntimeViewStore } from '../../stores';
-import type { Device } from '../../types';
+import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore, useRuntimeViewStore, useProjectStore } from '../../stores';
+import type { Automata, Device } from '../../types';
+import type { RuntimeDeploymentTransfer } from '../../types/runtimeView';
+import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 import {
   IconDevice,
   IconServer,
@@ -23,6 +25,13 @@ import {
   IconRuntime,
 } from '../common/Icons';
 
+interface ShowcaseAutomataEntry {
+  id: string;
+  name: string;
+  category: string;
+  relativePath: string;
+}
+
 export const DevicesPanel: React.FC = () => {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -33,16 +42,22 @@ export const DevicesPanel: React.FC = () => {
   const [eventName, setEventName] = useState<string>('');
   const [eventData, setEventData] = useState<string>('');
   const [forceState, setForceState] = useState<string>('');
+  const [showcaseEntries, setShowcaseEntries] = useState<ShowcaseAutomataEntry[]>([]);
+  const [selectedShowcasePath, setSelectedShowcasePath] = useState<string>('');
+  const [showcaseBusy, setShowcaseBusy] = useState<boolean>(false);
   
   // Store data - get raw Maps and memoize array conversion
   const serversMap = useGatewayStore((state) => state.servers);
   const devicesMap = useGatewayStore((state) => state.devices);
+  const connectorsMap = useGatewayStore((state) => state.connectors);
   const isConnected = useGatewayStore((state) => state.status === 'connected');
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const fetchServers = useGatewayStore((state) => state.fetchServers);
   const gatewayService = useGatewayStore((state) => state.service);
   const activeAutomataId = useAutomataStore((state) => state.activeAutomataId);
   const automataMap = useAutomataStore((state) => state.automata);
+  const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
+  const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const deviceExecutions = useExecutionStore((state) => state.deviceExecutions);
   const selectDevice = useExecutionStore((state) => state.selectDevice);
   const startExecution = useExecutionStore((state) => state.startExecution);
@@ -57,11 +72,30 @@ export const DevicesPanel: React.FC = () => {
   const setRuntimeScope = useRuntimeViewStore((state) => state.setScope);
   const upsertRuntimeDeployment = useRuntimeViewStore((state) => state.upsertDeployment);
   const selectRuntimeDeployment = useRuntimeViewStore((state) => state.toggleSelection);
+  const transfersMap = useRuntimeViewStore((state) => state.transfers);
+  const project = useProjectStore((state) => state.project);
+  const createNetwork = useProjectStore((state) => state.createNetwork);
+  const addAutomataToNetwork = useProjectStore((state) => state.addAutomataToNetwork);
+  const markProjectDirty = useProjectStore((state) => state.markDirty);
   
   // Memoize array conversions
   const servers = useMemo(() => Array.from(serversMap.values()), [serversMap]);
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
+  const connectors = useMemo(() => Array.from(connectorsMap.values()), [connectorsMap]);
   const activeAutomata = activeAutomataId ? automataMap.get(activeAutomataId) : undefined;
+  const connectorSummary = useMemo(() => {
+    return connectors.reduce<Record<string, { running: number; total: number }>>((acc, connector) => {
+      const key = connector.type || 'unknown';
+      if (!acc[key]) {
+        acc[key] = { running: 0, total: 0 };
+      }
+      acc[key].total += 1;
+      if (connector.status === 'running') {
+        acc[key].running += 1;
+      }
+      return acc;
+    }, {});
+  }, [connectors]);
 
   useEffect(() => {
     if (devices.length === 0) {
@@ -86,6 +120,81 @@ export const DevicesPanel: React.FC = () => {
       return new Set(servers.map((server) => server.id));
     });
   }, [servers]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShowcaseCatalog = async () => {
+      const result = await window.api.automata.listShowcase();
+      if (cancelled) {
+        return;
+      }
+
+      if (!result.success || !result.data) {
+        if (result.error) {
+          addNotification('warning', 'Showcase', `Showcase catalog unavailable: ${result.error}`);
+        }
+        return;
+      }
+
+      const entries = result.data;
+      setShowcaseEntries(entries);
+      setSelectedShowcasePath((prev) => {
+        if (prev && entries.some((entry) => entry.relativePath === prev)) {
+          return prev;
+        }
+        return entries[0]?.relativePath || '';
+      });
+    };
+
+    void loadShowcaseCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addNotification]);
+
+  const importShowcaseAutomata = async (
+    target: string,
+  ): Promise<{ id: string; automata: Automata } | null> => {
+    const result = await window.api.automata.loadShowcase(target);
+    if (!result.success || !result.data) {
+      addNotification('error', 'Showcase', result.error || `Failed to load showcase automata: ${target}`);
+      return null;
+    }
+
+    const normalizedPath = String(result.filePath || '').replace(/\\/g, '/');
+    const existing = Array.from(automataMap.values()).find((automata) =>
+      String(automata.filePath || '').replace(/\\/g, '/') === normalizedPath,
+    );
+
+    if (existing?.id) {
+      setActiveAutomata(existing.id);
+      return { id: existing.id, automata: existing };
+    }
+
+    const imported = normalizeImportedAutomata(result.data as Partial<Automata>, {
+      filePath: result.filePath,
+      keepDirty: true,
+    });
+
+    const nextMap = new Map(automataMap);
+    nextMap.set(imported.id, imported);
+    setAutomataMap(nextMap);
+    setActiveAutomata(imported.id);
+
+    if (project) {
+      let networkId = project.networks[0]?.id;
+      if (!networkId) {
+        networkId = createNetwork('Default Network');
+      }
+      addAutomataToNetwork(networkId, imported);
+      markProjectDirty();
+    }
+
+    addNotification('success', 'Showcase', `Loaded ${imported.config.name} into editor.`);
+    return { id: imported.id, automata: imported };
+  };
 
   const pickDeployCandidate = (): { id: string; automata: any } | null => {
     if (activeAutomataId && activeAutomata) {
@@ -145,6 +254,22 @@ export const DevicesPanel: React.FC = () => {
 
   const isDeviceReachable = (status: string): boolean => {
     return status === 'online' || status === 'connected';
+  };
+
+  const humanizeTransferStage = (stage: string): string =>
+    stage
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (char) => char.toUpperCase());
+
+  const transferForDevice = (device: Device): RuntimeDeploymentTransfer | undefined => {
+    const deploymentId = device.assignedAutomataId ? `${device.assignedAutomataId}:${device.id}` : undefined;
+    if (deploymentId && transfersMap.has(deploymentId)) {
+      return transfersMap.get(deploymentId);
+    }
+
+    return Array.from(transfersMap.values())
+      .filter((transfer) => transfer.deviceId === (device.id as RuntimeDeploymentTransfer['deviceId']))
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
   };
   
   const handleStartExecution = async (deviceId: string) => {
@@ -273,6 +398,42 @@ export const DevicesPanel: React.FC = () => {
     }
   };
 
+  const handleLoadShowcase = async () => {
+    if (!selectedShowcasePath) {
+      addNotification('warning', 'Showcase', 'No showcase automata selected.');
+      return;
+    }
+
+    setShowcaseBusy(true);
+    try {
+      await importShowcaseAutomata(selectedShowcasePath);
+    } finally {
+      setShowcaseBusy(false);
+    }
+  };
+
+  const handleDeployShowcase = async (deviceId: string) => {
+    if (!selectedShowcasePath) {
+      addNotification('warning', 'Showcase Deploy', 'No showcase automata selected.');
+      return;
+    }
+
+    setShowcaseBusy(true);
+    try {
+      const candidate = await importShowcaseAutomata(selectedShowcasePath);
+      if (!candidate) {
+        return;
+      }
+
+      await gatewayService.deployAutomata(candidate.id, deviceId, { automata: candidate.automata });
+      addNotification('success', 'Showcase Deploy', `Deployed ${candidate.automata.config.name} to ${deviceId}`);
+    } catch (err) {
+      addNotification('error', 'Showcase Deploy', err instanceof Error ? err.message : 'Failed to deploy showcase');
+    } finally {
+      setShowcaseBusy(false);
+    }
+  };
+
   const parseJsonOrString = (text: string): unknown => {
     const trimmed = text.trim();
     if (!trimmed) return '';
@@ -335,6 +496,7 @@ export const DevicesPanel: React.FC = () => {
   }, [selectedDeviceLive]);
 
   const selectedDevice = selectedDeviceLive ?? selectedDeviceFallback;
+  const selectedTransfer = selectedDevice ? transferForDevice(selectedDevice) : undefined;
   
   return (
     <div className="devices-panel">
@@ -350,6 +512,20 @@ export const DevicesPanel: React.FC = () => {
           <IconRefresh size={14} />
         </button>
       </div>
+
+      {connectors.length > 0 && (
+        <div className="connector-summary">
+          {Object.entries(connectorSummary).map(([type, summary]) => (
+            <span
+              key={type}
+              className={`connector-chip ${summary.running > 0 ? 'running' : 'stopped'}`}
+              title={`${summary.running}/${summary.total} ${type} connector instances running`}
+            >
+              {type}: {summary.running}/{summary.total}
+            </span>
+          ))}
+        </div>
+      )}
       
       {!isConnected ? (
         <div className="panel-empty">
@@ -372,6 +548,7 @@ export const DevicesPanel: React.FC = () => {
                   <div className="device-list">
                     {devices.map((device) => {
                       const execution = getDeviceExecution(device.id);
+                      const transfer = transferForDevice(device);
                       return (
                         <div
                           key={device.id}
@@ -389,6 +566,9 @@ export const DevicesPanel: React.FC = () => {
                             <span className="running-indicator" title="Running">
                               <IconPlay size={10} />
                             </span>
+                          )}
+                          {transfer?.status === 'active' && (
+                            <span className="deploying-indicator" title="Deployment in progress" />
                           )}
                         </div>
                       );
@@ -420,6 +600,7 @@ export const DevicesPanel: React.FC = () => {
                       <div className="device-list">
                         {serverDevices.map((device) => {
                           const execution = getDeviceExecution(device.id);
+                          const transfer = transferForDevice(device);
                           
                           return (
                             <div
@@ -438,6 +619,9 @@ export const DevicesPanel: React.FC = () => {
                                 <span className="running-indicator" title="Running">
                                   <IconPlay size={10} />
                                 </span>
+                              )}
+                              {transfer?.status === 'active' && (
+                                <span className="deploying-indicator" title="Deployment in progress" />
                               )}
                             </div>
                           );
@@ -471,6 +655,24 @@ export const DevicesPanel: React.FC = () => {
                     {servers.find((s) => s.id === selectedDevice.serverId)?.name || 'Unknown'}
                   </span>
                 </div>
+                {selectedDevice.connectorType && (
+                  <div className="detail-row">
+                    <span className="detail-label">Connector:</span>
+                    <span className="detail-value">
+                      {selectedDevice.connectorType}
+                      {selectedDevice.connectorId ? ` (${selectedDevice.connectorId})` : ''}
+                    </span>
+                  </div>
+                )}
+                {selectedDevice.transport && (
+                  <div className="detail-row">
+                    <span className="detail-label">Transport:</span>
+                    <span className="detail-value">
+                      {selectedDevice.transport}
+                      {selectedDevice.link ? ` · ${selectedDevice.link}` : ''}
+                    </span>
+                  </div>
+                )}
                 {selectedDevice.lastSeen && (
                   <div className="detail-row">
                     <span className="detail-label">Last Seen:</span>
@@ -508,6 +710,42 @@ export const DevicesPanel: React.FC = () => {
                     <span className="detail-value">{selectedDevice.assignedAutomataId}</span>
                   </div>
                 )}
+                {selectedTransfer && (
+                  <div className="detail-section">
+                    <label className="section-label">Deployment Transfer</label>
+                    <div className="deploy-transfer-card">
+                      <div className="deploy-transfer-meta">
+                        <span>{humanizeTransferStage(selectedTransfer.stage)}</span>
+                        <span>{Math.round(selectedTransfer.progressPercent)}%</span>
+                      </div>
+                      <div className="deploy-transfer-track">
+                        <div
+                          className={`deploy-transfer-fill status-${selectedTransfer.status}`}
+                          style={{ width: `${Math.round(selectedTransfer.progressPercent)}%` }}
+                        />
+                      </div>
+                      <div className="deploy-transfer-extra">
+                        {selectedTransfer.totalChunks ? (
+                          <span>
+                            chunk {(selectedTransfer.chunkIndex ?? 0) + 1}/{selectedTransfer.totalChunks}
+                          </span>
+                        ) : (
+                          <span>single payload</span>
+                        )}
+                        {selectedTransfer.maxRetries ? (
+                          <span>
+                            retry {selectedTransfer.retryCount ?? 0}/{selectedTransfer.maxRetries}
+                          </span>
+                        ) : (
+                          <span>retry n/a</span>
+                        )}
+                      </div>
+                      {selectedTransfer.error && (
+                        <div className="deploy-transfer-error">{selectedTransfer.error}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
                 {selectedDevice.location && (
                   <div className="detail-row">
                     <span className="detail-label">Location:</span>
@@ -533,6 +771,43 @@ export const DevicesPanel: React.FC = () => {
                       {selectedDevice.tags.map((tag) => (
                         <span key={tag} className="tag-item">{tag}</span>
                       ))}
+                    </div>
+                  </div>
+                )}
+
+                {showcaseEntries.length > 0 && (
+                  <div className="detail-section">
+                    <label className="section-label">Showcase Automata</label>
+                    <div className="showcase-controls">
+                      <select
+                        className="input showcase-select"
+                        value={selectedShowcasePath}
+                        onChange={(event) => setSelectedShowcasePath(event.target.value)}
+                        disabled={showcaseBusy}
+                        title="Curated automata examples for demos and quick testing"
+                      >
+                        {showcaseEntries.map((entry) => (
+                          <option key={entry.id} value={entry.relativePath}>
+                            {entry.category} · {entry.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleLoadShowcase}
+                        disabled={showcaseBusy}
+                        title="Load selected showcase automata into editor"
+                      >
+                        Load
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => handleDeployShowcase(selectedDevice.id)}
+                        disabled={showcaseBusy || !isDeviceReachable(selectedDevice.status)}
+                        title="Load and deploy selected showcase automata to this device"
+                      >
+                        Deploy Showcase
+                      </button>
                     </div>
                   </div>
                 )}

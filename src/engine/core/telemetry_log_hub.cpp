@@ -1,6 +1,11 @@
 #include "telemetry_log_hub.hpp"
 
 #include <algorithm>
+
+#ifdef abs
+#undef abs
+#endif
+
 #include <chrono>
 
 namespace aeth {

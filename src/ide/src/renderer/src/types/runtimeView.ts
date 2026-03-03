@@ -48,3 +48,23 @@ export interface RuntimeRenderFrame {
   lastTransitionAt?: number;
   droppedEvents: number;
 }
+
+export type RuntimeTransferStatus = 'active' | 'completed' | 'failed';
+
+export interface RuntimeDeploymentTransfer {
+  deploymentId: string;
+  deviceId: DeviceId;
+  automataId?: AutomataId;
+  stage: string;
+  phase?: string;
+  format?: string;
+  progressPercent: number;
+  chunkIndex?: number;
+  totalChunks?: number;
+  retryCount?: number;
+  maxRetries?: number;
+  error?: string;
+  success?: boolean;
+  status: RuntimeTransferStatus;
+  updatedAt: number;
+}

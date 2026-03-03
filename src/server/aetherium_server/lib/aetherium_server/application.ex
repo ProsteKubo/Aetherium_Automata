@@ -10,12 +10,15 @@ defmodule AetheriumServer.Application do
     children = [
       # Registry for runtime processes
       {Registry, keys: :unique, name: AetheriumServer.RuntimeRegistry},
+      AetheriumServer.ConnectorRegistry,
       # Dynamic supervisor for automata runtimes
       {DynamicSupervisor, name: AetheriumServer.RuntimeSupervisor, strategy: :one_for_one},
       # Core services
+      AetheriumServer.TimeSeriesInfluxSink,
+      AetheriumServer.TimeSeriesStore,
       AetheriumServer.DeviceManager,
       AetheriumServer.GatewayConnection,
-      AetheriumServer.DeviceListener
+      AetheriumServer.DeviceConnectorSupervisor
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html

@@ -1,0 +1,112 @@
+version: 0.0.1
+
+config:
+  name: Line Buffer Dispatcher
+  type: inline
+  description: Pipeline coordination with part arrival, buffering, and dispatch gating.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - pipeline
+    - event
+    - coordination
+
+variables:
+  - name: part_arrived
+    type: bool
+    direction: input
+    default: false
+
+  - name: downstream_ready
+    type: bool
+    direction: input
+    default: false
+
+  - name: manual_clear
+    type: bool
+    direction: input
+    default: false
+
+  - name: buffer_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: dispatch_signal
+    type: bool
+    direction: output
+    default: false
+
+  - name: total_dispatched
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: WaitingForPart
+
+  states:
+    WaitingForPart:
+      on_enter: |
+        setVal("dispatch_signal", false)
+
+    Buffered:
+      on_enter: |
+        setVal("buffer_count", value("buffer_count") + 1)
+
+    Dispatching:
+      on_enter: |
+        setVal("dispatch_signal", true)
+        setVal("buffer_count", value("buffer_count") - 1)
+        setVal("total_dispatched", value("total_dispatched") + 1)
+
+    Hold:
+      on_enter: |
+        setVal("dispatch_signal", false)
+
+  transitions:
+    part_rise_to_buffered:
+      from: WaitingForPart
+      to: Buffered
+      type: event
+      event:
+        triggers:
+          - signal: part_arrived
+            trigger: on_rise
+
+    buffered_to_dispatching:
+      from: Buffered
+      to: Dispatching
+      type: classic
+      priority: 0
+      condition: value("downstream_ready") == true and value("buffer_count") > 0
+
+    buffered_to_hold:
+      from: Buffered
+      to: Hold
+      type: timed
+      priority: 1
+      after: 500
+
+    hold_to_dispatching:
+      from: Hold
+      to: Dispatching
+      type: classic
+      priority: 0
+      condition: value("downstream_ready") == true and value("buffer_count") > 0
+
+    hold_manual_clear:
+      from: Hold
+      to: WaitingForPart
+      type: event
+      priority: 1
+      event:
+        triggers:
+          - signal: manual_clear
+            trigger: on_rise
+
+    dispatch_done:
+      from: Dispatching
+      to: WaitingForPart
+      type: timed
+      after: 100

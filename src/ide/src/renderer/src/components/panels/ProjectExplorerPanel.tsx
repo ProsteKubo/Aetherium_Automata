@@ -17,12 +17,20 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useProjectStore, useAutomataStore, useUIStore } from '../../stores';
 import type { Automata } from '../../types';
 import type { TreeNode } from '../../types/project';
+import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 import {
   IconChevronRight,
   IconChevronDown,
   IconPlus,
   IconRefresh,
 } from '../common/Icons';
+
+interface ShowcaseAutomataEntry {
+  id: string;
+  name: string;
+  category: string;
+  relativePath: string;
+}
 
 // ============================================================================
 // Icons for different node types
@@ -109,6 +117,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, nodeType, onClose, onAc
         return [
           { id: 'new-automata', label: 'New Automata', shortcut: 'Ctrl+N' },
           { id: 'import-automata', label: 'Import Automata...' },
+          { id: 'import-showcase', label: 'Import Showcase...' },
           { id: 'divider-1', type: 'divider' },
           { id: 'rename', label: 'Rename', shortcut: 'F2' },
           { id: 'delete', label: 'Delete Network', shortcut: 'Del' },
@@ -481,6 +490,41 @@ export const ProjectExplorerPanel: React.FC = () => {
   } | null>(null);
   
   const [renamingNodeId, setRenamingNodeId] = useState<string | null>(null);
+  const [showcaseEntries, setShowcaseEntries] = useState<ShowcaseAutomataEntry[]>([]);
+  const [selectedShowcasePath, setSelectedShowcasePath] = useState<string>('');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadShowcaseCatalog = async () => {
+      const result = await window.api.automata.listShowcase();
+      if (cancelled) {
+        return;
+      }
+
+      if (!result.success || !result.data) {
+        if (result.error) {
+          addNotification('warning', 'Showcase', `Showcase catalog unavailable: ${result.error}`);
+        }
+        return;
+      }
+
+      const entries = result.data;
+      setShowcaseEntries(entries);
+      setSelectedShowcasePath((prev) => {
+        if (prev && entries.some((entry) => entry.relativePath === prev)) {
+          return prev;
+        }
+        return entries[0]?.relativePath || '';
+      });
+    };
+
+    void loadShowcaseCatalog();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [addNotification]);
   
   // Handle double-click to open
   const handleDoubleClick = useCallback((node: TreeNode) => {
@@ -506,51 +550,22 @@ export const ProjectExplorerPanel: React.FC = () => {
     });
   }, [selectNode]);
 
-  const handleImportAutomata = useCallback((targetNetwork: TreeNode | null) => {
-    if (!targetNetwork || targetNetwork.type !== 'network') {
-      addNotification('error', 'Import Failed', 'No network available. Create a network first.');
-      return;
-    }
-
-    void (async () => {
-      const result = await window.api.automata.loadYaml();
-      if (!result.success || !result.data) {
-        if (result.error && result.error !== 'Cancelled') {
-          addNotification('error', 'Import Failed', result.error);
-        }
-        return;
+  const resolveTargetNetwork = useCallback(
+    (candidate: TreeNode | null): TreeNode | null => {
+      if (candidate?.type === 'network') {
+        return candidate;
       }
+      return findFirstNodeByType(treeNodes, 'network');
+    },
+    [treeNodes],
+  );
 
-      const imported = result.data as Partial<Automata>;
-      const generatedId = `aut_${Math.random().toString(16).slice(2, 10)}`;
-      const automataId = imported.id || generatedId;
-      const automataName = imported.config?.name || `Imported ${automataId}`;
-
-      const normalizedAutomata: Automata = {
-        ...(imported as Automata),
-        id: automataId,
-        version: imported.version || '0.0.1',
-        config: {
-          name: automataName,
-          type: imported.config?.type || 'inline',
-          language: 'lua',
-          description: imported.config?.description || '',
-          tags: imported.config?.tags || [],
-          version: imported.config?.version || '1.0.0',
-          created: imported.config?.created || Date.now(),
-          modified: Date.now(),
-          ...(imported.config?.location ? { location: imported.config.location } : {}),
-        },
-        initialState: imported.initialState || Object.keys(imported.states || {})[0] || 'Initial',
-        states: imported.states || {},
-        transitions: imported.transitions || {},
-        variables: imported.variables || [],
-        inputs: imported.inputs || [],
-        outputs: imported.outputs || [],
-        nestedAutomataIds: imported.nestedAutomataIds || [],
-        isDirty: true,
-        ...(result.filePath ? { filePath: result.filePath } : {}),
-      };
+  const attachImportedAutomataToNetwork = useCallback(
+    (targetNetwork: TreeNode, imported: Partial<Automata>, filePath?: string, sourceLabel?: string) => {
+      const normalizedAutomata = normalizeImportedAutomata(imported, {
+        filePath,
+        keepDirty: true,
+      });
 
       addAutomataToNetwork(targetNetwork.entityId, normalizedAutomata);
       const nextMap = new Map(automataMap);
@@ -567,16 +582,67 @@ export const ProjectExplorerPanel: React.FC = () => {
       addNotification(
         'success',
         'Automata Imported',
-        `Imported ${normalizedAutomata.config.name} into ${targetNetwork.name}.`
+        `${sourceLabel || 'Imported'} ${normalizedAutomata.config.name} into ${targetNetwork.name}.`
       );
+    },
+    [addAutomataToNetwork, automataMap, setAutomataMap, setActiveAutomata, openTab, addNotification],
+  );
+
+  const handleImportAutomata = useCallback((targetNetwork: TreeNode | null) => {
+    const resolvedTarget = resolveTargetNetwork(targetNetwork);
+    if (!resolvedTarget || resolvedTarget.type !== 'network') {
+      addNotification('error', 'Import Failed', 'No network available. Create a network first.');
+      return;
+    }
+
+    void (async () => {
+      const result = await window.api.automata.loadYaml();
+      if (!result.success || !result.data) {
+        if (result.error && result.error !== 'Cancelled') {
+          addNotification('error', 'Import Failed', result.error);
+        }
+        return;
+      }
+
+      const imported = result.data as Partial<Automata>;
+      attachImportedAutomataToNetwork(resolvedTarget, imported, result.filePath, 'Imported');
     })();
   }, [
     addNotification,
-    addAutomataToNetwork,
-    automataMap,
-    setAutomataMap,
-    setActiveAutomata,
-    openTab,
+    resolveTargetNetwork,
+    attachImportedAutomataToNetwork,
+  ]);
+
+  const handleImportShowcase = useCallback((targetNetwork: TreeNode | null) => {
+    const resolvedTarget = resolveTargetNetwork(targetNetwork);
+    if (!resolvedTarget || resolvedTarget.type !== 'network') {
+      addNotification('error', 'Showcase Import Failed', 'No network available. Create a network first.');
+      return;
+    }
+
+    const selectedPath =
+      selectedShowcasePath || showcaseEntries[0]?.relativePath || '';
+    if (!selectedPath) {
+      addNotification('warning', 'Showcase Import', 'No showcase automata available.');
+      return;
+    }
+
+    void (async () => {
+      const result = await window.api.automata.loadShowcase(selectedPath);
+      if (!result.success || !result.data) {
+        addNotification('error', 'Showcase Import Failed', result.error || 'Failed to load showcase automata.');
+        return;
+      }
+
+      const imported = result.data as Partial<Automata>;
+      attachImportedAutomataToNetwork(resolvedTarget, imported, result.filePath, 'Showcase imported');
+    })();
+  }, [
+    resolveTargetNetwork,
+    addNotification,
+    selectedShowcasePath,
+    showcaseEntries,
+    attachImportedAutomataToNetwork,
   ]);
   
   // Handle context menu actions
@@ -601,6 +667,9 @@ export const ProjectExplorerPanel: React.FC = () => {
         break;
       case 'import-automata':
         handleImportAutomata(node.type === 'network' ? node : null);
+        break;
+      case 'import-showcase':
+        handleImportShowcase(node.type === 'network' ? node : null);
         break;
       case 'rename':
         setRenamingNodeId(node.id);
@@ -629,6 +698,7 @@ export const ProjectExplorerPanel: React.FC = () => {
     handleDoubleClick,
     addNotification,
     handleImportAutomata,
+    handleImportShowcase,
   ]);
   
   // Handle rename
@@ -695,6 +765,21 @@ export const ProjectExplorerPanel: React.FC = () => {
           Explorer
         </span>
         <div style={{ display: 'flex', gap: 'var(--spacing-1)' }}>
+          {showcaseEntries.length > 0 && (
+            <select
+              className="input"
+              value={selectedShowcasePath}
+              onChange={(event) => setSelectedShowcasePath(event.target.value)}
+              style={{ maxWidth: 180, height: 24, padding: '0 6px', fontSize: '10px' }}
+              title="Select showcase automata"
+            >
+              {showcaseEntries.map((entry) => (
+                <option key={entry.id} value={entry.relativePath}>
+                  {entry.category} · {entry.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             className="btn btn-ghost"
             title="Import Automata YAML into selected network"
@@ -706,6 +791,18 @@ export const ProjectExplorerPanel: React.FC = () => {
             style={{ padding: '2px 8px', fontSize: 'var(--font-size-xs)' }}
           >
             Import YAML
+          </button>
+          <button
+            className="btn btn-ghost"
+            title="Import selected showcase automata into selected network"
+            onClick={() => {
+              const selected = selectedNodeId ? findNodeById(treeNodes, selectedNodeId) : null;
+              const firstNetwork = findFirstNodeByType(treeNodes, 'network');
+              handleImportShowcase(selected?.type === 'network' ? selected : firstNetwork);
+            }}
+            style={{ padding: '2px 8px', fontSize: 'var(--font-size-xs)' }}
+          >
+            Import Showcase
           </button>
           <button
             className="btn btn-ghost btn-icon"

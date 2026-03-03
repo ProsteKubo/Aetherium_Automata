@@ -33,8 +33,21 @@ defmodule Mix.Tasks.Aetherium.E2e do
 
     wait_for_socket!(socket, Keyword.fetch!(opts, :timeout_ms))
 
-    gw_chan = join_with_retry!(socket, "gateway:control", %{"token" => ui_token}, Keyword.fetch!(opts, :timeout_ms))
-    auto_chan = join_with_retry!(socket, "automata:control", %{"token" => ui_token}, Keyword.fetch!(opts, :timeout_ms))
+    gw_chan =
+      join_with_retry!(
+        socket,
+        "gateway:control",
+        %{"token" => ui_token},
+        Keyword.fetch!(opts, :timeout_ms)
+      )
+
+    auto_chan =
+      join_with_retry!(
+        socket,
+        "automata:control",
+        %{"token" => ui_token},
+        Keyword.fetch!(opts, :timeout_ms)
+      )
 
     {server_id, device_id} =
       resolve_target(gw_chan, server_id_opt, device_id_opt, Keyword.fetch!(opts, :wait_ms))
@@ -47,6 +60,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
       push_sync!(auto_chan, "create_automata", automata, Keyword.fetch!(opts, :timeout_ms))
 
     automata_id = create_reply["automata_id"] || create_reply[:automata_id]
+
     if is_nil(automata_id) or automata_id == "" do
       raise "create_automata returned unexpected payload: #{inspect(create_reply)}"
     end
@@ -230,7 +244,14 @@ defmodule Mix.Tasks.Aetherium.E2e do
         # If we already have a device list, attempt selection now.
         case last_devices do
           nil ->
-            loop_resolve(gw_chan, server_id_opt, device_id_opt, deadline, online_servers, last_devices)
+            loop_resolve(
+              gw_chan,
+              server_id_opt,
+              device_id_opt,
+              deadline,
+              online_servers,
+              last_devices
+            )
 
           devices ->
             case pick_device(devices, online_servers, server_id_opt, device_id_opt) do
@@ -238,7 +259,14 @@ defmodule Mix.Tasks.Aetherium.E2e do
                 {server_id, device_id}
 
               :no_match ->
-                loop_resolve(gw_chan, server_id_opt, device_id_opt, deadline, online_servers, last_devices)
+                loop_resolve(
+                  gw_chan,
+                  server_id_opt,
+                  device_id_opt,
+                  deadline,
+                  online_servers,
+                  last_devices
+                )
             end
         end
 
@@ -250,17 +278,39 @@ defmodule Mix.Tasks.Aetherium.E2e do
             {server_id, device_id}
 
           :no_match ->
-            loop_resolve(gw_chan, server_id_opt, device_id_opt, deadline, online_servers, last_devices)
+            loop_resolve(
+              gw_chan,
+              server_id_opt,
+              device_id_opt,
+              deadline,
+              online_servers,
+              last_devices
+            )
         end
 
       _other ->
-        loop_resolve(gw_chan, server_id_opt, device_id_opt, deadline, online_servers, last_devices)
+        loop_resolve(
+          gw_chan,
+          server_id_opt,
+          device_id_opt,
+          deadline,
+          online_servers,
+          last_devices
+        )
     after
       300 ->
         # poke again
         PhoenixClient.Channel.push_async(gw_chan, "list_devices", %{})
         PhoenixClient.Channel.push_async(gw_chan, "list_servers", %{})
-        loop_resolve(gw_chan, server_id_opt, device_id_opt, deadline, online_servers, last_devices)
+
+        loop_resolve(
+          gw_chan,
+          server_id_opt,
+          device_id_opt,
+          deadline,
+          online_servers,
+          last_devices
+        )
     end
   end
 
@@ -321,7 +371,10 @@ defmodule Mix.Tasks.Aetherium.E2e do
           want =
             if payload["automata_id"] == automata_id and payload["device_id"] == device_id and
                  payload["status"] in ["running", "loading"] do
-              %{want | deployment_running?: payload["status"] == "running" or want.deployment_running?}
+              %{
+                want
+                | deployment_running?: payload["status"] == "running" or want.deployment_running?
+              }
             else
               want
             end

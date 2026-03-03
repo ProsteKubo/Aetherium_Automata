@@ -8,6 +8,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useGatewayStore, useAutomataStore, useUIStore, useProjectStore } from '../../stores';
 import type { Automata } from '../../types';
+import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 import {
   IconChevronRight,
   IconChevronDown,
@@ -352,35 +353,10 @@ export const ExplorerPanel: React.FC = () => {
     }
 
     const imported = result.data as Partial<Automata>;
-    const generatedId = `aut_${Math.random().toString(16).slice(2, 10)}`;
-    const automataId = imported.id || generatedId;
-    const automataName = imported.config?.name || `Imported ${automataId}`;
-
-    const normalizedAutomata: Automata = {
-      ...(imported as Automata),
-      id: automataId,
-      version: imported.version || '0.0.1',
-      config: {
-        name: automataName,
-        type: imported.config?.type || 'inline',
-        language: 'lua',
-        description: imported.config?.description || '',
-        tags: imported.config?.tags || [],
-        version: imported.config?.version || '1.0.0',
-        created: imported.config?.created || Date.now(),
-        modified: Date.now(),
-        ...(imported.config?.location ? { location: imported.config.location } : {}),
-      },
-      initialState: imported.initialState || Object.keys(imported.states || {})[0] || 'Initial',
-      states: imported.states || {},
-      transitions: imported.transitions || {},
-      variables: imported.variables || [],
-      inputs: imported.inputs || [],
-      outputs: imported.outputs || [],
-      nestedAutomataIds: imported.nestedAutomataIds || [],
-      isDirty: true,
-      ...(result.filePath ? { filePath: result.filePath } : {}),
-    };
+    const normalizedAutomata = normalizeImportedAutomata(imported, {
+      filePath: result.filePath,
+      keepDirty: true,
+    });
 
     const nextMap = new Map(automataMap);
     nextMap.set(normalizedAutomata.id, normalizedAutomata);

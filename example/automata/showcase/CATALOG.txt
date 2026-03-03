@@ -1,0 +1,13 @@
+# Relative paths from repository root.
+# Used by scripts/validate_showcase_automata.sh
+example/automata/showcase/01_basics/blink_with_manual_override.yaml
+example/automata/showcase/02_control/tank_level_controller.yaml
+example/automata/showcase/03_probabilistic/quality_router_batch.yaml
+example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml
+example/automata/showcase/05_energy/peak_shaving_scheduler.yaml
+example/automata/showcase/06_pipeline/line_buffer_dispatcher.yaml
+example/automata/showcase/07_folderized/door_safety_controller/door_safety_controller.yaml
+example/automata/showcase/08_esp32/esp32_runtime_led_pulse.yaml
+example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml
+example/automata/showcase/08_esp32/esp32_thermostat_guard.yaml
+example/automata/showcase/08_esp32/esp32_production_line_safe.yaml

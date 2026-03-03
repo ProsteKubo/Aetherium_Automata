@@ -1,0 +1,116 @@
+version: 0.0.1
+
+config:
+  name: Tank Level Controller
+  type: inline
+  description: Event threshold + classic logic for filling and draining a process tank.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - control
+    - event
+    - threshold
+
+variables:
+  - name: level
+    type: int
+    direction: input
+    default: 50
+
+  - name: pump_enabled
+    type: bool
+    direction: output
+    default: false
+
+  - name: drain_enabled
+    type: bool
+    direction: output
+    default: false
+
+  - name: alarm
+    type: bool
+    direction: output
+    default: false
+
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("pump_enabled", false)
+        setVal("drain_enabled", false)
+        setVal("alarm", false)
+
+    Fill:
+      on_enter: |
+        setVal("pump_enabled", true)
+        setVal("drain_enabled", false)
+
+    Drain:
+      on_enter: |
+        setVal("pump_enabled", false)
+        setVal("drain_enabled", true)
+        setVal("cycle_count", value("cycle_count") + 1)
+
+    Alarm:
+      on_enter: |
+        setVal("pump_enabled", false)
+        setVal("drain_enabled", true)
+        setVal("alarm", true)
+
+  transitions:
+    idle_to_fill:
+      from: Idle
+      to: Fill
+      type: classic
+      condition: value("level") <= 25
+
+    fill_to_drain:
+      from: Fill
+      to: Drain
+      type: classic
+      condition: value("level") >= 85
+
+    drain_to_fill:
+      from: Drain
+      to: Fill
+      type: classic
+      condition: value("level") <= 30
+
+    fill_overflow_alarm:
+      from: Fill
+      to: Alarm
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: level
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 95
+
+    drain_overflow_alarm:
+      from: Drain
+      to: Alarm
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: level
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 95
+
+    alarm_to_idle:
+      from: Alarm
+      to: Idle
+      type: classic
+      condition: value("level") < 60

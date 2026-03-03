@@ -51,7 +51,6 @@ defmodule AetheriumGateway.Protocol do
   @type_float32 0x04
   @type_float64 0x05
   @type_string 0x06
-  @type_binary 0x07
 
   # Device types
   @device_desktop 0x01

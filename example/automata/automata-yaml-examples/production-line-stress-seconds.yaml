@@ -3,7 +3,7 @@ version: 0.0.1
 config:
   name: Production Line Stress (Seconds)
   type: inline
-  description: Stress scenario with timed, probabilistic, and guard transitions
+  description: Hardware-safe production-line stress profile with second-scale timing
   author: Aetherium Team
   tags:
     - stress
@@ -149,7 +149,7 @@ automata:
       to: Recovery
       type: classic
       priority: 0
-      condition: value("alarm") == true
+      condition: alarm == true
 
     cooldown_to_boot:
       from: Cooldown

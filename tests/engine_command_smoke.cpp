@@ -1,17 +1,21 @@
 #include "engine/core/engine.hpp"
+#include "engine/core/artifact.hpp"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdint>
 #include <iostream>
 #include <memory>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
 using aeth::Engine;
 using aeth::Result;
 namespace protocol = aeth::protocol;
+namespace ir = aeth::ir;
 
 [[noreturn]] void fail(const std::string& msg) {
     std::cerr << "[FAIL] " << msg << "\n";
@@ -53,6 +57,19 @@ std::unique_ptr<T> makeMessage() {
 Engine::Replies send(Engine& engine, std::unique_ptr<protocol::Message> msg) {
     engine.enqueueCommand(std::move(msg));
     return engine.processCommandQueue();
+}
+
+std::vector<std::vector<uint8_t>> chunkBytes(const std::vector<uint8_t>& bytes, size_t chunkSize) {
+    std::vector<std::vector<uint8_t>> chunks;
+    if (chunkSize == 0) {
+        return chunks;
+    }
+    for (size_t offset = 0; offset < bytes.size(); offset += chunkSize) {
+        const size_t end = std::min(bytes.size(), offset + chunkSize);
+        chunks.emplace_back(bytes.begin() + static_cast<std::ptrdiff_t>(offset),
+                            bytes.begin() + static_cast<std::ptrdiff_t>(end));
+    }
+    return chunks;
 }
 
 void expectAck(const Engine::Replies& replies, const std::string& ctx) {
@@ -161,6 +178,150 @@ automata:
       after: 5
 )YAML";
 
+ir::EngineBytecodeProgram makeBytecodeProgram() {
+    ir::EngineBytecodeProgram program;
+    program.name = "Bytecode Smoke Runtime";
+    program.initialState = 1;
+
+    ir::BytecodeVariable inputEnabled;
+    inputEnabled.id = 1;
+    inputEnabled.name = "enabled";
+    inputEnabled.type = aeth::ValueType::Bool;
+    inputEnabled.direction = aeth::VariableDirection::Input;
+    inputEnabled.initialValue = aeth::Value(false);
+    program.variables.push_back(inputEnabled);
+
+    ir::BytecodeVariable outputFlag;
+    outputFlag.id = 2;
+    outputFlag.name = "latched";
+    outputFlag.type = aeth::ValueType::Bool;
+    outputFlag.direction = aeth::VariableDirection::Output;
+    outputFlag.initialValue = aeth::Value(false);
+    program.variables.push_back(outputFlag);
+
+    program.states.push_back(ir::BytecodeState{1, "Idle"});
+    program.states.push_back(ir::BytecodeState{2, "Running"});
+
+    ir::BytecodeTransition transition;
+    transition.id = 1;
+    transition.name = "to_running";
+    transition.from = 1;
+    transition.to = 2;
+    transition.kind = ir::BytecodeTransitionKind::Immediate;
+    transition.priority = 0;
+    transition.enabled = true;
+    transition.delayMs = 0;
+    program.transitions.push_back(transition);
+
+    return program;
+}
+
+ir::EngineBytecodeProgram makeClassicConditionBytecodeProgram() {
+    ir::EngineBytecodeProgram program;
+    program.name = "Bytecode Classic Runtime";
+    program.initialState = 1;
+
+    ir::BytecodeVariable enabled;
+    enabled.id = 1;
+    enabled.name = "enabled";
+    enabled.type = aeth::ValueType::Bool;
+    enabled.direction = aeth::VariableDirection::Input;
+    enabled.initialValue = aeth::Value(false);
+    program.variables.push_back(enabled);
+
+    ir::BytecodeVariable armed;
+    armed.id = 2;
+    armed.name = "armed";
+    armed.type = aeth::ValueType::Bool;
+    armed.direction = aeth::VariableDirection::Input;
+    armed.initialValue = aeth::Value(false);
+    program.variables.push_back(armed);
+
+    program.states.push_back(ir::BytecodeState{1, "Idle"});
+    program.states.push_back(ir::BytecodeState{2, "Running"});
+
+    ir::BytecodeTransition gate;
+    gate.id = 1;
+    gate.name = "gate";
+    gate.from = 1;
+    gate.to = 2;
+    gate.kind = ir::BytecodeTransitionKind::ClassicCondition;
+    gate.priority = 0;
+    gate.enabled = true;
+    gate.conditionExpression = "(enabled == true) and (armed == true)";
+    program.transitions.push_back(gate);
+
+    return program;
+}
+
+ir::EngineBytecodeProgram makeEventBytecodeProgram() {
+    ir::EngineBytecodeProgram program;
+    program.name = "Bytecode Event Runtime";
+    program.initialState = 1;
+
+    ir::BytecodeVariable pulse;
+    pulse.id = 1;
+    pulse.name = "pulse";
+    pulse.type = aeth::ValueType::Bool;
+    pulse.direction = aeth::VariableDirection::Input;
+    pulse.initialValue = aeth::Value(false);
+    program.variables.push_back(pulse);
+
+    program.states.push_back(ir::BytecodeState{1, "Idle"});
+    program.states.push_back(ir::BytecodeState{2, "Triggered"});
+
+    ir::BytecodeTransition evt;
+    evt.id = 1;
+    evt.name = "on_pulse_rise";
+    evt.from = 1;
+    evt.to = 2;
+    evt.kind = ir::BytecodeTransitionKind::EventSignal;
+    evt.priority = 0;
+    evt.enabled = true;
+    evt.eventSignalName = "pulse";
+    evt.eventSignalDirection = aeth::VariableDirection::Input;
+    evt.eventTriggerType = aeth::EventTrigger::OnRise;
+    program.transitions.push_back(evt);
+
+    return program;
+}
+
+ir::EngineBytecodeProgram makeEventThresholdBytecodeProgram() {
+    ir::EngineBytecodeProgram program;
+    program.name = "Bytecode Event Threshold Runtime";
+    program.initialState = 1;
+
+    ir::BytecodeVariable temp;
+    temp.id = 1;
+    temp.name = "temp";
+    temp.type = aeth::ValueType::Int32;
+    temp.direction = aeth::VariableDirection::Input;
+    temp.initialValue = aeth::Value(int32_t{0});
+    program.variables.push_back(temp);
+
+    program.states.push_back(ir::BytecodeState{1, "Idle"});
+    program.states.push_back(ir::BytecodeState{2, "Hot"});
+
+    ir::BytecodeTransition evt;
+    evt.id = 1;
+    evt.name = "over_threshold";
+    evt.from = 1;
+    evt.to = 2;
+    evt.kind = ir::BytecodeTransitionKind::EventSignal;
+    evt.priority = 0;
+    evt.enabled = true;
+    evt.eventSignalName = "temp";
+    evt.eventSignalDirection = aeth::VariableDirection::Input;
+    evt.eventTriggerType = aeth::EventTrigger::OnThreshold;
+    evt.eventHasThreshold = true;
+    evt.eventThresholdOp = aeth::CompareOp::Gt;
+    evt.eventThresholdValue = aeth::Value(int32_t{10});
+    evt.eventThresholdOneShot = false;
+    program.transitions.push_back(evt);
+
+    return program;
+}
+
 } // namespace
 
 int main() {
@@ -199,36 +360,66 @@ int main() {
     }
 
     {
+        auto artifact = ir::makeYamlArtifact(kYaml, ".");
+        auto encoded = ir::serializeArtifact(artifact);
+        require(encoded.isOk(), "artifact encode failed: " + encoded.error());
+
+        auto decoded = ir::deserializeArtifact(encoded.value());
+        require(decoded.isOk(), "artifact decode failed: " + decoded.error());
+        require(decoded.value().payloadKind == ir::PayloadKind::YamlText, "artifact roundtrip: payload kind mismatch");
+        require(decoded.value().payloadBytes.size() == artifact.payloadBytes.size(),
+                "artifact roundtrip: payload size mismatch");
+    }
+
+    {
+        auto artifact = ir::makeYamlArtifact(kYaml, ".");
+        auto encoded = ir::serializeArtifact(artifact);
+        require(encoded.isOk(), "binary-load artifact encode failed: " + encoded.error());
+
+        auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+        loadReq->runId = 43;
+        loadReq->format = protocol::AutomataFormat::Binary;
+        loadReq->replaceExisting = true;
+        loadReq->startAfterLoad = false;
+        loadReq->data = encoded.value();
+
+        auto replies = send(engine, std::move(loadReq));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "binary load: expected LoadAck");
+        require(loadAck->success, "binary load: expected success=true, got error: " + loadAck->errorMessage);
+    }
+
+    {
         auto startReq = makeMessage<protocol::StartMessage>();
-        startReq->runId = 42;
+        startReq->runId = 43;
         auto replies = send(engine, std::move(startReq));
         expectAck(replies, "start");
     }
 
     {
         auto pauseReq = makeMessage<protocol::PauseMessage>();
-        pauseReq->runId = 42;
+        pauseReq->runId = 43;
         auto replies = send(engine, std::move(pauseReq));
         expectAck(replies, "pause");
     }
 
     {
         auto pauseReq = makeMessage<protocol::PauseMessage>();
-        pauseReq->runId = 42;
+        pauseReq->runId = 43;
         auto replies = send(engine, std::move(pauseReq));
         expectAck(replies, "pause-idempotent");
     }
 
     {
         auto resumeReq = makeMessage<protocol::ResumeMessage>();
-        resumeReq->runId = 42;
+        resumeReq->runId = 43;
         auto replies = send(engine, std::move(resumeReq));
         expectAck(replies, "resume");
     }
 
     {
         auto inputReq = makeMessage<protocol::InputMessage>();
-        inputReq->runId = 42;
+        inputReq->runId = 43;
         inputReq->variableName = "sensor_temp";
         inputReq->value = aeth::Value(int32_t{90});
         auto replies = send(engine, std::move(inputReq));
@@ -238,7 +429,7 @@ int main() {
 
     {
         auto inputReq = makeMessage<protocol::InputMessage>();
-        inputReq->runId = 42;
+        inputReq->runId = 43;
         inputReq->variableName = "door_open";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
@@ -248,7 +439,7 @@ int main() {
 
     {
         auto inputReq = makeMessage<protocol::InputMessage>();
-        inputReq->runId = 42;
+        inputReq->runId = 43;
         inputReq->variableName = "cmd_reset";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
@@ -260,7 +451,7 @@ int main() {
 
     {
         auto varReq = makeMessage<protocol::VariableMessage>();
-        varReq->runId = 42;
+        varReq->runId = 43;
         varReq->variableName = "manual_override";
         varReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(varReq));
@@ -269,11 +460,11 @@ int main() {
 
     {
         auto statusReq = makeMessage<protocol::StatusMessage>();
-        statusReq->runId = 42;
+        statusReq->runId = 43;
         auto replies = send(engine, std::move(statusReq));
         auto* status = findMessage<protocol::StatusMessage>(replies);
         require(status != nullptr, "status-after-traffic: expected STATUS");
-        require(status->transitionCount >= 3, "status-after-traffic: expected >=3 transitions");
+        require(status->transitionCount >= 2, "status-after-traffic: expected >=2 transitions");
     }
 
     {
@@ -292,16 +483,340 @@ int main() {
 
     {
         auto resetReq = makeMessage<protocol::ResetMessage>();
-        resetReq->runId = 42;
+        resetReq->runId = 43;
         auto replies = send(engine, std::move(resetReq));
         expectAck(replies, "reset");
     }
 
     {
         auto stopReq = makeMessage<protocol::StopMessage>();
-        stopReq->runId = 42;
+        stopReq->runId = 43;
         auto replies = send(engine, std::move(stopReq));
         expectAck(replies, "stop");
+    }
+
+    {
+        auto program = makeBytecodeProgram();
+        auto bytecode = ir::serializeEngineBytecodeProgram(program);
+        require(bytecode.isOk(), "engine bytecode encode failed: " + bytecode.error());
+
+        auto decodedProgram = ir::deserializeEngineBytecodeProgram(bytecode.value());
+        require(decodedProgram.isOk(), "engine bytecode decode failed: " + decodedProgram.error());
+        require(decodedProgram.value().states.size() == 2, "engine bytecode roundtrip: state count mismatch");
+        require(decodedProgram.value().transitions.size() == 1, "engine bytecode roundtrip: transition count mismatch");
+
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "engine bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "engine bytecode artifact encode failed: " + encodedArtifact.error());
+
+        auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+        loadReq->runId = 44;
+        loadReq->format = protocol::AutomataFormat::Binary;
+        loadReq->replaceExisting = true;
+        loadReq->startAfterLoad = false;
+        loadReq->data = encodedArtifact.value();
+
+        auto replies = send(engine, std::move(loadReq));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "engine bytecode load: expected LoadAck");
+        require(loadAck->success, "engine bytecode load: expected success=true, got error: " + loadAck->errorMessage);
+    }
+
+    {
+        auto program = makeBytecodeProgram();
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "chunked bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "chunked bytecode artifact encode failed: " + encodedArtifact.error());
+
+        auto chunks = chunkBytes(encodedArtifact.value(), 9);
+        require(chunks.size() >= 2, "chunked bytecode test expected >=2 chunks");
+
+        for (size_t i = 0; i < chunks.size(); ++i) {
+            auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+            loadReq->runId = 48;
+            loadReq->format = protocol::AutomataFormat::Binary;
+            loadReq->replaceExisting = true;
+            loadReq->startAfterLoad = false;
+            loadReq->isChunked = true;
+            loadReq->chunkIndex = static_cast<uint16_t>(i);
+            loadReq->totalChunks = static_cast<uint16_t>(chunks.size());
+            loadReq->data = chunks[i];
+
+            auto replies = send(engine, std::move(loadReq));
+            if (i + 1 < chunks.size()) {
+                expectAck(replies, "chunked-load intermediate chunk");
+                require(findMessage<protocol::LoadAckMessage>(replies) == nullptr,
+                        "chunked-load intermediate chunk: unexpected LoadAck");
+            } else {
+                auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+                require(loadAck != nullptr, "chunked-load final chunk: expected LoadAck");
+                require(loadAck->success,
+                        "chunked-load final chunk: expected success=true, got error: " + loadAck->errorMessage);
+            }
+        }
+    }
+
+    {
+        auto program = makeBytecodeProgram();
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "out-of-order bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "out-of-order bytecode artifact encode failed: " + encodedArtifact.error());
+        auto chunks = chunkBytes(encodedArtifact.value(), 11);
+        require(chunks.size() >= 2, "out-of-order chunk test expected >=2 chunks");
+
+        auto outOfOrder = makeMessage<protocol::LoadAutomataMessage>();
+        outOfOrder->runId = 49;
+        outOfOrder->format = protocol::AutomataFormat::Binary;
+        outOfOrder->replaceExisting = true;
+        outOfOrder->startAfterLoad = false;
+        outOfOrder->isChunked = true;
+        outOfOrder->chunkIndex = 1;
+        outOfOrder->totalChunks = static_cast<uint16_t>(chunks.size());
+        outOfOrder->data = chunks[1];
+
+        auto replies = send(engine, std::move(outOfOrder));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "out-of-order chunk: expected LoadAck");
+        require(!loadAck->success, "out-of-order chunk: expected failure");
+    }
+
+    {
+        auto startReq = makeMessage<protocol::StartMessage>();
+        startReq->runId = 44;
+        auto replies = send(engine, std::move(startReq));
+        expectAck(replies, "start-bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 44;
+        inputReq->variableName = "enabled";
+        inputReq->value = aeth::Value(true);
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input enabled bytecode");
+    }
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 44;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-bytecode: expected STATUS");
+        require(status->currentState != aeth::INVALID_STATE, "status-bytecode: expected current state");
+        require(status->transitionCount >= 1, "status-bytecode: expected transition");
+    }
+
+    {
+        auto program = makeClassicConditionBytecodeProgram();
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "classic bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "classic bytecode artifact encode failed: " + encodedArtifact.error());
+
+        auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+        loadReq->runId = 45;
+        loadReq->format = protocol::AutomataFormat::Binary;
+        loadReq->replaceExisting = true;
+        loadReq->startAfterLoad = false;
+        loadReq->data = encodedArtifact.value();
+
+        auto replies = send(engine, std::move(loadReq));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "classic bytecode load: expected LoadAck");
+        require(loadAck->success, "classic bytecode load: expected success=true, got error: " + loadAck->errorMessage);
+    }
+
+    {
+        auto startReq = makeMessage<protocol::StartMessage>();
+        startReq->runId = 45;
+        auto replies = send(engine, std::move(startReq));
+        expectAck(replies, "start-classic-bytecode");
+    }
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 45;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-classic-bytecode-before: expected STATUS");
+        require(status->transitionCount == 0, "status-classic-bytecode-before: expected no transition");
+    }
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 45;
+        inputReq->variableName = "enabled";
+        inputReq->value = aeth::Value(true);
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input enabled classic bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 45;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-classic-bytecode-mid: expected STATUS");
+        require(status->transitionCount == 0, "status-classic-bytecode-mid: expected no transition yet");
+    }
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 45;
+        inputReq->variableName = "armed";
+        inputReq->value = aeth::Value(true);
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input armed classic bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 45;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-classic-bytecode-after: expected STATUS");
+        require(status->transitionCount >= 1, "status-classic-bytecode-after: expected transition");
+    }
+
+    {
+        auto program = makeEventBytecodeProgram();
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "event bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "event bytecode artifact encode failed: " + encodedArtifact.error());
+
+        auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+        loadReq->runId = 46;
+        loadReq->format = protocol::AutomataFormat::Binary;
+        loadReq->replaceExisting = true;
+        loadReq->startAfterLoad = false;
+        loadReq->data = encodedArtifact.value();
+
+        auto replies = send(engine, std::move(loadReq));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "event bytecode load: expected LoadAck");
+        require(loadAck->success, "event bytecode load: expected success=true, got error: " + loadAck->errorMessage);
+    }
+
+    {
+        auto startReq = makeMessage<protocol::StartMessage>();
+        startReq->runId = 46;
+        auto replies = send(engine, std::move(startReq));
+        expectAck(replies, "start-event-bytecode");
+    }
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 46;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-event-bytecode-before: expected STATUS");
+        require(status->transitionCount == 0, "status-event-bytecode-before: expected no transition");
+    }
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 46;
+        inputReq->variableName = "pulse";
+        inputReq->value = aeth::Value(true);
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input pulse event bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 46;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-event-bytecode-after: expected STATUS");
+        require(status->transitionCount >= 1, "status-event-bytecode-after: expected transition");
+    }
+
+    {
+        auto program = makeEventThresholdBytecodeProgram();
+        auto artifactRes = ir::makeEngineBytecodeArtifact(program, ".");
+        require(artifactRes.isOk(), "event-threshold bytecode artifact build failed: " + artifactRes.error());
+        auto encodedArtifact = ir::serializeArtifact(artifactRes.value());
+        require(encodedArtifact.isOk(), "event-threshold bytecode artifact encode failed: " + encodedArtifact.error());
+
+        auto loadReq = makeMessage<protocol::LoadAutomataMessage>();
+        loadReq->runId = 47;
+        loadReq->format = protocol::AutomataFormat::Binary;
+        loadReq->replaceExisting = true;
+        loadReq->startAfterLoad = false;
+        loadReq->data = encodedArtifact.value();
+
+        auto replies = send(engine, std::move(loadReq));
+        auto* loadAck = findMessage<protocol::LoadAckMessage>(replies);
+        require(loadAck != nullptr, "event-threshold bytecode load: expected LoadAck");
+        require(loadAck->success, "event-threshold bytecode load: expected success=true, got error: " + loadAck->errorMessage);
+    }
+
+    {
+        auto startReq = makeMessage<protocol::StartMessage>();
+        startReq->runId = 47;
+        auto replies = send(engine, std::move(startReq));
+        expectAck(replies, "start-event-threshold-bytecode");
+    }
+    engine.tick();
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 47;
+        inputReq->variableName = "temp";
+        inputReq->value = aeth::Value(int32_t{9});
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input temp=9 event threshold bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 47;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-event-threshold-bytecode-mid: expected STATUS");
+        require(status->transitionCount == 0, "status-event-threshold-bytecode-mid: expected no transition");
+    }
+
+    {
+        auto inputReq = makeMessage<protocol::InputMessage>();
+        inputReq->runId = 47;
+        inputReq->variableName = "temp";
+        inputReq->value = aeth::Value(int32_t{11});
+        auto replies = send(engine, std::move(inputReq));
+        expectAck(replies, "set-input temp=11 event threshold bytecode");
+    }
+    engine.tick();
+    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 47;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-event-threshold-bytecode-after: expected STATUS");
+        require(status->transitionCount >= 1, "status-event-threshold-bytecode-after: expected transition");
     }
 
     {

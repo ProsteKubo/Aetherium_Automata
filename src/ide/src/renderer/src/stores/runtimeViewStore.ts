@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type {
   RuntimeDeployment,
+  RuntimeDeploymentTransfer,
   RuntimeDeploymentStatus,
   RuntimeRenderFrame,
   RuntimeSnapshotPoint,
@@ -11,6 +12,7 @@ import type {
 interface RuntimeViewState {
   scope: RuntimeViewScope;
   deployments: Map<string, RuntimeDeployment>;
+  transfers: Map<string, RuntimeDeploymentTransfer>;
   selectedDeploymentIds: string[];
   transitionQueues: Map<string, RuntimeTransitionEvent[]>;
   transitionHistory: Map<string, RuntimeTransitionEvent[]>;
@@ -27,6 +29,7 @@ interface RuntimeViewActions {
   upsertDeployment: (deployment: RuntimeDeployment) => void;
   ingestTransition: (event: RuntimeTransitionEvent) => void;
   ingestDeploymentStatus: (payload: Record<string, unknown>) => void;
+  ingestDeploymentTransfer: (payload: Record<string, unknown>) => void;
   setScope: (scope: RuntimeViewScope) => void;
   toggleSelection: (deploymentId: string, selected?: boolean) => void;
   setSelected: (deploymentIds: string[]) => void;
@@ -50,6 +53,7 @@ function createInitialState(): RuntimeViewState {
   return {
     scope: 'running',
     deployments: new Map(),
+    transfers: new Map(),
     selectedDeploymentIds: [],
     transitionQueues: new Map(),
     transitionHistory: new Map(),
@@ -168,6 +172,48 @@ function shallowDeploymentEqual(a: RuntimeDeployment | undefined, b: RuntimeDepl
   return aKeys.every((key) => aVars[key] === bVars[key]);
 }
 
+function clampProgress(progress: number): number {
+  return Math.max(0, Math.min(100, progress));
+}
+
+function toFiniteNumber(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return undefined;
+}
+
+function normalizeTransferStatus(
+  stage: string,
+  success: boolean | undefined,
+  error: string | undefined,
+): RuntimeDeploymentTransfer['status'] {
+  if (stage === 'failed' || success === false || Boolean(error)) return 'failed';
+  if (stage === 'completed' || success === true) return 'completed';
+  return 'active';
+}
+
+function inferTransferProgress(
+  stage: string,
+  chunkIndex: number | undefined,
+  totalChunks: number | undefined,
+  success: boolean | undefined,
+): number {
+  if (stage === 'completed' && success !== false) return 100;
+  if (stage === 'failed') return clampProgress(((chunkIndex ?? 0) + 1) * 5);
+  if (!totalChunks || totalChunks <= 0) return 0;
+  if (stage === 'awaiting_load_ack') {
+    return clampProgress(((chunkIndex ?? 0) + 1) / totalChunks * 100);
+  }
+  return clampProgress((((chunkIndex ?? 0) + 1) / totalChunks) * 100);
+}
+
 export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
   ...initialState,
 
@@ -272,6 +318,85 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
     });
   },
 
+  ingestDeploymentTransfer: (payload) => {
+    set((state) => {
+      const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+      if (!deviceId) return state;
+
+      const automataIdRaw = payload.automata_id ?? payload.automataId;
+      const automataId =
+        automataIdRaw === undefined || automataIdRaw === null || automataIdRaw === ''
+          ? undefined
+          : String(automataIdRaw);
+
+      const deploymentIdRaw = payload.deployment_id ?? payload.deploymentId;
+      const deploymentId =
+        (deploymentIdRaw ? String(deploymentIdRaw) : '') ||
+        (automataId ? `${automataId}:${deviceId}` : '');
+
+      if (!deploymentId) return state;
+
+      const stage = String(payload.stage ?? 'unknown');
+      const phaseRaw = payload.phase;
+      const formatRaw = payload.format;
+      const phase =
+        phaseRaw === undefined || phaseRaw === null || phaseRaw === '' ? undefined : String(phaseRaw);
+      const format =
+        formatRaw === undefined || formatRaw === null || formatRaw === ''
+          ? undefined
+          : String(formatRaw);
+
+      const chunkIndex = toFiniteNumber(payload.chunk_index ?? payload.chunkIndex);
+      const totalChunks = toFiniteNumber(payload.total_chunks ?? payload.totalChunks);
+      const retryCount = toFiniteNumber(payload.retry_count ?? payload.retryCount);
+      const maxRetries = toFiniteNumber(payload.max_retries ?? payload.maxRetries);
+      const success = typeof payload.success === 'boolean' ? payload.success : undefined;
+      const errorRaw = payload.error;
+      const error =
+        errorRaw === undefined || errorRaw === null || errorRaw === '' ? undefined : String(errorRaw);
+      const status = normalizeTransferStatus(stage, success, error);
+      const progressPercent = inferTransferProgress(stage, chunkIndex, totalChunks, success);
+
+      const next: RuntimeDeploymentTransfer = {
+        deploymentId,
+        deviceId: deviceId as RuntimeDeploymentTransfer['deviceId'],
+        automataId: automataId as RuntimeDeploymentTransfer['automataId'],
+        stage,
+        phase,
+        format,
+        progressPercent,
+        chunkIndex,
+        totalChunks,
+        retryCount,
+        maxRetries,
+        error,
+        success,
+        status,
+        updatedAt: Date.now(),
+      };
+
+      const previous = state.transfers.get(deploymentId);
+      if (
+        previous &&
+        previous.stage === next.stage &&
+        previous.progressPercent === next.progressPercent &&
+        previous.status === next.status &&
+        previous.chunkIndex === next.chunkIndex &&
+        previous.totalChunks === next.totalChunks &&
+        previous.retryCount === next.retryCount &&
+        previous.maxRetries === next.maxRetries &&
+        previous.error === next.error &&
+        previous.success === next.success
+      ) {
+        return state;
+      }
+
+      const transfers = new Map(state.transfers);
+      transfers.set(deploymentId, next);
+      return { ...state, transfers };
+    });
+  },
+
   setScope: (scope) => {
     set((state) => (state.scope === scope ? state : { ...state, scope }));
   },
@@ -355,6 +480,7 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
   clearStale: (now = Date.now(), staleMs = 30_000) => {
     set((state) => {
       const deployments = new Map(state.deployments);
+      const transfers = new Map(state.transfers);
       let changed = false;
       deployments.forEach((deployment, deploymentId) => {
         if (now - deployment.updatedAt > staleMs && deployment.status !== 'error' && deployment.status !== 'offline') {
@@ -362,7 +488,17 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
           changed = true;
         }
       });
-      return changed ? { ...state, deployments } : state;
+
+      transfers.forEach((transfer, deploymentId) => {
+        const age = now - transfer.updatedAt;
+        const ttl = transfer.status === 'active' ? 120_000 : 30_000;
+        if (age > ttl) {
+          transfers.delete(deploymentId);
+          changed = true;
+        }
+      });
+
+      return changed ? { ...state, deployments, transfers } : state;
     });
   },
 

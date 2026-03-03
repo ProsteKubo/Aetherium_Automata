@@ -45,5 +45,21 @@
 
 
 build/
+build-*/
+cmake-build-*/
+out/
+
+# CMake local/generated files
+compile_commands.json
+CMakeUserPresets.json
+
+# Editor/OS temp files
+*.swp
+*.swo
+*~
+.idea/
+.vscode/
+__pycache__/
+*.pyc
 
 src/ide/node_modules/

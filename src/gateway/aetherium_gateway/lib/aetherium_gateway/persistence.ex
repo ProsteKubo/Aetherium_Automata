@@ -75,6 +75,15 @@ defmodule AetheriumGateway.Persistence do
     end
   end
 
+  @spec list_recent_events(pos_integer()) :: [event()]
+  def list_recent_events(limit \\ 100) do
+    if enabled?() do
+      GenServer.call(__MODULE__, {:list_recent_events, limit})
+    else
+      []
+    end
+  end
+
   @impl true
   def init(_opts) do
     if enabled?() do
@@ -139,6 +148,15 @@ defmodule AetheriumGateway.Persistence do
       |> Enum.reverse()
       |> Enum.filter(fn %{"cursor" => c} -> c > cursor end)
       |> Enum.take(max(limit, 1))
+
+    {:reply, events, state}
+  end
+
+  def handle_call({:list_recent_events, limit}, _from, state) do
+    events =
+      state.events
+      |> Enum.take(max(limit, 1))
+      |> Enum.reverse()
 
     {:reply, events, state}
   end

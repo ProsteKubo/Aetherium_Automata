@@ -35,6 +35,12 @@ for f in $(find /Users/administratorik/dev/Aetherium_Automata/example/automata -
 done
 ```
 
+### Optional: validate curated showcase suite only
+
+```bash
+/Users/administratorik/dev/Aetherium_Automata/scripts/validate_showcase_automata.sh validate
+```
+
 ## 4) Run the harder stress automata
 
 ```bash

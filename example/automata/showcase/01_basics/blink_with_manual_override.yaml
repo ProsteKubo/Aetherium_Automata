@@ -1,0 +1,80 @@
+version: 0.0.1
+
+config:
+  name: Blink With Manual Override
+  type: inline
+  description: Small deterministic automata with timed transitions and manual override input.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - basics
+    - timed
+    - control
+
+variables:
+  - name: force_on
+    type: bool
+    direction: input
+    default: false
+
+  - name: led_on
+    type: bool
+    direction: output
+    default: false
+
+  - name: blink_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Off
+
+  states:
+    Off:
+      on_enter: |
+        setVal("led_on", false)
+
+    On:
+      on_enter: |
+        setVal("led_on", true)
+        setVal("blink_count", value("blink_count") + 1)
+
+    ForcedOn:
+      on_enter: |
+        setVal("led_on", true)
+
+  transitions:
+    off_force:
+      from: Off
+      to: ForcedOn
+      type: classic
+      priority: 0
+      condition: value("force_on") == true
+
+    on_force:
+      from: On
+      to: ForcedOn
+      type: classic
+      priority: 0
+      condition: value("force_on") == true
+
+    release_force:
+      from: ForcedOn
+      to: Off
+      type: classic
+      condition: value("force_on") == false
+
+    off_to_on:
+      from: Off
+      to: On
+      type: timed
+      priority: 1
+      after: 700
+
+    on_to_off:
+      from: On
+      to: Off
+      type: timed
+      priority: 1
+      after: 700

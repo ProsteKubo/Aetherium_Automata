@@ -1,0 +1,136 @@
+version: 0.0.1
+
+config:
+  name: Sensor Watchdog Recovery
+  type: inline
+  description: Timeout watchdog with retry and explicit reset path.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - resilience
+    - watchdog
+    - timeout
+
+variables:
+  - name: heartbeat
+    type: bool
+    direction: input
+    default: false
+
+  - name: manual_reset
+    type: bool
+    direction: input
+    default: false
+
+  - name: max_retries
+    type: int
+    direction: input
+    default: 3
+
+  - name: retry_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: healthy
+    type: bool
+    direction: output
+    default: false
+
+  - name: fault
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Boot
+
+  states:
+    Boot:
+      on_enter: |
+        setVal("healthy", false)
+        setVal("fault", false)
+        setVal("retry_count", 0)
+
+    Healthy:
+      on_enter: |
+        setVal("healthy", true)
+        setVal("fault", false)
+
+    Stale:
+      on_enter: |
+        setVal("healthy", false)
+
+    Recovering:
+      on_enter: |
+        setVal("retry_count", value("retry_count") + 1)
+
+    Failed:
+      on_enter: |
+        setVal("fault", true)
+        setVal("healthy", false)
+
+  transitions:
+    boot_to_healthy:
+      from: Boot
+      to: Healthy
+      type: timed
+      after: 10
+
+    healthy_timeout:
+      from: Healthy
+      to: Stale
+      type: timed
+      timed:
+        mode: timeout
+        delay_ms: 5s
+
+    stale_on_heartbeat:
+      from: Stale
+      to: Healthy
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: heartbeat
+            trigger: on_rise
+
+    stale_to_recovering:
+      from: Stale
+      to: Recovering
+      type: timed
+      priority: 1
+      after: 200
+
+    recovering_on_heartbeat:
+      from: Recovering
+      to: Healthy
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: heartbeat
+            trigger: on_rise
+
+    recovering_retry:
+      from: Recovering
+      to: Stale
+      type: classic
+      priority: 1
+      condition: value("retry_count") < value("max_retries")
+
+    recovering_fail:
+      from: Recovering
+      to: Failed
+      type: classic
+      priority: 2
+      condition: value("retry_count") >= value("max_retries")
+
+    failed_reset:
+      from: Failed
+      to: Boot
+      type: event
+      event:
+        triggers:
+          - signal: manual_reset
+            trigger: on_rise

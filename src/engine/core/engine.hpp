@@ -1,9 +1,8 @@
 #ifndef AETHERIUM_ENGINE_HPP
 #define AETHERIUM_ENGINE_HPP
 
-#include "automata_loader.hpp"
+#include "artifact.hpp"
 #include "command_bus.hpp"
-#include "lua_engine.hpp"
 #include "protocol.hpp"
 #include "protocol_v2.hpp"
 #include "runtime.hpp"
@@ -17,6 +16,8 @@
 #include <vector>
 
 namespace aeth {
+
+struct EngineFrontendLoaderHandle;
 
 struct EngineInitOptions {
     uint32_t maxTickRate = 10;
@@ -40,6 +41,10 @@ public:
     using Replies = std::vector<std::unique_ptr<protocol::Message>>;
 
     Engine();
+    Engine(std::unique_ptr<IClock> clock,
+           std::unique_ptr<IRandomSource> random,
+           std::unique_ptr<IScriptEngine> script);
+    ~Engine();
 
     Result<void> initialize(const EngineInitOptions& options = {});
 
@@ -53,6 +58,16 @@ public:
                                        protocolv2::LoadReplaceMode mode,
                                        bool startAfterLoad = false,
                                        std::optional<RunId> requestedRunId = std::nullopt);
+
+    Result<RunId> loadAutomataFromArtifact(const ir::AutomataArtifact& artifact,
+                                           protocolv2::LoadReplaceMode mode,
+                                           bool startAfterLoad = false,
+                                           std::optional<RunId> requestedRunId = std::nullopt);
+
+    Result<RunId> loadAutomataFromBytes(const std::vector<uint8_t>& bytes,
+                                        protocolv2::LoadReplaceMode mode,
+                                        bool startAfterLoad = false,
+                                        std::optional<RunId> requestedRunId = std::nullopt);
 
     Result<void> start(std::optional<StateId> from = std::nullopt);
     Result<void> stop();
@@ -84,8 +99,28 @@ public:
     [[nodiscard]] const std::string& deviceName() const { return deviceName_; }
 
 private:
+    struct PendingChunkedLoad {
+        bool active = false;
+        DeviceId sourceId = 0;
+        RunId runId = 0;
+        protocol::AutomataFormat format = protocol::AutomataFormat::Binary;
+        bool startAfterLoad = false;
+        bool replaceExisting = true;
+        uint16_t totalChunks = 0;
+        uint16_t nextChunkIndex = 0;
+        size_t totalBytes = 0;
+        std::vector<uint8_t> data;
+    };
+
+    static constexpr size_t kMaxChunkedLoadBytes = 128 * 1024;
+
     void configureRuntimeCallbacks();
     void registerCommandHandlers();
+    void resetPendingChunkedLoad();
+    Result<bool> appendChunkedLoad(const protocol::LoadAutomataMessage& load,
+                                   std::vector<uint8_t>& assembledData);
+    Result<RunId> applyProtocolLoad(const protocol::LoadAutomataMessage& load,
+                                    const std::vector<uint8_t>& data);
 
     Replies ackWithStatus(const protocol::Message& request, const std::string& info = "ok");
     Replies nakWithStatus(const protocol::Message& request,
@@ -102,7 +137,7 @@ private:
     static std::optional<RunId> extractRunId(const protocol::Message& message);
 
     Runtime runtime_;
-    AutomataLoader loader_;
+    std::unique_ptr<EngineFrontendLoaderHandle> frontendLoader_;
     TelemetryLogHub logHub_;
     CommandBus commandBus_;
 
@@ -114,6 +149,7 @@ private:
 
     std::deque<std::unique_ptr<protocol::Message>> ingressQueue_;
     std::deque<std::unique_ptr<protocol::Message>> eventQueue_;
+    PendingChunkedLoad pendingChunkedLoad_;
 };
 
 } // namespace aeth

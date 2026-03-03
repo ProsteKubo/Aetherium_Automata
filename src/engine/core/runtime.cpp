@@ -3,6 +3,11 @@
  */
 
 #include "runtime.hpp"
+
+#ifdef abs
+#undef abs
+#endif
+
 #include <chrono>
 #include <thread>
 #include <algorithm>

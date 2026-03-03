@@ -1,0 +1,109 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Thermostat Guard
+  type: inline
+  description: Input-driven thermostat state machine for ESP32 subset, with fault override.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - classic
+    - timed
+    - hardware-safe
+
+variables:
+  - name: run
+    type: bool
+    direction: input
+    default: false
+
+  - name: fault
+    type: bool
+    direction: input
+    default: false
+
+  - name: temp
+    type: int
+    direction: input
+    default: 22
+
+  - name: low_limit
+    type: int
+    direction: input
+    default: 20
+
+  - name: high_limit
+    type: int
+    direction: input
+    default: 25
+
+automata:
+  initial_state: Standby
+
+  states:
+    Standby: {}
+    Heating: {}
+    Cooling: {}
+    Alarm: {}
+
+  transitions:
+    standby_to_alarm:
+      from: Standby
+      to: Alarm
+      type: classic
+      priority: 0
+      condition: fault == true
+
+    heating_to_alarm:
+      from: Heating
+      to: Alarm
+      type: classic
+      priority: 0
+      condition: fault == true
+
+    cooling_to_alarm:
+      from: Cooling
+      to: Alarm
+      type: classic
+      priority: 0
+      condition: fault == true
+
+    standby_to_heat:
+      from: Standby
+      to: Heating
+      type: classic
+      priority: 1
+      condition: run == true and temp <= low_limit
+
+    standby_to_cool:
+      from: Standby
+      to: Cooling
+      type: classic
+      priority: 1
+      condition: run == true and temp >= high_limit
+
+    heating_to_standby:
+      from: Heating
+      to: Standby
+      type: timed
+      after: 1500ms
+
+    cooling_to_standby:
+      from: Cooling
+      to: Standby
+      type: timed
+      after: 1500ms
+
+    alarm_to_standby:
+      from: Alarm
+      to: Standby
+      type: classic
+      condition: fault == false and run == true
+
+    standby_hold:
+      from: Standby
+      to: Standby
+      type: timed
+      priority: 2
+      after: 1200ms

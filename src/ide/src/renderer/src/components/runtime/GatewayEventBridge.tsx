@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { FC } from 'react';
 import { useExecutionStore, useGatewayStore, useLogStore, useRuntimeViewStore } from '../../stores';
+import type { PersistedGatewayEvent } from '../../services/gateway/IGatewayService';
 
 function isRunningLike(status: string): boolean {
   return status === 'running' || status === 'loading' || status === 'paused';
@@ -26,6 +27,63 @@ function cloneRecord(value: unknown): Record<string, unknown> | undefined {
   }
 }
 
+function toEpochMs(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return Date.now();
+}
+
+function toObjectRecord(value: unknown): Record<string, unknown> | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  return value as Record<string, unknown>;
+}
+
+function toCursor(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value;
+  if (typeof value === 'string') {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+  return undefined;
+}
+
+function mapPersistedEventLevel(event: PersistedGatewayEvent): 'info' | 'warn' | 'error' | 'debug' {
+  const kind = String(event.kind ?? '');
+  const data = toObjectRecord(event.data);
+  const status = String(data?.status ?? '').toUpperCase();
+
+  if (status === 'ERROR') return 'error';
+  if (status === 'NAK') return 'warn';
+  if (kind.includes('error')) return 'error';
+  if (kind.includes('dispatch') || kind.includes('gateway_command')) return 'debug';
+  return 'info';
+}
+
+function mapPersistedEventMessage(event: PersistedGatewayEvent): string {
+  const kind = String(event.kind ?? 'event');
+  const data = toObjectRecord(event.data);
+  const commandType = String(data?.command_type ?? data?.event ?? '').trim();
+  const status = String(data?.status ?? '').trim();
+  const reason = String(data?.reason ?? '').trim();
+
+  if (kind === 'server_command_outcome') {
+    return `${commandType || 'command'} ${status || 'outcome'}${reason ? ` (${reason})` : ''}`;
+  }
+
+  if (kind === 'gateway_command') {
+    return `${commandType || 'gateway command'}${status ? ` ${status}` : ''}${reason ? ` (${reason})` : ''}`;
+  }
+
+  if (kind === 'dispatch_command') {
+    return `dispatch ${commandType || 'command'}${reason ? ` (${reason})` : ''}`;
+  }
+
+  return `${kind}${reason ? ` (${reason})` : ''}`;
+}
+
 export const GatewayEventBridge: FC = () => {
   const service = useGatewayStore((state) => state.service);
   const gatewayStatus = useGatewayStore((state) => state.status);
@@ -34,9 +92,11 @@ export const GatewayEventBridge: FC = () => {
   const applyDeploymentStatus = useExecutionStore((state) => state.applyDeploymentStatus);
   const ingestTransition = useRuntimeViewStore((state) => state.ingestTransition);
   const ingestDeploymentStatus = useRuntimeViewStore((state) => state.ingestDeploymentStatus);
+  const ingestDeploymentTransfer = useRuntimeViewStore((state) => state.ingestDeploymentTransfer);
   const seedFromDevices = useRuntimeViewStore((state) => state.seedFromDevices);
   const addLog = useLogStore((state) => state.addLog);
   const previousStatusRef = useRef<string>('disconnected');
+  const eventCursorRef = useRef<number>(0);
   const devices = useMemo(
     () =>
       Array.from(devicesMap.values()).map((device) => ({
@@ -113,6 +173,32 @@ export const GatewayEventBridge: FC = () => {
     );
 
     unsubs.push(
+      service.on('onDeploymentTransfer', (event) => {
+        ingestDeploymentTransfer(event as Record<string, unknown>);
+
+        const deploymentId = String(event.deployment_id ?? event.deploymentId ?? 'unknown');
+        const stage = String(event.stage ?? 'unknown');
+        const chunkIndex = Number(event.chunk_index ?? event.chunkIndex ?? 0);
+        const totalChunks = Number(event.total_chunks ?? 0);
+        const retryCount = Number(event.retry_count ?? event.retryCount ?? 0);
+        const maxRetries = Number(event.max_retries ?? event.maxRetries ?? 0);
+
+        const level = stage === 'failed' ? 'error' : stage.includes('retry') ? 'warn' : 'debug';
+        const chunkLabel =
+          Number.isFinite(totalChunks) && totalChunks > 0
+            ? ` chunk ${chunkIndex + 1}/${totalChunks}`
+            : '';
+        const retryLabel = maxRetries > 0 ? ` retry ${retryCount}/${maxRetries}` : '';
+
+        addLog({
+          level,
+          source: `Deploy.${deploymentId}`,
+          message: `transfer ${stage}${chunkLabel}${retryLabel}${event.error ? ` (${event.error})` : ''}`,
+        });
+      }),
+    );
+
+    unsubs.push(
       service.on('onDeviceLog', (event) => {
         const ts =
           typeof event.timestamp === 'number'
@@ -154,7 +240,15 @@ export const GatewayEventBridge: FC = () => {
     return () => {
       unsubs.forEach((unsub) => unsub());
     };
-  }, [addLog, applyDeploymentStatus, ingestDeploymentStatus, ingestTransition, service, updateSnapshot]);
+  }, [
+    addLog,
+    applyDeploymentStatus,
+    ingestDeploymentStatus,
+    ingestDeploymentTransfer,
+    ingestTransition,
+    service,
+    updateSnapshot,
+  ]);
 
   useEffect(() => {
     seedFromDevices(devices);
@@ -181,6 +275,70 @@ export const GatewayEventBridge: FC = () => {
         });
     });
   }, [gatewayStatus, service, updateSnapshot]);
+
+  useEffect(() => {
+    if (gatewayStatus !== 'connected') return;
+
+    let cancelled = false;
+    let pollHandle: ReturnType<typeof setInterval> | undefined;
+
+    const ingestPersistedEvents = (events: PersistedGatewayEvent[]) => {
+      if (!Array.isArray(events) || events.length === 0) return;
+
+      events.forEach((event) => {
+        const cursor = toCursor(event.cursor);
+        if (cursor !== undefined && cursor <= eventCursorRef.current) {
+          return;
+        }
+
+        addLog({
+          id: cursor !== undefined ? `gw-event-${cursor}` : undefined,
+          timestamp: toEpochMs(event.timestamp),
+          level: mapPersistedEventLevel(event),
+          source: String(event.source ?? 'Gateway.History'),
+          message: mapPersistedEventMessage(event),
+          data: toObjectRecord(event.data),
+        });
+
+        if (cursor !== undefined) {
+          eventCursorRef.current = Math.max(eventCursorRef.current, cursor);
+        }
+      });
+    };
+
+    const pollNewEvents = async () => {
+      try {
+        const events = await service.listEvents(eventCursorRef.current, 200);
+        if (!cancelled) {
+          ingestPersistedEvents(events);
+        }
+      } catch {
+        // Polling is best-effort and should not interrupt runtime bridge.
+      }
+    };
+
+    (async () => {
+      try {
+        const recent = await service.listRecentEvents(120);
+        if (!cancelled) {
+          ingestPersistedEvents(recent);
+        }
+      } catch {
+        // Backfill is optional.
+      }
+
+      if (!cancelled) {
+        pollHandle = setInterval(pollNewEvents, 3000);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      if (pollHandle) {
+        clearInterval(pollHandle);
+      }
+    };
+  }, [addLog, gatewayStatus, service]);
 
   return null;
 };

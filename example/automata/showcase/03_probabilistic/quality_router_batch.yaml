@@ -1,0 +1,148 @@
+version: 0.0.1
+
+config:
+  name: Quality Router Batch
+  type: inline
+  description: Weighted lane selection with inspection and bounded batch completion.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - probabilistic
+    - batch
+    - weighted
+
+variables:
+  - name: quality_target
+    type: int
+    direction: input
+    default: 70
+
+  - name: quality_score
+    type: int
+    direction: internal
+    default: 0
+
+  - name: lane
+    type: string
+    direction: output
+    default: none
+
+  - name: batch_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: rejected_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: ChooseLane
+
+  states:
+    ChooseLane: {}
+
+    LaneA:
+      on_enter: |
+        setVal("lane", "A")
+        setVal("quality_score", 55 + math.floor(rand() * 40))
+
+    LaneB:
+      on_enter: |
+        setVal("lane", "B")
+        setVal("quality_score", 45 + math.floor(rand() * 50))
+
+    LaneC:
+      on_enter: |
+        setVal("lane", "C")
+        setVal("quality_score", 35 + math.floor(rand() * 60))
+
+    Inspect: {}
+
+    Rework:
+      on_enter: |
+        setVal("rejected_count", value("rejected_count") + 1)
+
+    CompletedItem:
+      on_enter: |
+        setVal("batch_count", value("batch_count") + 1)
+
+    BatchDone: {}
+
+  transitions:
+    choose_a:
+      from: ChooseLane
+      to: LaneA
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 50
+
+    choose_b:
+      from: ChooseLane
+      to: LaneB
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 35
+
+    choose_c:
+      from: ChooseLane
+      to: LaneC
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 15
+
+    lane_a_to_inspect:
+      from: LaneA
+      to: Inspect
+      type: timed
+      after: 20
+
+    lane_b_to_inspect:
+      from: LaneB
+      to: Inspect
+      type: timed
+      after: 20
+
+    lane_c_to_inspect:
+      from: LaneC
+      to: Inspect
+      type: timed
+      after: 20
+
+    inspect_reject:
+      from: Inspect
+      to: Rework
+      type: classic
+      priority: 0
+      condition: value("quality_score") < value("quality_target")
+
+    inspect_accept:
+      from: Inspect
+      to: CompletedItem
+      type: classic
+      priority: 1
+      condition: value("quality_score") >= value("quality_target")
+
+    rework_to_choose:
+      from: Rework
+      to: ChooseLane
+      type: timed
+      after: 30
+
+    completed_continue:
+      from: CompletedItem
+      to: ChooseLane
+      type: classic
+      priority: 0
+      condition: value("batch_count") < 12
+
+    completed_done:
+      from: CompletedItem
+      to: BatchDone
+      type: classic
+      priority: 1
+      condition: value("batch_count") >= 12

@@ -1,0 +1,62 @@
+version: 0.0.1
+
+config:
+  name: ESP32 LED Guarded Cycle
+  type: inline
+  description: Hardware-safe LED cycle with explicit enable guard and 1s dwell times.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - timed
+    - bytecode-safe
+    - hardware-safe
+
+variables:
+  - name: enabled
+    type: bool
+    direction: input
+    default: false
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+    LedOn: {}
+    LedOff: {}
+
+  transitions:
+    start_cycle:
+      from: Idle
+      to: LedOn
+      type: classic
+      condition: enabled == true
+
+    stop_from_on:
+      from: LedOn
+      to: Idle
+      type: classic
+      priority: 0
+      condition: enabled == false
+
+    stop_from_off:
+      from: LedOff
+      to: Idle
+      type: classic
+      priority: 0
+      condition: enabled == false
+
+    on_to_off:
+      from: LedOn
+      to: LedOff
+      type: timed
+      priority: 1
+      after: 1000ms
+
+    off_to_on:
+      from: LedOff
+      to: LedOn
+      type: timed
+      priority: 1
+      after: 1000ms

@@ -1,0 +1,61 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Runtime LED Pulse
+  type: inline
+  description: Bytecode-safe automata for ESP32 demos with deterministic timed cycling and safe dwell time defaults.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - timed
+    - bytecode-safe
+
+variables:
+  - name: enabled
+    type: bool
+    direction: input
+    default: true
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+    Running: {}
+    Pulse: {}
+
+  transitions:
+    enable:
+      from: Idle
+      to: Running
+      type: classic
+      condition: enabled == true
+
+    disable_from_running:
+      from: Running
+      to: Idle
+      type: classic
+      priority: 0
+      condition: enabled == false
+
+    disable_from_pulse:
+      from: Pulse
+      to: Idle
+      type: classic
+      priority: 0
+      condition: enabled == false
+
+    running_to_pulse:
+      from: Running
+      to: Pulse
+      type: timed
+      priority: 1
+      after: 1000ms
+
+    pulse_to_running:
+      from: Pulse
+      to: Running
+      type: timed
+      priority: 1
+      after: 1000ms
