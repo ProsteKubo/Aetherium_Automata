@@ -1,0 +1,52 @@
+- version: 0.0.1
+
+- config:
+  - name: door safety controller
+  - type: folder
+  - location: "."
+  - description: Folder-based automata example with state/transition Lua split for maintainability.
+
+- variables:
+  - name: door_sensor
+    type: bool
+    direction: input
+    default: false
+
+  - name: alarm_ack
+    type: bool
+    direction: input
+    default: false
+
+  - name: siren
+    type: bool
+    direction: output
+    default: false
+
+  - name: door_open_ticks
+    type: int
+    direction: output
+    default: 0
+
+- automata:
+  - initial_state: Closed
+  - states:
+    Closed: {}
+    Open: {}
+    Alarm: {}
+
+  - transitions:
+    OpenDoor:
+      - from: Closed
+      - to: Open
+
+    CloseDoor:
+      - from: Open
+      - to: Closed
+
+    AlarmDoorTooLong:
+      - from: Open
+      - to: Alarm
+
+    ResetAlarm:
+      - from: Alarm
+      - to: Closed

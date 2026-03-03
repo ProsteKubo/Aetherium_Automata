@@ -12,6 +12,7 @@ import type {
   Automata,
   Device,
   Server,
+  ConnectorStatus,
   ExecutionSnapshot,
   TimeTravelSession,
 } from './automata';
@@ -383,6 +384,11 @@ export interface TimeTravelNavigateResponse {
   snapshot: ExecutionSnapshot;
   canGoForward: boolean;
   canGoBackward: boolean;
+  eventsReplayed?: number;
+  requestedTimestamp?: number;
+  stateFingerprint?: string;
+  eventCursorStart?: number;
+  eventCursorEnd?: number;
 }
 
 export interface TimeTravelBookmarkRequest {
@@ -574,6 +580,38 @@ export interface DeploymentStatusEvent {
   timestamp?: number | string;
 }
 
+export interface DeploymentTransferEvent {
+  deployment_id?: string;
+  deploymentId?: string;
+  automata_id?: AutomataId | string;
+  automataId?: AutomataId | string;
+  device_id?: DeviceId | string;
+  deviceId?: DeviceId | string;
+  server_id?: ServerId | string;
+  serverId?: ServerId | string;
+  run_id?: number;
+  runId?: number;
+  format?: string;
+  phase?: string;
+  stage?: string;
+  total_chunks?: number;
+  awaiting_chunk_index?: number;
+  awaitingChunkIndex?: number;
+  next_chunk_index?: number;
+  nextChunkIndex?: number;
+  chunk_index?: number;
+  chunkIndex?: number;
+  message_id?: number;
+  messageId?: number;
+  retry_count?: number;
+  retryCount?: number;
+  max_retries?: number;
+  maxRetries?: number;
+  success?: boolean;
+  error?: string;
+  warnings?: unknown[];
+}
+
 export interface DeploymentListEvent {
   deployments: Array<Record<string, unknown>>;
 }
@@ -590,6 +628,13 @@ export interface DeviceLogEvent {
   timestamp?: number | string;
   server_id?: ServerId | string;
   serverId?: ServerId | string;
+}
+
+export interface ConnectorStatusEvent {
+  connectors: ConnectorStatus[];
+  server_id?: ServerId | string;
+  serverId?: ServerId | string;
+  timestamp?: number | string;
 }
 
 export type CommandOutcomeStatus = 'ACK' | 'NAK' | 'ERROR';
@@ -641,6 +686,8 @@ export type AnyEvent =
   | ExecutionErrorEvent
   | ServerStatusEvent
   | DeploymentStatusEvent
+  | DeploymentTransferEvent
   | DeploymentListEvent
   | ConnectionListEvent
-  | DeviceLogEvent;
+  | DeviceLogEvent
+  | ConnectorStatusEvent;

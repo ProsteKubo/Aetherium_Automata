@@ -23,6 +23,13 @@ interface RecentProject {
   lastOpened: number
 }
 
+interface ShowcaseAutomataEntry {
+  id: string
+  name: string
+  category: string
+  relativePath: string
+}
+
 // ============================================================================
 // API Interface
 // ============================================================================
@@ -40,6 +47,8 @@ interface AutomataAPI {
   saveYaml: (automata: unknown, suggestedPath?: string) => Promise<SaveResult>
   loadYaml: () => Promise<LoadResult<unknown>>
   import: (filePath: string) => Promise<LoadResult<unknown>>
+  listShowcase: () => Promise<LoadResult<ShowcaseAutomataEntry[]>>
+  loadShowcase: (target: string) => Promise<LoadResult<unknown>>
 }
 
 interface FileAPI {

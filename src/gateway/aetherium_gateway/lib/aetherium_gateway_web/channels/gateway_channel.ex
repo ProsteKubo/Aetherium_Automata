@@ -53,33 +53,16 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
 
   @impl true
   def handle_in("list_events", payload, socket) do
-    cursor =
-      case payload["cursor"] do
-        value when is_integer(value) and value >= 0 -> value
-        value when is_binary(value) ->
-          case Integer.parse(value) do
-            {n, ""} when n >= 0 -> n
-            _ -> 0
-          end
-
-        _ ->
-          0
-      end
-
-    limit =
-      case payload["limit"] do
-        value when is_integer(value) and value > 0 -> value
-        value when is_binary(value) ->
-          case Integer.parse(value) do
-            {n, ""} when n > 0 -> n
-            _ -> 100
-          end
-
-        _ ->
-          100
-      end
+    cursor = parse_non_negative_int(payload["cursor"], 0)
+    limit = parse_positive_int(payload["limit"], 100)
 
     {:reply, {:ok, %{events: Persistence.list_events(cursor, limit)}}, socket}
+  end
+
+  @impl true
+  def handle_in("list_recent_events", payload, socket) do
+    limit = parse_positive_int(payload["limit"], 100)
+    {:reply, {:ok, %{events: Persistence.list_recent_events(limit)}}, socket}
   end
 
   @impl true
@@ -165,4 +148,30 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
     :crypto.strong_rand_bytes(16)
     |> Base.encode16(case: :lower)
   end
+
+  defp parse_non_negative_int(value, default)
+
+  defp parse_non_negative_int(value, _default) when is_integer(value) and value >= 0, do: value
+
+  defp parse_non_negative_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} when n >= 0 -> n
+      _ -> default
+    end
+  end
+
+  defp parse_non_negative_int(_value, default), do: default
+
+  defp parse_positive_int(value, default)
+
+  defp parse_positive_int(value, _default) when is_integer(value) and value > 0, do: value
+
+  defp parse_positive_int(value, default) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} when n > 0 -> n
+      _ -> default
+    end
+  end
+
+  defp parse_positive_int(_value, default), do: default
 end

@@ -1,0 +1,111 @@
+version: 0.0.1
+
+config:
+  name: Peak Shaving Scheduler
+  type: inline
+  description: Policy automata for grid demand smoothing using battery charge/discharge modes.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - energy
+    - policy
+    - timed
+
+variables:
+  - name: demand_kw
+    type: int
+    direction: input
+    default: 45
+
+  - name: battery_soc
+    type: int
+    direction: input
+    default: 60
+
+  - name: mode
+    type: string
+    direction: output
+    default: observe
+
+  - name: charge_cmd
+    type: bool
+    direction: output
+    default: false
+
+  - name: discharge_cmd
+    type: bool
+    direction: output
+    default: false
+
+  - name: mode_switches
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Observe
+
+  states:
+    Observe:
+      on_enter: |
+        setVal("mode", "observe")
+        setVal("charge_cmd", false)
+        setVal("discharge_cmd", false)
+
+    Discharge:
+      on_enter: |
+        setVal("mode", "discharge")
+        setVal("charge_cmd", false)
+        setVal("discharge_cmd", true)
+        setVal("mode_switches", value("mode_switches") + 1)
+
+    Charge:
+      on_enter: |
+        setVal("mode", "charge")
+        setVal("charge_cmd", true)
+        setVal("discharge_cmd", false)
+        setVal("mode_switches", value("mode_switches") + 1)
+
+    Bypass:
+      on_enter: |
+        setVal("mode", "bypass")
+        setVal("charge_cmd", false)
+        setVal("discharge_cmd", false)
+
+  transitions:
+    observe_to_discharge:
+      from: Observe
+      to: Discharge
+      type: classic
+      condition: value("demand_kw") >= 80 and value("battery_soc") > 20
+
+    observe_to_charge:
+      from: Observe
+      to: Charge
+      type: classic
+      condition: value("demand_kw") <= 30 and value("battery_soc") < 90
+
+    observe_to_bypass:
+      from: Observe
+      to: Bypass
+      type: timed
+      priority: 1
+      after: 30000
+
+    discharge_to_observe:
+      from: Discharge
+      to: Observe
+      type: classic
+      condition: value("demand_kw") < 70 or value("battery_soc") <= 20
+
+    charge_to_observe:
+      from: Charge
+      to: Observe
+      type: classic
+      condition: value("demand_kw") > 45 or value("battery_soc") >= 95
+
+    bypass_to_observe:
+      from: Bypass
+      to: Observe
+      type: timed
+      after: 2000

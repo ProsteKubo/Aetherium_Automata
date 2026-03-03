@@ -1,0 +1,87 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Production Line Safe
+  type: inline
+  description: Production-line style flow for ESP32 with bounded timed transitions and deterministic lane cycling.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - classic
+    - timed
+    - hardware-safe
+
+variables:
+  - name: enabled
+    type: bool
+    direction: input
+    default: true
+
+  - name: alarm
+    type: bool
+    direction: input
+    default: false
+
+automata:
+  initial_state: Boot
+
+  states:
+    Boot: {}
+    Warmup: {}
+    LaneA: {}
+    LaneB: {}
+    LaneC: {}
+    Cooldown: {}
+    Recovery: {}
+
+  transitions:
+    wait_until_enabled:
+      from: Boot
+      to: Warmup
+      type: classic
+      condition: enabled == true
+
+    warmup_to_a:
+      from: Warmup
+      to: LaneA
+      type: timed
+      after: 700ms
+
+    a_to_b:
+      from: LaneA
+      to: LaneB
+      type: timed
+      after: 1200ms
+
+    b_to_c:
+      from: LaneB
+      to: LaneC
+      type: timed
+      after: 1200ms
+
+    c_to_cooldown:
+      from: LaneC
+      to: Cooldown
+      type: timed
+      after: 1200ms
+
+    cooldown_to_recovery:
+      from: Cooldown
+      to: Recovery
+      type: classic
+      priority: 0
+      condition: alarm == true
+
+    cooldown_to_boot:
+      from: Cooldown
+      to: Boot
+      type: timed
+      priority: 1
+      after: 1800ms
+
+    recovery_to_boot:
+      from: Recovery
+      to: Boot
+      type: timed
+      after: 2500ms

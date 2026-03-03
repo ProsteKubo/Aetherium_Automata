@@ -51,6 +51,11 @@ Important naming note:
 - `docker ps` shows **container names**: `elixir-gateway`, `elixir-server-3`, `cpp-device-1`.
 - For compose commands, use service names, not container names.
 
+ESP32 + Docker on macOS:
+- Docker Desktop on macOS does not reliably expose host USB serial devices (`/dev/cu.*`) to Linux containers.
+- For real ESP32 serial testing, run the server on the host (not in Docker): `cd src && make esp-server`.
+- You can still keep gateway/IDE in Docker if desired.
+
 ### Recommended (short) commands
 
 Use the helper Makefile:
@@ -58,10 +63,18 @@ Use the helper Makefile:
 ```bash
 make help
 make u          # up
+make ug         # gateway only (hybrid mode)
 make r          # restart gateway+server3+device1
 make l0         # fresh logs only
 make rb-device  # rebuild/recreate device only
+make esp-flash  # compile + upload ESP32 sketch
+make esp-server # run host server with ESP32 serial connector
+make esp-demo   # run host ESP32 time-travel demo
 ```
+
+For host-server + docker-gateway hybrid mode, `make esp-*` defaults to:
+- `GATEWAY_WS_URL=ws://localhost:8080/socket/websocket`
+- override if needed: `make esp-server ESP_GATEWAY_WS_URL=ws://localhost:4000/socket/websocket`
 
 ### Raw compose equivalents
 
@@ -96,6 +109,53 @@ Clean restart + fresh logs:
 docker compose restart gateway server3 device1
 docker compose logs -f --tail=0 gateway server3 device1
 ```
+
+### ROS2 Connector Modes (Docker)
+
+From `src/`:
+
+1. Actual device mode (bridge only):
+```bash
+make up-ros2
+make logs-ros2
+```
+
+2. Full demo mode (bridge + emulator + sensor):
+```bash
+make up-ros2-demo
+make logs-ros2-demo
+```
+
+Reference runbook: `docs/dev/ros2_connector_demo.md`
+
+### Time-Series Mode (Docker, InfluxDB)
+
+From `src/`:
+
+```bash
+make up-ts
+make logs-ts
+make test-ts
+```
+
+This starts `gateway + server3 + device1 + influxdb` and enables server-side Influx timeline streaming (`ENABLE_TIME_SERIES_INFLUX=1`) for time-travel data export.
+
+### Showcase Automata Catalog
+
+A curated, categorized set of demo/test automata is available in:
+
+`example/automata/showcase`
+
+Quick commands:
+
+```bash
+scripts/validate_showcase_automata.sh list
+scripts/validate_showcase_automata.sh validate
+```
+
+Catalog docs:
+
+`example/automata/showcase/README.md`
 
 ### When to use full reset
 

@@ -6,18 +6,23 @@ defmodule AetheriumServer.DeviceListener do
 
   @default_port 4000
   @default_bind_ip "0.0.0.0"
+  @default_path "/socket/device/websocket"
 
   def start_link(opts \\ []) do
-    Supervisor.start_link(__MODULE__, opts, name: __MODULE__)
+    Supervisor.start_link(__MODULE__, opts)
   end
 
   @impl true
-  def init(_opts) do
-    cfg = Application.get_env(:aetherium_server, :device_listener, [])
-    port = cfg[:port] || @default_port
-    bind_ip = cfg[:bind_ip] || @default_bind_ip
+  def init(opts) do
+    connector_instance = Keyword.get(opts, :connector_instance)
+    cfg = Keyword.get(opts, :listener_config, [])
 
-    Logger.info("Starting device WS listener on #{bind_ip}:#{port}")
+    port = cfg[:port] || opts[:port] || @default_port
+    bind_ip = cfg[:bind_ip] || opts[:bind_ip] || @default_bind_ip
+    path = cfg[:path] || opts[:path] || @default_path
+
+    connector_id = (connector_instance && connector_instance.id) || "ws_default"
+    Logger.info("Starting device WS listener #{connector_id} on #{bind_ip}:#{port}#{path}")
 
     children = [
       Plug.Cowboy.child_spec(
@@ -26,7 +31,7 @@ defmodule AetheriumServer.DeviceListener do
         options: [
           port: port,
           ip: parse_ip!(bind_ip),
-          dispatch: dispatch()
+          dispatch: dispatch(path, connector_instance)
         ]
       )
     ]
@@ -34,12 +39,13 @@ defmodule AetheriumServer.DeviceListener do
     Supervisor.init(children, strategy: :one_for_one)
   end
 
-  defp dispatch do
+  defp dispatch(path, connector_instance) do
     [
-      {:_, [
-        {"/socket/device/websocket", AetheriumServer.DeviceWebSocket, []},
-        {:_, Plug.Cowboy.Handler, {AetheriumServer.DeviceRouter, []}}
-      ]}
+      {:_,
+       [
+         {path, AetheriumServer.DeviceWebSocket, [connector_instance: connector_instance]},
+         {:_, Plug.Cowboy.Handler, {AetheriumServer.DeviceRouter, []}}
+       ]}
     ]
   end
 

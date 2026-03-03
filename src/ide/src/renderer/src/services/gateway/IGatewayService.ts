@@ -41,9 +41,11 @@ import type {
   ServerStatusEvent,
   CommandOutcomeEvent,
   DeploymentStatusEvent,
+  DeploymentTransferEvent,
   DeploymentListEvent,
   ConnectionListEvent,
   DeviceLogEvent,
+  ConnectorStatusEvent,
 } from '../../types/protocol';
 
 // ============================================================================
@@ -60,9 +62,18 @@ export type ExecutionErrorEventHandler = (event: ExecutionErrorEvent) => void;
 export type ServerStatusEventHandler = (event: ServerStatusEvent) => void;
 export type CommandOutcomeEventHandler = (event: CommandOutcomeEvent) => void;
 export type DeploymentStatusEventHandler = (event: DeploymentStatusEvent) => void;
+export type DeploymentTransferEventHandler = (event: DeploymentTransferEvent) => void;
 export type DeploymentListEventHandler = (event: DeploymentListEvent) => void;
 export type ConnectionListEventHandler = (event: ConnectionListEvent) => void;
 export type DeviceLogEventHandler = (event: DeviceLogEvent) => void;
+export type ConnectorStatusEventHandler = (event: ConnectorStatusEvent) => void;
+export type PersistedGatewayEvent = Record<string, unknown> & {
+  cursor?: number;
+  kind?: string;
+  source?: string;
+  timestamp?: number | string;
+  data?: Record<string, unknown>;
+};
 
 export interface GatewayEventHandlers {
   onConnectionChange?: ConnectionEventHandler;
@@ -75,9 +86,11 @@ export interface GatewayEventHandlers {
   onServerStatus?: ServerStatusEventHandler;
   onCommandOutcome?: CommandOutcomeEventHandler;
   onDeploymentStatus?: DeploymentStatusEventHandler;
+  onDeploymentTransfer?: DeploymentTransferEventHandler;
   onDeploymentList?: DeploymentListEventHandler;
   onConnectionList?: ConnectionListEventHandler;
   onDeviceLog?: DeviceLogEventHandler;
+  onConnectorStatus?: ConnectorStatusEventHandler;
 }
 
 // ============================================================================
@@ -165,6 +178,10 @@ export interface IGatewayService {
     rollbackOnError?: boolean;
   }): Promise<boolean>;
   rollbackOTA(deviceId: DeviceId): Promise<boolean>;
+
+  // Monitoring History
+  listRecentEvents(limit?: number): Promise<PersistedGatewayEvent[]>;
+  listEvents(cursor?: number, limit?: number): Promise<PersistedGatewayEvent[]>;
 }
 
 // ============================================================================

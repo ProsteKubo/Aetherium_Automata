@@ -1,6 +1,6 @@
 defmodule AetheriumServer.AutomataRuntimeTest do
   use ExUnit.Case, async: false
-  
+
   alias AetheriumServer.AutomataRuntime
 
   # Registry is already started by the application
@@ -14,34 +14,36 @@ defmodule AetheriumServer.AutomataRuntimeTest do
     test "starts with initial state", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-1"
       automata = simple_automata()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
-      
+
       assert state.current_state == "idle"
       assert state.running == false
-      
+
       GenServer.stop(pid)
     end
 
     test "initializes variables with defaults", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-2"
       automata = automata_with_variables()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
-      
+
       assert state.variables["counter"] == 0
       assert state.variables["enabled"] == false
-      
+
       GenServer.stop(pid)
     end
   end
@@ -50,67 +52,70 @@ defmodule AetheriumServer.AutomataRuntimeTest do
     test "starts and runs on_enter", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-3"
       automata = simple_automata()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       AutomataRuntime.start_execution(deployment_id)
-      
+
       # Give it time to start
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.running == true
-      
+
       GenServer.stop(pid)
     end
 
     test "stops execution", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-4"
       automata = simple_automata()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       AutomataRuntime.start_execution(deployment_id)
       Process.sleep(50)
-      
+
       AutomataRuntime.stop_execution(deployment_id)
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.running == false
-      
+
       GenServer.stop(pid)
     end
 
     test "resets to initial state", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-5"
       automata = simple_automata()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       # Force to different state
       AutomataRuntime.force_state(deployment_id, "running")
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "running"
-      
+
       # Reset
       AutomataRuntime.reset(deployment_id)
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "idle"
-      
+
       GenServer.stop(pid)
     end
   end
@@ -119,18 +124,19 @@ defmodule AetheriumServer.AutomataRuntimeTest do
     test "sets input value", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-6"
       automata = automata_with_variables()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       AutomataRuntime.set_input(deployment_id, "enabled", true)
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.inputs["enabled"] == true
-      
+
       GenServer.stop(pid)
     end
   end
@@ -139,27 +145,29 @@ defmodule AetheriumServer.AutomataRuntimeTest do
     test "fires transition when condition becomes true", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-7"
       automata = automata_with_condition_transition()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata,
-        tick_interval: 50
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata,
+          tick_interval: 50
+        )
+
       AutomataRuntime.start_execution(deployment_id)
       Process.sleep(100)
-      
+
       # Should still be in idle (enabled is false)
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "idle"
-      
+
       # Set enabled to true
       AutomataRuntime.set_input(deployment_id, "enabled", true)
-      Process.sleep(150)  # Wait for tick to check condition
-      
+      # Wait for tick to check condition
+      Process.sleep(150)
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "running"
-      
+
       GenServer.stop(pid)
     end
   end
@@ -169,22 +177,23 @@ defmodule AetheriumServer.AutomataRuntimeTest do
       # Simpler test - just verify weighted automata can be loaded and run
       deployment_id = "#{prefix}-weight-test"
       automata = automata_with_weighted_transitions()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata,
-        tick_interval: 20
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata,
+          tick_interval: 20
+        )
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "start"
-      
+
       AutomataRuntime.start_execution(deployment_id)
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.running == true
-      
+
       GenServer.stop(pid)
     end
   end
@@ -193,26 +202,27 @@ defmodule AetheriumServer.AutomataRuntimeTest do
     test "triggers event transition", %{prefix: prefix} do
       deployment_id = "#{prefix}-deploy-event"
       automata = automata_with_event_transition()
-      
-      {:ok, pid} = AutomataRuntime.start_link(
-        deployment_id: deployment_id,
-        automata: automata
-      )
-      
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata
+        )
+
       AutomataRuntime.start_execution(deployment_id)
       Process.sleep(50)
-      
+
       # Should be in idle
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "idle"
-      
+
       # Trigger event
       AutomataRuntime.trigger_event(deployment_id, "button_pressed", nil)
       Process.sleep(50)
-      
+
       {:ok, state} = AutomataRuntime.get_state(deployment_id)
       assert state.current_state == "running"
-      
+
       GenServer.stop(pid)
     end
   end

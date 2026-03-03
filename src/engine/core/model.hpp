@@ -13,6 +13,7 @@
 
 #include "types.hpp"
 #include "variable.hpp"
+#include <algorithm>
 #include <vector>
 #include <optional>
 #include <unordered_map>

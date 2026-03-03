@@ -41,7 +41,6 @@ defmodule AetheriumServer.Protocol do
   @type_float32 0x04
   @type_float64 0x05
   @type_string 0x06
-  @type_binary 0x07
 
   @device_desktop 0x01
   @device_esp32 0x02
@@ -239,12 +238,13 @@ defmodule AetheriumServer.Protocol do
 
   defp decode_payload(:hello, <<version::8, device_type::8, caps::32-big, rest::binary>>) do
     with {:ok, device_id, _rest} <- decode_string(rest) do
-      {:ok, %{
-        protocol_version: version,
-        device_type: byte_to_device_type(device_type),
-        capabilities: caps,
-        device_id: device_id
-      }}
+      {:ok,
+       %{
+         protocol_version: version,
+         device_type: byte_to_device_type(device_type),
+         capabilities: caps,
+         device_id: device_id
+       }}
     end
   end
 
@@ -298,7 +298,8 @@ defmodule AetheriumServer.Protocol do
   defp encode_value(true), do: <<@type_bool::8, 1::8>>
   defp encode_value(false), do: <<@type_bool::8, 0::8>>
 
-  defp encode_value(value) when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647 do
+  defp encode_value(value)
+       when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647 do
     <<@type_int32::8, value::32-big-signed>>
   end
 
@@ -319,10 +320,18 @@ defmodule AetheriumServer.Protocol do
   defp decode_value(<<@type_null::8, rest::binary>>), do: {:ok, nil, rest}
   defp decode_value(<<@type_bool::8, 0::8, rest::binary>>), do: {:ok, false, rest}
   defp decode_value(<<@type_bool::8, 1::8, rest::binary>>), do: {:ok, true, rest}
-  defp decode_value(<<@type_int32::8, value::32-big-signed, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_int64::8, value::64-big-signed, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_float32::8, value::32-float-big, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_float64::8, value::64-float-big, rest::binary>>), do: {:ok, value, rest}
+
+  defp decode_value(<<@type_int32::8, value::32-big-signed, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_int64::8, value::64-big-signed, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_float32::8, value::32-float-big, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_float64::8, value::64-float-big, rest::binary>>),
+    do: {:ok, value, rest}
 
   defp decode_value(<<@type_string::8, rest::binary>>), do: decode_string(rest)
   defp decode_value(_), do: {:error, :invalid_value}
@@ -359,10 +368,15 @@ defmodule AetheriumServer.Protocol do
     trans_count = map_size(transitions)
     var_count = length(variables)
 
-    header = <<name_bin::binary, version_bin::binary, state_count::16-big, trans_count::16-big, var_count::16-big>>
+    header =
+      <<name_bin::binary, version_bin::binary, state_count::16-big, trans_count::16-big,
+        var_count::16-big>>
 
     states_bin = states |> Enum.map(fn {_id, state} -> encode_state(state) end) |> Enum.join()
-    trans_bin = transitions |> Enum.map(fn {_id, trans} -> encode_transition(trans) end) |> Enum.join()
+
+    trans_bin =
+      transitions |> Enum.map(fn {_id, trans} -> encode_transition(trans) end) |> Enum.join()
+
     vars_bin = variables |> Enum.map(&encode_variable_spec/1) |> Enum.join()
 
     <<header::binary, states_bin::binary, trans_bin::binary, vars_bin::binary>>
@@ -374,15 +388,16 @@ defmodule AetheriumServer.Protocol do
     type_byte = state_type_to_byte(state[:type])
 
     flags =
-      (if state[:on_enter], do: 0x01, else: 0) |||
-      (if state[:on_exit], do: 0x02, else: 0) |||
-      (if state[:on_tick], do: 0x04, else: 0)
+      if(state[:on_enter], do: 0x01, else: 0) |||
+        if(state[:on_exit], do: 0x02, else: 0) |||
+        if state[:on_tick], do: 0x04, else: 0
 
     on_enter_bin = encode_string(state[:on_enter] || "")
     on_exit_bin = encode_string(state[:on_exit] || "")
     on_tick_bin = encode_string(state[:on_tick] || "")
 
-    <<id_bin::binary, name_bin::binary, type_byte::8, flags::8, on_enter_bin::binary, on_exit_bin::binary, on_tick_bin::binary>>
+    <<id_bin::binary, name_bin::binary, type_byte::8, flags::8, on_enter_bin::binary,
+      on_exit_bin::binary, on_tick_bin::binary>>
   end
 
   defp encode_transition(trans) do
@@ -395,10 +410,12 @@ defmodule AetheriumServer.Protocol do
     condition_bin = encode_string(trans[:condition] || "")
     timed_bin = encode_timed_config(trans[:timed])
 
-    <<id_bin::binary, from_bin::binary, to_bin::binary, type_byte::8, priority::16-big-signed, weight::16-big, condition_bin::binary, timed_bin::binary>>
+    <<id_bin::binary, from_bin::binary, to_bin::binary, type_byte::8, priority::16-big-signed,
+      weight::16-big, condition_bin::binary, timed_bin::binary>>
   end
 
   defp encode_timed_config(nil), do: <<0::8>>
+
   defp encode_timed_config(config) do
     mode_byte = timed_mode_to_byte(config[:mode])
     delay_ms = config[:delay_ms] || 0
@@ -459,20 +476,19 @@ defmodule AetheriumServer.Protocol do
   # CRC16 Calculation (CCITT)
   # ============================================================================
 
-  @crc_table (
-    for i <- 0..255 do
-      crc = bsl(i, 8)
-      Enum.reduce(0..7, crc, fn _, acc ->
-        if band(acc, 0x8000) != 0 do
-          bxor(bsl(acc, 1), 0x1021)
-        else
-          bsl(acc, 1)
-        end
-        |> band(0xFFFF)
-      end)
-    end
-    |> List.to_tuple()
-  )
+  @crc_table (for i <- 0..255 do
+                crc = bsl(i, 8)
+
+                Enum.reduce(0..7, crc, fn _, acc ->
+                  if band(acc, 0x8000) != 0 do
+                    bxor(bsl(acc, 1), 0x1021)
+                  else
+                    bsl(acc, 1)
+                  end
+                  |> band(0xFFFF)
+                end)
+              end)
+             |> List.to_tuple()
 
   defp crc16(data) when is_binary(data) do
     data

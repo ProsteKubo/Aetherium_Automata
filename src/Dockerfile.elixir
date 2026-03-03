@@ -1,6 +1,7 @@
 FROM docker.io/elixir:1.19-alpine
 
-RUN apk add --no-cache inotify-tools
+# Runtime deps for dev reload + native deps (e.g. circuits_uart NIF build).
+RUN apk add --no-cache inotify-tools build-base linux-headers
 
 WORKDIR /app
 

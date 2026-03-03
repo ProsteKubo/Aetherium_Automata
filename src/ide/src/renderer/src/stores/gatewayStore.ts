@@ -11,6 +11,7 @@ import type {
   GatewayStatus,
   Server,
   Device,
+  ConnectorStatus,
   ServerId,
   DeviceId,
 } from '../types';
@@ -30,6 +31,7 @@ interface GatewayState {
   // Data
   servers: Map<ServerId, Server>;
   devices: Map<DeviceId, Device>;
+  connectors: Map<string, ConnectorStatus>;
   
   // Loading states
   isConnecting: boolean;
@@ -84,6 +86,7 @@ const initialState: Omit<GatewayState, 'service' | 'useMockService'> = {
   error: null,
   servers: new Map(),
   devices: new Map(),
+  connectors: new Map(),
   isConnecting: false,
   isLoadingServers: false,
   isLoadingDevices: false,
@@ -218,6 +221,31 @@ export const useGatewayStore = create<GatewayStore>()(
             });
           });
         }));
+
+        gatewayEventUnsubscribers.push(service.on('onConnectorStatus', (event) => {
+          set((state) => {
+            const nextConnectors = new Map(state.connectors);
+            const serverId = (event.server_id ?? event.serverId ?? 'default_server') as ServerId;
+            const tsRaw = event.timestamp;
+            const timestamp =
+              typeof tsRaw === 'number'
+                ? tsRaw
+                : typeof tsRaw === 'string'
+                  ? Date.parse(tsRaw)
+                  : Date.now();
+
+            event.connectors.forEach((connector) => {
+              const key = `${serverId}:${connector.id}`;
+              nextConnectors.set(key, {
+                ...connector,
+                serverId,
+                timestamp: Number.isNaN(timestamp) ? Date.now() : timestamp,
+              });
+            });
+
+            state.connectors = nextConnectors;
+          });
+        }));
         
         const response = await service.connect(config);
         
@@ -254,6 +282,7 @@ export const useGatewayStore = create<GatewayStore>()(
           state.sessionId = null;
           state.servers = new Map();
           state.devices = new Map();
+          state.connectors = new Map();
         });
       }
     },
@@ -375,6 +404,7 @@ export const useGatewayStore = create<GatewayStore>()(
         clearGatewayEventSubscriptions();
         state.useMockService = useMock;
         state.service = useMock ? new MockGatewayService() : new PhoenixGatewayService();
+        state.connectors = new Map();
       });
     },
     
@@ -391,6 +421,7 @@ export const useGatewayStore = create<GatewayStore>()(
         state.error = initialState.error;
         state.servers = new Map();
         state.devices = new Map();
+        state.connectors = new Map();
         state.isConnecting = initialState.isConnecting;
         state.isLoadingServers = initialState.isLoadingServers;
         state.isLoadingDevices = initialState.isLoadingDevices;
@@ -406,6 +437,7 @@ export const useGatewayStore = create<GatewayStore>()(
 export const selectIsConnected = (state: GatewayStore) => state.status === 'connected';
 export const selectServers = (state: GatewayStore) => Array.from(state.servers.values());
 export const selectDevices = (state: GatewayStore) => Array.from(state.devices.values());
+export const selectConnectors = (state: GatewayStore) => Array.from(state.connectors.values());
 export const selectDeviceById = (deviceId: DeviceId) => (state: GatewayStore) => 
   state.devices.get(deviceId);
 export const selectServerById = (serverId: ServerId) => (state: GatewayStore) => 

@@ -75,27 +75,58 @@ defmodule AetheriumServer.EngineProtocol do
     end
   end
 
-  def encode(:hello_ack, %{message_id: message_id, target_id: target_id, assigned_id: assigned_id, server_time: server_time}) do
+  def encode(:hello_ack, %{
+        message_id: message_id,
+        target_id: target_id,
+        assigned_id: assigned_id,
+        server_time: server_time
+      }) do
     payload =
       <<message_id::32, 0::32, target_id::32, assigned_id::32, server_time::64, 1::8, 0::16>>
 
     {:ok, frame(@mt_hello_ack, payload)}
   end
 
-  def encode(:load_automata, %{message_id: message_id, target_id: target_id, run_id: run_id, yaml: yaml}) when is_binary(yaml) do
-    format_yaml = 0x02
-    is_chunked = 0
-    chunk_index = 0
-    total_chunks = 1
-    start_after_load = 0
-    replace_existing = 1
+  def encode(
+        :load_automata,
+        %{message_id: message_id, target_id: target_id, run_id: run_id, yaml: yaml}
+      )
+      when is_binary(yaml) do
+    encode(:load_automata, %{
+      message_id: message_id,
+      target_id: target_id,
+      run_id: run_id,
+      format: :yaml,
+      data: yaml
+    })
+  end
 
-    payload =
-      <<message_id::32, 0::32, target_id::32, run_id::32, format_yaml::8, is_chunked::8,
-        chunk_index::16, total_chunks::16, start_after_load::8, replace_existing::8,
-        byte_size(yaml)::16, yaml::binary>>
+  def encode(
+        :load_automata,
+        %{message_id: message_id, target_id: target_id, run_id: run_id, data: data} = payload
+      )
+      when is_binary(data) do
+    with {:ok, format_byte} <- encode_automata_format(payload[:format] || :yaml) do
+      is_chunked = encode_bool(payload[:is_chunked], false)
+      chunk_index = payload[:chunk_index] || 0
+      total_chunks = payload[:total_chunks] || 1
+      start_after_load = encode_bool(payload[:start_after_load], false)
+      replace_existing = encode_bool(payload[:replace_existing], true)
+      data_size = byte_size(data)
 
-    {:ok, frame(@mt_load_automata, payload)}
+      with :ok <- validate_u16(chunk_index, :chunk_index),
+           :ok <- validate_u16(total_chunks, :total_chunks),
+           :ok <- validate_u16(data_size, :data_size),
+           :ok <- validate_load_payload_size(data_size),
+           :ok <- validate_chunking(is_chunked, chunk_index, total_chunks) do
+        encoded_payload =
+          <<message_id::32, 0::32, target_id::32, run_id::32, format_byte::8, is_chunked::8,
+            chunk_index::16, total_chunks::16, start_after_load::8, replace_existing::8,
+            data_size::16, data::binary>>
+
+        {:ok, frame(@mt_load_automata, encoded_payload)}
+      end
+    end
   end
 
   def encode(:start, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
@@ -116,7 +147,10 @@ defmodule AetheriumServer.EngineProtocol do
   end
 
   def encode(:status, %{message_id: message_id, target_id: target_id, run_id: run_id}) do
-    payload = <<message_id::32, 0::32, target_id::32, run_id::32, 0::8, 0::16, 0::64, 0::64, 0::64, 0::32>>
+    payload =
+      <<message_id::32, 0::32, target_id::32, run_id::32, 0::8, 0::16, 0::64, 0::64, 0::64,
+        0::32>>
+
     {:ok, frame(@mt_status, payload)}
   end
 
@@ -130,12 +164,20 @@ defmodule AetheriumServer.EngineProtocol do
     {:ok, frame(@mt_resume, payload)}
   end
 
-  def encode(:input, %{message_id: message_id, target_id: target_id, run_id: run_id, name: name, value: value}) when is_binary(name) do
+  def encode(:input, %{
+        message_id: message_id,
+        target_id: target_id,
+        run_id: run_id,
+        name: name,
+        value: value
+      })
+      when is_binary(name) do
     var_id = 0
     {value_type, value_bin} = encode_value(value)
+
     payload =
-      <<message_id::32, 0::32, target_id::32, run_id::32, var_id::16, byte_size(name)::16, name::binary,
-        value_type::8, value_bin::binary>>
+      <<message_id::32, 0::32, target_id::32, run_id::32, var_id::16, byte_size(name)::16,
+        name::binary, value_type::8, value_bin::binary>>
 
     {:ok, frame(@mt_input, payload)}
   end
@@ -152,7 +194,11 @@ defmodule AetheriumServer.EngineProtocol do
 
   defp decode_frame(_), do: {:error, :invalid_frame}
 
-  defp decode_payload(@mt_hello, <<message_id::32, source_id::32, _target_id::32, device_type::8, vmaj::8, vmin::8, vpatch::8, caps::16, name_len::16, name::binary-size(name_len)>>) do
+  defp decode_payload(
+         @mt_hello,
+         <<message_id::32, source_id::32, _target_id::32, device_type::8, vmaj::8, vmin::8,
+           vpatch::8, caps::16, name_len::16, name::binary-size(name_len)>>
+       ) do
     {:ok, :hello,
      %{
        message_id: message_id,
@@ -164,31 +210,67 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
-  defp decode_payload(@mt_discover, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+  defp decode_payload(
+         @mt_discover,
+         <<message_id::32, source_id::32, target_id::32, _rest::binary>>
+       ) do
     {:ok, :discover, %{message_id: message_id, source_id: source_id, target_id: target_id}}
   end
 
-  defp decode_payload(@mt_load_ack, <<message_id::32, source_id::32, _target_id::32, run_id::32, success::8, err_len::16, err::binary-size(err_len), warn_count::16, rest::binary>>) do
+  defp decode_payload(
+         @mt_load_ack,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, success::8, err_len::16,
+           err::binary-size(err_len), warn_count::16, rest::binary>>
+       ) do
     {warnings, _} = decode_string_list(rest, warn_count, [])
 
     {:ok, :load_ack,
-     %{message_id: message_id, source_id: source_id, run_id: run_id, success: success != 0, error: err, warnings: warnings}}
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       run_id: run_id,
+       success: success != 0,
+       error: err,
+       warnings: warnings
+     }}
   end
 
-  defp decode_payload(@mt_goodbye, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+  defp decode_payload(
+         @mt_goodbye,
+         <<message_id::32, source_id::32, target_id::32, _rest::binary>>
+       ) do
     {:ok, :goodbye, %{message_id: message_id, source_id: source_id, target_id: target_id}}
   end
 
-  defp decode_payload(@mt_provision, <<message_id::32, source_id::32, target_id::32, _rest::binary>>) do
+  defp decode_payload(
+         @mt_provision,
+         <<message_id::32, source_id::32, target_id::32, _rest::binary>>
+       ) do
     {:ok, :provision, %{message_id: message_id, source_id: source_id, target_id: target_id}}
   end
 
-  defp decode_payload(@mt_state_change, <<message_id::32, source_id::32, _target_id::32, run_id::32, prev::16, new::16, fired::16, ts::64>>) do
+  defp decode_payload(
+         @mt_state_change,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, prev::16, new::16,
+           fired::16, ts::64>>
+       ) do
     {:ok, :state_change,
-     %{message_id: message_id, source_id: source_id, run_id: run_id, previous_state: prev, new_state: new, fired_transition: fired, timestamp: ts}}
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       run_id: run_id,
+       previous_state: prev,
+       new_state: new,
+       fired_transition: fired,
+       timestamp: ts
+     }}
   end
 
-  defp decode_payload(@mt_status, <<message_id::32, source_id::32, _target_id::32, run_id::32, execution_state::8, current_state::16, uptime::64, transition_count::64, tick_count::64, error_count::32>>) do
+  defp decode_payload(
+         @mt_status,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, execution_state::8,
+           current_state::16, uptime::64, transition_count::64, tick_count::64, error_count::32>>
+       ) do
     {:ok, :status,
      %{
        message_id: message_id,
@@ -203,27 +285,55 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
-  defp decode_payload(@mt_output, <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16, name::binary-size(name_len), rest::binary>>) do
+  defp decode_payload(
+         @mt_output,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16,
+           name::binary-size(name_len), rest::binary>>
+       ) do
     with {:ok, value, rest2} <- decode_value(rest),
          <<ts::64>> <- rest2 do
       {:ok, :output,
-       %{message_id: message_id, source_id: source_id, run_id: run_id, variable_id: var_id, name: name, value: value, timestamp: ts}}
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         run_id: run_id,
+         variable_id: var_id,
+         name: name,
+         value: value,
+         timestamp: ts
+       }}
     else
       _ -> {:error, :invalid_output}
     end
   end
 
-  defp decode_payload(@mt_variable, <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16, name::binary-size(name_len), rest::binary>>) do
+  defp decode_payload(
+         @mt_variable,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, var_id::16, name_len::16,
+           name::binary-size(name_len), rest::binary>>
+       ) do
     with {:ok, value, rest2} <- decode_value(rest),
          <<ts::64>> <- rest2 do
       {:ok, :variable,
-       %{message_id: message_id, source_id: source_id, run_id: run_id, variable_id: var_id, name: name, value: value, timestamp: ts}}
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         run_id: run_id,
+         variable_id: var_id,
+         name: name,
+         value: value,
+         timestamp: ts
+       }}
     else
       _ -> {:error, :invalid_variable}
     end
   end
 
-  defp decode_payload(@mt_telemetry, <<message_id::32, source_id::32, _target_id::32, run_id::32, ts::64, heap_free::32, heap_total::32, cpu_fixed::16, tick_rate::32, var_count::16, rest::binary>>) do
+  defp decode_payload(
+         @mt_telemetry,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, ts::64, heap_free::32,
+           heap_total::32, cpu_fixed::16, tick_rate::32, var_count::16, rest::binary>>
+       ) do
     {vars, _} = decode_var_snapshot(rest, var_count, [])
 
     {:ok, :telemetry,
@@ -240,7 +350,10 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
-  defp decode_payload(@mt_transition_fired, <<message_id::32, source_id::32, _target_id::32, run_id::32, transition_id::16, ts::64>>) do
+  defp decode_payload(
+         @mt_transition_fired,
+         <<message_id::32, source_id::32, _target_id::32, run_id::32, transition_id::16, ts::64>>
+       ) do
     {:ok, :transition_fired,
      %{
        message_id: message_id,
@@ -252,15 +365,36 @@ defmodule AetheriumServer.EngineProtocol do
   end
 
   defp decode_payload(@mt_ping, <<message_id::32, source_id::32, target_id::32, ts::64, seq::32>>) do
-    {:ok, :ping, %{message_id: message_id, source_id: source_id, target_id: target_id, timestamp: ts, sequence: seq}}
+    {:ok, :ping,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       target_id: target_id,
+       timestamp: ts,
+       sequence: seq
+     }}
   end
 
-  defp decode_payload(@mt_pong, <<message_id::32, source_id::32, target_id::32, orig_ts::64, resp_ts::64, seq::32>>) do
+  defp decode_payload(
+         @mt_pong,
+         <<message_id::32, source_id::32, target_id::32, orig_ts::64, resp_ts::64, seq::32>>
+       ) do
     {:ok, :pong,
-     %{message_id: message_id, source_id: source_id, target_id: target_id, original_timestamp: orig_ts, response_timestamp: resp_ts, sequence: seq}}
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       target_id: target_id,
+       original_timestamp: orig_ts,
+       response_timestamp: resp_ts,
+       sequence: seq
+     }}
   end
 
-  defp decode_payload(@mt_error, <<message_id::32, source_id::32, _target_id::32, code::16, msg_len::16, msg::binary-size(msg_len), has_run_id::8, rest::binary>>) do
+  defp decode_payload(
+         @mt_error,
+         <<message_id::32, source_id::32, _target_id::32, code::16, msg_len::16,
+           msg::binary-size(msg_len), has_run_id::8, rest::binary>>
+       ) do
     with {:ok, run_id, rest2} <- decode_optional_u32(rest, has_run_id),
          <<has_related::8, rest3::binary>> <- rest2,
          {:ok, related_message_id, _rest4} <- decode_optional_u32(rest3, has_related) do
@@ -278,11 +412,27 @@ defmodule AetheriumServer.EngineProtocol do
     end
   end
 
-  defp decode_payload(@mt_debug, <<message_id::32, source_id::32, _target_id::32, level::8, src_len::16, src::binary-size(src_len), msg_len::16, msg::binary-size(msg_len), ts::64>>) do
-    {:ok, :debug, %{message_id: message_id, source_id: source_id, level: level, source: src, message: msg, timestamp: ts}}
+  defp decode_payload(
+         @mt_debug,
+         <<message_id::32, source_id::32, _target_id::32, level::8, src_len::16,
+           src::binary-size(src_len), msg_len::16, msg::binary-size(msg_len), ts::64>>
+       ) do
+    {:ok, :debug,
+     %{
+       message_id: message_id,
+       source_id: source_id,
+       level: level,
+       source: src,
+       message: msg,
+       timestamp: ts
+     }}
   end
 
-  defp decode_payload(@mt_ack, <<message_id::32, source_id::32, target_id::32, related_message_id::32, info_len::16, info::binary-size(info_len)>>) do
+  defp decode_payload(
+         @mt_ack,
+         <<message_id::32, source_id::32, target_id::32, related_message_id::32, info_len::16,
+           info::binary-size(info_len)>>
+       ) do
     {:ok, :ack,
      %{
        message_id: message_id,
@@ -293,7 +443,11 @@ defmodule AetheriumServer.EngineProtocol do
      }}
   end
 
-  defp decode_payload(@mt_nak, <<message_id::32, source_id::32, target_id::32, related_message_id::32, reason_code::16, reason_len::16, reason::binary-size(reason_len)>>) do
+  defp decode_payload(
+         @mt_nak,
+         <<message_id::32, source_id::32, target_id::32, related_message_id::32, reason_code::16,
+           reason_len::16, reason::binary-size(reason_len)>>
+       ) do
     {:ok, :nak,
      %{
        message_id: message_id,
@@ -310,6 +464,13 @@ defmodule AetheriumServer.EngineProtocol do
   defp frame(type, payload) do
     <<@magic::16, @version::8, type::8, byte_size(payload)::16, payload::binary>>
   end
+
+  defp encode_automata_format(:binary), do: {:ok, 0x01}
+  defp encode_automata_format(:aeth_ir_v1), do: {:ok, 0x01}
+  defp encode_automata_format(:yaml), do: {:ok, 0x02}
+  defp encode_automata_format(:json), do: {:ok, 0x03}
+  defp encode_automata_format(:messagepack), do: {:ok, 0x04}
+  defp encode_automata_format(other), do: {:error, {:unsupported_automata_format, other}}
 
   defp encode_value(nil), do: {@vf_void, <<>>}
   defp encode_value(true), do: {@vf_bool, <<1::8>>}
@@ -342,8 +503,13 @@ defmodule AetheriumServer.EngineProtocol do
   defp decode_value(<<@vf_i64::8, v::signed-64, rest::binary>>), do: {:ok, v, rest}
   defp decode_value(<<@vf_f32::8, v::float-32, rest::binary>>), do: {:ok, v, rest}
   defp decode_value(<<@vf_f64::8, v::float-64, rest::binary>>), do: {:ok, v, rest}
-  defp decode_value(<<@vf_string::8, len::16, s::binary-size(len), rest::binary>>), do: {:ok, s, rest}
-  defp decode_value(<<@vf_binary::8, len::16, b::binary-size(len), rest::binary>>), do: {:ok, b, rest}
+
+  defp decode_value(<<@vf_string::8, len::16, s::binary-size(len), rest::binary>>),
+    do: {:ok, s, rest}
+
+  defp decode_value(<<@vf_binary::8, len::16, b::binary-size(len), rest::binary>>),
+    do: {:ok, b, rest}
+
   defp decode_value(_), do: {:error, :invalid_value}
 
   defp decode_string_list(rest, 0, acc), do: {Enum.reverse(acc), rest}
@@ -366,4 +532,44 @@ defmodule AetheriumServer.EngineProtocol do
   defp decode_optional_u32(rest, 0), do: {:ok, nil, rest}
   defp decode_optional_u32(<<value::32, rest::binary>>, 1), do: {:ok, value, rest}
   defp decode_optional_u32(_rest, _flag), do: {:error, :invalid_optional_u32}
+
+  defp encode_bool(value, default) do
+    normalized =
+      case value do
+        nil -> default
+        v when v in [true, 1, "1", "true", true] -> true
+        _ -> false
+      end
+
+    if normalized, do: 1, else: 0
+  end
+
+  defp validate_u16(value, _field) when is_integer(value) and value >= 0 and value <= 65_535,
+    do: :ok
+
+  defp validate_u16(_value, field), do: {:error, {:invalid_u16, field}}
+
+  defp validate_chunking(is_chunked, chunk_index, total_chunks) do
+    cond do
+      total_chunks == 0 ->
+        {:error, {:invalid_chunking, :total_chunks}}
+
+      is_chunked == 0 and total_chunks == 1 and chunk_index == 0 ->
+        :ok
+
+      is_chunked == 1 and chunk_index < total_chunks ->
+        :ok
+
+      true ->
+        {:error, {:invalid_chunking, :fields}}
+    end
+  end
+
+  defp validate_load_payload_size(data_size) when is_integer(data_size) do
+    if data_size + 26 <= 65_535 do
+      :ok
+    else
+      {:error, {:payload_too_large, :load_automata}}
+    end
+  end
 end

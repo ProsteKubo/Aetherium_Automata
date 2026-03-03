@@ -154,6 +154,48 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   end
 
   @impl true
+  def handle_in("deployment_transfer", payload, socket) do
+    server_payload = Map.put(payload, "server_id", socket.assigns.server_id)
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "deployment_transfer",
+      server_payload
+    )
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "deployment_transfer",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_in("connector_status", %{"connectors" => connectors} = payload, socket)
+      when is_list(connectors) do
+    server_payload =
+      payload
+      |> Map.put("server_id", socket.assigns.server_id)
+      |> Map.put("timestamp", payload["timestamp"] || DateTime.utc_now())
+
+    Persistence.append_event(%{
+      kind: "connector_status",
+      source: "server_channel",
+      data: server_payload
+    })
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "connector_status",
+      server_payload
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_in("device_log", payload, socket) do
     AetheriumGatewayWeb.Endpoint.broadcast!(
       "gateway:control",

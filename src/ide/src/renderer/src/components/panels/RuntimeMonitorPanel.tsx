@@ -3,7 +3,7 @@ import ReactFlow, { Background, BackgroundVariant, Edge, MiniMap, Node } from 'r
 import 'reactflow/dist/style.css';
 import { useAutomataStore, useGatewayStore, useRuntimeViewStore } from '../../stores';
 import { StateNode } from '../editor/StateNode';
-import type { RuntimeRenderFrame } from '../../types/runtimeView';
+import type { RuntimeDeploymentTransfer, RuntimeRenderFrame } from '../../types/runtimeView';
 
 type DisplayItem = {
   id: string;
@@ -39,13 +39,21 @@ function sameSelection(a: string[], b: string[]): boolean {
   return a.length === b.length && a.every((id, idx) => id === b[idx]);
 }
 
+function humanizeTransferStage(stage: string): string {
+  return stage
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+}
+
 function RuntimeGraphCard({
   item,
   frame,
+  transfer,
   now,
 }: {
   item: DisplayItem;
   frame?: RuntimeRenderFrame;
+  transfer?: RuntimeDeploymentTransfer;
   now: number;
 }) {
   const automata = useAutomataStore((state) => state.automata.get(item.automataId as any));
@@ -111,6 +119,20 @@ function RuntimeGraphCard({
           </span>
         )}
       </div>
+      {transfer && (
+        <div className={`runtime-transfer runtime-transfer-${transfer.status}`}>
+          <div className="runtime-transfer-meta">
+            <span>{humanizeTransferStage(transfer.stage)}</span>
+            <span>{Math.round(transfer.progressPercent)}%</span>
+          </div>
+          <div className="runtime-transfer-track">
+            <div
+              className="runtime-transfer-fill"
+              style={{ width: `${Math.round(transfer.progressPercent)}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="runtime-flow">
         <ReactFlow
           nodes={nodes}
@@ -141,6 +163,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const scope = useRuntimeViewStore((state) => state.scope);
   const setScope = useRuntimeViewStore((state) => state.setScope);
   const deploymentsMap = useRuntimeViewStore((state) => state.deployments);
+  const transfersMap = useRuntimeViewStore((state) => state.transfers);
   const selectedIds = useRuntimeViewStore((state) => state.selectedDeploymentIds);
   const toggleSelection = useRuntimeViewStore((state) => state.toggleSelection);
   const setSelected = useRuntimeViewStore((state) => state.setSelected);
@@ -258,22 +281,40 @@ export const RuntimeMonitorPanel: React.FC = () => {
           {displayItems.length === 0 ? (
             <div className="runtime-empty">No automata/deployments to visualize.</div>
           ) : (
-            displayItems.map((item) => (
-              <label key={item.id} className="runtime-item">
-                <input
-                  type="checkbox"
-                  checked={selectedIds.includes(item.id)}
-                  onChange={(e) => toggleSelection(item.id, e.target.checked)}
-                />
-                <div className="runtime-item-content">
-                  <div className="runtime-item-label">{item.label}</div>
-                  <div className="runtime-item-meta">
-                    <span className={`runtime-status status-${item.status}`}>{item.status}</span>
-                    {item.currentState && <span className="runtime-state">{item.currentState}</span>}
+            displayItems.map((item) => {
+              const transfer = item.deploymentId ? transfersMap.get(item.deploymentId) : undefined;
+
+              return (
+                <label key={item.id} className="runtime-item">
+                  <input
+                    type="checkbox"
+                    checked={selectedIds.includes(item.id)}
+                    onChange={(e) => toggleSelection(item.id, e.target.checked)}
+                  />
+                  <div className="runtime-item-content">
+                    <div className="runtime-item-label">{item.label}</div>
+                    <div className="runtime-item-meta">
+                      <span className={`runtime-status status-${item.status}`}>{item.status}</span>
+                      {item.currentState && <span className="runtime-state">{item.currentState}</span>}
+                    </div>
+                    {transfer && (
+                      <div className="runtime-item-transfer">
+                        <div className="runtime-item-transfer-meta">
+                          <span>{humanizeTransferStage(transfer.stage)}</span>
+                          <span>{Math.round(transfer.progressPercent)}%</span>
+                        </div>
+                        <div className="runtime-item-transfer-track">
+                          <div
+                            className="runtime-item-transfer-fill"
+                            style={{ width: `${Math.round(transfer.progressPercent)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              </label>
-            ))
+                </label>
+              );
+            })
           )}
         </aside>
 
@@ -287,6 +328,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
                 item={item}
                 now={now}
                 frame={item.deploymentId ? renderFrames.get(item.deploymentId) : undefined}
+                transfer={item.deploymentId ? transfersMap.get(item.deploymentId) : undefined}
               />
             ))
           )}

@@ -297,6 +297,15 @@ export interface TimeTravelSession {
   isReplaying: boolean;
   replaySpeed: number;
   currentReplayIndex: number;
+  timelineSource?: string;
+  timelineBackendError?: string;
+  lastRewindSource?: string;
+  lastRewindBackendError?: string;
+  lastRewindEventsReplayed?: number;
+  lastRewindRequestedTimestamp?: number;
+  lastRewindStateFingerprint?: string;
+  lastRewindEventCursorStart?: number;
+  lastRewindEventCursorEnd?: number;
 }
 
 // ============================================================================
@@ -324,6 +333,10 @@ export interface Device {
   serverId: ServerId;
   address: string;
   port: number;
+  connectorId?: string;
+  connectorType?: string;
+  transport?: string;
+  link?: string;
   
   // Status
   status: DeviceStatus;
@@ -350,6 +363,16 @@ export interface Device {
   // Visual
   position?: { x: number; y: number };
   icon?: string;
+}
+
+export interface ConnectorStatus {
+  id: string;
+  type: string;
+  status: 'running' | 'stopped' | 'disabled' | 'unknown';
+  enabled: boolean;
+  pid?: string;
+  serverId?: ServerId;
+  timestamp?: number;
 }
 
 // ============================================================================

@@ -1,6 +1,6 @@
 defmodule AetheriumServer.ProtocolTest do
   use ExUnit.Case, async: true
-  
+
   alias AetheriumServer.Protocol
 
   describe "server-side encoding" do

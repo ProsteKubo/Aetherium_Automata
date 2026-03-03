@@ -1,7 +1,7 @@
 defmodule AetheriumServer.AutomataRuntime do
   @moduledoc """
   Runtime execution of automata FSM with weighted/probabilistic transition support.
-  
+
   Handles:
   - FSM state execution and transitions
   - Weighted/probabilistic transition selection
@@ -21,19 +21,19 @@ defmodule AetheriumServer.AutomataRuntime do
   # ============================================================================
 
   @type state :: %{
-    deployment_id: String.t(),
-    automata: map(),
-    current_state: String.t(),
-    variables: map(),
-    inputs: map(),
-    outputs: map(),
-    timers: %{String.t() => reference()},
-    running: boolean(),
-    tick_interval: integer(),
-    tick_ref: reference() | nil,
-    transition_stats: %{String.t() => integer()},
-    rng: :rand.state()
-  }
+          deployment_id: String.t(),
+          automata: map(),
+          current_state: String.t(),
+          variables: map(),
+          inputs: map(),
+          outputs: map(),
+          timers: %{String.t() => reference()},
+          running: boolean(),
+          tick_interval: integer(),
+          tick_ref: reference() | nil,
+          transition_stats: %{String.t() => integer()},
+          rng: :rand.state()
+        }
 
   @default_tick_interval 100
 
@@ -174,15 +174,16 @@ defmodule AetheriumServer.AutomataRuntime do
     variables = initialize_variables(state.automata[:variables] || [])
     {inputs, outputs} = separate_io(state.automata[:variables] || [])
 
-    new_state = %{state |
-      current_state: initial_state,
-      variables: variables,
-      inputs: inputs,
-      outputs: outputs,
-      timers: %{},
-      running: false,
-      tick_ref: nil,
-      transition_stats: %{}
+    new_state = %{
+      state
+      | current_state: initial_state,
+        variables: variables,
+        inputs: inputs,
+        outputs: outputs,
+        timers: %{},
+        running: false,
+        tick_ref: nil,
+        transition_stats: %{}
     }
 
     Logger.info("Automata #{state.deployment_id} reset to #{initial_state}")
@@ -294,7 +295,9 @@ defmodule AetheriumServer.AutomataRuntime do
           if transition[:from] == state.current_state do
             # Check condition if any
             if evaluate_condition(transition[:condition], new_state) do
-              final_state = do_transition(state.current_state, transition[:to], transition_id, new_state)
+              final_state =
+                do_transition(state.current_state, transition[:to], transition_id, new_state)
+
               {:noreply, final_state}
             else
               {:noreply, new_state}
@@ -321,7 +324,8 @@ defmodule AetheriumServer.AutomataRuntime do
       transitions
       |> Enum.filter(&(&1[:type] in [:classic, :immediate, nil]))
       |> Enum.filter(&evaluate_condition(&1[:condition], state))
-      |> Enum.sort_by(&(-(&1[:priority] || 0)))  # Higher priority first
+      # Higher priority first
+      |> Enum.sort_by(&(-(&1[:priority] || 0)))
 
     if Enum.empty?(condition_transitions) do
       state
@@ -345,8 +349,8 @@ defmodule AetheriumServer.AutomataRuntime do
     |> Map.values()
     |> Enum.filter(fn t ->
       t[:from] == state_id &&
-      t[:type] == :event &&
-      t[:event] == event_name
+        t[:type] == :event &&
+        t[:event] == event_name
     end)
   end
 
@@ -498,7 +502,9 @@ defmodule AetheriumServer.AutomataRuntime do
 
     Enum.reduce(transition_ids, state, fn tid, acc ->
       case Map.get(acc.timers, tid) do
-        nil -> acc
+        nil ->
+          acc
+
         ref ->
           Process.cancel_timer(ref)
           update_in(acc, [:timers], &Map.delete(&1, tid))
@@ -512,7 +518,9 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp execute_on_enter(state_id, state) do
     case get_state_def(state_id, state) do
-      nil -> state
+      nil ->
+        state
+
       state_def ->
         case state_def[:on_enter] do
           nil -> state
@@ -523,7 +531,9 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp execute_on_exit(state_id, state) do
     case get_state_def(state_id, state) do
-      nil -> state
+      nil ->
+        state
+
       state_def ->
         case state_def[:on_exit] do
           nil -> state
@@ -534,7 +544,9 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp execute_on_tick(state_id, state) do
     case get_state_def(state_id, state) do
-      nil -> state
+      nil ->
+        state
+
       state_def ->
         case state_def[:on_tick] do
           nil -> state
@@ -674,8 +686,11 @@ defmodule AetheriumServer.AutomataRuntime do
         String.to_float(str)
 
       # Boolean
-      str == "true" -> true
-      str == "false" -> false
+      str == "true" ->
+        true
+
+      str == "false" ->
+        false
 
       # String literal
       String.starts_with?(str, "\"") && String.ends_with?(str, "\"") ->

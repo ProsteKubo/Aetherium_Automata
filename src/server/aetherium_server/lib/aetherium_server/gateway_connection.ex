@@ -54,7 +54,8 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
-  def handle_cast({:report_devices, devices}, %{channel: channel} = state) when not is_nil(channel) do
+  def handle_cast({:report_devices, devices}, %{channel: channel} = state)
+      when not is_nil(channel) do
     PhoenixClient.Channel.push_async(channel, "device_update", %{"devices" => devices})
     {:noreply, state}
   end
@@ -70,7 +71,8 @@ defmodule AetheriumServer.GatewayConnection do
   def handle_cast({:report_alert, _alert}, state), do: {:noreply, state}
 
   @impl true
-  def handle_cast({:push, event, payload}, %{channel: channel} = state) when not is_nil(channel) do
+  def handle_cast({:push, event, payload}, %{channel: channel} = state)
+      when not is_nil(channel) do
     PhoenixClient.Channel.push_async(channel, event, payload)
     {:noreply, state}
   end
@@ -80,8 +82,12 @@ defmodule AetheriumServer.GatewayConnection do
   @impl true
   def handle_info(:send_heartbeat, %{channel: nil} = state), do: {:noreply, state}
 
-  def handle_info(:send_heartbeat, %{channel: channel, heartbeat_interval: heartbeat_interval} = state) do
+  def handle_info(
+        :send_heartbeat,
+        %{channel: channel, heartbeat_interval: heartbeat_interval} = state
+      ) do
     PhoenixClient.Channel.push(channel, "heartbeat", %{})
+    push_connector_statuses(channel)
     Process.send_after(self(), :send_heartbeat, heartbeat_interval)
     {:noreply, state}
   end
@@ -94,6 +100,7 @@ defmodule AetheriumServer.GatewayConnection do
       {:ok, _response, channel} ->
         Logger.info("Connected to gateway and joined server:gateway")
         push_current_devices(channel)
+        push_connector_statuses(channel)
         Process.send_after(self(), :send_heartbeat, state.heartbeat_interval)
         {:noreply, %{state | channel: channel}}
 
@@ -141,11 +148,11 @@ defmodule AetheriumServer.GatewayConnection do
             {:error, reason} ->
               Logger.error("Failed to deploy automata: #{inspect(reason)}")
 
-              push_to_gateway(state, "deployment_error", %{
-                automata_id: automata_id,
-                device_id: device_id,
-                error: inspect(reason)
-              })
+              push_to_gateway(
+                state,
+                "deployment_error",
+                deployment_error_payload(automata_id, device_id, reason)
+              )
 
               {:error, reason, %{}}
           end
@@ -318,9 +325,14 @@ defmodule AetheriumServer.GatewayConnection do
 
         true ->
           case AetheriumServer.DeviceManager.trigger_event(deployment_id, event_name, data) do
-            :ok -> {:ack, :ok, %{"deployment_id" => deployment_id}}
-            {:error, :unsupported_command} -> {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
-            {:error, reason} -> {:error, reason, %{"deployment_id" => deployment_id}}
+            :ok ->
+              {:ack, :ok, %{"deployment_id" => deployment_id}}
+
+            {:error, :unsupported_command} ->
+              {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
+
+            {:error, reason} ->
+              {:error, reason, %{"deployment_id" => deployment_id}}
           end
       end
 
@@ -344,9 +356,14 @@ defmodule AetheriumServer.GatewayConnection do
 
         true ->
           case AetheriumServer.DeviceManager.force_state(deployment_id, state_id) do
-            :ok -> {:ack, :ok, %{"deployment_id" => deployment_id, "state_id" => state_id}}
-            {:error, :unsupported_command} -> {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
-            {:error, reason} -> {:error, reason, %{"deployment_id" => deployment_id}}
+            :ok ->
+              {:ack, :ok, %{"deployment_id" => deployment_id, "state_id" => state_id}}
+
+            {:error, :unsupported_command} ->
+              {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
+
+            {:error, reason} ->
+              {:error, reason, %{"deployment_id" => deployment_id}}
           end
       end
 
@@ -395,10 +412,99 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
+  def handle_info(%PhoenixClient.Message{event: "time_travel_query", payload: payload}, state) do
+    {payload, envelope} = split_envelope(payload)
+    deployment_id = resolve_deployment_id(payload)
+
+    result =
+      cond do
+        is_nil(deployment_id) ->
+          {:nak, :deployment_not_found, %{}}
+
+        true ->
+          opts =
+            []
+            |> maybe_put_opt(
+              :after_ts,
+              parse_optional_non_negative_int(payload["after_ts"] || payload["from_ts"])
+            )
+            |> maybe_put_opt(
+              :before_ts,
+              parse_optional_non_negative_int(payload["before_ts"] || payload["to_ts"])
+            )
+            |> maybe_put_opt(:limit, parse_optional_positive_int(payload["limit"]))
+
+          timeline = AetheriumServer.DeviceManager.list_time_series(deployment_id, opts)
+          {:ack, :ok, %{"deployment_id" => deployment_id, "timeline" => timeline}}
+      end
+
+    push_command_outcome(state, envelope, "time_travel_query", result)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(%PhoenixClient.Message{event: "rewind_deployment", payload: payload}, state) do
+    {payload, envelope} = split_envelope(payload)
+    deployment_id = resolve_deployment_id(payload)
+
+    target_ts =
+      parse_optional_non_negative_int(
+        payload["target_timestamp"] || payload["target_ts"] || payload["timestamp"]
+      )
+
+    result =
+      cond do
+        is_nil(deployment_id) ->
+          {:nak, :deployment_not_found, %{}}
+
+        is_nil(target_ts) ->
+          {:nak, :invalid_payload, %{"reason" => "missing_target_timestamp"}}
+
+        true ->
+          case AetheriumServer.DeviceManager.rewind_deployment(deployment_id, target_ts) do
+            {:ok, rewind} ->
+              {:ack, :ok, stringify_keys(rewind)}
+
+            {:error, reason} ->
+              {:error, reason, %{"deployment_id" => deployment_id}}
+          end
+      end
+
+    push_command_outcome(state, envelope, "rewind_deployment", result)
+    {:noreply, state}
+  end
+
+  @impl true
+  def handle_info(%PhoenixClient.Message{event: "phx_error"} = message, state) do
+    Logger.warning("Gateway channel error: #{inspect(message.payload)}")
+    Process.send_after(self(), :try_join, state.join_retry_interval)
+    {:noreply, %{state | channel: nil}}
+  end
+
+  @impl true
+  def handle_info(%PhoenixClient.Message{event: "phx_close"} = message, state) do
+    Logger.warning("Gateway channel closed: #{inspect(message.payload)}")
+    Process.send_after(self(), :try_join, state.join_retry_interval)
+    {:noreply, %{state | channel: nil}}
+  end
+
+  @impl true
+  def handle_info(%PhoenixClient.Message{event: event, payload: payload}, state) do
+    Logger.debug("Ignoring gateway event #{event}: #{inspect(payload)}")
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info({:disconnected, reason, _transport_pid}, state) do
     Logger.warning("Disconnected from gateway: #{inspect(reason)}")
     Process.send_after(self(), :try_join, state.join_retry_interval)
     {:noreply, %{state | channel: nil}}
+  end
+
+  @impl true
+  def handle_info(message, state) do
+    Logger.debug("Ignoring GatewayConnection message: #{inspect(message)}")
+    {:noreply, state}
   end
 
   defp handle_set_input(payload) do
@@ -423,7 +529,8 @@ defmodule AetheriumServer.GatewayConnection do
     end
   end
 
-  defp apply_to_deployments([], _input, _value), do: {:nak, :deployment_not_found, %{"target_count" => 0}}
+  defp apply_to_deployments([], _input, _value),
+    do: {:nak, :deployment_not_found, %{"target_count" => 0}}
 
   defp apply_to_deployments(deployments, input, value) do
     {ok_count, errors} =
@@ -451,7 +558,8 @@ defmodule AetheriumServer.GatewayConnection do
     automata_id = payload["automata_id"]
 
     cond do
-      is_binary(deployment_id) and deployment_id != "" and deployment_exists?(deployment_id, device_id, automata_id) ->
+      is_binary(deployment_id) and deployment_id != "" and
+          deployment_exists?(deployment_id, device_id, automata_id) ->
         deployment_id
 
       is_binary(device_id) and device_id != "" ->
@@ -478,7 +586,8 @@ defmodule AetheriumServer.GatewayConnection do
     if is_nil(candidate_device_id) do
       false
     else
-      candidate_deployments = AetheriumServer.DeviceManager.get_device_deployments(candidate_device_id)
+      candidate_deployments =
+        AetheriumServer.DeviceManager.get_device_deployments(candidate_device_id)
 
       Enum.any?(candidate_deployments, fn deployment ->
         deployment.id == deployment_id and
@@ -506,6 +615,32 @@ defmodule AetheriumServer.GatewayConnection do
     if filtered == [], do: deployments, else: filtered
   end
 
+  defp maybe_put_opt(opts, _key, nil), do: opts
+  defp maybe_put_opt(opts, _key, ""), do: opts
+  defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp parse_optional_non_negative_int(value) when is_integer(value) and value >= 0, do: value
+
+  defp parse_optional_non_negative_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} when n >= 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_optional_non_negative_int(_), do: nil
+
+  defp parse_optional_positive_int(value) when is_integer(value) and value > 0, do: value
+
+  defp parse_optional_positive_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {n, ""} when n > 0 -> n
+      _ -> nil
+    end
+  end
+
+  defp parse_optional_positive_int(_), do: nil
+
   defp split_envelope(payload) when is_map(payload) do
     payload = stringify_keys(payload)
     {Map.delete(payload, "envelope"), normalize_envelope(payload["envelope"])}
@@ -517,15 +652,27 @@ defmodule AetheriumServer.GatewayConnection do
   defp normalize_envelope(_), do: %{}
 
   defp push_command_outcome(state, envelope, command_type, {:ack, _ok, data}) do
-    push_to_gateway(state, "command_outcome", outcome_payload(envelope, command_type, "ACK", nil, data))
+    push_to_gateway(
+      state,
+      "command_outcome",
+      outcome_payload(envelope, command_type, "ACK", nil, data)
+    )
   end
 
   defp push_command_outcome(state, envelope, command_type, {:nak, reason, data}) do
-    push_to_gateway(state, "command_outcome", outcome_payload(envelope, command_type, "NAK", reason, data))
+    push_to_gateway(
+      state,
+      "command_outcome",
+      outcome_payload(envelope, command_type, "NAK", reason, data)
+    )
   end
 
   defp push_command_outcome(state, envelope, command_type, {:error, reason, data}) do
-    push_to_gateway(state, "command_outcome", outcome_payload(envelope, command_type, "ERROR", reason, data))
+    push_to_gateway(
+      state,
+      "command_outcome",
+      outcome_payload(envelope, command_type, "ERROR", reason, data)
+    )
   end
 
   defp outcome_payload(envelope, command_type, status, reason, data) do
@@ -579,6 +726,10 @@ defmodule AetheriumServer.GatewayConnection do
           connected_at: d.connected_at,
           last_heartbeat: d.last_heartbeat,
           capabilities: d.capabilities,
+          connector_id: d.connector_id,
+          connector_type: d.connector_type && Atom.to_string(d.connector_type),
+          transport: d.transport,
+          link: d.link,
           supported_commands: [
             "deploy",
             "start_execution",
@@ -587,12 +738,55 @@ defmodule AetheriumServer.GatewayConnection do
             "resume_execution",
             "reset_execution",
             "set_variable",
-            "request_state"
+            "request_state",
+            "time_travel_query",
+            "rewind_deployment"
           ]
         }
       end)
 
     PhoenixClient.Channel.push_async(channel, "device_update", %{"devices" => devices})
+  end
+
+  defp push_connector_statuses(channel) do
+    connectors = AetheriumServer.DeviceConnectorSupervisor.connector_statuses()
+    PhoenixClient.Channel.push_async(channel, "connector_status", %{"connectors" => connectors})
+  end
+
+  defp deployment_error_payload(
+         automata_id,
+         device_id,
+         {:deploy_validation_failed, profile_id, diagnostics}
+       ) do
+    %{
+      automata_id: automata_id,
+      device_id: device_id,
+      error: "deploy_validation_failed",
+      target_profile: profile_id,
+      diagnostics: diagnostics
+    }
+  end
+
+  defp deployment_error_payload(
+         automata_id,
+         device_id,
+         {:target_compiler_not_implemented, profile_id, diagnostics}
+       ) do
+    %{
+      automata_id: automata_id,
+      device_id: device_id,
+      error: "target_compiler_not_implemented",
+      target_profile: profile_id,
+      diagnostics: diagnostics
+    }
+  end
+
+  defp deployment_error_payload(automata_id, device_id, reason) do
+    %{
+      automata_id: automata_id,
+      device_id: device_id,
+      error: inspect(reason)
+    }
   end
 
   defp normalize_device_status(status) when is_atom(status), do: Atom.to_string(status)

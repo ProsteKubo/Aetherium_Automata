@@ -4,7 +4,7 @@
  * Handles all file operations: projects, automata, YAML import/export
  */
 
-import { ipcMain, dialog, BrowserWindow } from 'electron';
+import { ipcMain, dialog, BrowserWindow, app } from 'electron';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { existsSync, mkdirSync } from 'fs';
@@ -46,6 +46,13 @@ interface LoadResult<T> {
   error?: string;
 }
 
+interface ShowcaseAutomataEntry {
+  id: string;
+  name: string;
+  category: string;
+  relativePath: string;
+}
+
 // ============================================================================
 // File Filters
 // ============================================================================
@@ -60,6 +67,8 @@ const AUTOMATA_FILTERS = [
   { name: 'Automata JSON', extensions: ['json'] },
   { name: 'All Files', extensions: ['*'] },
 ];
+
+const SHOWCASE_CATALOG_PATH = path.join('example', 'automata', 'showcase', 'CATALOG.txt');
 
 // ============================================================================
 // Project Operations
@@ -288,6 +297,48 @@ ipcMain.handle('automata:import', async (_event, filePath: string): Promise<Load
   }
 });
 
+/**
+ * List curated showcase automata entries from repository catalog.
+ */
+ipcMain.handle('automata:listShowcase', async (): Promise<LoadResult<ShowcaseAutomataEntry[]>> => {
+  try {
+    const repoRoot = resolveRepositoryRoot();
+    if (!repoRoot) {
+      return { success: false, error: `Cannot locate ${SHOWCASE_CATALOG_PATH}` };
+    }
+
+    const entries = await loadShowcaseEntries(repoRoot);
+    return { success: true, data: entries, filePath: path.join(repoRoot, SHOWCASE_CATALOG_PATH) };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+});
+
+/**
+ * Load one showcase automata by relative path or showcase id.
+ */
+ipcMain.handle('automata:loadShowcase', async (_event, target: string): Promise<LoadResult<unknown>> => {
+  try {
+    const repoRoot = resolveRepositoryRoot();
+    if (!repoRoot) {
+      return { success: false, error: `Cannot locate ${SHOWCASE_CATALOG_PATH}` };
+    }
+
+    const entries = await loadShowcaseEntries(repoRoot);
+    const resolved = entries.find((entry) => entry.id === target || entry.relativePath === target);
+    if (!resolved) {
+      return { success: false, error: `Showcase automata not found: ${target}` };
+    }
+
+    const absolutePath = path.join(repoRoot, resolved.relativePath);
+    const content = await fs.readFile(absolutePath, 'utf-8');
+    const automata = yamlToAutomata(content);
+    return { success: true, data: automata, filePath: absolutePath };
+  } catch (err) {
+    return { success: false, error: String(err) };
+  }
+});
+
 // ============================================================================
 // Recent Projects
 // ============================================================================
@@ -353,6 +404,75 @@ ipcMain.handle('project:clearRecent', async (): Promise<void> => {
 // ============================================================================
 // Helper Functions
 // ============================================================================
+
+function resolveRepositoryRoot(): string | null {
+  const candidates = [
+    process.env.AETHERIUM_REPO_ROOT,
+    process.cwd(),
+    app.getAppPath(),
+    path.resolve(__dirname, '..', '..', '..', '..'),
+    path.resolve(__dirname, '..', '..', '..', '..', '..'),
+  ].filter((value): value is string => Boolean(value && value.trim().length > 0));
+
+  for (const candidate of candidates) {
+    const found = findCatalogInAncestors(path.resolve(candidate));
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function findCatalogInAncestors(startDir: string): string | null {
+  let current = startDir;
+
+  for (let depth = 0; depth < 8; depth += 1) {
+    const catalogPath = path.join(current, SHOWCASE_CATALOG_PATH);
+    if (existsSync(catalogPath)) {
+      return current;
+    }
+
+    const parent = path.dirname(current);
+    if (parent === current) {
+      break;
+    }
+    current = parent;
+  }
+
+  return null;
+}
+
+async function loadShowcaseEntries(repoRoot: string): Promise<ShowcaseAutomataEntry[]> {
+  const catalogPath = path.join(repoRoot, SHOWCASE_CATALOG_PATH);
+  const raw = await fs.readFile(catalogPath, 'utf-8');
+  const lines = raw
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0 && !line.startsWith('#'));
+
+  return lines.map((relativePath, index) => {
+    const normalizedPath = relativePath.replace(/\\/g, '/');
+    const segments = normalizedPath.split('/');
+    const categoryRaw = segments[3] || 'showcase';
+    const baseName = path.basename(normalizedPath, path.extname(normalizedPath));
+
+    return {
+      id: `showcase_${String(index + 1).padStart(2, '0')}`,
+      name: humanizeLabel(baseName),
+      category: humanizeLabel(categoryRaw.replace(/^\d+_/, '')),
+      relativePath: normalizedPath,
+    };
+  });
+}
+
+function humanizeLabel(input: string): string {
+  return input
+    .split(/[_-]+/)
+    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : ''))
+    .join(' ')
+    .trim();
+}
 
 async function loadProject(filePath: string): Promise<LoadResult<Project>> {
   try {

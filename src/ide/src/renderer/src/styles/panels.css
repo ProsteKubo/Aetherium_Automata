@@ -718,6 +718,30 @@
   letter-spacing: 0.05em;
 }
 
+.timetravel-header .header-backend-meta {
+  margin-top: var(--spacing-1);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.timetravel-header .backend-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.28);
+  color: var(--color-text-secondary);
+}
+
+.timetravel-header .backend-chip.backend-chip-warn {
+  background: rgba(234, 179, 8, 0.16);
+  border-color: rgba(234, 179, 8, 0.35);
+  color: var(--color-warning);
+}
+
 .timetravel-header .header-right {
   display: flex;
   align-items: center;
@@ -1586,6 +1610,37 @@
   overflow: hidden;
 }
 
+.connector-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.connector-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  border: 1px solid var(--color-border-default);
+  color: var(--color-text-secondary);
+  background: var(--color-background);
+}
+
+.connector-chip.running {
+  border-color: rgba(76, 175, 80, 0.45);
+  color: var(--color-success);
+}
+
+.connector-chip.stopped {
+  border-color: rgba(255, 152, 0, 0.45);
+  color: var(--color-warning);
+}
+
 .device-tree {
   flex: 1;
   overflow-y: auto;
@@ -1635,6 +1690,15 @@
   animation: pulse 1s ease-in-out infinite;
 }
 
+.deploying-indicator {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--color-primary);
+  box-shadow: 0 0 8px rgba(0, 212, 255, 0.65);
+  animation: pulse 1s ease-in-out infinite;
+}
+
 .device-details {
   border-top: 1px solid var(--color-border);
   padding: var(--spacing-3);
@@ -1675,6 +1739,17 @@
   margin-top: var(--spacing-3);
 }
 
+.showcase-controls {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.showcase-select {
+  flex: 1;
+  min-width: 0;
+}
+
 .capability-tags {
   display: flex;
   flex-wrap: wrap;
@@ -1708,6 +1783,60 @@
 
 .meta-value {
   color: var(--color-text-secondary);
+}
+
+.deploy-transfer-card {
+  padding: var(--spacing-2);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 188, 212, 0.06);
+}
+
+.deploy-transfer-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-1);
+}
+
+.deploy-transfer-track {
+  width: 100%;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.deploy-transfer-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-success) 100%);
+  transition: width var(--transition-fast);
+}
+
+.deploy-transfer-fill.status-failed {
+  background: var(--color-error);
+}
+
+.deploy-transfer-fill.status-completed {
+  background: var(--color-success);
+}
+
+.deploy-transfer-extra {
+  margin-top: var(--spacing-1);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+}
+
+.deploy-transfer-error {
+  margin-top: var(--spacing-1);
+  font-size: 10px;
+  color: var(--color-error);
 }
 
 .device-actions {
@@ -1883,6 +2012,36 @@
   gap: var(--spacing-2);
 }
 
+.runtime-item-transfer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+
+.runtime-item-transfer-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  color: var(--color-text-tertiary);
+  font-size: 10px;
+}
+
+.runtime-item-transfer-track {
+  width: 100%;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+}
+
+.runtime-item-transfer-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-success) 100%);
+  transition: width var(--transition-fast);
+}
+
 .runtime-status {
   display: inline-flex;
   align-items: center;
@@ -1940,6 +2099,51 @@
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--color-text-secondary);
+}
+
+.runtime-transfer {
+  padding: var(--spacing-1) var(--spacing-3) var(--spacing-2);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: rgba(0, 188, 212, 0.06);
+}
+
+.runtime-transfer.runtime-transfer-completed {
+  background: rgba(54, 220, 154, 0.08);
+}
+
+.runtime-transfer.runtime-transfer-failed {
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.runtime-transfer-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 4px;
+}
+
+.runtime-transfer-track {
+  height: 6px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.runtime-transfer-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--color-primary) 0%, var(--color-success) 100%);
+  transition: width var(--transition-fast);
+}
+
+.runtime-transfer.runtime-transfer-failed .runtime-transfer-fill {
+  background: var(--color-error);
+}
+
+.runtime-transfer.runtime-transfer-completed .runtime-transfer-fill {
+  background: var(--color-success);
 }
 
 .runtime-dropped {

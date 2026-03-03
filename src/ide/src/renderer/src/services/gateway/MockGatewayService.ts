@@ -36,7 +36,11 @@ import type {
   TimeTravelNavigateResponse,
   MonitorSubscribeResponse,
 } from '../../types/protocol';
-import type { IGatewayService, GatewayEventHandlers } from './IGatewayService';
+import type {
+  IGatewayService,
+  GatewayEventHandlers,
+  PersistedGatewayEvent,
+} from './IGatewayService';
 
 // ============================================================================
 // Mock Data Generation
@@ -453,6 +457,22 @@ export class MockGatewayService implements IGatewayService {
     
     if (!automata) throw new Error(`Automata not found: ${automataId}`);
     if (!device) throw new Error(`Device not found: ${deviceId}`);
+
+    const deploymentId = `${automataId}:${deviceId}`;
+    this.handlers.onDeploymentTransfer?.({
+      deployment_id: deploymentId,
+      automata_id: automataId,
+      device_id: deviceId,
+      format: 'yaml',
+      phase: 'chunk_ack',
+      stage: 'chunk_sent',
+      total_chunks: 1,
+      awaiting_chunk_index: 0,
+      next_chunk_index: 1,
+      chunk_index: 0,
+      retry_count: 0,
+      max_retries: 0,
+    });
     
     const previousAutomataId = this.deployments.get(deviceId);
     this.deployments.set(deviceId, automataId);
@@ -467,6 +487,22 @@ export class MockGatewayService implements IGatewayService {
         currentState: automata.initialState,
       });
     }
+
+    this.handlers.onDeploymentTransfer?.({
+      deployment_id: deploymentId,
+      automata_id: automataId,
+      device_id: deviceId,
+      format: 'yaml',
+      phase: 'load_ack',
+      stage: 'completed',
+      total_chunks: 1,
+      awaiting_chunk_index: 0,
+      next_chunk_index: 1,
+      chunk_index: 0,
+      retry_count: 0,
+      max_retries: 0,
+      success: true,
+    });
     
     return {
       success: true,
@@ -745,6 +781,7 @@ export class MockGatewayService implements IGatewayService {
       isReplaying: false,
       replaySpeed: 1,
       currentReplayIndex: 0,
+      timelineSource: 'mock',
     };
     
     this.timeTravelSessions.set(session.id, session);
@@ -831,12 +868,23 @@ export class MockGatewayService implements IGatewayService {
     }
     
     history.currentIndex = newIndex;
+    session.lastRewindSource = 'mock';
+    session.lastRewindEventsReplayed = Math.max(0, newIndex);
+    session.lastRewindRequestedTimestamp = history.snapshots[newIndex]?.timestamp;
+    session.lastRewindStateFingerprint = `mock-${newIndex}`;
+    session.lastRewindEventCursorStart = 1;
+    session.lastRewindEventCursorEnd = Math.max(1, newIndex);
     
     return {
       currentIndex: newIndex,
       snapshot: history.snapshots[newIndex],
       canGoForward: newIndex < history.snapshots.length - 1,
       canGoBackward: newIndex > 0,
+      eventsReplayed: session.lastRewindEventsReplayed,
+      requestedTimestamp: session.lastRewindRequestedTimestamp,
+      stateFingerprint: session.lastRewindStateFingerprint,
+      eventCursorStart: session.lastRewindEventCursorStart,
+      eventCursorEnd: session.lastRewindEventCursorEnd,
     };
   }
   
@@ -923,6 +971,16 @@ export class MockGatewayService implements IGatewayService {
   async rollbackOTA(_deviceId: DeviceId): Promise<boolean> {
     await this.delay(1000);
     return true;
+  }
+
+  async listRecentEvents(_limit: number = 100): Promise<PersistedGatewayEvent[]> {
+    await this.delay(20);
+    return [];
+  }
+
+  async listEvents(_cursor: number = 0, _limit: number = 100): Promise<PersistedGatewayEvent[]> {
+    await this.delay(20);
+    return [];
   }
   
   // ==========================================================================

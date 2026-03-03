@@ -5,6 +5,11 @@
 #include <cstdint>
 #include <deque>
 #include <functional>
+
+#ifdef abs
+#undef abs
+#endif
+
 #include <mutex>
 #include <optional>
 #include <string>

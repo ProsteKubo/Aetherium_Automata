@@ -260,6 +260,66 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
+  def handle_in("time_travel_query", %{"device_id" => device_id} = payload, socket) do
+    with_command("time_travel_query", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload =
+            %{
+              "deployment_id" => deployment_id_for(deployment),
+              "device_id" => device_id,
+              "automata_id" => deployment.automata_id
+            }
+            |> maybe_put_payload("after_ts", payload["after_ts"] || payload["from_ts"])
+            |> maybe_put_payload("before_ts", payload["before_ts"] || payload["to_ts"])
+            |> maybe_put_payload("limit", payload["limit"])
+
+          dispatch_server_command(
+            deployment.server_id,
+            "time_travel_query",
+            command_payload,
+            envelope
+          )
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in("rewind_deployment", %{"device_id" => device_id} = payload, socket) do
+    with_command("rewind_deployment", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          target_timestamp =
+            payload["target_timestamp"] || payload["target_ts"] || payload["timestamp"]
+
+          if is_nil(target_timestamp) do
+            {:nak, :invalid_payload, %{"reason" => "missing_target_timestamp"}}
+          else
+            command_payload = %{
+              "deployment_id" => deployment_id_for(deployment),
+              "device_id" => device_id,
+              "automata_id" => deployment.automata_id,
+              "target_timestamp" => target_timestamp
+            }
+
+            dispatch_server_command(
+              deployment.server_id,
+              "rewind_deployment",
+              command_payload,
+              envelope
+            )
+          end
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
   def handle_in("step_execution", payload, socket) do
     with_command("step_execution", payload, socket, fn _envelope ->
       {:nak, :unsupported_by_engine_protocol, %{}}
@@ -541,6 +601,10 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   defp maybe_put_opt(opts, _key, nil), do: opts
   defp maybe_put_opt(opts, _key, ""), do: opts
   defp maybe_put_opt(opts, key, value), do: Keyword.put(opts, key, value)
+
+  defp maybe_put_payload(payload, _key, nil), do: payload
+  defp maybe_put_payload(payload, _key, ""), do: payload
+  defp maybe_put_payload(payload, key, value), do: Map.put(payload, key, value)
 
   defp deployment_id_for(deployment) do
     "#{deployment.automata_id}:#{deployment.device_id}"

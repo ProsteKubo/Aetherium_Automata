@@ -44,6 +44,8 @@
 // Protocol definitions
 #include "protocol.hpp"
 #include "protocol_v2.hpp"
+#include "artifact.hpp"
+#include "capabilities.hpp"
 
 // Transport layer
 #include "transport.hpp"
@@ -71,85 +73,6 @@ struct Version {
     static const char* string() { return "0.2.0"; }
     static const char* specVersion() { return "0.0.1"; }
 };
-
-/**
- * Engine capabilities for capability negotiation
- */
-struct EngineCapabilities {
-    bool supportsLua = true;
-    bool supportsTimed = true;
-    bool supportsProbabilistic = true;
-    bool supportsEvent = true;
-    bool supportsFuzzy = false;      // Future
-    bool supportsNested = false;     // Future
-    bool supportsBytecode = false;   // Future
-    bool hasPersistentStorage = false;
-    bool hasRTC = false;
-
-    protocol::DeviceCapabilities toProtocol() const {
-        protocol::DeviceCapabilities caps;
-        caps.setLua(supportsLua);
-        caps.setTimed(supportsTimed);
-        caps.setProbabilistic(supportsProbabilistic);
-        caps.setFuzzy(supportsFuzzy);
-        caps.setNested(supportsNested);
-        caps.setBytecode(supportsBytecode);
-        caps.setPersistentStorage(hasPersistentStorage);
-        caps.setRTC(hasRTC);
-        return caps;
-    }
-};
-
-/**
- * Get default desktop capabilities
- */
-inline EngineCapabilities desktopCapabilities() {
-    EngineCapabilities caps;
-    caps.supportsLua = true;
-    caps.supportsTimed = true;
-    caps.supportsProbabilistic = true;
-    caps.supportsEvent = true;
-    caps.supportsFuzzy = true;
-    caps.supportsNested = true;
-    caps.supportsBytecode = true;
-    caps.hasPersistentStorage = true;
-    caps.hasRTC = true;
-    return caps;
-}
-
-/**
- * Get ESP32 capabilities
- */
-inline EngineCapabilities esp32Capabilities() {
-    EngineCapabilities caps;
-    caps.supportsLua = true;
-    caps.supportsTimed = true;
-    caps.supportsProbabilistic = true;
-    caps.supportsEvent = true;
-    caps.supportsFuzzy = false;  // Memory constrained
-    caps.supportsNested = false;
-    caps.supportsBytecode = true;
-    caps.hasPersistentStorage = true;
-    caps.hasRTC = true;
-    return caps;
-}
-
-/**
- * Get Pico capabilities
- */
-inline EngineCapabilities picoCapabilities() {
-    EngineCapabilities caps;
-    caps.supportsLua = true;
-    caps.supportsTimed = true;
-    caps.supportsProbabilistic = true;
-    caps.supportsEvent = true;
-    caps.supportsFuzzy = false;
-    caps.supportsNested = false;
-    caps.supportsBytecode = true;
-    caps.hasPersistentStorage = false;
-    caps.hasRTC = false;
-    return caps;
-}
 
 } // namespace aeth
 

@@ -4,106 +4,53 @@ defmodule AetheriumServer.DeviceWebSocket do
   @behaviour :cowboy_websocket
   require Logger
 
+  alias AetheriumServer.DeviceIngress
+  alias AetheriumServer.DeviceSessionRef
   alias AetheriumServer.EngineProtocol
-  alias AetheriumServer.DeviceManager
 
   @impl true
-  def init(req, _opts) do
-    {:cowboy_websocket, req, %{device_id: nil, target_id: 0, next_msg_id: 1, run_id: nil}}
+  def init(req, opts) do
+    connector_instance = Keyword.get(opts, :connector_instance)
+
+    {:cowboy_websocket, req,
+     %{
+       device_id: nil,
+       connector_instance: connector_instance,
+       session_ref: nil,
+       target_id: 0,
+       next_msg_id: 1,
+       run_id: nil
+     }}
   end
 
   @impl true
   def websocket_init(state) do
-    {:ok, state}
+    connector_instance = state.connector_instance
+
+    session_ref = %DeviceSessionRef{
+      connector_id: (connector_instance && connector_instance.id) || "ws_default",
+      connector_type: :websocket,
+      connector_module: AetheriumServer.DeviceConnectors.WebSocketConnector,
+      session_id: generate_id(),
+      endpoint: self(),
+      monitor_pid: self(),
+      metadata:
+        AetheriumServer.DeviceConnectors.WebSocketConnector.normalize_metadata(%{
+          path: connector_instance && option(connector_instance.options, :path, nil)
+        })
+    }
+
+    AetheriumServer.ConnectorRegistry.register_session(session_ref)
+    {:ok, %{state | session_ref: session_ref}}
   end
 
   @impl true
   def websocket_handle({:binary, data}, state) do
     case EngineProtocol.decode(data) do
-      {:ok, :hello, hello} ->
-        device_id = hello.name
-
-        case DeviceManager.register_device(
-               %{device_id: device_id, device_type: map_device_type(hello.device_type), capabilities: hello.capabilities, protocol_version: 1},
-               self()
-             ) do
-          {:ok, _device} ->
-            {:ok, %{state | device_id: device_id}}
-
-          {:error, reason} ->
-            Logger.error("Failed to register device #{inspect(device_id)}: #{inspect(reason)}")
-            {:ok, state}
+      {:ok, type, payload} ->
+        case DeviceIngress.route(type, payload, state.device_id, state.session_ref) do
+          {:ok, device_id} -> {:ok, %{state | device_id: device_id || state.device_id}}
         end
-
-      {:ok, :load_ack, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :load_ack, payload)
-        {:ok, state}
-
-      {:ok, :state_change, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :state_change, payload)
-        {:ok, state}
-
-      {:ok, :output, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :output, payload)
-        {:ok, state}
-
-      {:ok, :telemetry, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :telemetry, payload)
-        {:ok, state}
-
-      {:ok, :status, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :status, payload)
-        {:ok, state}
-
-      {:ok, :variable, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :output, payload)
-        {:ok, state}
-
-      {:ok, :transition_fired, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :transition_fired, payload)
-        {:ok, state}
-
-      {:ok, :debug, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :log, payload)
-        {:ok, state}
-
-      {:ok, :error, payload} ->
-        if state.device_id, do: DeviceManager.handle_device_message(state.device_id, :error, payload)
-        {:ok, state}
-
-      {:ok, :ping, _payload} ->
-        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
-        {:ok, state}
-
-      {:ok, :pong, _payload} ->
-        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
-        {:ok, state}
-
-      {:ok, :ack, _payload} ->
-        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
-        {:ok, state}
-
-      {:ok, :nak, payload} ->
-        if state.device_id do
-          DeviceManager.handle_device_message(state.device_id, :error, %{
-            code: payload[:reason_code] || payload["reason_code"] || 0,
-            message: payload[:reason] || payload["reason"] || "command_rejected"
-          })
-        end
-
-        {:ok, state}
-
-      {:ok, :discover, _payload} ->
-        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
-        {:ok, state}
-
-      {:ok, :provision, _payload} ->
-        if state.device_id, do: DeviceManager.heartbeat(state.device_id)
-        {:ok, state}
-
-      {:ok, :goodbye, _payload} ->
-        if state.device_id, do: DeviceManager.device_disconnected(state.device_id)
-        {:ok, state}
 
       {:error, reason} ->
         Logger.debug("WS decode error: #{inspect(reason)}")
@@ -118,19 +65,27 @@ defmodule AetheriumServer.DeviceWebSocket do
     {:reply, {:binary, data}, state}
   end
 
+  def websocket_info({:close_socket, _reason}, state) do
+    {:stop, state}
+  end
+
   def websocket_info(_msg, state), do: {:ok, state}
 
   @impl true
   def terminate(_reason, _req, state) do
-    if state.device_id, do: DeviceManager.device_disconnected(state.device_id)
+    if state.device_id, do: AetheriumServer.DeviceManager.device_disconnected(state.device_id)
+
+    if state.session_ref,
+      do: AetheriumServer.ConnectorRegistry.unregister_session(state.session_ref)
+
     :ok
   end
 
-  defp map_device_type(0x01), do: :desktop
-  defp map_device_type(0x02), do: :esp32
-  defp map_device_type(0x03), do: :pico
-  defp map_device_type(0x04), do: :raspberry_pi
-  defp map_device_type(0x10), do: :server
-  defp map_device_type(0x11), do: :gateway
-  defp map_device_type(_), do: :unknown
+  defp generate_id do
+    :crypto.strong_rand_bytes(8) |> Base.encode16(case: :lower)
+  end
+
+  defp option(opts, key, default) when is_list(opts), do: Keyword.get(opts, key, default)
+  defp option(opts, key, default) when is_map(opts), do: Map.get(opts, key, default)
+  defp option(_opts, _key, default), do: default
 end
