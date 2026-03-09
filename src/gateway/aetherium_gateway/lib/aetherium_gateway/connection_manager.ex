@@ -60,13 +60,13 @@ defmodule AetheriumGateway.ConnectionManager do
   @doc "Create a new connection between automata"
   @spec create_connection(map()) :: {:ok, connection()} | {:error, term()}
   def create_connection(params) do
-    GenServer.call(__MODULE__, {:create_connection, params})
+    GenServer.call(__MODULE__, {:create_connection, normalize_connection_params(params)})
   end
 
   @doc "Update an existing connection"
   @spec update_connection(connection_id(), map()) :: {:ok, connection()} | {:error, term()}
   def update_connection(id, params) do
-    GenServer.call(__MODULE__, {:update_connection, id, params})
+    GenServer.call(__MODULE__, {:update_connection, id, normalize_connection_params(params)})
   end
 
   @doc "Delete a connection"
@@ -210,7 +210,7 @@ defmodule AetheriumGateway.ConnectionManager do
         {:reply, {:error, :not_found}, state}
 
       connection ->
-        updated = Map.merge(connection, Map.take(params, [:transform, :enabled]))
+        updated = Map.merge(connection, Map.take(params, [:transform, :enabled, :binding_type]))
         new_state = put_in(state, [:connections, id], updated)
 
         broadcast_connection_change(:updated, updated)
@@ -447,6 +447,31 @@ defmodule AetheriumGateway.ConnectionManager do
   # ============================================================================
   # Private Functions
   # ============================================================================
+
+  defp normalize_connection_params(params) when is_map(params) do
+    Enum.reduce(
+      [:source_automata, :source_output, :target_automata, :target_input, :transform, :enabled, :binding_type],
+      %{},
+      fn key, acc ->
+        case fetch_param(params, key) do
+          {:ok, value} -> Map.put(acc, key, value)
+          :error -> acc
+        end
+      end
+    )
+  end
+
+  defp normalize_connection_params(params), do: params
+
+  defp fetch_param(params, key) do
+    case Map.fetch(params, key) do
+      {:ok, value} ->
+        {:ok, value}
+
+      :error ->
+        Map.fetch(params, Atom.to_string(key))
+    end
+  end
 
   defp validate_connection_params(params) do
     required = [:source_automata, :source_output, :target_automata, :target_input]

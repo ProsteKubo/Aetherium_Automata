@@ -2,6 +2,17 @@ import Config
 
 existing_gateway = Application.get_env(:aetherium_server, :gateway, [])
 
+enable_websocket_transport_default = if config_env() == :test, do: "0", else: "1"
+
+enable_websocket_transport? =
+  (System.get_env("ENABLE_WEBSOCKET_DEVICE_TRANSPORT") || enable_websocket_transport_default) in [
+    "1",
+    "true",
+    "TRUE",
+    "yes",
+    "YES"
+  ]
+
 enable_serial_transport? =
   (System.get_env("ENABLE_SERIAL_DEVICE_TRANSPORT") || "0") in ["1", "true", "TRUE", "yes", "YES"]
 
@@ -17,18 +28,21 @@ serial_ports =
   end
 
 device_connectors =
-  [
-    [
-      id: "ws_default",
-      type: :websocket,
-      enabled: true,
-      options: [
-        bind_ip: System.get_env("BIND_IP") || "0.0.0.0",
-        port: String.to_integer(System.get_env("DEVICE_PORT") || "4000"),
-        path: System.get_env("DEVICE_WS_PATH") || "/socket/device/websocket"
+  if(enable_websocket_transport?,
+    do: [
+      [
+        id: "ws_default",
+        type: :websocket,
+        enabled: true,
+        options: [
+          bind_ip: System.get_env("BIND_IP") || "0.0.0.0",
+          port: String.to_integer(System.get_env("DEVICE_PORT") || "4000"),
+          path: System.get_env("DEVICE_WS_PATH") || "/socket/device/websocket"
+        ]
       ]
-    ]
-  ] ++
+    ],
+    else: []
+  ) ++
     if(enable_serial_transport?,
       do: [
         [
@@ -78,6 +92,12 @@ config :aetherium_server, :device_listener,
   port: String.to_integer(System.get_env("DEVICE_PORT") || "4000")
 
 config :aetherium_server, :device_connectors, device_connectors
+
+config :aetherium_server, :websocket_transport,
+  enabled: enable_websocket_transport?,
+  bind_ip: System.get_env("BIND_IP") || "0.0.0.0",
+  port: String.to_integer(System.get_env("DEVICE_PORT") || "4000"),
+  path: System.get_env("DEVICE_WS_PATH") || "/socket/device/websocket"
 
 config :aetherium_server, :serial_transport,
   enabled: enable_serial_transport?,

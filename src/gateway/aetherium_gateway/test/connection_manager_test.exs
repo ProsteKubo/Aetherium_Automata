@@ -48,6 +48,23 @@ defmodule AetheriumGateway.ConnectionManagerTest do
       ConnectionManager.delete_connection(conn.id)
     end
 
+    test "creates connection from string-key params", %{auto_a: auto_a, auto_b: auto_b} do
+      {:ok, conn} =
+        ConnectionManager.create_connection(%{
+          "source_automata" => auto_a,
+          "source_output" => "result",
+          "target_automata" => auto_b,
+          "target_input" => "input_val",
+          "enabled" => true
+        })
+
+      assert conn.source_automata == auto_a
+      assert conn.target_automata == auto_b
+      assert conn.enabled == true
+
+      ConnectionManager.delete_connection(conn.id)
+    end
+
     test "lists connections", %{auto_a: auto_a, auto_b: auto_b} do
       {:ok, conn} =
         ConnectionManager.create_connection(%{
