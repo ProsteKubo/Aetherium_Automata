@@ -1,0 +1,52 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 Binding Leader Button
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 leader node for IDE bindings. Reads SW2, mirrors it on the local red LED, and exports the button state for another board.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - ide
+    - binding
+    - leader
+    - gpio
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: leader_button
+    type: bool
+    direction: output
+    default: false
+  - name: leader_online
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Leader
+
+  states:
+    Leader:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(23, "input_pullup")
+      code: |-
+        local pressed = gpio.read(23) == 0
+
+        gpio.write(10, pressed)
+
+        setOutput("leader_button", pressed)
+        setOutput("leader_online", true)
+
+  transitions:
+    stay_active:
+      from: Leader
+      to: Leader
+      type: classic
+      condition: false

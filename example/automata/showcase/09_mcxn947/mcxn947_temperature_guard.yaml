@@ -1,0 +1,63 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 Temperature Guard
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 temperature demo that exposes the built-in board temperature as raw milli-Celsius and simple health flags through automata outputs for IDE inspection.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - temperature
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: temp_mc
+    type: int
+    direction: output
+    default: 0
+  - name: temp_ok
+    type: bool
+    direction: output
+    default: false
+  - name: temp_warm
+    type: bool
+    direction: output
+    default: false
+  - name: temp_delta_mc
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Sense
+
+  states:
+    Sense:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(27, "output")
+          component("board_temp"):init()
+      code: |-
+        local temp_mc = component("board_temp"):read_milli_c()
+        local temp_ok = temp_mc >= 10000 and temp_mc <= 45000
+        local temp_warm = temp_mc >= 27000
+
+        gpio.write(27, temp_ok)
+        gpio.write(10, temp_warm)
+
+        setOutput("temp_mc", temp_mc)
+        setOutput("temp_ok", temp_ok)
+        setOutput("temp_warm", temp_warm)
+        setOutput("temp_delta_mc", 0)
+
+  transitions:
+    stay_active:
+      from: Sense
+      to: Sense
+      type: classic
+      condition: false

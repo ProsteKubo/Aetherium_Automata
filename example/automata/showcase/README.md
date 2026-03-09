@@ -50,10 +50,18 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
    - Two-board leader node for bindings, with OLED dashboard and exported output signals.
 14. `08_esp32/esp32_binding_follower_pwm.yaml`
    - Two-board follower node that consumes bound inputs and mirrors them to PWM + GPIO outputs.
-15. `09_mcxn947/mcxn947_gpio_buttons_leds.yaml`
+15. `08_esp32/esp32_binding_follower_status_led.yaml`
+   - Minimal follower node for mixed-board demos that mirrors a bound boolean input onto the ESP32 status LED.
+16. `08_esp32/esp32_status_led_probe.yaml`
+   - IDE-first ESP32 pin probe that cycles common LED candidate pins and reports the active pin/output phase.
+17. `09_mcxn947/mcxn947_gpio_buttons_leds.yaml`
    - FRDM board smoke that mirrors SW2/SW3 onto the red/green LEDs using the ESP-style GPIO Lua API.
-16. `09_mcxn947/mcxn947_touch_pad_leds.yaml`
+18. `09_mcxn947/mcxn947_touch_pad_leds.yaml`
    - FRDM touch-pad press demo that lights the red LED through the built-in `touch_pad` Lua component.
+19. `09_mcxn947/mcxn947_temperature_guard.yaml`
+   - FRDM onboard-temperature demo that reads the built-in `board_temp` component, keeps the green LED on while readings are sane, and trips the red LED above a warm threshold.
+20. `09_mcxn947/mcxn947_binding_leader_button.yaml`
+   - Mixed-board leader node for IDE bindings that exports `SW2` and mirrors it on the FRDM red LED for an ESP32 follower.
 
 ## Usage
 
