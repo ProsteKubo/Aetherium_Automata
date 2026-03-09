@@ -106,7 +106,7 @@ defmodule AetheriumServer.TargetProfiles do
     %{
       id: "mcxn947_lua_v1",
       compile_formats: ["aeth_ir_v1"],
-      feature_flags: ["lua_full", "timed", "telemetry_basic", "mcxn947_gpio"],
+      feature_flags: ["lua_full", "timed", "telemetry_basic", "mcxn947_gpio", "mcxn947_touch"],
       limits: %{
         "max_states" => 256,
         "max_transitions" => 512,

@@ -18,7 +18,7 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
 - `06_pipeline/` part-flow and dispatch coordination
 - `07_folderized/` state/transition Lua split for maintainable large models
 - `08_esp32/` ESP32 demos for serial + IDE imports, including rich Lua hardware showcases
-- `09_mcxn947/` FRDM-MCXN947 GPIO demos for serial hardware validation
+- `09_mcxn947/` FRDM-MCXN947 hardware demos for serial validation and IDE-first board features
 
 ## Scenarios
 
@@ -52,6 +52,8 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
    - Two-board follower node that consumes bound inputs and mirrors them to PWM + GPIO outputs.
 15. `09_mcxn947/mcxn947_gpio_buttons_leds.yaml`
    - FRDM board smoke that mirrors SW2/SW3 onto the red/green LEDs using the ESP-style GPIO Lua API.
+16. `09_mcxn947/mcxn947_touch_pad_leds.yaml`
+   - FRDM touch-pad press demo that lights the red LED through the built-in `touch_pad` Lua component.
 
 ## Usage
 

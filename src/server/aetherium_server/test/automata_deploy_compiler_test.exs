@@ -200,6 +200,18 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.source_label == "mcxn947_lua_v1"
   end
 
+  test "mcxn947 rich profile compiles touch component automata to engine bytecode artifact" do
+    automata = sample_lua_mcxn947_touch_automata()
+
+    assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :mcxn947})
+    assert compiled.profile.id == "mcxn947_lua_v1"
+    assert compiled.diagnostics["errors"] == []
+
+    assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
+    assert artifact.payload_kind == :engine_bytecode
+    assert artifact.source_label == "mcxn947_lua_v1"
+  end
+
   test "mcxn947 rich profile rejects mismatched requested profile" do
     automata =
       sample_lua_mcxn947_automata()
@@ -383,6 +395,38 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
       variables: [
         %{id: "v1", name: "enabled", type: "bool", direction: :input, default: false}
       ]
+    }
+  end
+
+  defp sample_lua_mcxn947_touch_automata do
+    %{
+      id: "compiler-mcxn947-touch",
+      name: "Compiler MCXN947 Touch",
+      version: "1.0.0",
+      config: %{
+        target: %{
+          profile: "mcxn947_lua_v1"
+        }
+      },
+      states: %{
+        "sense" => %{
+          id: "sense",
+          name: "Sense",
+          type: :initial,
+          hooks: %{onEnter: ~s|component("touch_pad"):init()|},
+          code: ~s|local touched = component("touch_pad"):pressed()\nif touched then gpio.write(10, 1) else gpio.write(10, 0) end|
+        }
+      },
+      transitions: %{
+        "stay_active" => %{
+          id: "stay_active",
+          from: "sense",
+          to: "sense",
+          type: :classic,
+          condition: "false"
+        }
+      },
+      variables: []
     }
   end
 

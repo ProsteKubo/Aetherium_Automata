@@ -1,0 +1,42 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 Touch Pad Press LED
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 touch-pad showcase that lights the red LED while the onboard capacitive pad is pressed.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - touch
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: touch_pressed
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Sense
+
+  states:
+    Sense:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          component("touch_pad"):init()
+      code: |-
+        local pressed = component("touch_pad"):pressed()
+        gpio.write(10, pressed)
+        setOutput("touch_pressed", pressed)
+
+  transitions:
+    stay_active:
+      from: Sense
+      to: Sense
+      type: classic
+      condition: false
