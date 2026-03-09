@@ -1,0 +1,97 @@
+version: 0.0.1
+
+config:
+  name: Guarded Cell Signal Conditioner
+  type: inline
+  description: Host automata that converts raw MCXN947 request and permit signals into normalized guarded-cell control signals.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - ide
+    - guarded-cell
+    - conditioning
+
+variables:
+  - name: request_raw
+    type: bool
+    direction: input
+    default: false
+  - name: permit_raw
+    type: bool
+    direction: input
+    default: false
+  - name: request_ok
+    type: bool
+    direction: output
+    default: false
+  - name: permit_ok
+    type: bool
+    direction: output
+    default: false
+  - name: conditioner_state
+    type: string
+    direction: output
+    default: idle
+  - name: pulse_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("request_ok", false)
+        setVal("permit_ok", false)
+        setVal("conditioner_state", "idle")
+
+    Ready:
+      on_enter: |
+        setVal("request_ok", false)
+        setVal("permit_ok", true)
+        setVal("conditioner_state", "ready")
+
+    Pulse:
+      on_enter: |
+        setVal("request_ok", true)
+        setVal("permit_ok", true)
+        setVal("conditioner_state", "pulse")
+        setVal("pulse_count", value("pulse_count") + 1)
+
+  transitions:
+    idle_to_ready:
+      from: Idle
+      to: Ready
+      type: classic
+      condition: value("permit_raw") == true
+
+    ready_to_idle:
+      from: Ready
+      to: Idle
+      type: classic
+      priority: 0
+      condition: value("permit_raw") == false
+
+    ready_to_pulse:
+      from: Ready
+      to: Pulse
+      type: classic
+      priority: 1
+      condition: value("request_raw") == true
+
+    pulse_to_idle:
+      from: Pulse
+      to: Idle
+      type: classic
+      priority: 0
+      condition: value("permit_raw") == false
+
+    pulse_to_ready:
+      from: Pulse
+      to: Ready
+      type: timed
+      priority: 1
+      after: 400ms

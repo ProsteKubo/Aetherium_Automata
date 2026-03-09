@@ -1,0 +1,93 @@
+version: 0.0.1
+
+config:
+  name: Guarded Cell Safety Supervisor
+  type: inline
+  description: Host automata that inhibits the guarded cell until permit is present and escalates to alarm if requests continue while inhibited.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - ide
+    - guarded-cell
+    - supervisor
+
+variables:
+  - name: request_ok
+    type: bool
+    direction: input
+    default: false
+  - name: permit_ok
+    type: bool
+    direction: input
+    default: false
+  - name: inhibit
+    type: bool
+    direction: output
+    default: true
+  - name: supervisor_alarm
+    type: bool
+    direction: output
+    default: false
+  - name: supervisor_state
+    type: string
+    direction: output
+    default: inhibit
+  - name: fault_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Inhibit
+
+  states:
+    Healthy:
+      on_enter: |
+        setVal("inhibit", false)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "healthy")
+
+    Inhibit:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "inhibit")
+
+    Fault:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", true)
+        setVal("supervisor_state", "fault")
+        setVal("fault_count", value("fault_count") + 1)
+
+  transitions:
+    inhibit_to_healthy:
+      from: Inhibit
+      to: Healthy
+      type: classic
+      condition: value("permit_ok") == true and value("request_ok") == false
+
+    inhibit_to_fault:
+      from: Inhibit
+      to: Fault
+      type: classic
+      condition: value("permit_ok") == false and value("request_ok") == true
+
+    healthy_to_inhibit:
+      from: Healthy
+      to: Inhibit
+      type: classic
+      condition: value("permit_ok") == false
+
+    fault_to_inhibit:
+      from: Fault
+      to: Inhibit
+      type: classic
+      condition: value("permit_ok") == false and value("request_ok") == false
+
+    fault_to_healthy:
+      from: Fault
+      to: Healthy
+      type: classic
+      condition: value("permit_ok") == true and value("request_ok") == false

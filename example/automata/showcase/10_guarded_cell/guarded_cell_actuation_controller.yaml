@@ -1,0 +1,105 @@
+version: 0.0.1
+
+config:
+  name: Guarded Cell Actuation Controller
+  type: inline
+  description: Host automata that turns normalized guarded-cell requests into bounded actuation cycles unless the supervisor inhibits them.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - ide
+    - guarded-cell
+    - controller
+
+variables:
+  - name: request_ok
+    type: bool
+    direction: input
+    default: false
+  - name: inhibit
+    type: bool
+    direction: input
+    default: true
+  - name: actuate_cmd
+    type: bool
+    direction: output
+    default: false
+  - name: controller_blocked
+    type: bool
+    direction: output
+    default: false
+  - name: controller_state
+    type: string
+    direction: output
+    default: idle
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("actuate_cmd", false)
+        setVal("controller_blocked", false)
+        setVal("controller_state", "idle")
+
+    Actuate:
+      on_enter: |
+        setVal("actuate_cmd", true)
+        setVal("controller_blocked", false)
+        setVal("controller_state", "actuate")
+        setVal("cycle_count", value("cycle_count") + 1)
+
+    Blocked:
+      on_enter: |
+        setVal("actuate_cmd", false)
+        setVal("controller_blocked", true)
+        setVal("controller_state", "blocked")
+
+  transitions:
+    idle_to_actuate:
+      from: Idle
+      to: Actuate
+      type: classic
+      priority: 1
+      condition: value("request_ok") == true and value("inhibit") == false
+
+    idle_to_blocked:
+      from: Idle
+      to: Blocked
+      type: classic
+      priority: 0
+      condition: value("request_ok") == true and value("inhibit") == true
+
+    actuate_to_blocked:
+      from: Actuate
+      to: Blocked
+      type: classic
+      priority: 0
+      condition: value("inhibit") == true
+
+    actuate_to_idle:
+      from: Actuate
+      to: Idle
+      type: timed
+      priority: 1
+      after: 1200ms
+
+    blocked_to_idle:
+      from: Blocked
+      to: Idle
+      type: classic
+      priority: 0
+      condition: value("request_ok") == false
+
+    blocked_to_actuate:
+      from: Blocked
+      to: Actuate
+      type: classic
+      priority: 1
+      condition: value("request_ok") == true and value("inhibit") == false

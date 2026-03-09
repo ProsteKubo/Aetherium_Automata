@@ -1,0 +1,47 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Guarded Cell Alarm Beacon
+  type: inline
+  language: lua
+  description: ESP32 alarm node for the guarded actuation cell. Uses the visible board LED as the supervisor alarm indicator.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - guarded-cell
+    - alarm
+    - hardware-safe
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: supervisor_alarm
+    type: bool
+    direction: input
+    default: false
+  - name: alarm_active
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Mirror
+
+  states:
+    Mirror:
+      hooks:
+        onEnter: |-
+          component("board_led"):off()
+      code: |-
+        local active = supervisor_alarm == true
+        component("board_led"):set(active)
+        setOutput("alarm_active", active)
+
+  transitions:
+    stay_active:
+      from: Mirror
+      to: Mirror
+      type: classic
+      condition: false

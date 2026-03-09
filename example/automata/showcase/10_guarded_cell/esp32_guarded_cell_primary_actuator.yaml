@@ -1,0 +1,47 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Guarded Cell Primary Actuator
+  type: inline
+  language: lua
+  description: ESP32 primary actuator node for the guarded actuation cell. Uses the visible board LED as the actuation indicator.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - guarded-cell
+    - actuator
+    - hardware-safe
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: actuate_cmd
+    type: bool
+    direction: input
+    default: false
+  - name: primary_active
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Mirror
+
+  states:
+    Mirror:
+      hooks:
+        onEnter: |-
+          component("board_led"):off()
+      code: |-
+        local active = actuate_cmd == true
+        component("board_led"):set(active)
+        setOutput("primary_active", active)
+
+  transitions:
+    stay_active:
+      from: Mirror
+      to: Mirror
+      type: classic
+      condition: false
