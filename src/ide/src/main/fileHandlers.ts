@@ -510,6 +510,8 @@ function automataToYaml(automata: unknown): string {
       variables: asVariableRefArray(state.variables),
       code: toStringSafe(state.code, ''),
       hooks: asRecord(state.hooks),
+      description: toOptionalString(state.description),
+      position: asRecord(state.position),
     };
     return acc;
   }, {});
@@ -523,6 +525,8 @@ function automataToYaml(automata: unknown): string {
       to: transition.to,
       type: transition.type || inferTransitionTypeFromData(transition),
       condition: transition.condition || '',
+      body: transition.body || '',
+      triggered: transition.triggered || '',
       priority: toNumber(transition.priority, 0),
       weight: toNumber(transition.weight, 1),
     };
@@ -554,7 +558,9 @@ function automataToYaml(automata: unknown): string {
       language: toStringSafe(config.language, 'lua'),
       description: toStringSafe(config.description, ''),
       tags: asStringArray(config.tags),
+      author: toOptionalString(config.author),
       version: toStringSafe(config.version, '1.0.0'),
+      target: asRecord(config.target),
     },
     automata: {
       initial_state: toStringSafe(obj.initialState, 'Initial'),
@@ -674,6 +680,7 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
       type: transition.type || inferTransitionTypeFromData(transition),
       condition: toStringSafe(transition.condition, ''),
       body: toStringSafe(transition.body, ''),
+      triggered: toStringSafe(transition.triggered, ''),
       priority: toNumber(transition.priority, 0),
       weight: toNumber(transition.weight ?? probabilistic.weight, 1),
       timed: timedSource
@@ -741,7 +748,9 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
       language: 'lua',
       description: toOptionalString(config.description ?? root.description),
       tags: asStringArray(config.tags),
+      author: toOptionalString(config.author),
       version: toStringSafe(config.version, '1.0.0'),
+      target: asRecord(config.target),
       created: Date.now(),
       modified: Date.now(),
     },

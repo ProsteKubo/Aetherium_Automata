@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: Aetherium Influx
+    uid: aetherium-influxdb
+    type: influxdb
+    access: proxy
+    url: http://influxdb:8086
+    isDefault: true
+    jsonData:
+      version: Flux
+      organization: aetherium
+      defaultBucket: aetherium_ts
+      tlsSkipVerify: true
+    secureJsonData:
+      token: aetherium-dev-token

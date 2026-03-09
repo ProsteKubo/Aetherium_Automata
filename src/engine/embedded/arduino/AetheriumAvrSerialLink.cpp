@@ -19,6 +19,8 @@ protocol::DeviceCapabilities defaultCapabilitiesForDeviceType(protocol::DeviceTy
             return desktopCapabilities().toProtocol();
         case protocol::DeviceType::Pico:
             return picoCapabilities().toProtocol();
+        case protocol::DeviceType::MCXN947:
+            return mcxn947Capabilities().toProtocol();
         case protocol::DeviceType::Arduino:
             return avrUnoV1Capabilities().toProtocol();
         default:

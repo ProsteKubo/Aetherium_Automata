@@ -12,6 +12,8 @@ defmodule AetheriumServer.AutomataDeployCompiler do
   alias AetheriumServer.AutomataYaml
   alias AetheriumServer.TargetProfiles
 
+  @esp32_builtin_components MapSet.new(["i2c_scanner", "ssd1306_text"])
+
   @type diagnostics :: map()
 
   @spec prepare(map(), map()) ::
@@ -27,7 +29,7 @@ defmodule AetheriumServer.AutomataDeployCompiler do
            }}
           | {:error, {:deploy_validation_failed, map(), diagnostics()}}
   def prepare(automata, device) when is_map(automata) and is_map(device) do
-    profile = TargetProfiles.for_device(device)
+    profile = TargetProfiles.for_device(device, automata)
     diagnostics = validate(automata, profile)
 
     case {profile.runtime_mode, diagnostics["errors"]} do
@@ -50,7 +52,9 @@ defmodule AetheriumServer.AutomataDeployCompiler do
          }}
 
       {:compiled_ir, _} ->
-        case AethIrBytecode.compile_gateway_automata(automata) do
+        compile_mode = compile_mode_for_profile(profile)
+
+        case AethIrBytecode.compile_gateway_automata(automata, mode: compile_mode) do
           {:ok, compiled_bytecode} ->
             with {:ok, artifact} <-
                    AethIrArtifact.encode_engine_bytecode(compiled_bytecode.payload, profile.id) do
@@ -136,6 +140,8 @@ defmodule AetheriumServer.AutomataDeployCompiler do
       |> maybe_limit_error("states", state_count, limits["max_states"])
       |> maybe_limit_error("transitions", transition_count, limits["max_transitions"])
       |> maybe_limit_error("variables", variable_count, limits["max_variables"])
+      |> maybe_profile_selection_error(automata, profile)
+      |> maybe_esp32_target_errors(automata, profile)
       |> maybe_lua_subset_error(automata, profile)
 
     warnings =
@@ -174,7 +180,156 @@ defmodule AetheriumServer.AutomataDeployCompiler do
 
   defp lua_subset_profile?(_), do: false
 
+  defp lua_full_profile?(profile) when is_map(profile) do
+    flags = profile[:feature_flags] || profile["feature_flags"] || []
+    Enum.any?(flags, &(to_string(&1) == "lua_full"))
+  end
+
+  defp lua_full_profile?(_), do: false
+
   defp allow_yaml_fallback?(profile), do: profile.id == "avr_uno_v1"
+
+  defp compile_mode_for_profile(profile) do
+    if lua_full_profile?(profile), do: :full_lua, else: :subset
+  end
+
+  defp maybe_profile_selection_error(errors, automata, profile) do
+    requested = requested_profile_id(automata)
+
+    cond do
+      is_nil(requested) ->
+        errors
+
+      to_string(requested) == profile.id ->
+        errors
+
+      true ->
+        [
+          "requested target profile #{inspect(requested)} does not match device/profile #{profile.id}"
+          | errors
+        ]
+    end
+  end
+
+  defp maybe_esp32_target_errors(errors, automata, profile) do
+    if String.starts_with?(profile.id, "esp32_") do
+      errors
+      |> maybe_missing_component_registration_error(automata)
+      |> maybe_duplicate_pin_error(automata)
+      |> maybe_invalid_dac_pin_error(automata)
+    else
+      errors
+    end
+  end
+
+  defp maybe_missing_component_registration_error(errors, automata) do
+    components = esp32_components(automata)
+
+    missing =
+      Enum.filter(components, fn component ->
+        manifest =
+          component[:manifest] || component["manifest"] || component[:registration] ||
+            component["registration"]
+
+        name = component[:name] || component["name"]
+
+        is_binary(to_string(name)) and String.trim(to_string(name)) != "" and
+          not MapSet.member?(@esp32_builtin_components, to_string(name)) and
+          (is_nil(manifest) or to_string(manifest) == "")
+      end)
+
+    if missing == [] do
+      errors
+    else
+      [
+        "ESP32 components require a registration/manifest field: " <>
+          Enum.map_join(missing, ", ", &to_string(&1[:name] || &1["name"]))
+        | errors
+      ]
+    end
+  end
+
+  defp maybe_duplicate_pin_error(errors, automata) do
+    pins =
+      automata
+      |> esp32_resources()
+      |> Enum.flat_map(&resource_pins/1)
+
+    duplicates =
+      pins
+      |> Enum.frequencies()
+      |> Enum.filter(fn {_pin, count} -> count > 1 end)
+      |> Enum.map(fn {pin, _} -> pin end)
+
+    if duplicates == [] do
+      errors
+    else
+      [
+        "ESP32 resources contain conflicting pin reservations: #{Enum.join(duplicates, ", ")}"
+        | errors
+      ]
+    end
+  end
+
+  defp maybe_invalid_dac_pin_error(errors, automata) do
+    invalid =
+      automata
+      |> esp32_resources()
+      |> Enum.filter(fn resource ->
+        kind = to_string(resource[:kind] || resource["kind"] || "")
+        pin = resource[:pin] || resource["pin"]
+        String.downcase(kind) == "dac" and pin not in [25, 26]
+      end)
+
+    if invalid == [] do
+      errors
+    else
+      ["ESP32 DAC resources must use pins 25 or 26." | errors]
+    end
+  end
+
+  defp esp32_resources(automata) do
+    config = automata[:config] || automata["config"] || %{}
+    target = config[:target] || config["target"] || %{}
+    esp32 = target[:esp32] || target["esp32"] || %{}
+    resources = esp32[:resources] || esp32["resources"] || []
+    if is_list(resources), do: resources, else: []
+  end
+
+  defp esp32_components(automata) do
+    config = automata[:config] || automata["config"] || %{}
+    target = config[:target] || config["target"] || %{}
+    esp32 = target[:esp32] || target["esp32"] || %{}
+    components = esp32[:components] || esp32["components"] || []
+    if is_list(components), do: components, else: []
+  end
+
+  defp resource_pins(resource) when is_map(resource) do
+    singles =
+      case resource[:pin] || resource["pin"] do
+        pin when is_integer(pin) -> [Integer.to_string(pin)]
+        pin when is_binary(pin) and pin != "" -> [pin]
+        _ -> []
+      end
+
+    many =
+      case resource[:pins] || resource["pins"] do
+        pins when is_list(pins) -> Enum.map(pins, &to_string/1)
+        _ -> []
+      end
+
+    singles ++ many
+  end
+
+  defp resource_pins(_), do: []
+
+  defp requested_profile_id(automata) when is_map(automata) do
+    config = automata[:config] || automata["config"] || %{}
+    target = config[:target] || config["target"] || %{}
+    target[:profile] || target["profile"]
+  end
+
+  defp requested_profile_id(_), do: nil
 
   defp contains_lua?(value) when is_binary(value) do
     String.contains?(String.downcase(value), "lua")

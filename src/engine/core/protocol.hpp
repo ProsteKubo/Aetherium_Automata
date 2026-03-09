@@ -79,6 +79,7 @@ enum class DeviceType : uint8_t {
     Pico = 0x03,
     RaspberryPi = 0x04,
     Arduino = 0x05,
+    MCXN947 = 0x06,
     Server = 0x10,
     Gateway = 0x11
 };

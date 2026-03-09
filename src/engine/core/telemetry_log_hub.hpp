@@ -1,6 +1,7 @@
 #ifndef AETHERIUM_TELEMETRY_LOG_HUB_HPP
 #define AETHERIUM_TELEMETRY_LOG_HUB_HPP
 
+#include "compat_mutex.hpp"
 #include "types.hpp"
 #include <cstdint>
 #include <deque>
@@ -10,7 +11,6 @@
 #undef abs
 #endif
 
-#include <mutex>
 #include <optional>
 #include <string>
 #include <vector>
@@ -92,7 +92,7 @@ private:
     uint64_t push(LogEvent event);
     static Timestamp nowMs();
 
-    mutable std::mutex mutex_;
+    mutable compat::Mutex mutex_;
     std::deque<LogEvent> ring_;
     std::vector<EventStreamCallback> streamCallbacks_;
     size_t capacity_;

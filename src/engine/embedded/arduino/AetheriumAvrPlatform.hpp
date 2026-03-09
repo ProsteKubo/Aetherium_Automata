@@ -1,11 +1,8 @@
 #ifndef AETHERIUM_EMBEDDED_ARDUINO_AVR_PLATFORM_HPP
 #define AETHERIUM_EMBEDDED_ARDUINO_AVR_PLATFORM_HPP
 
+#include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
 #include "engine/core/runtime.hpp"
-
-#ifdef ARDUINO
-#include <Arduino.h>
-#endif
 
 #include <cstdint>
 #include <random>
@@ -14,21 +11,9 @@ namespace aeth::embedded::arduino {
 
 class ArduinoClock : public IClock {
 public:
-    Timestamp now() override {
-#ifdef ARDUINO
-        return static_cast<Timestamp>(::millis());
-#else
-        return 0;
-#endif
-    }
+    Timestamp now() override { return platform::millis(); }
 
-    void sleep(uint32_t ms) override {
-#ifdef ARDUINO
-        ::delay(ms);
-#else
-        (void) ms;
-#endif
-    }
+    void sleep(uint32_t ms) override { platform::delayMs(ms); }
 };
 
 class ArduinoRandomSource : public IRandomSource {

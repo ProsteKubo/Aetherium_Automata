@@ -1,0 +1,118 @@
+version: 0.0.1
+
+config:
+  name: ESP32 OLED Pot Dashboard
+  type: inline
+  language: lua
+  description: IDE-ready rich ESP32 showcase with OLED, potentiometer, button, and PWM LED output.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - lua
+    - oled
+    - pwm
+    - adc
+  target:
+    profile: esp32_lua_v1
+    esp32:
+      resources:
+        - kind: i2c
+          name: oled_bus
+          pins: [21, 22]
+        - kind: adc
+          name: pot_input
+          pin: 34
+        - kind: gpio
+          name: button_input
+          pin: 18
+        - kind: pwm
+          name: led_pwm
+          pin: 19
+      components:
+        - name: ssd1306_text
+          builtin: true
+          manifest: example/automata/showcase/08_esp32/components/ssd1306_text_component.json
+
+variables:
+  - name: remote_override
+    type: int
+    direction: input
+    default: 0
+  - name: pot_raw
+    type: int
+    direction: output
+    default: 0
+  - name: pot_mv
+    type: int
+    direction: output
+    default: 0
+  - name: button_down
+    type: bool
+    direction: output
+    default: false
+  - name: led_duty
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Dashboard
+
+  states:
+    Dashboard:
+      description: Continuously samples the potentiometer, drives LED PWM, and refreshes the OLED.
+      hooks:
+        onEnter: |-
+          gpio.mode(18, "input_pullup")
+          pwm.attach(0, 19, 5000, 8)
+
+          local display = component("ssd1306_text")
+          display:init(128, 64, 60, 0, 21, 22, 400000)
+          display:clear()
+          display:line(0, "Aetherium IDE")
+          display:line(1, "OLED + Pot demo")
+          display:line(2, "Booting...")
+
+          next_sample_at = 0
+          next_display_at = 0
+      code: |-
+        if next_sample_at ~= nil and now() < next_sample_at then
+          return
+        end
+
+        next_sample_at = now() + 80
+
+        local pot = adc.read(34)
+        local pot_mv_local = adc.read_mv(34)
+        local button = gpio.read(18) == 0
+        local duty = math.floor(clamp((pot / 4095.0) * 255, 0, 255))
+        local override = remote_override or 0
+
+        if override > duty then
+          duty = override
+        end
+
+        if button then
+          duty = 255
+        end
+
+        pwm.write(0, duty)
+        setOutput("pot_raw", pot)
+        setOutput("pot_mv", pot_mv_local)
+        setOutput("button_down", button)
+        setOutput("led_duty", duty)
+
+        if next_display_at == nil or now() >= next_display_at then
+          local display = component("ssd1306_text")
+          display:line(0, "Aetherium IDE")
+          display:line(1, "Pot: " .. tostring(pot))
+          display:line(2, "mV: " .. tostring(pot_mv_local))
+          display:line(3, "Button: " .. tostring(button))
+          display:line(4, "PWM: " .. tostring(duty))
+          display:line(5, "Override: " .. tostring(override))
+          next_display_at = now() + 250
+        end
+
+  transitions: {}

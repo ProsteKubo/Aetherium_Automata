@@ -292,6 +292,11 @@ Result<std::vector<uint8_t>> serializeEngineBytecodeProgram(const EngineBytecode
         if (!appendSizedString(out, s.name)) {
             return Result<std::vector<uint8_t>>::error("bytecode state name too large");
         }
+        if (!appendSizedString(out, s.onEnterSource) ||
+            !appendSizedString(out, s.bodySource) ||
+            !appendSizedString(out, s.onExitSource)) {
+            return Result<std::vector<uint8_t>>::error("bytecode state hook source too large");
+        }
     }
 
     for (const auto& t : program.transitions) {
@@ -302,9 +307,14 @@ Result<std::vector<uint8_t>> serializeEngineBytecodeProgram(const EngineBytecode
         out.push_back(t.priority);
         out.push_back(t.enabled ? 1 : 0);
         out.push_back(0); // reserved
+        appendU16(out, t.weight);
         appendU32(out, t.delayMs);
         if (!appendSizedString(out, t.conditionExpression)) {
             return Result<std::vector<uint8_t>>::error("bytecode transition condition too large");
+        }
+        if (!appendSizedString(out, t.bodySource) ||
+            !appendSizedString(out, t.triggeredSource)) {
+            return Result<std::vector<uint8_t>>::error("bytecode transition source too large");
         }
         out.push_back(static_cast<uint8_t>(t.eventSignalDirection));
         out.push_back(static_cast<uint8_t>(t.eventTriggerType));
@@ -379,7 +389,11 @@ Result<EngineBytecodeProgram> deserializeEngineBytecodeProgram(const std::vector
     program.states.reserve(stateCount);
     for (uint16_t i = 0; i < stateCount; ++i) {
         BytecodeState s;
-        if (!readU16(bytes, offset, s.id) || !readSizedString(bytes, offset, s.name)) {
+        if (!readU16(bytes, offset, s.id) ||
+            !readSizedString(bytes, offset, s.name) ||
+            !readSizedString(bytes, offset, s.onEnterSource) ||
+            !readSizedString(bytes, offset, s.bodySource) ||
+            !readSizedString(bytes, offset, s.onExitSource)) {
             return Result<EngineBytecodeProgram>::error("bytecode state entry truncated");
         }
         program.states.push_back(std::move(s));
@@ -392,6 +406,7 @@ Result<EngineBytecodeProgram> deserializeEngineBytecodeProgram(const std::vector
         uint8_t rawPriority = 0;
         uint8_t rawEnabled = 0;
         uint8_t ignoredReserved = 0;
+        uint16_t rawWeight = 0;
         uint8_t rawSignalDirection = 0;
         uint8_t rawTriggerType = 0;
         uint8_t rawHasThreshold = 0;
@@ -405,8 +420,11 @@ Result<EngineBytecodeProgram> deserializeEngineBytecodeProgram(const std::vector
             !readU8(bytes, offset, rawPriority) ||
             !readU8(bytes, offset, rawEnabled) ||
             !readU8(bytes, offset, ignoredReserved) ||
+            !readU16(bytes, offset, rawWeight) ||
             !readU32(bytes, offset, t.delayMs) ||
             !readSizedString(bytes, offset, t.conditionExpression) ||
+            !readSizedString(bytes, offset, t.bodySource) ||
+            !readSizedString(bytes, offset, t.triggeredSource) ||
             !readU8(bytes, offset, rawSignalDirection) ||
             !readU8(bytes, offset, rawTriggerType) ||
             !readU8(bytes, offset, rawHasThreshold) ||
@@ -430,6 +448,7 @@ Result<EngineBytecodeProgram> deserializeEngineBytecodeProgram(const std::vector
         t.kind = static_cast<BytecodeTransitionKind>(rawKind);
         t.priority = rawPriority;
         t.enabled = rawEnabled != 0;
+        t.weight = rawWeight;
         t.eventSignalDirection = static_cast<VariableDirection>(rawSignalDirection);
         t.eventTriggerType = static_cast<EventTrigger>(rawTriggerType);
         t.eventHasThreshold = rawHasThreshold != 0;

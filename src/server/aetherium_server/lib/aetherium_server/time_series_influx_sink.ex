@@ -42,6 +42,24 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
     :ok
   end
 
+  @spec append_device_metrics(map()) :: :ok
+  def append_device_metrics(metrics) when is_map(metrics) do
+    if enabled?() do
+      GenServer.cast(__MODULE__, {:append_device_metrics, metrics})
+    end
+
+    :ok
+  end
+
+  @spec append_device_status(map()) :: :ok
+  def append_device_status(status) when is_map(status) do
+    if enabled?() do
+      GenServer.cast(__MODULE__, {:append_device_status, status})
+    end
+
+    :ok
+  end
+
   @impl true
   def init(_opts) do
     config = Application.get_env(:aetherium_server, __MODULE__, [])
@@ -85,6 +103,24 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
 
   def handle_cast({:append_snapshot, snapshot}, %{enabled: true} = state) do
     with {:ok, line} <- snapshot_to_line(snapshot) do
+      next = %{state | queue: [line | state.queue]}
+      maybe_flush(next)
+    else
+      _ -> {:noreply, state}
+    end
+  end
+
+  def handle_cast({:append_device_metrics, metrics}, %{enabled: true} = state) do
+    with {:ok, line} <- device_metrics_to_line(metrics) do
+      next = %{state | queue: [line | state.queue]}
+      maybe_flush(next)
+    else
+      _ -> {:noreply, state}
+    end
+  end
+
+  def handle_cast({:append_device_status, status}, %{enabled: true} = state) do
+    with {:ok, line} <- device_status_to_line(status) do
       next = %{state | queue: [line | state.queue]}
       maybe_flush(next)
     else
@@ -183,6 +219,102 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
     end
   end
 
+  defp device_metrics_to_line(metrics) when is_map(metrics) do
+    device_id = get_string(metrics, "device_id")
+
+    if device_id == "" do
+      {:error, :missing_device_id}
+    else
+      tags =
+        [
+          {"device_id", device_id},
+          {"deployment_id", get_string(metrics, "deployment_id")},
+          {"automata_id", get_string(metrics, "automata_id")},
+          {"server_id", get_string(metrics, "server_id")},
+          {"connector_type", get_string(metrics, "connector_type")},
+          {"transport", get_string(metrics, "transport")}
+        ]
+        |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+
+      fields = %{
+        "cpu_usage" => get_float(metrics, "cpu_usage", 0.0),
+        "heap_free" => get_int(metrics, "heap_free", 0),
+        "heap_total" => get_int(metrics, "heap_total", 0),
+        "tick_rate" => get_int(metrics, "tick_rate", 0),
+        "run_id" => get_int(metrics, "run_id", 0),
+        "source_id" => get_int(metrics, "source_id", 0),
+        "message_id" => get_int(metrics, "message_id", 0),
+        "telemetry_timestamp_ms" => get_int(metrics, "telemetry_timestamp_ms", 0),
+        "received_at_ms" => get_int(metrics, "received_at_ms", 0),
+        "variable_count" => metrics |> fetch_by_key("variable_count", 0) |> integer_or_default(0)
+      }
+
+      measurement_line("aeth_device_metrics", tags, fields, timestamp_ns(metrics))
+    end
+  end
+
+  defp device_status_to_line(status) when is_map(status) do
+    device_id = get_string(status, "device_id")
+
+    if device_id == "" do
+      {:error, :missing_device_id}
+    else
+      tags =
+        [
+          {"device_id", device_id},
+          {"server_id", get_string(status, "server_id")},
+          {"connector_type", get_string(status, "connector_type")},
+          {"transport", get_string(status, "transport")},
+          {"status", get_string(status, "status", "unknown")}
+        ]
+        |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+
+      fields = %{
+        "last_seen_at" => get_int(status, "last_seen_at", 0),
+        "connected_at" => get_int(status, "connected_at", 0),
+        "has_session" => get_bool(status, "has_session", false),
+        "status_text" => empty_to_nil(get_string(status, "status")),
+        "deployment_id" => empty_to_nil(get_string(status, "deployment_id")),
+        "automata_id" => empty_to_nil(get_string(status, "automata_id")),
+        "deployment_status" => empty_to_nil(get_string(status, "deployment_status")),
+        "deployment_status_text" => empty_to_nil(get_string(status, "deployment_status")),
+        "current_state" => empty_to_nil(get_string(status, "current_state")),
+        "error" => empty_to_nil(get_string(status, "error")),
+        "link" => empty_to_nil(get_string(status, "link"))
+      }
+
+      measurement_line("aeth_device_status", tags, fields, timestamp_ns(status))
+    end
+  end
+
+  defp measurement_line(measurement, tags, fields, timestamp_ns)
+       when is_binary(measurement) and is_list(tags) and is_map(fields) and
+              is_integer(timestamp_ns) do
+    field_values =
+      fields
+      |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+      |> Enum.map_join(",", fn {key, value} -> "#{escape_tag(key)}=#{field_value(value)}" end)
+
+    if field_values == "" do
+      {:error, :missing_fields}
+    else
+      tag_values =
+        case tags do
+          [] ->
+            measurement
+
+          _ ->
+            measurement <>
+              "," <>
+              Enum.map_join(tags, ",", fn {key, value} ->
+                "#{escape_tag(key)}=#{escape_tag(value)}"
+              end)
+        end
+
+      {:ok, "#{tag_values} #{field_values} #{timestamp_ns}"}
+    end
+  end
+
   defp get_string(map, key, default \\ "")
 
   defp get_string(map, key, default) when is_map(map) do
@@ -193,6 +325,21 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
   defp get_int(map, key, default) when is_map(map) do
     value = fetch_by_key(map, key, default)
     if is_integer(value), do: value, else: default
+  end
+
+  defp get_float(map, key, default) when is_map(map) do
+    value = fetch_by_key(map, key, default)
+
+    cond do
+      is_float(value) -> value
+      is_integer(value) -> value * 1.0
+      true -> default
+    end
+  end
+
+  defp get_bool(map, key, default) when is_map(map) do
+    value = fetch_by_key(map, key, default)
+    if is_boolean(value), do: value, else: default
   end
 
   defp fetch_by_key(map, key, default) when is_map(map) and is_binary(key) do
@@ -240,5 +387,25 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
 
   defp schedule_flush(interval_ms) do
     Process.send_after(self(), :flush, interval_ms)
+  end
+
+  defp field_value(value) when is_integer(value), do: Integer.to_string(value) <> "i"
+  defp field_value(value) when is_float(value), do: :erlang.float_to_binary(value, decimals: 6)
+  defp field_value(true), do: "true"
+  defp field_value(false), do: "false"
+  defp field_value(value) when is_binary(value), do: ~s("#{escape_field_string(value)}")
+
+  defp empty_to_nil(""), do: nil
+  defp empty_to_nil(value), do: value
+
+  defp integer_or_default(value, _default) when is_integer(value), do: value
+  defp integer_or_default(_value, default), do: default
+
+  defp escape_field_string(value) when is_binary(value) do
+    value
+    |> String.replace("\\", "\\\\")
+    |> String.replace("\"", "\\\"")
+    |> String.replace("\n", "\\n")
+    |> String.replace("\r", "\\r")
   end
 end

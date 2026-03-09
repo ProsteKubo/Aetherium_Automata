@@ -1,7 +1,7 @@
 defmodule AetheriumGateway.ConnectionManager do
   @moduledoc """
   Manages inter-automata connections and I/O bindings.
-  
+
   Handles:
   - Input/output bindings between automata
   - Event routing between connected automata
@@ -13,6 +13,7 @@ defmodule AetheriumGateway.ConnectionManager do
   require Logger
 
   alias AetheriumGateway.AutomataRegistry
+  alias AetheriumGateway.Persistence
 
   # ============================================================================
   # Types
@@ -23,27 +24,29 @@ defmodule AetheriumGateway.ConnectionManager do
   @type variable_name :: String.t()
 
   @type connection :: %{
-    id: connection_id(),
-    source_automata: automata_id(),
-    source_output: variable_name(),
-    target_automata: automata_id(),
-    target_input: variable_name(),
-    transform: String.t() | nil,
-    enabled: boolean(),
-    created_at: integer()
-  }
+          id: connection_id(),
+          source_automata: automata_id(),
+          source_output: variable_name(),
+          target_automata: automata_id(),
+          target_input: variable_name(),
+          transform: String.t() | nil,
+          enabled: boolean(),
+          binding_type: atom() | nil,
+          created_at: integer(),
+          runtime: map()
+        }
 
   @type state :: %{
-    connections: %{connection_id() => connection()},
-    # Index: source automata -> list of connections
-    by_source: %{automata_id() => [connection_id()]},
-    # Index: target automata -> list of connections
-    by_target: %{automata_id() => [connection_id()]},
-    # Current propagated values
-    values: %{{automata_id(), variable_name()} => any()},
-    # Event subscriptions
-    event_routes: %{String.t() => [{automata_id(), String.t()}]}
-  }
+          connections: %{connection_id() => connection()},
+          # Index: source automata -> list of connections
+          by_source: %{automata_id() => [connection_id()]},
+          # Index: target automata -> list of connections
+          by_target: %{automata_id() => [connection_id()]},
+          # Current propagated values
+          values: %{{automata_id(), variable_name()} => any()},
+          # Event subscriptions
+          event_routes: %{String.t() => [{automata_id(), String.t()}]}
+        }
 
   # ============================================================================
   # Public API
@@ -126,6 +129,12 @@ defmodule AetheriumGateway.ConnectionManager do
     GenServer.call(__MODULE__, {:set_enabled, id, enabled})
   end
 
+  @doc "Replay cached source values for a target automata after reconnect/redeploy"
+  @spec replay_for_automata(automata_id()) :: :ok
+  def replay_for_automata(automata_id) do
+    GenServer.cast(__MODULE__, {:replay_for_automata, automata_id})
+  end
+
   @doc "Validate connections for an automata (check types, cycles)"
   @spec validate_connections(automata_id()) :: {:ok, []} | {:error, [String.t()]}
   def validate_connections(automata_id) do
@@ -144,13 +153,17 @@ defmodule AetheriumGateway.ConnectionManager do
 
   @impl true
   def init(_opts) do
-    state = %{
+    default_state = %{
       connections: %{},
       by_source: %{},
       by_target: %{},
       values: %{},
       event_routes: %{}
     }
+
+    state =
+      Persistence.load_state("connection_manager_state", default_state)
+      |> normalize_state()
 
     Logger.info("ConnectionManager started")
     {:ok, state}
@@ -171,7 +184,9 @@ defmodule AetheriumGateway.ConnectionManager do
         target_input: params[:target_input],
         transform: params[:transform],
         enabled: Map.get(params, :enabled, true),
-        created_at: System.system_time(:millisecond)
+        binding_type: Map.get(params, :binding_type, :direct),
+        created_at: System.system_time(:millisecond),
+        runtime: default_runtime()
       }
 
       new_state =
@@ -181,6 +196,7 @@ defmodule AetheriumGateway.ConnectionManager do
         |> add_to_index(:by_target, connection.target_automata, id)
 
       broadcast_connection_change(:created, connection)
+      persist_state(new_state)
       {:reply, {:ok, connection}, new_state}
     else
       {:error, reason} -> {:reply, {:error, reason}, state}
@@ -198,6 +214,7 @@ defmodule AetheriumGateway.ConnectionManager do
         new_state = put_in(state, [:connections, id], updated)
 
         broadcast_connection_change(:updated, updated)
+        persist_state(new_state)
         {:reply, {:ok, updated}, new_state}
     end
   end
@@ -216,6 +233,7 @@ defmodule AetheriumGateway.ConnectionManager do
           |> remove_from_index(:by_target, connection.target_automata, id)
 
         broadcast_connection_change(:deleted, connection)
+        persist_state(new_state)
         {:reply, :ok, new_state}
     end
   end
@@ -282,6 +300,7 @@ defmodule AetheriumGateway.ConnectionManager do
         new_state = put_in(state, [:connections, id], updated)
 
         broadcast_connection_change(:updated, updated)
+        persist_state(new_state)
         {:reply, :ok, new_state}
     end
   end
@@ -310,16 +329,46 @@ defmodule AetheriumGateway.ConnectionManager do
       |> Enum.filter(&(&1.source_output == output_name && &1.enabled))
 
     # Propagate to each target
-    Enum.each(connections, fn conn ->
-      transformed_value = apply_transform(value, conn.transform)
+    {new_connections, new_values} =
+      Enum.reduce(connections, {state.connections, state.values}, fn conn,
+                                                                     {conn_acc, value_acc} ->
+        transformed_value = apply_transform(value, conn.transform)
+        target_key = {conn.target_automata, conn.target_input}
+        now = System.system_time(:millisecond)
 
-      # Notify target automata
-      notify_input_change(conn.target_automata, conn.target_input, transformed_value)
-    end)
+        if Map.get(value_acc, target_key) == transformed_value do
+          runtime =
+            conn.runtime
+            |> Map.update(:dedupe_count, 1, &(&1 + 1))
+            |> Map.put(:last_value, transformed_value)
+            |> Map.put(:last_value_timestamp, now)
+
+          {Map.put(conn_acc, conn.id, %{conn | runtime: runtime}), value_acc}
+        else
+          notify_input_change(conn.target_automata, conn.target_input, transformed_value)
+
+          runtime =
+            conn.runtime
+            |> Map.update(:message_count, 1, &(&1 + 1))
+            |> Map.put(:last_value, transformed_value)
+            |> Map.put(:last_value_timestamp, now)
+            |> Map.put(:average_latency_ms, 0)
+            |> Map.put(:max_latency_ms, 0)
+
+          {
+            Map.put(conn_acc, conn.id, %{conn | runtime: runtime}),
+            Map.put(value_acc, target_key, transformed_value)
+          }
+        end
+      end)
 
     # Store current value
-    new_state = put_in(state, [:values, {source_automata, output_name}], value)
+    new_state =
+      state
+      |> Map.put(:connections, new_connections)
+      |> Map.put(:values, Map.put(new_values, {source_automata, output_name}, value))
 
+    persist_state(new_state)
     {:noreply, new_state}
   end
 
@@ -354,7 +403,9 @@ defmodule AetheriumGateway.ConnectionManager do
     new_state =
       Enum.reduce(all_ids, state, fn id, acc ->
         case Map.get(acc.connections, id) do
-          nil -> acc
+          nil ->
+            acc
+
           conn ->
             acc
             |> update_in([:connections], &Map.delete(&1, id))
@@ -363,7 +414,34 @@ defmodule AetheriumGateway.ConnectionManager do
         end
       end)
 
+    persist_state(new_state)
     {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_cast({:replay_for_automata, automata_id}, state) do
+    incoming_ids = Map.get(state.by_target, automata_id, [])
+
+    Enum.each(incoming_ids, fn id ->
+      case Map.get(state.connections, id) do
+        %{enabled: true} = conn ->
+          source_key = {conn.source_automata, conn.source_output}
+
+          case Map.fetch(state.values, source_key) do
+            {:ok, value} ->
+              transformed_value = apply_transform(value, conn.transform)
+              notify_input_change(conn.target_automata, conn.target_input, transformed_value)
+
+            :error ->
+              :ok
+          end
+
+        _ ->
+          :ok
+      end
+    end)
+
+    {:noreply, state}
   end
 
   # ============================================================================
@@ -569,5 +647,55 @@ defmodule AetheriumGateway.ConnectionManager do
   defp generate_id do
     :crypto.strong_rand_bytes(16)
     |> Base.encode16(case: :lower)
+  end
+
+  defp default_runtime do
+    %{
+      message_count: 0,
+      error_count: 0,
+      dedupe_count: 0,
+      last_error: nil,
+      last_value: nil,
+      last_value_timestamp: nil,
+      average_latency_ms: 0,
+      max_latency_ms: 0
+    }
+  end
+
+  defp normalize_state(%{connections: connections} = state) when is_map(connections) do
+    state
+    |> Map.put(:by_source, %{})
+    |> Map.put(:by_target, %{})
+    |> Map.put_new(:values, %{})
+    |> Map.put_new(:event_routes, %{})
+    |> rebuild_indexes()
+    |> normalize_connection_runtime()
+  end
+
+  defp normalize_state(_), do: normalize_state(%{connections: %{}})
+
+  defp rebuild_indexes(state) do
+    Enum.reduce(state.connections, %{state | by_source: %{}, by_target: %{}}, fn {id, connection},
+                                                                                 acc ->
+      acc
+      |> add_to_index(:by_source, connection.source_automata, id)
+      |> add_to_index(:by_target, connection.target_automata, id)
+    end)
+  end
+
+  defp normalize_connection_runtime(state) do
+    connections =
+      Enum.into(state.connections, %{}, fn {id, connection} ->
+        {id, Map.put_new(connection, :runtime, default_runtime())}
+      end)
+
+    %{state | connections: connections}
+  end
+
+  defp persist_state(state) do
+    Persistence.save_state(
+      "connection_manager_state",
+      Map.take(state, [:connections, :values, :event_routes])
+    )
   end
 end

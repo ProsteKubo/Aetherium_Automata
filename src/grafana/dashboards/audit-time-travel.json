@@ -1,0 +1,272 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.deployment_id =~ /${deployment:regex}/) |> aggregateWindow(every: 1m, fn: count, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Timeline Events",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 8,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"state_json\" and r.deployment_id =~ /${deployment:regex}/) |> aggregateWindow(every: 1m, fn: count, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Snapshot Volume",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "background"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 8,
+        "x": 16,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.event == \"time_travel_rewind_marker\" and r.deployment_id =~ /${deployment:regex}/) |> group() |> count()",
+          "refId": "A"
+        }
+      ],
+      "title": "Rewinds",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.event == \"time_travel_rewind_marker\" and r.deployment_id =~ /${deployment:regex}/) |> sort(columns: [\"_time\"], desc: true) |> limit(n: 50)",
+          "refId": "A"
+        }
+      ],
+      "title": "Rewind History",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 5,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.event == \"deployment_error\" and r.deployment_id =~ /${deployment:regex}/) |> sort(columns: [\"_time\"], desc: true) |> limit(n: 50)",
+          "refId": "A"
+        }
+      ],
+      "title": "Deployment Errors",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 17
+      },
+      "id": 6,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.event == \"deployment_error\" and r.deployment_id =~ /${deployment:regex}/) |> aggregateWindow(every: 1h, fn: count, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Errors / Hour",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "aetherium",
+    "audit"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Deployment",
+        "multi": true,
+        "name": "deployment",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"deployment_id\")",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-24h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Aetherium Audit / Time Travel",
+  "uid": "aeth-audit",
+  "version": 1,
+  "weekStart": ""
+}

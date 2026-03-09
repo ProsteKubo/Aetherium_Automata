@@ -93,7 +93,11 @@ defmodule AetheriumGatewayWeb.ServerChannel do
     server_id = socket.assigns.server_id
     device_id = payload["device_id"]
 
-    AutomataRegistry.update_device_state(device_id, payload["to_state"], payload["variables"] || %{})
+    AutomataRegistry.update_device_state(
+      device_id,
+      payload["to_state"],
+      payload["variables"] || %{}
+    )
 
     AutomataRegistry.record_transition(
       device_id,
@@ -103,7 +107,12 @@ defmodule AetheriumGatewayWeb.ServerChannel do
       %{"weight_used" => payload["weight_used"]}
     )
 
-    AetheriumGatewayWeb.Endpoint.broadcast!("gateway:control", "state_changed", Map.put(payload, "server_id", server_id))
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "state_changed",
+      Map.put(payload, "server_id", server_id)
+    )
+
     AetheriumGatewayWeb.Endpoint.broadcast!("automata:control", "state_changed", payload)
     {:noreply, socket}
   end
@@ -147,6 +156,10 @@ defmodule AetheriumGatewayWeb.ServerChannel do
         status,
         %{current_state: payload["current_state"], error: payload["error"]}
       )
+    end
+
+    if status in [:running, :paused] and is_binary(payload["automata_id"]) do
+      AetheriumGateway.ConnectionManager.replay_for_automata(payload["automata_id"])
     end
 
     AetheriumGatewayWeb.Endpoint.broadcast!("automata:control", "deployment_status", payload)

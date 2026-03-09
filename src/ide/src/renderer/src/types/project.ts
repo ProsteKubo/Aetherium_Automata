@@ -126,7 +126,7 @@ export interface BuildSettings {
   includeDebugInfo: boolean;
   
   /** Target platform hints */
-  targetPlatforms: ('esp32' | 'pico' | 'linux' | 'ros2')[];
+  targetPlatforms: ('esp32' | 'mcxn947' | 'pico' | 'linux' | 'ros2')[];
 }
 
 // ============================================================================

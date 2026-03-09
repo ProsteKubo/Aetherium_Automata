@@ -1,0 +1,110 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Binding Leader OLED
+  type: inline
+  language: lua
+  description: Leader node for a two-ESP demo. Samples a potentiometer, updates an OLED, and exposes outputs for gateway binding.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - binding
+    - leader
+    - oled
+  target:
+    profile: esp32_lua_v1
+    esp32:
+      resources:
+        - kind: i2c
+          name: oled_bus
+          pins: [21, 22]
+        - kind: adc
+          name: pot_input
+          pin: 34
+        - kind: gpio
+          name: button_input
+          pin: 18
+        - kind: pwm
+          name: local_led_pwm
+          pin: 19
+      components:
+        - name: ssd1306_text
+          builtin: true
+          manifest: example/automata/showcase/08_esp32/components/ssd1306_text_component.json
+
+variables:
+  - name: manual_boost
+    type: int
+    direction: input
+    default: 0
+  - name: leader_duty
+    type: int
+    direction: output
+    default: 0
+  - name: leader_button
+    type: bool
+    direction: output
+    default: false
+  - name: leader_sensor_mv
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Leader
+
+  states:
+    Leader:
+      hooks:
+        onEnter: |-
+          gpio.mode(18, "input_pullup")
+          pwm.attach(0, 19, 5000, 8)
+
+          local display = component("ssd1306_text")
+          display:init(128, 64, 60, 0, 21, 22, 400000)
+          display:clear()
+          display:line(0, "Leader online")
+          display:line(1, "Waiting...")
+
+          leader_next_sample = 0
+          leader_next_display = 0
+      code: |-
+        if leader_next_sample ~= nil and now() < leader_next_sample then
+          return
+        end
+
+        leader_next_sample = now() + 80
+
+        local pot = adc.read(34)
+        local pot_mv_local = adc.read_mv(34)
+        local button = gpio.read(18) == 0
+        local duty = math.floor(clamp((pot / 4095.0) * 255, 0, 255))
+        local boost = manual_boost or 0
+
+        if boost > duty then
+          duty = boost
+        end
+
+        if button then
+          duty = 255
+        end
+
+        pwm.write(0, duty)
+        setOutput("leader_duty", duty)
+        setOutput("leader_button", button)
+        setOutput("leader_sensor_mv", pot_mv_local)
+
+        if leader_next_display == nil or now() >= leader_next_display then
+          local display = component("ssd1306_text")
+          display:line(0, "Leader OLED")
+          display:line(1, "Duty: " .. tostring(duty))
+          display:line(2, "Button: " .. tostring(button))
+          display:line(3, "Sensor mV:")
+          display:line(4, tostring(pot_mv_local))
+          display:line(5, "Boost: " .. tostring(boost))
+          leader_next_display = now() + 250
+        end
+
+  transitions: {}

@@ -14,6 +14,16 @@ defmodule AetheriumGateway.ProtocolTest do
       assert decoded.protocol_version == 1
     end
 
+    test "mcxn947 hello message" do
+      {:ok, encoded} = Protocol.hello("mcxn947_001", :mcxn947, 0x03)
+      {:ok, :hello, decoded} = Protocol.decode(encoded)
+
+      assert decoded.device_id == "mcxn947_001"
+      assert decoded.device_type == :mcxn947
+      assert decoded.capabilities == 0x03
+      assert decoded.protocol_version == 1
+    end
+
     test "state_change message" do
       {:ok, encoded} = Protocol.state_change("idle", "running", "trans_001")
       {:ok, :state_change, decoded} = Protocol.decode(encoded)

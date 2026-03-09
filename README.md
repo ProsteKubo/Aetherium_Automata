@@ -139,6 +139,7 @@ make test-ts
 ```
 
 This starts `gateway + server3 + device1 + influxdb` and enables server-side Influx timeline streaming (`ENABLE_TIME_SERIES_INFLUX=1`) for time-travel data export.
+Grafana is also exposed on `http://localhost:3000` with the preprovisioned Aetherium dashboards.
 
 ### Showcase Automata Catalog
 

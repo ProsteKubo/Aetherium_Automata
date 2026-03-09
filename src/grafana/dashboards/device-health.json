@@ -1,0 +1,269 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and r._field == \"cpu_usage\" and r.device_id =~ /${device:regex}/ and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/)",
+          "refId": "A"
+        }
+      ],
+      "title": "CPU Usage",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "decbytes"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and (r._field == \"heap_free\" or r._field == \"heap_total\") and r.device_id =~ /${device:regex}/ and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/)",
+          "refId": "A"
+        }
+      ],
+      "title": "Heap Free / Total",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 8
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and r._field == \"tick_rate\" and r.device_id =~ /${device:regex}/ and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/)",
+          "refId": "A"
+        }
+      ],
+      "title": "Tick Rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 8
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "displayMode": "gradient",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and r._field == \"telemetry_timestamp_ms\" and r.device_id =~ /${device:regex}/ and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/) |> group(columns: [\"device_id\"]) |> last() |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) / 1000000 - int(v: r._value)) / 1000.0 }))",
+          "refId": "A"
+        }
+      ],
+      "title": "Telemetry Freshness",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 16
+      },
+      "id": 5,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and (r._field == \"cpu_usage\" or r._field == \"heap_free\" or r._field == \"heap_total\" or r._field == \"tick_rate\" or r._field == \"telemetry_timestamp_ms\") and r.device_id =~ /${device:regex}/ and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/) |> group(columns: [\"device_id\", \"_field\"]) |> last() |> pivot(rowKey: [\"device_id\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> keep(columns: [\"device_id\", \"server_id\", \"connector_type\", \"transport\", \"cpu_usage\", \"heap_free\", \"heap_total\", \"tick_rate\", \"telemetry_timestamp_ms\", \"deployment_id\"]) |> sort(columns: [\"device_id\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest Device Metrics",
+      "type": "table"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "aetherium",
+    "health"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Server",
+        "multi": true,
+        "name": "server",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"server_id\")",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Connector",
+        "multi": true,
+        "name": "connector_type",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"connector_type\")",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Device",
+        "multi": true,
+        "name": "device",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"device_id\")",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Aetherium Device Health",
+  "uid": "aeth-health",
+  "version": 1,
+  "weekStart": ""
+}

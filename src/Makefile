@@ -10,12 +10,30 @@ ESP_PORT ?= /dev/cu.usbserial-0001
 ESP_FQBN ?= esp32:esp32:esp32
 ESP_SKETCH ?= engine/embedded/arduino/examples/AetheriumEsp32Node
 ESP_LIBRARY ?= engine/embedded/arduino
-ESP_CPP_FLAGS ?= -std=gnu++17 -DAETHERIUM_RUNTIME_CORE_ONLY=1 -DAETHERIUM_DISABLE_LUA_SCRIPT_ENGINE=1 -I$(abspath .)
+ESP_CPP_FLAGS ?= -std=gnu++17 -DAETHERIUM_RUNTIME_CORE_ONLY=1 -I$(abspath .)
+ESP_LUA_ARDUINO_LIB ?= Lua 5.1 for ESP32
+ESP_OLED_ARDUINO_LIB ?= Adafruit SSD1306
+ESP_GFX_ARDUINO_LIB ?= Adafruit GFX Library
 SERVER_DIR ?= server/aetherium_server
 ESP_GATEWAY_WS_URL ?= ws://localhost:8080/socket/websocket
 ESP_GATEWAY_AUTH_TOKEN ?= server_secret_token
+SERIAL_BAUD_RATE ?= 115200
+SERIAL_PORTS ?=
+SERIAL_SERVER_ID ?= serial_host
+MCXN947_CMAKE ?= cmake
+MCXN947_BUILD_DIR ?= build/mcxn947
+MCXN947_FW_DIR ?= engine/embedded/mcxn947
+MCXN947_TOOLCHAIN ?= $(abspath $(MCXN947_FW_DIR)/toolchain-arm-none-eabi.cmake)
+MCXN947_ELF ?= $(MCXN947_BUILD_DIR)/aetherium_mcxn947_node.elf
+MCXN947_BIN ?= $(MCXN947_BUILD_DIR)/aetherium_mcxn947_node.bin
+MCXN947_HEX ?= $(MCXN947_BUILD_DIR)/aetherium_mcxn947_node.hex
+MCXN947_PORT ?= $(or $(firstword $(wildcard /dev/cu.usbmodem*)),/dev/cu.debug-console)
+MCXN947_PYOCD ?= pyocd
+MCXN947_TARGET ?= mcxn947vdf
+MCXN947_PROBE_UID ?=
+MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
 
-.PHONY: help up u up-gateway ug down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd logs l logs0 l0 build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo
+.PHONY: help up u up-gateway ug down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd logs l logs0 l0 build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv serial-smoke ssmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
 
 help:
 	@echo "Aetherium src dev shortcuts"
@@ -51,6 +69,7 @@ help:
 	@echo "  make test-ts / make tts         - run real Influx integration test in server3"
 	@echo ""
 	@echo "ESP32 (Host Hardware Loop):"
+	@echo "  make esp-deps / make edeps      - install required Arduino Lua + OLED libraries"
 	@echo "  make esp-boards / make eb       - list serial boards (arduino-cli)"
 	@echo "  make esp-compile / make ec      - compile ESP32 sketch"
 	@echo "  make esp-flash / make ef        - compile + upload to ESP32 (ESP_PORT=...)"
@@ -58,6 +77,20 @@ help:
 	@echo "  make esp-smoke / make esmoke    - host serial deploy/start/stop smoke"
 	@echo "  make esp-demo / make edemo      - host serial time-travel demo"
 	@echo "    vars: ESP_PORT=... ESP_GATEWAY_WS_URL=ws://localhost:8080/socket/websocket"
+	@echo ""
+	@echo "Generic Serial Host:"
+	@echo "  make serial-server / make ssrv  - run one host server over one or more serial ports"
+	@echo "  make serial-smoke / make ssmoke - generic serial deploy/start/stop smoke"
+	@echo "    vars: SERIAL_PORTS=/dev/cu.foo,/dev/cu.bar SERIAL_BAUD_RATE=115200"
+	@echo ""
+	@echo "FRDM-MCXN947:"
+	@echo "  make mcxn947-configure / make mcfg - configure standalone arm-none-eabi firmware build"
+	@echo "  make mcxn947-build / make mbuild   - build MCXN947 firmware (.elf/.bin/.hex)"
+	@echo "  make mcxn947-flash / make mflash   - flash firmware with pyocd"
+	@echo "  make mcxn947-reset / make mreset   - reset target with pyocd"
+	@echo "  make mcxn947-server / make msrv    - run host server with FRDM serial connector"
+	@echo "  make mcxn947-smoke / make msmoke   - host serial deploy/start/stop smoke for FRDM"
+	@echo "    vars: MCXN947_PORT=/dev/cu.usbmodem... MCXN947_PROBE_UID=... MCXN947_TARGET=mcxn947vdf"
 	@echo ""
 	@echo "Reset:"
 	@echo "  make down                      - stop stack (keep volumes)"
@@ -138,6 +171,11 @@ down-ts dts:
 test-ts tts:
 	$(COMPOSE) --profile timeseries exec -T server3 sh -lc "cd /app && RUN_INFLUX_INTEGRATION_TESTS=1 ENABLE_TIME_SERIES_INFLUX=1 mix test test/time_series_influx_integration_test.exs"
 
+esp-deps edeps:
+	$(ARDUINO_CLI) lib install "$(ESP_LUA_ARDUINO_LIB)"
+	$(ARDUINO_CLI) lib install "$(ESP_OLED_ARDUINO_LIB)"
+	$(ARDUINO_CLI) lib install "$(ESP_GFX_ARDUINO_LIB)"
+
 esp-boards eb:
 	$(ARDUINO_CLI) board list
 
@@ -157,10 +195,34 @@ esp-flash ef:
 		$(ESP_SKETCH)
 
 esp-server esrv:
-	cd $(SERVER_DIR) && SERVER_ID=esp_host ENABLE_SERIAL_DEVICE_TRANSPORT=1 SERIAL_PORTS=$(ESP_PORT) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix run --no-halt
+	$(MAKE) serial-server SERIAL_SERVER_ID=esp_host SERIAL_PORTS=$(ESP_PORT)
 
 esp-smoke esmoke:
-	cd $(SERVER_DIR) && SERVER_ID=esp_host DEVICE_PORT=4100 ENABLE_SERIAL_DEVICE_TRANSPORT=1 SERIAL_PORTS=$(ESP_PORT) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix aetherium.serial.smoke --wait-ms 30000 --timeout-ms 20000
+	$(MAKE) serial-smoke SERIAL_SERVER_ID=esp_host SERIAL_PORTS=$(ESP_PORT)
 
 esp-demo edemo:
 	cd $(SERVER_DIR) && SERVER_ID=esp_host DEVICE_PORT=4100 ENABLE_SERIAL_DEVICE_TRANSPORT=1 SERIAL_PORTS=$(ESP_PORT) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix aetherium.esp32.timetravel.demo --wait-ms 45000 --run-ms 3000
+
+serial-server ssrv:
+	cd $(SERVER_DIR) && SERVER_ID=$(SERIAL_SERVER_ID) ENABLE_SERIAL_DEVICE_TRANSPORT=1 SERIAL_PORTS="$(SERIAL_PORTS)" SERIAL_BAUD_RATE=$(SERIAL_BAUD_RATE) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix run --no-halt
+
+serial-smoke ssmoke:
+	cd $(SERVER_DIR) && SERVER_ID=$(SERIAL_SERVER_ID) DEVICE_PORT=4100 ENABLE_SERIAL_DEVICE_TRANSPORT=1 SERIAL_PORTS="$(SERIAL_PORTS)" SERIAL_BAUD_RATE=$(SERIAL_BAUD_RATE) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix aetherium.serial.smoke --wait-ms 30000 --timeout-ms 20000
+
+mcxn947-configure mcfg:
+	$(MCXN947_CMAKE) -S $(MCXN947_FW_DIR) -B $(MCXN947_BUILD_DIR) -DCMAKE_TOOLCHAIN_FILE=$(MCXN947_TOOLCHAIN)
+
+mcxn947-build mbuild: mcxn947-configure
+	$(MCXN947_CMAKE) --build $(MCXN947_BUILD_DIR)
+
+mcxn947-flash mflash: mcxn947-build
+	$(MCXN947_PYOCD) load $(MCXN947_PYOCD_UID_ARG) -t $(MCXN947_TARGET) $(MCXN947_HEX)
+
+mcxn947-reset mreset:
+	$(MCXN947_PYOCD) reset $(MCXN947_PYOCD_UID_ARG) -t $(MCXN947_TARGET)
+
+mcxn947-server msrv:
+	$(MAKE) serial-server SERIAL_SERVER_ID=mcxn_host SERIAL_PORTS=$(MCXN947_PORT)
+
+mcxn947-smoke msmoke:
+	$(MAKE) serial-smoke SERIAL_SERVER_ID=mcxn_host SERIAL_PORTS=$(MCXN947_PORT)

@@ -46,7 +46,11 @@ inline EngineCapabilities desktopCapabilities() {
 
 inline EngineCapabilities esp32Capabilities() {
     EngineCapabilities caps;
+#if defined(AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE)
+    caps.supportsLua = false;
+#else
     caps.supportsLua = true;
+#endif
     caps.supportsTimed = true;
     caps.supportsProbabilistic = true;
     caps.supportsEvent = true;
@@ -73,6 +77,20 @@ inline EngineCapabilities avrUnoV1Capabilities() {
 }
 
 inline EngineCapabilities picoCapabilities() {
+    EngineCapabilities caps;
+    caps.supportsLua = true;
+    caps.supportsTimed = true;
+    caps.supportsProbabilistic = true;
+    caps.supportsEvent = true;
+    caps.supportsFuzzy = false;
+    caps.supportsNested = false;
+    caps.supportsBytecode = true;
+    caps.hasPersistentStorage = false;
+    caps.hasRTC = false;
+    return caps;
+}
+
+inline EngineCapabilities mcxn947Capabilities() {
     EngineCapabilities caps;
     caps.supportsLua = true;
     caps.supportsTimed = true;

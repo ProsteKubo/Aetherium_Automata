@@ -132,6 +132,7 @@ defmodule AetheriumServer.DeviceIngress do
   def map_device_type(0x03), do: :pico
   def map_device_type(0x04), do: :raspberry_pi
   def map_device_type(0x05), do: :arduino
+  def map_device_type(0x06), do: :mcxn947
   def map_device_type(0x10), do: :server
   def map_device_type(0x11), do: :gateway
   def map_device_type(_), do: :unknown

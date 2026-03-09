@@ -38,4 +38,21 @@ defmodule AetheriumServer.ShowcaseCatalogTest do
     assert automata["transitions"]["OpenDoor"]["from"] == "Closed"
     assert automata["transitions"]["OpenDoor"]["to"] == "Open"
   end
+
+  test "load_automata preserves esp32 target config and rich lua state content" do
+    assert {:ok, %{automata: automata}} =
+             ShowcaseCatalog.load_automata(
+               "example/automata/showcase/08_esp32/esp32_oled_pot_dashboard.yaml"
+             )
+
+    assert get_in(automata, ["config", "target", "profile"]) == "esp32_lua_v1"
+    assert get_in(automata, ["config", "target", "esp32", "components"]) |> is_list()
+
+    assert String.contains?(
+             automata["states"]["Dashboard"]["code"],
+             "component(\"ssd1306_text\")"
+           )
+
+    assert String.contains?(automata["states"]["Dashboard"]["hooks"]["onEnter"], "display:init")
+  end
 end

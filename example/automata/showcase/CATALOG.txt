@@ -11,3 +11,7 @@ example/automata/showcase/08_esp32/esp32_runtime_led_pulse.yaml
 example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml
 example/automata/showcase/08_esp32/esp32_thermostat_guard.yaml
 example/automata/showcase/08_esp32/esp32_production_line_safe.yaml
+example/automata/showcase/08_esp32/esp32_oled_pot_dashboard.yaml
+example/automata/showcase/08_esp32/esp32_binding_leader_oled.yaml
+example/automata/showcase/08_esp32/esp32_binding_follower_pwm.yaml
+example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml

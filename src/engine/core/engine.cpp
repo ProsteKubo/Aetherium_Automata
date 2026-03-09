@@ -68,7 +68,11 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
         if (!stateIds.insert(s.id).second) {
             return Result<std::unique_ptr<Automata>>::error("duplicate bytecode state id");
         }
-        automata->addState(State{s.id, s.name});
+        State state{s.id, s.name};
+        state.onEnter.source = s.onEnterSource;
+        state.body.source = s.bodySource;
+        state.onExit.source = s.onExitSource;
+        automata->addState(std::move(state));
     }
 
     std::unordered_set<VariableId> variableIds;
@@ -112,6 +116,9 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
         Transition tr(t.id, t.name.empty() ? ("t" + std::to_string(t.id)) : t.name, t.from, t.to);
         tr.priority = t.priority;
         tr.enabled = t.enabled;
+        tr.weight = t.weight;
+        tr.body.source = t.bodySource;
+        tr.triggered.source = t.triggeredSource;
 
         switch (t.kind) {
             case ir::BytecodeTransitionKind::Immediate:
@@ -121,6 +128,7 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
                 tr.type = TransitionType::Timed;
                 tr.timedConfig.mode = TimedMode::After;
                 tr.timedConfig.delayMs = t.delayMs;
+                tr.timedConfig.additionalCondition.source = t.conditionExpression;
                 break;
             case ir::BytecodeTransitionKind::ClassicCondition:
                 if (t.conditionExpression.empty()) {
@@ -166,6 +174,7 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
                 }
                 tr.eventConfig.requireAll = false;
                 tr.eventConfig.debounceMs = 0;
+                tr.eventConfig.additionalCondition.source = t.conditionExpression;
                 tr.eventConfig.triggers.push_back(std::move(trigger));
                 break;
             }

@@ -1,5 +1,9 @@
 #include "telemetry_log_hub.hpp"
 
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+#include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
+#endif
+
 #include <algorithm>
 
 #ifdef abs
@@ -14,7 +18,7 @@ TelemetryLogHub::TelemetryLogHub(size_t capacity)
     : capacity_(std::max<size_t>(capacity, 1)) {}
 
 void TelemetryLogHub::setCapacity(size_t capacity) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     capacity_ = std::max<size_t>(capacity, 1);
     while (ring_.size() > capacity_) {
         ring_.pop_front();
@@ -76,7 +80,7 @@ uint64_t TelemetryLogHub::outputChange(const std::string& variable,
 }
 
 std::vector<LogEvent> TelemetryLogHub::snapshot(const LogQuery& query) const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     std::vector<LogEvent> result;
     result.reserve(std::min(query.maxItems, ring_.size()));
 
@@ -97,19 +101,19 @@ void TelemetryLogHub::stream(EventStreamCallback callback) {
     if (!callback) {
         return;
     }
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     streamCallbacks_.push_back(std::move(callback));
 }
 
 uint64_t TelemetryLogHub::latestSeq() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     return nextSeq_ > 0 ? nextSeq_ - 1 : 0;
 }
 
 uint64_t TelemetryLogHub::push(LogEvent event) {
     std::vector<EventStreamCallback> callbacks;
     {
-        std::lock_guard<std::mutex> lock(mutex_);
+        compat::LockGuard lock(mutex_);
         event.seq = nextSeq_++;
         ring_.push_back(event);
         while (ring_.size() > capacity_) {
@@ -126,8 +130,12 @@ uint64_t TelemetryLogHub::push(LogEvent event) {
 }
 
 Timestamp TelemetryLogHub::nowMs() {
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+    return aeth::embedded::platform::millis();
+#else
     const auto now = std::chrono::system_clock::now().time_since_epoch();
     return static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+#endif
 }
 
 } // namespace aeth
