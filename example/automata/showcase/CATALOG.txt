@@ -20,3 +20,9 @@ example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml
 example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml
 example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml
 example/automata/showcase/09_mcxn947/mcxn947_binding_leader_button.yaml
+example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml
+example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml
+example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml
+example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml
+example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml
+example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml

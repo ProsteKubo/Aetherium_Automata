@@ -1,0 +1,61 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 Guarded Cell Leader
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 leader node for the guarded actuation cell. Exports raw request and permit signals while mirroring them on local LEDs.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - ide
+    - guarded-cell
+    - leader
+    - gpio
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: request_raw
+    type: bool
+    direction: output
+    default: false
+  - name: permit_raw
+    type: bool
+    direction: output
+    default: false
+  - name: leader_online
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Monitor
+
+  states:
+    Monitor:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(27, "output")
+          gpio.mode(23, "input_pullup")
+          gpio.mode(6, "input_pullup")
+      code: |-
+        local request = gpio.read(23) == 0
+        local permit = gpio.read(6) == 0
+
+        gpio.write(10, request)
+        gpio.write(27, permit)
+
+        setOutput("request_raw", request)
+        setOutput("permit_raw", permit)
+        setOutput("leader_online", true)
+
+  transitions:
+    stay_active:
+      from: Monitor
+      to: Monitor
+      type: classic
+      condition: false

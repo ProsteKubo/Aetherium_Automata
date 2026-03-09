@@ -19,6 +19,7 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
 - `07_folderized/` state/transition Lua split for maintainable large models
 - `08_esp32/` ESP32 demos for serial + IDE imports, including rich Lua hardware showcases
 - `09_mcxn947/` FRDM-MCXN947 hardware demos for serial validation and IDE-first board features
+- `10_guarded_cell/` multi-board guarded actuation chain combining MCXN947, host automata, and ESP32 actuators
 
 ## Scenarios
 
@@ -62,6 +63,18 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
    - FRDM onboard-temperature demo that reads the built-in `board_temp` component, keeps the green LED on while readings are sane, and trips the red LED above a warm threshold.
 20. `09_mcxn947/mcxn947_binding_leader_button.yaml`
    - Mixed-board leader node for IDE bindings that exports `SW2` and mirrors it on the FRDM red LED for an ESP32 follower.
+21. `10_guarded_cell/mcxn947_guarded_cell_leader.yaml`
+   - Guarded-cell leader node that exports raw request/permit signals from the FRDM board.
+22. `10_guarded_cell/guarded_cell_signal_conditioner.yaml`
+   - Host-side signal conditioner that turns raw request/permit signals into normalized guarded-cell control signals.
+23. `10_guarded_cell/guarded_cell_safety_supervisor.yaml`
+   - Host-side supervisor that inhibits unsafe requests and escalates to alarm when requests persist without permit.
+24. `10_guarded_cell/guarded_cell_actuation_controller.yaml`
+   - Host-side controller that emits bounded actuation cycles when the conditioned request arrives and inhibition is clear.
+25. `10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml`
+   - ESP32 actuator node that mirrors `actuate_cmd` onto the visible board LED via the built-in `board_led` component.
+26. `10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml`
+   - ESP32 alarm node that mirrors `supervisor_alarm` onto the visible board LED via the built-in `board_led` component.
 
 ## Usage
 
