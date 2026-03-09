@@ -5,10 +5,6 @@
 #define AETHERIUM_RUNTIME_CORE_ONLY 1
 #endif
 
-#ifndef AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE
-#define AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE 1
-#endif
-
 #include "../../core/artifact.cpp"
 #include "../../core/runtime.cpp"
 #include "../../core/protocol.cpp"

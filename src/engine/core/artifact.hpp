@@ -49,6 +49,9 @@ struct BytecodeVariable {
 struct BytecodeState {
     StateId id = INVALID_STATE;
     std::string name;
+    std::string onEnterSource;
+    std::string bodySource;
+    std::string onExitSource;
 };
 
 struct BytecodeTransition {
@@ -59,8 +62,11 @@ struct BytecodeTransition {
     BytecodeTransitionKind kind = BytecodeTransitionKind::Immediate;
     uint8_t priority = 0;
     bool enabled = true;
+    uint16_t weight = 100;
     uint32_t delayMs = 0;
     std::string conditionExpression;
+    std::string bodySource;
+    std::string triggeredSource;
     std::string eventSignalName;
     VariableDirection eventSignalDirection = VariableDirection::Input;
     EventTrigger eventTriggerType = EventTrigger::OnChange;

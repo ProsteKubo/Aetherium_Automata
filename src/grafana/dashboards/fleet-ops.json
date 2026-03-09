@@ -1,0 +1,240 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 16,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and (r._field == \"last_seen_at\" or r._field == \"connected_at\" or r._field == \"status_text\" or r._field == \"deployment_id\" or r._field == \"deployment_status_text\" or r._field == \"current_state\" or r._field == \"error\") and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\", \"_field\"]) |> last() |> pivot(rowKey: [\"device_id\"], columnKey: [\"_field\"], valueColumn: \"_value\") |> keep(columns: [\"device_id\", \"server_id\", \"connector_type\", \"transport\", \"status_text\", \"deployment_id\", \"deployment_status_text\", \"current_state\", \"last_seen_at\", \"connected_at\", \"error\"]) |> sort(columns: [\"device_id\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "Fleet Status Table",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "background"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 16,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"status_text\" and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\"]) |> last() |> filter(fn: (r) => r._value == \"disconnected\") |> group() |> count()",
+          "refId": "A"
+        }
+      ],
+      "title": "Offline Devices",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 4,
+        "x": 20,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "displayMode": "gradient",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {
+          "calcs": [
+            "max"
+          ],
+          "fields": "",
+          "values": false
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"aeth_device_metrics\" and r._field == \"telemetry_timestamp_ms\" and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\"]) |> last() |> map(fn: (r) => ({ r with _value: float(v: int(v: now()) / 1000000 - int(v: r._value)) / 1000.0 }))",
+          "refId": "A"
+        }
+      ],
+      "title": "Telemetry Age (s)",
+      "type": "bargauge"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"status_text\" and r.server_id =~ /${server:regex}/ and r.connector_type =~ /${connector_type:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "Device Status Timeline",
+      "type": "state-timeline"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "aetherium",
+    "fleet"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Server",
+        "multi": true,
+        "name": "server",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"server_id\")",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Connector",
+        "multi": true,
+        "name": "connector_type",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"connector_type\")",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Device",
+        "multi": true,
+        "name": "device",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"device_id\")",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Aetherium Fleet Ops",
+  "uid": "aeth-fleet",
+  "version": 1,
+  "weekStart": ""
+}

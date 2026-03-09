@@ -1,0 +1,16 @@
+{
+  "components": [
+    {
+      "name": "ssd1306_text",
+      "class": "Ssd1306TextComponent",
+      "methods": [
+        { "name": "init" },
+        { "name": "clear" },
+        { "name": "line" },
+        { "name": "show" },
+        { "name": "set_text_size" },
+        { "name": "invert" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,328 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": false,
+  "graphTooltip": 1,
+  "panels": [
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"deployment_status_text\" and r.deployment_id =~ /${deployment:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"deployment_id\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Current Deployment Status",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 0
+      },
+      "id": 2,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -30d) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"current_state\" and r.deployment_id =~ /${deployment:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"deployment_id\"]) |> last()",
+          "refId": "A"
+        }
+      ],
+      "title": "Current State",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 12,
+        "x": 12,
+        "y": 0
+      },
+      "id": 3,
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.event == \"state_changed\" and r.deployment_id =~ /${deployment:regex}/) |> aggregateWindow(every: 1m, fn: count, createEmpty: false)",
+          "refId": "A"
+        }
+      ],
+      "title": "Transitions / Minute",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"deployment_status_text\" and r.deployment_id =~ /${deployment:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "Deployment Status Timeline",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "legend": {
+          "displayMode": "hidden",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: v.timeRangeStart, stop: v.timeRangeStop) |> filter(fn: (r) => r._measurement == \"aeth_device_status\" and r._field == \"current_state\" and r.deployment_id =~ /${deployment:regex}/ and r.device_id =~ /${device:regex}/) |> group(columns: [\"device_id\"])",
+          "refId": "A"
+        }
+      ],
+      "title": "Current State Timeline",
+      "type": "state-timeline"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 0,
+        "y": 12
+      },
+      "id": 6,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.deployment_id =~ /${deployment:regex}/ and r.event == \"variable_updated\") |> sort(columns: [\"_time\"], desc: true) |> limit(n: 50)",
+          "refId": "A"
+        }
+      ],
+      "title": "Variable Update Feed",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "aetherium-influxdb"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 12,
+        "x": 12,
+        "y": 12
+      },
+      "id": 7,
+      "options": {
+        "footer": {
+          "enablePagination": true,
+          "show": true
+        },
+        "showHeader": true
+      },
+      "targets": [
+        {
+          "query": "from(bucket: \"aetherium_ts\") |> range(start: -24h) |> filter(fn: (r) => r._measurement == \"aeth_timeline\" and r._field == \"payload_json\" and r.deployment_id =~ /${deployment:regex}/ and (r.event == \"deployment_error\" or r.event == \"deployment_transfer\" or r.event == \"time_travel_rewind_marker\")) |> sort(columns: [\"_time\"], desc: true) |> limit(n: 50)",
+          "refId": "A"
+        }
+      ],
+      "title": "Transfer / Error / Rewind Events",
+      "type": "table"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": [
+    "aetherium",
+    "runtime"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Device",
+        "multi": true,
+        "name": "device",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"device_id\")",
+        "refresh": 2,
+        "type": "query"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "All",
+          "value": "$__all"
+        },
+        "datasource": {
+          "type": "influxdb",
+          "uid": "aetherium-influxdb"
+        },
+        "includeAll": true,
+        "label": "Deployment",
+        "multi": true,
+        "name": "deployment",
+        "options": [],
+        "query": "import \"influxdata/influxdb/schema\"\nschema.tagValues(bucket: \"aetherium_ts\", tag: \"deployment_id\")",
+        "refresh": 2,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timezone": "browser",
+  "title": "Aetherium Deployment Runtime",
+  "uid": "aeth-runtime",
+  "version": 1,
+  "weekStart": ""
+}

@@ -120,6 +120,28 @@ services:
       - influxdb_data:/var/lib/influxdb2
       - influxdb_config:/etc/influxdb2
 
+  grafana:
+    profiles: ["timeseries"]
+    image: grafana/grafana:11.4.0
+    container_name: aetherium-grafana
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.52
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-adminadmin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/provisioning/dashboards/aetherium/overview.json
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources:ro
+      - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./grafana/dashboards:/etc/grafana/provisioning/dashboards/aetherium:ro
+    depends_on:
+      - influxdb
+
   device1:
     build:
       context: ..
@@ -216,3 +238,4 @@ volumes:
   server3_build:
   influxdb_data:
   influxdb_config:
+  grafana_data:

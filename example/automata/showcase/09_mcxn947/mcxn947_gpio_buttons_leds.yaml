@@ -1,0 +1,53 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 GPIO Buttons to LEDs
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 hardware smoke that mirrors SW2/SW3 onto the red/green LEDs with ESP-style GPIO calls.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - gpio
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: sw2_pressed
+    type: bool
+    direction: output
+    default: false
+  - name: sw3_pressed
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Mirror
+
+  states:
+    Mirror:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(27, "output")
+          gpio.mode(23, "input_pullup")
+          gpio.mode(6, "input_pullup")
+      code: |-
+        local sw2 = gpio.read(23) == 0
+        local sw3 = gpio.read(6) == 0
+
+        gpio.write(10, sw2)
+        gpio.write(27, sw3)
+
+        setOutput("sw2_pressed", sw2)
+        setOutput("sw3_pressed", sw3)
+
+  transitions:
+    stay_active:
+      from: Mirror
+      to: Mirror
+      type: classic
+      condition: false

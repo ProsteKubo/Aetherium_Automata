@@ -1,0 +1,62 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Binding Follower PWM
+  type: inline
+  language: lua
+  description: Follower node for a two-ESP demo. Consumes bound leader inputs and mirrors them to a PWM LED.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - binding
+    - follower
+    - pwm
+  target:
+    profile: esp32_lua_v1
+    esp32:
+      resources:
+        - kind: pwm
+          name: follower_led_pwm
+          pin: 23
+        - kind: gpio
+          name: follower_status_led
+          pin: 2
+
+variables:
+  - name: leader_duty
+    type: int
+    direction: input
+    default: 0
+  - name: leader_button
+    type: bool
+    direction: input
+    default: false
+  - name: follower_duty
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Mirror
+
+  states:
+    Mirror:
+      hooks:
+        onEnter: |-
+          gpio.mode(2, "output")
+          pwm.attach(0, 23, 5000, 8)
+      code: |-
+        local duty = math.floor(clamp(leader_duty or 0, 0, 255))
+        local pressed = leader_button == true
+
+        if pressed then
+          duty = 255
+        end
+
+        gpio.write(2, pressed)
+        pwm.write(0, duty)
+        setOutput("follower_duty", duty)
+
+  transitions: {}

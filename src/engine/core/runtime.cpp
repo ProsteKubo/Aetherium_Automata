@@ -8,9 +8,16 @@
 #undef abs
 #endif
 
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+#include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
+#endif
+
 #include <chrono>
-#include <thread>
 #include <algorithm>
+
+#if !defined(ARDUINO) && !defined(AETHERIUM_PLATFORM_MCXN947)
+#include <thread>
+#endif
 
 namespace aeth {
 
@@ -19,13 +26,21 @@ namespace aeth {
 // ============================================================================
 
 Timestamp StdClock::now() {
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+    return aeth::embedded::platform::millis();
+#else
     auto now = std::chrono::steady_clock::now();
     auto duration = now.time_since_epoch();
     return std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+#endif
 }
 
 void StdClock::sleep(uint32_t ms) {
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+    aeth::embedded::platform::delayMs(ms);
+#else
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
+#endif
 }
 
 // ============================================================================

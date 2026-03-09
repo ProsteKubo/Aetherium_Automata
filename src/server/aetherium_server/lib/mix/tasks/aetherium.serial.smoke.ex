@@ -90,7 +90,7 @@ defmodule Mix.Tasks.Aetherium.Serial.Smoke do
       DeviceManager.list_devices()
       |> Enum.find(fn d ->
         d.status == :connected and d.connector_type == :serial and
-          d.device_type in [:arduino, :esp32]
+          d.device_type in [:arduino, :esp32, :mcxn947]
       end)
     end)
     |> case do

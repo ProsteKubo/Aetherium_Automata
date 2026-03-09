@@ -197,6 +197,7 @@ export interface AutomataConfig {
   tags: string[];
   author?: string;
   version: string;
+  target?: Record<string, unknown>;
   created?: number;
   modified?: number;
 }

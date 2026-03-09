@@ -8,10 +8,10 @@
 #ifndef AETHERIUM_TRANSPORT_HPP
 #define AETHERIUM_TRANSPORT_HPP
 
+#include "compat_mutex.hpp"
 #include "types.hpp"
 #include "protocol.hpp"
 #include <queue>
-#include <mutex>
 #include <functional>
 #include <memory>
 
@@ -157,7 +157,7 @@ private:
     TransportState state_ = TransportState::Disconnected;
     std::queue<std::unique_ptr<protocol::Message>> inQueue_;
     std::queue<std::string> inputLines_;
-    mutable std::mutex mutex_;
+    mutable compat::Mutex mutex_;
 };
 
 // ============================================================================
@@ -282,7 +282,7 @@ inline bool ConsoleTransport::sendRaw(const uint8_t* data, size_t len) {
 }
 
 inline std::unique_ptr<protocol::Message> ConsoleTransport::receive() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     
     if (inQueue_.empty()) return nullptr;
     
@@ -292,17 +292,17 @@ inline std::unique_ptr<protocol::Message> ConsoleTransport::receive() {
 }
 
 inline bool ConsoleTransport::hasMessage() const {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     return !inQueue_.empty();
 }
 
 inline void ConsoleTransport::injectMessage(std::unique_ptr<protocol::Message> msg) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     inQueue_.push(std::move(msg));
 }
 
 inline void ConsoleTransport::injectInput(const std::string& line) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    compat::LockGuard lock(mutex_);
     inputLines_.push(line);
 }
 

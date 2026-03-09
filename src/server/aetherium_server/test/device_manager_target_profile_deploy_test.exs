@@ -166,7 +166,7 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
     assert {:ok, deployment} =
              DeviceManager.deploy_automata(automata_id, device_id, sample_automata(automata_id))
 
-    assert deployment.target_profile == "esp32_v1"
+    assert deployment.target_profile == "esp32_lua_v1"
     assert deployment.patch_mode == "replace_restart"
 
     assert_receive {:send_binary, load_frame}, 500
@@ -174,7 +174,68 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
     assert {:ok, artifact_payload} = extract_load_automata_binary_payload(load_frame)
     assert {:ok, artifact} = AethIrArtifact.decode(artifact_payload)
     assert artifact.payload_kind == :engine_bytecode
-    assert artifact.source_label == "esp32_v1"
+    assert artifact.source_label == "esp32_lua_v1"
+
+    assert {:ok, load_chunk} = extract_load_chunk(load_frame)
+
+    assert {:ok, ^device_id} =
+             DeviceIngress.route(
+               :load_ack,
+               %{run_id: load_chunk.run_id, success: true, error: "", warnings: []},
+               device_id,
+               fake_session_ref()
+             )
+  end
+
+  test "mcxn947 target deploy compiles to aeth_ir_v1 and sends binary load_automata frame" do
+    previous = System.get_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
+    System.put_env("AETHERIUM_DEPLOY_CHUNK_SIZE", "65535")
+
+    on_exit(fn ->
+      if previous == nil do
+        System.delete_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
+      else
+        System.put_env("AETHERIUM_DEPLOY_CHUNK_SIZE", previous)
+      end
+    end)
+
+    suffix = Integer.to_string(:erlang.unique_integer([:positive]))
+    device_id = "mcxn947-#{suffix}"
+    automata_id = "mcxn947-automata-#{suffix}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :mcxn947,
+          capabilities: 0,
+          protocol_version: 1,
+          connector_id: "serial_test",
+          connector_type: :serial,
+          transport: "serial",
+          link: "/dev/cu.debug-console"
+        },
+        self()
+      )
+
+    assert_receive {:send_binary, _hello_ack}, 500
+
+    assert {:ok, deployment} =
+             DeviceManager.deploy_automata(
+               automata_id,
+               device_id,
+               sample_automata(automata_id, "mcxn947_lua_v1")
+             )
+
+    assert deployment.target_profile == "mcxn947_lua_v1"
+    assert deployment.patch_mode == "replace_restart"
+
+    assert_receive {:send_binary, load_frame}, 500
+
+    assert {:ok, artifact_payload} = extract_load_automata_binary_payload(load_frame)
+    assert {:ok, artifact} = AethIrArtifact.decode(artifact_payload)
+    assert artifact.payload_kind == :engine_bytecode
+    assert artifact.source_label == "mcxn947_lua_v1"
 
     assert {:ok, load_chunk} = extract_load_chunk(load_frame)
 
@@ -395,11 +456,12 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
     assert current.status == :error
   end
 
-  defp sample_automata(id) do
+  defp sample_automata(id, profile \\ nil) do
     %{
       id: id,
       name: "UNO Test",
       version: "1.0.0",
+      config: if(profile, do: %{target: %{profile: profile}}, else: %{}),
       states: %{
         "idle" => %{id: "idle", name: "Idle", type: :initial},
         "running" => %{id: "running", name: "Running", type: :normal}

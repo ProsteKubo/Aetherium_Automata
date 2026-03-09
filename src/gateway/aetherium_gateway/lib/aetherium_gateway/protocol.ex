@@ -57,6 +57,7 @@ defmodule AetheriumGateway.Protocol do
   @device_esp32 0x02
   @device_pico 0x03
   @device_stm32 0x04
+  @device_mcxn947 0x06
 
   # ============================================================================
   # Public API
@@ -564,12 +565,14 @@ defmodule AetheriumGateway.Protocol do
   defp device_type_to_byte(:esp32), do: @device_esp32
   defp device_type_to_byte(:pico), do: @device_pico
   defp device_type_to_byte(:stm32), do: @device_stm32
+  defp device_type_to_byte(:mcxn947), do: @device_mcxn947
   defp device_type_to_byte(_), do: @device_desktop
 
   defp byte_to_device_type(@device_desktop), do: :desktop
   defp byte_to_device_type(@device_esp32), do: :esp32
   defp byte_to_device_type(@device_pico), do: :pico
   defp byte_to_device_type(@device_stm32), do: :stm32
+  defp byte_to_device_type(@device_mcxn947), do: :mcxn947
   defp byte_to_device_type(_), do: :unknown
 
   defp state_type_to_byte(:initial), do: 0x01

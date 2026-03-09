@@ -70,6 +70,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
     root = collapse_map_list(parsed)
     config = as_map(root["config"])
     source = extract_automata_source(root)
+    target = as_non_empty_map(config["target"])
 
     raw_states = as_map(source["states"])
 
@@ -93,15 +94,34 @@ defmodule AetheriumServer.ShowcaseCatalog do
         id = to_s(state["id"], key)
         name = to_s(state["name"], key)
         hooks = as_map(state["hooks"])
+        on_enter = first_present([state["on_enter"], state["onEnter"], hooks["onEnter"]])
+        on_exit = first_present([state["on_exit"], state["onExit"], hooks["onExit"]])
+        on_tick = first_present([state["on_tick"], state["onTick"], hooks["onTick"]])
+        on_error = first_present([state["on_error"], state["onError"], hooks["onError"]])
 
         normalized =
           %{
             "id" => id,
             "name" => name,
             "description" => state["description"],
-            "on_enter" => first_present([state["on_enter"], state["onEnter"], hooks["onEnter"]]),
-            "on_exit" => first_present([state["on_exit"], state["onExit"], hooks["onExit"]]),
-            "type" => state["type"]
+            "inputs" => state["inputs"],
+            "outputs" => state["outputs"],
+            "variables" => state["variables"],
+            "position" => as_non_empty_map(state["position"]),
+            "isComposite" => first_present([state["isComposite"], state["is_composite"]]),
+            "code" => first_present([state["code"], state["body"]]),
+            "on_enter" => on_enter,
+            "on_exit" => on_exit,
+            "hooks" =>
+              %{
+                "onEnter" => on_enter,
+                "onExit" => on_exit,
+                "onTick" => on_tick,
+                "onError" => on_error
+              }
+              |> reject_nil_values()
+              |> empty_map_to_nil(),
+            "type" => state["type"] || infer_state_type(id, key, name)
           }
           |> reject_nil_values()
 
@@ -168,10 +188,14 @@ defmodule AetheriumServer.ShowcaseCatalog do
             "to" => resolve_state_name.(transition["to"]),
             "type" => type,
             "condition" => transition["condition"],
+            "body" => transition["body"],
+            "triggered" => transition["triggered"],
             "priority" => transition["priority"],
             "weight" => transition["weight"],
             "timed" => timed,
-            "probabilistic" => as_non_empty_map(transition["probabilistic"])
+            "event" => as_non_empty_map(transition["event"]),
+            "probabilistic" => as_non_empty_map(transition["probabilistic"]),
+            "description" => transition["description"]
           }
           |> reject_nil_values()
 
@@ -195,6 +219,18 @@ defmodule AetheriumServer.ShowcaseCatalog do
     %{
       "name" => to_s(config["name"], to_s(root["name"], "Showcase Automata")),
       "version" => to_s(root["version"], to_s(config["version"], "0.0.1")),
+      "config" =>
+        %{
+          "name" => to_s(config["name"], to_s(root["name"], "Showcase Automata")),
+          "type" => to_s(config["type"], "inline"),
+          "language" => to_s(config["language"], "lua"),
+          "description" => first_present([config["description"], root["description"]]),
+          "author" => config["author"],
+          "tags" => config["tags"],
+          "version" => to_s(config["version"], "1.0.0"),
+          "target" => target
+        }
+        |> reject_nil_values(),
       "description" => first_present([config["description"], root["description"]]),
       "initial_state" => if(initial_state == "", do: nil, else: initial_state),
       "states" => states,
@@ -297,6 +333,9 @@ defmodule AetheriumServer.ShowcaseCatalog do
     if map_size(map) > 0, do: map, else: nil
   end
 
+  defp empty_map_to_nil(map) when is_map(map) and map_size(map) == 0, do: nil
+  defp empty_map_to_nil(map), do: map
+
   defp as_map(value) when is_map(value) do
     Enum.reduce(value, %{}, fn {k, v}, acc -> Map.put(acc, to_s(k), v) end)
   end
@@ -335,6 +374,14 @@ defmodule AetheriumServer.ShowcaseCatalog do
   defp to_s(value, fallback) do
     rendered = to_s(value)
     if rendered == "", do: fallback, else: rendered
+  end
+
+  defp infer_state_type(id, key, name) do
+    if Enum.any?([id, key, name], &(to_s(&1) in ["initial", "Initial"])) do
+      "initial"
+    else
+      nil
+    end
   end
 
   defp humanize_label(input) do

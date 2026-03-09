@@ -93,26 +93,43 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.payload_kind == :engine_bytecode
   end
 
-  test "esp32 profile compiles supported subset to engine bytecode artifact" do
-    automata = sample_bytecode_subset_automata()
+  test "esp32 rich profile compiles Lua-bearing automata to engine bytecode artifact" do
+    automata = sample_lua_esp32_automata()
 
     assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
     assert compiled.format == :aeth_ir_v1
-    assert compiled.profile.id == "esp32_v1"
+    assert compiled.profile.id == "esp32_lua_v1"
     assert compiled.diagnostics["errors"] == []
 
     assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
     assert artifact.payload_kind == :engine_bytecode
-    assert artifact.source_label == "esp32_v1"
+    assert artifact.source_label == "esp32_lua_v1"
   end
 
-  test "esp32 profile rejects unsupported subset constructs instead of yaml fallback" do
-    automata = sample_unsupported_automata()
+  test "esp32 ir profile compiles supported subset to engine bytecode artifact" do
+    automata =
+      sample_bytecode_subset_automata()
+      |> Map.put(:config, %{target: %{profile: "esp32_ir_v1"}})
+
+    assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
+    assert compiled.format == :aeth_ir_v1
+    assert compiled.profile.id == "esp32_ir_v1"
+    assert compiled.diagnostics["errors"] == []
+
+    assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
+    assert artifact.payload_kind == :engine_bytecode
+    assert artifact.source_label == "esp32_ir_v1"
+  end
+
+  test "esp32 ir profile rejects unsupported subset constructs instead of yaml fallback" do
+    automata =
+      sample_unsupported_automata()
+      |> Map.put(:config, %{target: %{profile: "esp32_ir_v1"}})
 
     assert {:error, {:deploy_validation_failed, profile, diagnostics}} =
              AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
 
-    assert profile.id == "esp32_v1"
+    assert profile.id == "esp32_ir_v1"
     assert Enum.any?(diagnostics["errors"], &String.contains?(&1, "bytecode-compatible"))
     refute Enum.any?(diagnostics["warnings"], &String.contains?(&1, "fallback"))
   end
@@ -127,9 +144,9 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.payload_kind == :engine_bytecode
   end
 
-  test "esp32 profile compiles classic value() helper conditions to engine bytecode artifact" do
+  test "esp32 rich profile compiles classic value() helper conditions to engine bytecode artifact" do
     automata =
-      sample_bytecode_subset_automata()
+      sample_lua_esp32_automata()
       |> put_in([:transitions, "t_gate", :condition], "value(\"enabled\") == true")
 
     assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
@@ -137,9 +154,9 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.payload_kind == :engine_bytecode
   end
 
-  test "esp32 profile accepts timed after values with explicit duration suffixes" do
+  test "esp32 rich profile accepts timed after values with explicit duration suffixes" do
     automata =
-      sample_bytecode_subset_automata()
+      sample_lua_esp32_automata()
       |> put_in([:transitions, "t_done", :after], "1200ms")
 
     assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
@@ -148,15 +165,51 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.payload_kind == :engine_bytecode
   end
 
-  test "esp32 profile accepts timed after second suffix values" do
+  test "esp32 rich profile accepts timed after second suffix values" do
     automata =
-      sample_bytecode_subset_automata()
+      sample_lua_esp32_automata()
       |> put_in([:transitions, "t_done", :after], "1.5s")
 
     assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
     assert compiled.diagnostics["errors"] == []
     assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
     assert artifact.payload_kind == :engine_bytecode
+  end
+
+  test "esp32 rich profile accepts builtin oled component without manifest" do
+    automata =
+      sample_lua_esp32_automata()
+      |> put_in([:config, :target, :esp32, :components], [%{name: "ssd1306_text", builtin: true}])
+
+    assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :esp32})
+    assert compiled.diagnostics["errors"] == []
+    assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
+    assert artifact.payload_kind == :engine_bytecode
+  end
+
+  test "mcxn947 rich profile compiles Lua-bearing automata to engine bytecode artifact" do
+    automata = sample_lua_mcxn947_automata()
+
+    assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :mcxn947})
+    assert compiled.format == :aeth_ir_v1
+    assert compiled.profile.id == "mcxn947_lua_v1"
+    assert compiled.diagnostics["errors"] == []
+
+    assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
+    assert artifact.payload_kind == :engine_bytecode
+    assert artifact.source_label == "mcxn947_lua_v1"
+  end
+
+  test "mcxn947 rich profile rejects mismatched requested profile" do
+    automata =
+      sample_lua_mcxn947_automata()
+      |> put_in([:config, :target, :profile], "esp32_lua_v1")
+
+    assert {:error, {:deploy_validation_failed, profile, diagnostics}} =
+             AutomataDeployCompiler.prepare(automata, %{device_type: :mcxn947})
+
+    assert profile.id == "mcxn947_lua_v1"
+    assert Enum.any?(diagnostics["errors"], &String.contains?(&1, "requested target profile"))
   end
 
   test "avr uno profile enforces basic count limits" do
@@ -181,6 +234,7 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
       id: "compiler-test",
       name: "Compiler Test",
       version: "1.0.0",
+      config: %{target: %{profile: "desktop_v1"}},
       states: %{
         "idle" => %{id: "idle", name: "Idle", type: :initial},
         "running" => %{id: "running", name: "Running", type: :normal}
@@ -221,6 +275,109 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
               %{signal: "enabled", trigger: :on_fall}
             ]
           }
+        }
+      },
+      variables: [
+        %{id: "v1", name: "enabled", type: "bool", direction: :input, default: false}
+      ]
+    }
+  end
+
+  defp sample_lua_esp32_automata do
+    %{
+      id: "compiler-esp32-lua",
+      name: "Compiler ESP32 Lua",
+      version: "1.0.0",
+      config: %{
+        target: %{
+          profile: "esp32_lua_v1",
+          esp32: %{
+            resources: [
+              %{kind: "gpio", name: "status_led", pin: 2},
+              %{kind: "dac", name: "analog_out", pin: 25}
+            ],
+            components: [
+              %{name: "i2c_scanner", manifest: "components/i2c_scanner.json"}
+            ]
+          }
+        }
+      },
+      states: %{
+        "idle" => %{
+          id: "idle",
+          name: "Idle",
+          type: :initial,
+          code: ~s|gpio.mode(2, "output")\ngpio.write(2, 1)|
+        },
+        "running" => %{
+          id: "running",
+          name: "Running",
+          type: :normal,
+          hooks: %{onEnter: ~s|dac.write(25, 128)|}
+        }
+      },
+      transitions: %{
+        "t_gate" => %{
+          id: "t_gate",
+          from: "idle",
+          to: "running",
+          type: :classic,
+          condition: "enabled == true",
+          body: ~s|log("info", "transition")|
+        },
+        "t_done" => %{
+          id: "t_done",
+          from: "running",
+          to: "idle",
+          type: :timed,
+          after: 250
+        }
+      },
+      variables: [
+        %{id: "v1", name: "enabled", type: "bool", direction: :input, default: false}
+      ]
+    }
+  end
+
+  defp sample_lua_mcxn947_automata do
+    %{
+      id: "compiler-mcxn947-lua",
+      name: "Compiler MCXN947 Lua",
+      version: "1.0.0",
+      config: %{
+        target: %{
+          profile: "mcxn947_lua_v1"
+        }
+      },
+      states: %{
+        "idle" => %{
+          id: "idle",
+          name: "Idle",
+          type: :initial,
+          code: ~s|gpio.mode(10, "output")\ngpio.write(10, 1)|
+        },
+        "running" => %{
+          id: "running",
+          name: "Running",
+          type: :normal,
+          hooks: %{onEnter: ~s|gpio.mode(23, "input_pullup")|}
+        }
+      },
+      transitions: %{
+        "t_gate" => %{
+          id: "t_gate",
+          from: "idle",
+          to: "running",
+          type: :classic,
+          condition: "enabled == true",
+          body: ~s|log("info", "transition")|
+        },
+        "t_done" => %{
+          id: "t_done",
+          from: "running",
+          to: "idle",
+          type: :timed,
+          after: 250
         }
       },
       variables: [

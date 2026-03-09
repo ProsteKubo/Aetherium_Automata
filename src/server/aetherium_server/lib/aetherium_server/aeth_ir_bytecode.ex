@@ -31,7 +31,7 @@ defmodule AetheriumServer.AethIrBytecode do
   @compare_gt 0x05
   @compare_ge 0x06
 
-  @spec compile_gateway_automata(map()) ::
+  @spec compile_gateway_automata(map(), keyword()) ::
           {:ok,
            %{
              payload: binary(),
@@ -41,8 +41,10 @@ defmodule AetheriumServer.AethIrBytecode do
            }}
           | {:unsupported, [String.t()]}
           | {:error, term()}
-  def compile_gateway_automata(automata) when is_map(automata) do
-    with {:ok, normalized} <- normalize_automata(automata),
+  def compile_gateway_automata(automata, opts \\ []) when is_map(automata) do
+    mode = Keyword.get(opts, :mode, :subset)
+
+    with {:ok, normalized} <- normalize_automata(automata, mode),
          {:ok, payload} <- encode_program(normalized) do
       {:ok,
        %{
@@ -54,13 +56,13 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_automata(automata) do
+  defp normalize_automata(automata, mode) do
     name = to_s(Map.get(automata, :name) || Map.get(automata, "name") || "automata")
     states_map = Map.get(automata, :states) || Map.get(automata, "states") || %{}
     transitions_map = Map.get(automata, :transitions) || Map.get(automata, "transitions") || %{}
     variables_list = Map.get(automata, :variables) || Map.get(automata, "variables") || []
 
-    with {:ok, normalized_states} <- normalize_states(states_map),
+    with {:ok, normalized_states} <- normalize_states(states_map, mode),
          {:ok, initial_state_id} <-
            resolve_initial_state_id(automata, states_map, normalized_states),
          {:ok, normalized_vars} <- normalize_variables(variables_list),
@@ -68,7 +70,8 @@ defmodule AetheriumServer.AethIrBytecode do
            normalize_transitions(
              transitions_map,
              normalized_states.state_lookup,
-             normalized_states.state_num_by_name
+             normalized_states.state_num_by_name,
+             mode
            ) do
       {:ok,
        %{
@@ -86,19 +89,25 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_states(states_map) when is_map(states_map) do
+  defp normalize_states(states_map, mode) when is_map(states_map) do
     ordered =
       states_map
       |> Map.values()
       |> Enum.map(fn s ->
+        hooks = Map.get(s, :hooks) || Map.get(s, "hooks") || %{}
+
         %{
           raw: s,
           name: to_s(Map.get(s, :name) || Map.get(s, "name")),
           key_id: to_s(Map.get(s, :id) || Map.get(s, "id")),
           type: Map.get(s, :type) || Map.get(s, "type"),
-          on_enter: Map.get(s, :on_enter) || Map.get(s, "on_enter"),
-          on_exit: Map.get(s, :on_exit) || Map.get(s, "on_exit"),
-          body: Map.get(s, :body) || Map.get(s, "body")
+          on_enter:
+            Map.get(s, :on_enter) || Map.get(s, "on_enter") || Map.get(hooks, :onEnter) ||
+              Map.get(hooks, "onEnter"),
+          on_exit:
+            Map.get(s, :on_exit) || Map.get(s, "on_exit") || Map.get(hooks, :onExit) ||
+              Map.get(hooks, "onExit"),
+          body: Map.get(s, :body) || Map.get(s, "body") || Map.get(s, :code) || Map.get(s, "code")
         }
       end)
       |> Enum.reject(&(&1.name == ""))
@@ -108,7 +117,7 @@ defmodule AetheriumServer.AethIrBytecode do
       ordered == [] ->
         {:unsupported, ["Bytecode subset compiler requires at least one named state."]}
 
-      Enum.any?(ordered, &state_has_code?/1) ->
+      mode == :subset and Enum.any?(ordered, &state_has_code?/1) ->
         {:unsupported,
          [
            "State code hooks (on_enter/on_exit/body) are not supported by bytecode subset compiler yet."
@@ -119,7 +128,13 @@ defmodule AetheriumServer.AethIrBytecode do
           ordered
           |> Enum.with_index(1)
           |> Enum.reduce({[], %{}, %{}}, fn {state, idx}, {acc, id_map, num_by_name} ->
-            encoded = %{id: idx, name: state.name}
+            encoded = %{
+              id: idx,
+              name: state.name,
+              on_enter_source: normalize_source(state.on_enter),
+              body_source: normalize_source(state.body),
+              on_exit_source: normalize_source(state.on_exit)
+            }
 
             {
               [encoded | acc],
@@ -138,7 +153,7 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_states(_),
+  defp normalize_states(_, _),
     do: {:unsupported, ["Invalid states collection for bytecode subset compiler."]}
 
   defp resolve_initial_state_id(automata, states_map, normalized_states) do
@@ -188,7 +203,7 @@ defmodule AetheriumServer.AethIrBytecode do
   defp normalize_variables(_),
     do: {:unsupported, ["Invalid variables collection for bytecode subset compiler."]}
 
-  defp normalize_transitions(transitions_map, state_lookup, state_num_by_name)
+  defp normalize_transitions(transitions_map, state_lookup, state_num_by_name, mode)
        when is_map(transitions_map) do
     ordered =
       transitions_map
@@ -206,7 +221,7 @@ defmodule AetheriumServer.AethIrBytecode do
       |> Enum.sort_by(& &1.name)
 
     with :ok <- ensure_unique_names(ordered, "transition"),
-         {:ok, encoded, warnings} <- encode_transitions(ordered, state_num_by_name) do
+         {:ok, encoded, warnings} <- encode_transitions(ordered, state_num_by_name, mode) do
       transition_id_map =
         encoded
         |> Enum.map(&{&1.id, &1.name})
@@ -216,7 +231,7 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_transitions(_, _state_lookup, _state_num_by_name),
+  defp normalize_transitions(_, _state_lookup, _state_num_by_name, _mode),
     do: {:unsupported, ["Invalid transitions collection for bytecode subset compiler."]}
 
   defp encode_program(%{
@@ -270,8 +285,11 @@ defmodule AetheriumServer.AethIrBytecode do
     states
     |> Enum.reduce_while({:ok, []}, fn s, {:ok, acc} ->
       with :ok <- ensure_u16(s.id, :state_id_out_of_range),
-           {:ok, name_bin} <- encode_string_u16(s.name) do
-        {:cont, {:ok, [acc, <<s.id::16-big>>, name_bin]}}
+           {:ok, name_bin} <- encode_string_u16(s.name),
+           {:ok, on_enter_bin} <- encode_string_u16(s.on_enter_source || ""),
+           {:ok, body_bin} <- encode_string_u16(s.body_source || ""),
+           {:ok, on_exit_bin} <- encode_string_u16(s.on_exit_source || "") do
+        {:cont, {:ok, [acc, <<s.id::16-big>>, name_bin, on_enter_bin, body_bin, on_exit_bin]}}
       else
         {:error, _} = err -> {:halt, err}
       end
@@ -284,8 +302,11 @@ defmodule AetheriumServer.AethIrBytecode do
       with :ok <- ensure_u16(t.id, :transition_id_out_of_range),
            :ok <- ensure_u16(t.from_id, :transition_from_out_of_range),
            :ok <- ensure_u16(t.to_id, :transition_to_out_of_range),
+           :ok <- ensure_u16(t.weight, :transition_weight_out_of_range),
            :ok <- ensure_u32(t.delay_ms, :transition_delay_out_of_range),
            {:ok, condition_bin} <- encode_string_u16(t.condition_expr || ""),
+           {:ok, body_bin} <- encode_string_u16(t.body_source || ""),
+           {:ok, triggered_bin} <- encode_string_u16(t.triggered_source || ""),
            {:ok, threshold_value_bin} <-
              encode_value(t.event_threshold_type_code || @value_void, t.event_threshold_value),
            {:ok, event_signal_bin} <- encode_string_u16(t.event_signal_name || ""),
@@ -294,8 +315,10 @@ defmodule AetheriumServer.AethIrBytecode do
         bin =
           [
             <<t.id::16-big, t.from_id::16-big, t.to_id::16-big, t.kind_code::8, t.priority::8,
-              if(t.enabled, do: 1, else: 0)::8, 0::8, t.delay_ms::32-big>>,
+              if(t.enabled, do: 1, else: 0)::8, 0::8, t.weight::16-big, t.delay_ms::32-big>>,
             condition_bin,
+            body_bin,
+            triggered_bin,
             <<t.event_signal_direction_code::8, t.event_trigger_code::8,
               if(t.event_has_threshold, do: 1, else: 0)::8, t.event_threshold_op_code::8,
               if(t.event_threshold_one_shot, do: 1, else: 0)::8, 0::8>>,
@@ -338,15 +361,15 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp encode_transitions(ordered, state_num_by_name) do
+  defp encode_transitions(ordered, state_num_by_name, mode) do
     ordered
     |> Enum.with_index(1)
     |> Enum.reduce_while({:ok, [], []}, fn {t, idx}, {:ok, acc, warnings} ->
       with {:ok, from_id} <- lookup_state_num(t.from, state_num_by_name, :from),
            {:ok, to_id} <- lookup_state_num(t.to, state_num_by_name, :to),
-           :ok <- ensure_transition_has_no_scripts(t.type, t.raw),
+           :ok <- ensure_transition_scripts(mode, t.type, t.raw),
            {:ok, kind_code, delay_ms, condition_expr, event_meta, transition_warnings} <-
-             normalize_transition_kind(t) do
+             normalize_transition_kind(t, mode) do
         encoded = %{
           id: idx,
           name: t.name,
@@ -355,8 +378,12 @@ defmodule AetheriumServer.AethIrBytecode do
           kind_code: kind_code,
           priority: normalize_priority(Map.get(t.raw, :priority) || Map.get(t.raw, "priority")),
           enabled: normalize_enabled(Map.get(t.raw, :enabled) || Map.get(t.raw, "enabled")),
+          weight: normalize_weight(Map.get(t.raw, :weight) || Map.get(t.raw, "weight")),
           delay_ms: delay_ms,
           condition_expr: condition_expr,
+          body_source: normalize_source(Map.get(t.raw, :body) || Map.get(t.raw, "body")),
+          triggered_source:
+            normalize_source(Map.get(t.raw, :triggered) || Map.get(t.raw, "triggered")),
           event_signal_name: event_meta[:signal_name] || "",
           event_signal_direction_code: event_meta[:signal_direction_code] || @dir_input,
           event_trigger_code: event_meta[:trigger_code] || @event_on_change,
@@ -380,18 +407,18 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_transition_kind(%{type: "immediate"}) do
+  defp normalize_transition_kind(%{type: "immediate"}, _mode) do
     {:ok, @transition_immediate, 0, "", %{}, []}
   end
 
-  defp normalize_transition_kind(%{type: "classic", raw: raw}) do
+  defp normalize_transition_kind(%{type: "classic", raw: raw}, _mode) do
     with {:ok, condition_expr} <-
            normalize_classic_condition(Map.get(raw, :condition) || Map.get(raw, "condition")) do
       {:ok, @transition_classic, 0, condition_expr, %{}, []}
     end
   end
 
-  defp normalize_transition_kind(%{type: "timed", raw: raw}) do
+  defp normalize_transition_kind(%{type: "timed", raw: raw}, compile_mode) do
     timed = Map.get(raw, :timed) || Map.get(raw, "timed") || %{}
 
     delay =
@@ -410,28 +437,41 @@ defmodule AetheriumServer.AethIrBytecode do
         Map.get(timed, "delayMs")
       ])
 
-    mode = downcase_atomish(Map.get(timed, :mode) || Map.get(timed, "mode") || "after")
+    transition_mode = downcase_atomish(Map.get(timed, :mode) || Map.get(timed, "mode") || "after")
+
+    additional_condition =
+      if compile_mode == :full_lua do
+        normalize_source(
+          Map.get(timed, :additional_condition) || Map.get(timed, "additional_condition") ||
+            Map.get(timed, :additionalCondition) || Map.get(timed, "additionalCondition") ||
+            Map.get(raw, :condition) || Map.get(raw, "condition")
+        )
+      else
+        ""
+      end
 
     with {:ok, delay_ms} <- normalize_delay_ms(delay),
          true <-
-           mode in ["after", ""] or
+           transition_mode in ["after", ""] or
              {:unsupported, ["Timed bytecode subset currently supports only `after` mode."]} do
-      {:ok, @transition_timed_after, delay_ms, "", %{}, []}
+      {:ok, @transition_timed_after, delay_ms, additional_condition, %{}, []}
     end
   end
 
-  defp normalize_transition_kind(%{type: "event", raw: raw}) do
-    with {:ok, event_meta} <- normalize_event_transition(raw) do
-      {:ok, @transition_event_signal, 0, "", event_meta, []}
+  defp normalize_transition_kind(%{type: "event", raw: raw}, mode) do
+    with {:ok, event_meta} <- normalize_event_transition(raw, mode) do
+      {:ok, @transition_event_signal, 0, event_meta[:additional_condition] || "", event_meta, []}
     end
   end
 
-  defp normalize_transition_kind(%{type: type}) do
+  defp normalize_transition_kind(%{type: type}, _mode) do
     {:unsupported,
      ["Transition type #{inspect(type)} is not supported by bytecode subset compiler yet."]}
   end
 
-  defp ensure_transition_has_no_scripts(type, raw) do
+  defp ensure_transition_scripts(:full_lua, _type, _raw), do: :ok
+
+  defp ensure_transition_scripts(_mode, type, raw) do
     unsupported_keys =
       [
         :probabilistic,
@@ -457,7 +497,7 @@ defmodule AetheriumServer.AethIrBytecode do
     end
   end
 
-  defp normalize_event_transition(raw) do
+  defp normalize_event_transition(raw, mode) do
     event = Map.get(raw, :event) || Map.get(raw, "event") || %{}
 
     triggers = Map.get(event, :triggers) || Map.get(event, "triggers") || []
@@ -489,10 +529,10 @@ defmodule AetheriumServer.AethIrBytecode do
            nil_or_zero?(debounce) or
              {:unsupported, ["Event bytecode subset does not support debounce."]},
          true <-
-           not present_value?(addl) or
+           mode == :full_lua or not present_value?(addl) or
              {:unsupported, ["Event bytecode subset does not support additional conditions."]},
          {:ok, trigger_meta} <- normalize_event_trigger(hd(triggers)) do
-      {:ok, trigger_meta}
+      {:ok, Map.put(trigger_meta, :additional_condition, normalize_source(addl))}
     end
   end
 
@@ -840,12 +880,12 @@ defmodule AetheriumServer.AethIrBytecode do
     value = String.trim(v)
 
     with {:ok, numeric, factor} <- parse_duration_number_and_factor(value),
-         true <- numeric >= 0.0 or {:unsupported, ["Timed transition delay must be non-negative."]} do
+         true <-
+           numeric >= 0.0 or {:unsupported, ["Timed transition delay must be non-negative."]} do
       {:ok, trunc(numeric * factor)}
     else
       {:error, :invalid_duration} ->
-        {:unsupported,
-         ["Timed transition delay must be numeric and may use ms/s/m/h suffixes."]}
+        {:unsupported, ["Timed transition delay must be numeric and may use ms/s/m/h suffixes."]}
 
       {:unsupported, _} = unsupported ->
         unsupported
@@ -1206,6 +1246,24 @@ defmodule AetheriumServer.AethIrBytecode do
   defp normalize_enabled(v) when is_integer(v), do: v != 0
   defp normalize_enabled(v) when is_binary(v), do: String.downcase(v) not in ["false", "0", "no"]
   defp normalize_enabled(_), do: true
+
+  defp normalize_weight(nil), do: 100
+  defp normalize_weight(v) when is_integer(v) and v >= 0 and v <= 0xFFFF, do: v
+  defp normalize_weight(v) when is_integer(v) and v < 0, do: 0
+  defp normalize_weight(v) when is_integer(v) and v > 0xFFFF, do: 0xFFFF
+
+  defp normalize_weight(v) when is_binary(v) do
+    case Integer.parse(String.trim(v)) do
+      {int, ""} -> normalize_weight(int)
+      _ -> 100
+    end
+  end
+
+  defp normalize_weight(_), do: 100
+
+  defp normalize_source(nil), do: ""
+  defp normalize_source(value) when is_binary(value), do: String.trim(value)
+  defp normalize_source(value), do: value |> to_s() |> String.trim()
 
   defp state_has_code?(state) do
     present_value?(state.on_enter) or present_value?(state.on_exit) or present_value?(state.body)

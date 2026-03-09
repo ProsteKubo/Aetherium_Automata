@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <memory>
 
 #include "AetheriumEsp32Node.hpp"
 #include "AetheriumEsp32SerialLink.hpp"
@@ -26,8 +27,8 @@ aeth::embedded::arduino::Esp32NodeOptions makeNodeOptions() {
   return opts;
 }
 
-aeth::embedded::arduino::AetheriumEsp32Node g_node(makeNodeOptions());
-aeth::embedded::arduino::AetheriumEsp32SerialLink* g_link = nullptr;
+std::unique_ptr<aeth::embedded::arduino::AetheriumEsp32Node> g_node;
+std::unique_ptr<aeth::embedded::arduino::AetheriumEsp32SerialLink> g_link;
 String g_deviceName = "esp32-v1";
 
 String computeDeviceName() {
@@ -82,7 +83,15 @@ void setup() {
 
   g_deviceName = computeDeviceName();
 
-  auto res = g_node.begin();
+#if AETHERIUM_SERIAL_DEBUG
+  Serial.println("Aetherium ESP32 setup: construct node");
+#endif
+  g_node = std::make_unique<aeth::embedded::arduino::AetheriumEsp32Node>(makeNodeOptions());
+
+#if AETHERIUM_SERIAL_DEBUG
+  Serial.println("Aetherium ESP32 setup: begin()");
+#endif
+  auto res = g_node->begin();
   if (res.isError()) {
 #if AETHERIUM_SERIAL_DEBUG
     Serial.print("Aetherium ESP32 node init failed: ");
@@ -96,8 +105,13 @@ void setup() {
   Serial.println(g_deviceName);
 #endif
 
-  static aeth::embedded::arduino::AetheriumEsp32SerialLink link(g_node, Serial);
-  g_link = &link;
+#if AETHERIUM_SERIAL_DEBUG
+  Serial.println("Aetherium ESP32 setup: serial link init");
+#endif
+  g_link = std::make_unique<aeth::embedded::arduino::AetheriumEsp32SerialLink>(*g_node, Serial);
+#if AETHERIUM_SERIAL_DEBUG
+  Serial.println("Aetherium ESP32 setup: send hello");
+#endif
   g_link->sendHello(g_deviceName.c_str());
 }
 
@@ -105,7 +119,11 @@ void loop() {
   if (g_link) {
     g_link->poll();
   }
-  g_node.loop();
-  const auto status = g_node.status();
-  applyLedPattern(status, g_link && g_link->helloAcknowledged());
+  if (g_node) {
+    g_node->loop();
+    const auto status = g_node->status();
+    applyLedPattern(status, g_link && g_link->helloAcknowledged());
+  } else {
+    applyLedPattern({}, false);
+  }
 }

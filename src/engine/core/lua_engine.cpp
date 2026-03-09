@@ -3,6 +3,7 @@
  */
 
 #include "lua_engine.hpp"
+#include "hardware_service.hpp"
 
 #define SOL_ALL_SAFETIES_ON 1
 #include <sol/sol.hpp>
@@ -10,6 +11,9 @@
 #include <chrono>
 #include <random>
 #include <stdexcept>
+#if defined(ARDUINO)
+#include <Arduino.h>
+#endif
 
 namespace aeth {
 
@@ -18,6 +22,20 @@ namespace {
 Timestamp nowMs() {
     const auto now = std::chrono::steady_clock::now().time_since_epoch();
     return static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+}
+
+void pumpEmbeddedWatchdog() {
+#if defined(ARDUINO)
+    yield();
+#endif
+}
+
+Value toRuntimeValue(const sol::object& obj) {
+    if (obj.is<bool>()) return Value(obj.as<bool>());
+    if (obj.is<int>()) return Value(static_cast<int32_t>(obj.as<int>()));
+    if (obj.is<double>()) return Value(obj.as<double>());
+    if (obj.is<std::string>()) return Value(obj.as<std::string>());
+    throw std::runtime_error("unsupported Lua argument type");
 }
 
 Value coerceToType(const sol::object& obj, ValueType type) {
@@ -69,27 +87,38 @@ Value coerceToType(const sol::object& obj, ValueType type) {
 
 } // namespace
 
-LuaScriptEngine::LuaScriptEngine() 
-    : lua_(std::make_unique<sol::state>()) {
-}
+LuaScriptEngine::LuaScriptEngine() = default;
 
 LuaScriptEngine::~LuaScriptEngine() = default;
 
 Result<void> LuaScriptEngine::initialize(VariableStore* variables) {
     variables_ = variables;
-    
-    // Open standard libraries
-    lua_->open_libraries(
-        sol::lib::base,
-        sol::lib::math,
-        sol::lib::string,
-        sol::lib::table
-    );
-    
-    setupBuiltins();
-    syncVariablesToLua();
-    
-    return Result<void>::ok();
+
+    try {
+        // Delay Lua VM creation until engine initialization so embedded targets
+        // do not allocate the VM during global static construction.
+        lua_ = std::make_unique<sol::state>();
+        pumpEmbeddedWatchdog();
+
+        lua_->open_libraries(
+            sol::lib::base,
+            sol::lib::math,
+            sol::lib::string,
+            sol::lib::table
+        );
+        pumpEmbeddedWatchdog();
+
+        setupBuiltins();
+        pumpEmbeddedWatchdog();
+        syncVariablesToLua();
+        clearError();
+
+        return Result<void>::ok();
+    } catch (const std::exception& e) {
+        lastError_ = e.what();
+        lua_.reset();
+        return Result<void>::error(lastError_);
+    }
 }
 
 void LuaScriptEngine::setupBuiltins() {
@@ -204,6 +233,148 @@ void LuaScriptEngine::setupBuiltins() {
         }
         std::printf("%s\n", output.c_str());
     });
+
+    auto requireHardware = []() -> IHardwareService& {
+        auto* service = hardwareService();
+        if (!service) {
+            static NullHardwareService fallback;
+            service = &fallback;
+        }
+        return *service;
+    };
+
+    auto makeComponentTable = [this](sol::this_state ts, IComponent& component) -> sol::table {
+        sol::state_view lua(ts);
+        sol::table table = lua.create_table();
+
+        table.set_function("invoke", [&component](sol::this_state innerTs, const std::string& method, sol::variadic_args va) -> sol::object {
+            sol::state_view lua(innerTs);
+            std::vector<Value> args;
+            args.reserve(va.size());
+            for (auto arg : va) {
+                args.push_back(toRuntimeValue(sol::object(arg)));
+            }
+            auto result = component.invoke(method, args);
+            if (result.isError()) {
+                throw std::runtime_error(result.error());
+            }
+
+            const auto& value = result.value();
+            switch (value.type()) {
+                case ValueType::Bool: return sol::make_object(lua, value.get<bool>());
+                case ValueType::Int32: return sol::make_object(lua, value.get<int32_t>());
+                case ValueType::Int64: return sol::make_object(lua, value.get<int64_t>());
+                case ValueType::Float32: return sol::make_object(lua, value.get<float>());
+                case ValueType::Float64: return sol::make_object(lua, value.get<double>());
+                case ValueType::String: return sol::make_object(lua, value.get<std::string>());
+                default: return sol::make_object(lua, sol::lua_nil);
+            }
+        });
+
+        for (const auto& method : component.methods()) {
+            table.set_function(method, [&component, method](sol::this_state innerTs, sol::variadic_args va) -> sol::object {
+                sol::state_view lua(innerTs);
+                std::vector<Value> args;
+                args.reserve(va.size());
+                for (auto arg : va) {
+                    args.push_back(toRuntimeValue(sol::object(arg)));
+                }
+                auto result = component.invoke(method, args);
+                if (result.isError()) {
+                    throw std::runtime_error(result.error());
+                }
+                const auto& value = result.value();
+                switch (value.type()) {
+                    case ValueType::Bool: return sol::make_object(lua, value.get<bool>());
+                    case ValueType::Int32: return sol::make_object(lua, value.get<int32_t>());
+                    case ValueType::Int64: return sol::make_object(lua, value.get<int64_t>());
+                    case ValueType::Float32: return sol::make_object(lua, value.get<float>());
+                    case ValueType::Float64: return sol::make_object(lua, value.get<double>());
+                    case ValueType::String: return sol::make_object(lua, value.get<std::string>());
+                    default: return sol::make_object(lua, sol::lua_nil);
+                }
+            });
+        }
+
+        return table;
+    };
+
+    sol::table gpio = lua_->create_table();
+    gpio.set_function("mode", [requireHardware](int pin, const std::string& mode) {
+        auto result = requireHardware().gpioMode(pin, mode);
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    gpio.set_function("write", [requireHardware](int pin, sol::object value) {
+        bool high = false;
+        if (value.is<bool>()) high = value.as<bool>();
+        else if (value.is<int>()) high = value.as<int>() != 0;
+        else throw std::runtime_error("gpio.write expects bool or int");
+        auto result = requireHardware().gpioWrite(pin, high);
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    gpio.set_function("read", [requireHardware](int pin) -> int64_t {
+        auto result = requireHardware().gpioRead(pin);
+        if (result.isError()) throw std::runtime_error(result.error());
+        return result.value();
+    });
+    (*lua_)["gpio"] = gpio;
+
+    sol::table pwm = lua_->create_table();
+    pwm.set_function("attach", [requireHardware](int channel, int pin, int frequencyHz, int resolutionBits) {
+        auto result = requireHardware().pwmAttach(channel, pin, frequencyHz, resolutionBits);
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    pwm.set_function("write", [requireHardware](int channel, int duty) {
+        auto result = requireHardware().pwmWrite(channel, duty);
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    (*lua_)["pwm"] = pwm;
+
+    sol::table adc = lua_->create_table();
+    adc.set_function("read", [requireHardware](int pin) -> int64_t {
+        auto result = requireHardware().adcRead(pin);
+        if (result.isError()) throw std::runtime_error(result.error());
+        return result.value();
+    });
+    adc.set_function("read_mv", [requireHardware](int pin) -> int64_t {
+        auto result = requireHardware().adcReadMilliVolts(pin);
+        if (result.isError()) throw std::runtime_error(result.error());
+        return result.value();
+    });
+    (*lua_)["adc"] = adc;
+
+    sol::table dac = lua_->create_table();
+    dac.set_function("write", [requireHardware](int pin, int value) {
+        auto result = requireHardware().dacWrite(pin, value);
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    (*lua_)["dac"] = dac;
+
+    sol::table i2c = lua_->create_table();
+    i2c.set_function("open", [requireHardware](int bus, int sdaPin, int sclPin, sol::optional<int> frequencyHz) {
+        auto result = requireHardware().i2cOpen(bus, sdaPin, sclPin, frequencyHz.value_or(400000));
+        if (result.isError()) throw std::runtime_error(result.error());
+    });
+    i2c.set_function("scan", [requireHardware](sol::this_state ts, sol::optional<int> bus) -> sol::table {
+        sol::state_view lua(ts);
+        auto result = requireHardware().i2cScan(bus.value_or(0));
+        if (result.isError()) throw std::runtime_error(result.error());
+        sol::table table = lua.create_table();
+        int index = 1;
+        for (const auto address : result.value()) {
+            table[index++] = address;
+        }
+        return table;
+    });
+    (*lua_)["i2c"] = i2c;
+
+    lua_->set_function("component", [requireHardware, makeComponentTable](sol::this_state ts, const std::string& name) {
+        auto* instance = requireHardware().component(name);
+        if (!instance) {
+            throw std::runtime_error("unknown component: " + name);
+        }
+        return makeComponentTable(ts, *instance);
+    });
 }
 
 void LuaScriptEngine::syncVariablesToLua() {
@@ -269,6 +440,10 @@ Result<Value> LuaScriptEngine::execute(const CodeBlock& code) {
     if (code.isEmpty()) {
         return Result<Value>::ok(Value());
     }
+    if (!lua_) {
+        lastError_ = "Lua engine not initialized";
+        return Result<Value>::error(lastError_);
+    }
     
     syncVariablesToLua();
     
@@ -310,6 +485,10 @@ Result<Value> LuaScriptEngine::execute(const CodeBlock& code) {
 Result<bool> LuaScriptEngine::evaluateCondition(const CodeBlock& code) {
     if (code.isEmpty()) {
         return Result<bool>::ok(true);
+    }
+    if (!lua_) {
+        lastError_ = "Lua engine not initialized";
+        return Result<bool>::error(lastError_);
     }
     
     syncVariablesToLua();
@@ -353,6 +532,10 @@ Result<double> LuaScriptEngine::evaluateWeight(const CodeBlock& code) {
     if (code.isEmpty()) {
         return Result<double>::ok(100.0);
     }
+    if (!lua_) {
+        lastError_ = "Lua engine not initialized";
+        return Result<double>::error(lastError_);
+    }
     
     syncVariablesToLua();
     
@@ -395,7 +578,9 @@ void LuaScriptEngine::setLogHandler(std::function<void(const std::string& level,
 }
 
 void LuaScriptEngine::collectGarbage() {
-    lua_->collect_garbage();
+    if (lua_) {
+        lua_->collect_garbage();
+    }
 }
 
 } // namespace aeth

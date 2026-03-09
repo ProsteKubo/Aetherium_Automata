@@ -17,7 +17,8 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
 - `05_energy/` policy/scheduling state machines
 - `06_pipeline/` part-flow and dispatch coordination
 - `07_folderized/` state/transition Lua split for maintainable large models
-- `08_esp32/` bytecode-safe ESP32 demos for serial + time-travel runs with hardware-safe timing defaults
+- `08_esp32/` ESP32 demos for serial + IDE imports, including rich Lua hardware showcases
+- `09_mcxn947/` FRDM-MCXN947 GPIO demos for serial hardware validation
 
 ## Scenarios
 
@@ -43,6 +44,14 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
    - Input-driven classic/timed thermostat control with explicit fault override.
 11. `08_esp32/esp32_production_line_safe.yaml`
    - Production-line style deterministic lane cycling (`A -> B -> C`) with bounded timings and external alarm gating.
+12. `08_esp32/esp32_oled_pot_dashboard.yaml`
+   - One-board rich Lua IDE demo using SSD1306 OLED, potentiometer ADC, button input, and PWM LED output.
+13. `08_esp32/esp32_binding_leader_oled.yaml`
+   - Two-board leader node for bindings, with OLED dashboard and exported output signals.
+14. `08_esp32/esp32_binding_follower_pwm.yaml`
+   - Two-board follower node that consumes bound inputs and mirrors them to PWM + GPIO outputs.
+15. `09_mcxn947/mcxn947_gpio_buttons_leds.yaml`
+   - FRDM board smoke that mirrors SW2/SW3 onto the red/green LEDs using the ESP-style GPIO Lua API.
 
 ## Usage
 
@@ -62,4 +71,11 @@ Validate with custom binary path:
 
 ```bash
 AETHERIUM_ENGINE_BIN=/abs/path/to/aetherium_engine scripts/validate_showcase_automata.sh validate
+```
+
+For the OLED-backed IDE showcases, install the Arduino dependencies first:
+
+```bash
+cd src
+make esp-deps
 ```

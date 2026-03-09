@@ -1,6 +1,26 @@
 #include "AetheriumAvrNode.hpp"
 
+#include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
+
+#if defined(AETHERIUM_USE_EMBEDDED_LUA_SCRIPT_ENGINE) || !defined(AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE)
+#include "AetheriumEmbeddedLuaEngine.hpp"
+#endif
+
 namespace aeth::embedded::arduino {
+
+namespace {
+
+std::unique_ptr<IScriptEngine> makeEmbeddedScriptEngine() {
+#if defined(AETHERIUM_USE_EMBEDDED_LUA_SCRIPT_ENGINE)
+    return std::make_unique<EmbeddedLuaScriptEngine>();
+#elif defined(AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE)
+    return std::make_unique<SimpleScriptEngine>();
+#else
+    return std::make_unique<EmbeddedLuaScriptEngine>();
+#endif
+}
+
+} // namespace
 
 AetheriumAvrNode::AetheriumAvrNode(const AvrNodeOptions& options)
     : engine_(std::make_unique<ArduinoClock>(),
@@ -9,7 +29,7 @@ AetheriumAvrNode::AetheriumAvrNode(const AvrNodeOptions& options)
                   random->seed(seed);
                   return random;
               }(),
-              std::make_unique<SimpleScriptEngine>())
+              makeEmbeddedScriptEngine())
     , options_(options) {}
 
 Result<void> AetheriumAvrNode::begin() {
@@ -30,10 +50,7 @@ void AetheriumAvrNode::loop() {
 
     // Use the platform clock bound into the runtime through Engine::tick().
     // We just rate-limit loop() calls to avoid busy-spinning on MCU.
-    Timestamp wall = 0;
-#ifdef ARDUINO
-    wall = static_cast<Timestamp>(::millis());
-#endif
+    const Timestamp wall = platform::millis();
     if (engine_.isRunning() && (lastTickMs_ == 0 || wall - lastTickMs_ >= options_.tickPeriodMs)) {
         engine_.tick();
         lastTickMs_ = wall;

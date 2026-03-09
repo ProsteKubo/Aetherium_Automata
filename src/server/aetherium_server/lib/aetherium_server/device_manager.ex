@@ -17,6 +17,7 @@ defmodule AetheriumServer.DeviceManager do
   alias AetheriumServer.DeviceSessionRef
   alias AetheriumServer.EngineProtocol
   alias AetheriumServer.TargetProfiles
+  alias AetheriumServer.TimeSeriesInfluxSink
   alias AetheriumServer.TimeSeriesQuery
   alias AetheriumServer.TimeSeriesStore
 
@@ -264,13 +265,19 @@ defmodule AetheriumServer.DeviceManager do
         existing
         |> Map.put(:device_type, hello_payload[:device_type] || existing.device_type)
         |> Map.put(:capabilities, hello_payload[:capabilities] || existing.capabilities)
-        |> Map.put(:protocol_version, hello_payload[:protocol_version] || existing.protocol_version)
+        |> Map.put(
+          :protocol_version,
+          hello_payload[:protocol_version] || existing.protocol_version
+        )
         |> Map.put(:last_heartbeat, now)
         |> Map.put(:status, :connected)
         |> Map.put(:session_ref, session_ref)
         |> Map.put(:connector_id, hello_payload[:connector_id] || session_ref.connector_id)
         |> Map.put(:connector_type, hello_payload[:connector_type] || session_ref.connector_type)
-        |> Map.put(:transport, hello_payload[:transport] || session_ref.metadata[:transport] || existing.transport)
+        |> Map.put(
+          :transport,
+          hello_payload[:transport] || session_ref.metadata[:transport] || existing.transport
+        )
         |> Map.put(:link, hello_payload[:link] || session_ref.metadata[:link] || existing.link)
 
       # Idempotent refresh: same connector/session, do not tear down existing attachment.
@@ -280,6 +287,8 @@ defmodule AetheriumServer.DeviceManager do
         state
         |> put_in([:devices, device_id], refreshed)
         |> maybe_put_monitor_mapping(monitor_pid, device_id)
+
+      persist_device_status(new_state, device_id)
 
       send_message(session_ref, :hello_ack, %{
         target_id: 0,
@@ -329,6 +338,8 @@ defmodule AetheriumServer.DeviceManager do
         )
         |> put_in([:devices, device_id], device)
         |> maybe_put_monitor_mapping(monitor_pid, device_id)
+
+      persist_device_status(new_state, device_id)
 
       # Send HELLO_ACK back
       send_message(session_ref, :hello_ack, %{
@@ -884,6 +895,7 @@ defmodule AetheriumServer.DeviceManager do
           |> clear_pending_chunk_deploy_for_device(device_id)
 
         AetheriumServer.ConnectorRegistry.detach_device(device_id)
+        persist_device_status(new_state, device_id)
         push_device_list(new_state)
 
         Logger.info("Device disconnected: #{device_id}")
@@ -899,7 +911,11 @@ defmodule AetheriumServer.DeviceManager do
 
       _device ->
         new_state =
-          put_in(state, [:devices, device_id, :last_heartbeat], System.system_time(:millisecond))
+          state
+          |> put_in([:devices, device_id, :last_heartbeat], System.system_time(:millisecond))
+          |> put_in([:devices, device_id, :status], :connected)
+
+        persist_device_status(new_state, device_id)
 
         {:noreply, new_state}
     end
@@ -921,6 +937,7 @@ defmodule AetheriumServer.DeviceManager do
       end
 
     state = handle_message(device_id, message_type, payload, state)
+    persist_device_status(state, device_id)
     {:noreply, state}
   end
 
@@ -947,30 +964,38 @@ defmodule AetheriumServer.DeviceManager do
   def handle_info(:check_heartbeats, state) do
     now = System.system_time(:millisecond)
 
-    new_state =
-      Enum.reduce(state.devices, state, fn {device_id, device}, acc ->
+    {new_state, changed_device_ids} =
+      Enum.reduce(state.devices, {state, []}, fn {device_id, device}, {acc, changed_ids} ->
         if device.status == :connected &&
              now - device.last_heartbeat > state.heartbeat_timeout do
           cond do
             session_alive?(device.session_ref) ->
               # Treat active websocket transport as liveness to avoid false offline flaps.
-              acc
-              |> put_in([:devices, device_id, :last_heartbeat], now)
-              |> put_in([:devices, device_id, :status], :connected)
+              {
+                acc
+                |> put_in([:devices, device_id, :last_heartbeat], now)
+                |> put_in([:devices, device_id, :status], :connected),
+                changed_ids
+              }
 
             true ->
               Logger.warning("Device #{device_id} heartbeat timeout")
               AetheriumServer.ConnectorRegistry.detach_device(device_id)
 
-              acc
-              |> put_in([:devices, device_id, :status], :disconnected)
-              |> put_in([:devices, device_id, :session_ref], nil)
-              |> clear_pending_chunk_deploy_for_device(device_id)
+              {
+                acc
+                |> put_in([:devices, device_id, :status], :disconnected)
+                |> put_in([:devices, device_id, :session_ref], nil)
+                |> clear_pending_chunk_deploy_for_device(device_id),
+                [device_id | changed_ids]
+              }
           end
         else
-          acc
+          {acc, changed_ids}
         end
       end)
+
+    Enum.each(changed_device_ids, &persist_device_status(new_state, &1))
 
     # Refresh device list in gateway after any heartbeat timeouts
     push_device_list(new_state)
@@ -1188,8 +1213,11 @@ defmodule AetheriumServer.DeviceManager do
 
   defp handle_message(device_id, :telemetry, payload, state) do
     device = Map.get(state.devices, device_id)
+    deployment = find_active_deployment(device_id, state)
 
     if device do
+      persist_device_metrics(device, deployment, payload)
+
       push_to_gateway("device_alert", %{
         "device_id" => device_id,
         "type" => "metrics",
@@ -1944,6 +1972,94 @@ defmodule AetheriumServer.DeviceManager do
 
   defp stringify_keys(list) when is_list(list), do: Enum.map(list, &stringify_keys/1)
   defp stringify_keys(other), do: other
+
+  defp persist_device_status(state, device_id)
+       when is_map(state) and is_binary(device_id) do
+    case Map.get(state.devices, device_id) do
+      nil ->
+        :ok
+
+      device ->
+        deployment = latest_device_deployment(device_id, state)
+
+        TimeSeriesInfluxSink.append_device_status(%{
+          "device_id" => device.id,
+          "server_id" => configured_server_id(),
+          "connector_type" => normalize_dimension(device.connector_type),
+          "transport" => normalize_dimension(device.transport),
+          "status" => normalize_dimension(device.status),
+          "last_seen_at" => device.last_heartbeat,
+          "connected_at" => device.connected_at,
+          "has_session" => match?(%DeviceSessionRef{}, device.session_ref),
+          "deployment_id" => deployment && deployment.id,
+          "automata_id" => deployment && deployment.automata_id,
+          "deployment_status" => deployment && Atom.to_string(deployment.status),
+          "current_state" => deployment && deployment.current_state,
+          "error" => deployment && deployment.error,
+          "link" => device.link,
+          "timestamp" => System.system_time(:millisecond)
+        })
+    end
+  end
+
+  defp persist_device_metrics(device, deployment, payload)
+       when is_map(device) and is_map(payload) do
+    telemetry_timestamp =
+      payload[:timestamp] || payload["timestamp"] || System.system_time(:millisecond)
+
+    TimeSeriesInfluxSink.append_device_metrics(%{
+      "device_id" => device.id,
+      "deployment_id" => deployment && deployment.id,
+      "automata_id" => deployment && deployment.automata_id,
+      "server_id" => configured_server_id(),
+      "connector_type" => normalize_dimension(device.connector_type),
+      "transport" => normalize_dimension(device.transport),
+      "cpu_usage" => payload[:cpu_usage] || payload["cpu_usage"] || 0.0,
+      "heap_free" => payload[:heap_free] || payload["heap_free"] || 0,
+      "heap_total" => payload[:heap_total] || payload["heap_total"] || 0,
+      "tick_rate" => payload[:tick_rate] || payload["tick_rate"] || 0,
+      "run_id" => payload[:run_id] || payload["run_id"] || 0,
+      "source_id" => payload[:source_id] || payload["source_id"] || 0,
+      "message_id" => payload[:message_id] || payload["message_id"] || 0,
+      "telemetry_timestamp_ms" => telemetry_timestamp,
+      "received_at_ms" => System.system_time(:millisecond),
+      "variable_count" => telemetry_variable_count(payload),
+      "timestamp" => telemetry_timestamp
+    })
+  end
+
+  defp latest_device_deployment(device_id, state) do
+    state.deployments
+    |> Map.values()
+    |> Enum.filter(&(&1.device_id == device_id))
+    |> Enum.sort_by(
+      fn deployment -> {deployment_priority(deployment.status), deployment.deployed_at} end,
+      :desc
+    )
+    |> List.first()
+  end
+
+  defp deployment_priority(status) when status in [:running, :paused, :loading], do: 2
+  defp deployment_priority(status) when status in [:stopped, :pending], do: 1
+  defp deployment_priority(:error), do: 0
+  defp deployment_priority(_status), do: 0
+
+  defp telemetry_variable_count(payload) when is_map(payload) do
+    case payload[:variables] || payload["variables"] do
+      variables when is_list(variables) -> length(variables)
+      _ -> 0
+    end
+  end
+
+  defp configured_server_id do
+    :aetherium_server
+    |> Application.get_env(:gateway, [])
+    |> Keyword.get(:server_id, "srv_01")
+  end
+
+  defp normalize_dimension(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_dimension(value) when is_binary(value) and value != "", do: value
+  defp normalize_dimension(_value), do: "unknown"
 
   defp push_device_list(state) do
     devices =
