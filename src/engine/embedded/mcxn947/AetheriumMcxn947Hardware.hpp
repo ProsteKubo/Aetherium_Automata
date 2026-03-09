@@ -6,7 +6,18 @@
 
 #if defined(AETHERIUM_PLATFORM_MCXN947)
 #include "board.h"
+#ifdef __cplusplus
+extern "C" {
+#endif
+#include "fsl_adapter_adc_sensor.h"
+#ifdef __cplusplus
+}
+#endif
+#include "fsl_clock.h"
 #include "fsl_device_registers.h"
+#include "fsl_lpadc.h"
+#include "fsl_port.h"
+#include "fsl_reset.h"
 #include "fsl_tsi_v6.h"
 #endif
 
@@ -18,6 +29,129 @@
 #include <utility>
 
 namespace aeth::embedded::mcxn947 {
+
+class BoardTempComponent final : public IComponent {
+public:
+    const std::string& name() const override {
+        static const std::string kName = "board_temp";
+        return kName;
+    }
+
+    std::vector<std::string> methods() const override {
+        return {"init", "read_c", "read_milli_c"};
+    }
+
+    Result<Value> invoke(const std::string& method, const std::vector<Value>&) override {
+        if (method == "init") return init();
+        if (method == "read_c") return readC();
+        if (method == "read_milli_c") return readMilliC();
+        return Result<Value>::error("unknown component method: " + method);
+    }
+
+private:
+    Result<Value> init() {
+        auto ready = ensureReady();
+        return ready.isError() ? Result<Value>::error(ready.error()) : Result<Value>::ok(Value(true));
+    }
+
+    Result<Value> readC() {
+        auto reading = readTemperatureC();
+        if (reading.isError()) {
+            return Result<Value>::error(reading.error());
+        }
+        return Result<Value>::ok(Value(reading.value()));
+    }
+
+    Result<Value> readMilliC() {
+        auto reading = readTemperatureC();
+        if (reading.isError()) {
+            return Result<Value>::error(reading.error());
+        }
+        const double scaled = reading.value() * 1000.0;
+        const int64_t milliC =
+            scaled >= 0.0 ? static_cast<int64_t>(scaled + 0.5) : static_cast<int64_t>(scaled - 0.5);
+        return Result<Value>::ok(Value(milliC));
+    }
+
+    Result<double> readTemperatureC() {
+        if (ready_) {
+            (void) HAL_AdcSensorDeinit(sensorHandle_);
+            ready_ = false;
+        }
+
+        auto ready = ensureReady();
+        if (ready.isError()) {
+            return Result<double>::error(ready.error());
+        }
+
+#if defined(AETHERIUM_PLATFORM_MCXN947)
+        hal_adc_sensor_conv_config_t convConfig{};
+        convConfig.forceConv = true;
+        convConfig.type = kHAL_AdcSensorConvTypeTemperature;
+        convConfig.refVoltSrc = kHAL_AdcSensorReferenceVoltageN;
+        convConfig.refVoltMv = 0U;
+        convConfig.channel = HAL_ADC_SENSOR_CHANNEL_AUTO;
+
+        if (HAL_AdcSensorSwTrigger(sensorHandle_, &convConfig) != kStatus_HAL_AdcSensorSuccess) {
+            return Result<double>::error("board_temp trigger failed");
+        }
+
+        const Timestamp start = millis();
+        while (!HAL_AdcSensorDataReady(sensorHandle_)) {
+            if ((millis() - start) > 50U) {
+                return Result<double>::error("board_temp timeout");
+            }
+            yieldIfNeeded();
+        }
+
+        float temperatureC = 0.0f;
+        if (HAL_AdcSensorGetTemperature(sensorHandle_, &temperatureC) != kStatus_HAL_AdcSensorSuccess) {
+            return Result<double>::error("board_temp read failed");
+        }
+
+        return Result<double>::ok(static_cast<double>(temperatureC));
+#else
+        return Result<double>::error("board_temp unavailable outside mcxn947 target build");
+#endif
+    }
+
+    Result<void> ensureReady() {
+#if defined(AETHERIUM_PLATFORM_MCXN947)
+        if (ready_) {
+            return Result<void>::ok();
+        }
+
+        CLOCK_EnableClock(kCLOCK_Adc0);
+        RESET_PeripheralReset(kADC0_RST_SHIFT_RSTn);
+        CLOCK_AttachClk(kFRO12M_to_ADC0);
+        CLOCK_SetClkDiv(kCLOCK_DivAdc0Clk, 1U);
+
+        hal_adc_sensor_init_config_t initConfig{};
+        initConfig.type = kHAL_AdcSensorTypeLpAdc40;
+        initConfig.adcInstance = 0U;
+        initConfig.adcInitConfigSize = 0U;
+        initConfig.adcInitConfig = nullptr;
+        initConfig.tsParam.lpAdc40Param.a = static_cast<float>(FSL_FEATURE_LPADC_TEMP_PARAMETER_A);
+        initConfig.tsParam.lpAdc40Param.b = static_cast<float>(FSL_FEATURE_LPADC_TEMP_PARAMETER_B);
+        initConfig.tsParam.lpAdc40Param.alpha = FSL_FEATURE_LPADC_TEMP_PARAMETER_ALPHA;
+
+        if (HAL_AdcSensorInit(sensorHandle_, &initConfig) != kStatus_HAL_AdcSensorSuccess) {
+            return Result<void>::error("board_temp init failed");
+        }
+
+        ready_ = true;
+        return Result<void>::ok();
+#else
+        return Result<void>::error("board_temp unavailable outside mcxn947 target build");
+#endif
+    }
+
+    bool ready_ = false;
+#if defined(AETHERIUM_PLATFORM_MCXN947)
+    HAL_ADC_SENSOR_HANDLE_DEFINE(sensorHandleStorage_);
+    hal_adc_sensor_handle_t sensorHandle_ = static_cast<hal_adc_sensor_handle_t>(sensorHandleStorage_);
+#endif
+};
 
 class TouchPadComponent final : public IComponent {
 public:
@@ -217,6 +351,7 @@ private:
 class Mcxn947HardwareService final : public IHardwareService {
 public:
     Mcxn947HardwareService() {
+        registerComponent(std::make_unique<BoardTempComponent>());
         registerComponent(std::make_unique<TouchPadComponent>());
     }
 

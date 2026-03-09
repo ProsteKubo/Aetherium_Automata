@@ -23,6 +23,20 @@ namespace aeth::embedded::arduino {
 
 namespace {
 
+void requireLibrary(lua_State* L, const char* name, lua_CFunction openFn) {
+#if defined(luaL_requiref)
+    luaL_requiref(L, name, openFn, 1);
+    lua_pop(L, 1);
+#else
+    openFn(L);
+    lua_setglobal(L, name);
+    if (std::string(name) == "_G") {
+        lua_pushvalue(L, LUA_GLOBALSINDEX);
+        lua_setglobal(L, "_G");
+    }
+#endif
+}
+
 EmbeddedLuaScriptEngine* engineFromUpvalue(lua_State* L, int index = 1) {
     return static_cast<EmbeddedLuaScriptEngine*>(lua_touserdata(L, lua_upvalueindex(index)));
 }
@@ -438,14 +452,10 @@ Result<void> EmbeddedLuaScriptEngine::initialize(VariableStore* variables) {
     }
 
     // Embedded targets only need the small, deterministic core libraries.
-    luaL_requiref(state_, "_G", luaopen_base, 1);
-    lua_pop(state_, 1);
-    luaL_requiref(state_, LUA_TABLIBNAME, luaopen_table, 1);
-    lua_pop(state_, 1);
-    luaL_requiref(state_, LUA_STRLIBNAME, luaopen_string, 1);
-    lua_pop(state_, 1);
-    luaL_requiref(state_, LUA_MATHLIBNAME, luaopen_math, 1);
-    lua_pop(state_, 1);
+    requireLibrary(state_, "_G", luaopen_base);
+    requireLibrary(state_, LUA_TABLIBNAME, luaopen_table);
+    requireLibrary(state_, LUA_STRLIBNAME, luaopen_string);
+    requireLibrary(state_, LUA_MATHLIBNAME, luaopen_math);
     yieldIfNeeded();
     bindBuiltins();
     bindHardwareTables();

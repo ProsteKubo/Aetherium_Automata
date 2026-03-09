@@ -212,6 +212,18 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
     assert artifact.source_label == "mcxn947_lua_v1"
   end
 
+  test "mcxn947 rich profile compiles board temperature automata to engine bytecode artifact" do
+    automata = sample_lua_mcxn947_temp_automata()
+
+    assert {:ok, compiled} = AutomataDeployCompiler.prepare(automata, %{device_type: :mcxn947})
+    assert compiled.profile.id == "mcxn947_lua_v1"
+    assert compiled.diagnostics["errors"] == []
+
+    assert {:ok, artifact} = AethIrArtifact.decode(compiled.data)
+    assert artifact.payload_kind == :engine_bytecode
+    assert artifact.source_label == "mcxn947_lua_v1"
+  end
+
   test "mcxn947 rich profile rejects mismatched requested profile" do
     automata =
       sample_lua_mcxn947_automata()
@@ -427,6 +439,41 @@ defmodule AetheriumServer.AutomataDeployCompilerTest do
         }
       },
       variables: []
+    }
+  end
+
+  defp sample_lua_mcxn947_temp_automata do
+    %{
+      id: "compiler-mcxn947-temp",
+      name: "Compiler MCXN947 Temp",
+      version: "1.0.0",
+      config: %{
+        target: %{
+          profile: "mcxn947_lua_v1"
+        }
+      },
+      states: %{
+        "sense" => %{
+          id: "sense",
+          name: "Sense",
+          type: :initial,
+          hooks: %{onEnter: ~s|component("board_temp"):init()|},
+          code:
+            ~s|local temp_mc = component("board_temp"):read_milli_c()\nlocal temp_c = (temp_mc + 500) // 1000\nsetOutput("temp_c", temp_c)\nif temp_c >= 26 then gpio.write(10, 1) else gpio.write(10, 0) end|
+        }
+      },
+      transitions: %{
+        "stay_active" => %{
+          id: "stay_active",
+          from: "sense",
+          to: "sense",
+          type: :classic,
+          condition: "false"
+        }
+      },
+      variables: [
+        %{id: "temp_c", name: "temp_c", type: "int", direction: :output, default: 0}
+      ]
     }
   end
 

@@ -37,6 +37,13 @@ ESP32 sketch runtime behavior:
   - debug text logs are disabled by default so binary protocol frames are not polluted
   - hello handshake is periodically refreshed so device reappears after server restart
 
+ESP32 built-in components:
+
+- `board_led`
+  - Controls the same visible `LED_BUILTIN` used by the runtime heartbeat.
+  - When an automata calls `component("board_led"):set(...)`, the runtime heartbeat is temporarily overridden so IDE demos can visibly drive the onboard LED.
+  - Methods: `set(bool)`, `on()`, `off()`, `clear()`, `status()`
+
 ## Arduino CLI Build Notes
 
 ESP32 (tested):

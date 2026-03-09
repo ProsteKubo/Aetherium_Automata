@@ -1,0 +1,49 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Binding Follower Status LED
+  type: inline
+  language: lua
+  description: ESP32 follower node for IDE bindings. Consumes a remote button signal and mirrors it on the ESP status LED.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - binding
+    - follower
+    - gpio
+    - hardware-safe
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: leader_button
+    type: bool
+    direction: input
+    default: false
+  - name: follower_led
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Mirror
+
+  states:
+    Mirror:
+      hooks:
+        onEnter: |-
+          component("board_led"):off()
+      code: |-
+        local pressed = leader_button == true
+
+        component("board_led"):set(pressed)
+        setOutput("follower_led", pressed)
+
+  transitions:
+    stay_active:
+      from: Mirror
+      to: Mirror
+      type: classic
+      condition: false

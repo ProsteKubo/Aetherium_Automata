@@ -79,6 +79,25 @@ Available methods:
 
 The stable IDE-first path today is the simple press detector used by [`mcxn947_touch_pad_leds.yaml`](/Users/administratorik/dev/Aetherium_Automata/example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml): call `init()` once, then `pressed()` from state code. The extra telemetry methods (`raw`, `baseline`, `delta`, `threshold`) are available for deeper tuning, but only the press demo is currently promoted as a verified showcase.
 
+### Temperature component
+
+The built-in board temperature reading is exposed as a built-in Lua component:
+
+```lua
+local temp = component("board_temp")
+temp:init()                  -- optional explicit bus/sensor bring-up
+local c = temp:read_c()      -- float degrees C
+local mc = temp:read_milli_c()
+```
+
+Available methods:
+
+- `init()`
+- `read_c()`
+- `read_milli_c()`
+
+This is intentionally a demo-only board component, not a generic bus abstraction. On MCXN947 it currently uses the chip's internal temperature path for reliability, while keeping the same IDE-facing `board_temp` API. The promoted IDE showcase is [`mcxn947_temperature_guard.yaml`](/Users/administratorik/dev/Aetherium_Automata/example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml), which publishes a direct `read_milli_c()` value and simple warm/healthy flags through automata outputs for IDE inspection.
+
 ### Minimal Lua smoke
 
 ```lua

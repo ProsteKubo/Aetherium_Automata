@@ -1,6 +1,7 @@
 #ifndef AETHERIUM_EMBEDDED_ARDUINO_ESP32_HARDWARE_HPP
 #define AETHERIUM_EMBEDDED_ARDUINO_ESP32_HARDWARE_HPP
 
+#include "AetheriumEsp32BoardLed.hpp"
 #include "engine/core/hardware_service.hpp"
 
 #include <memory>
@@ -103,6 +104,30 @@ private:
 class Esp32HardwareService final : public IHardwareService {
 public:
     Esp32HardwareService() {
+        registerComponent(std::make_unique<GenericComponent>(
+            "board_led",
+            std::vector<std::pair<std::string, GenericComponent::Handler>>{
+                {"set", [](const std::vector<Value>& args) -> Result<Value> {
+                    const bool on = !args.empty() && args.front().toBool();
+                    board_led::set(on);
+                    return Result<Value>::ok(Value(on));
+                }},
+                {"on", [](const std::vector<Value>&) -> Result<Value> {
+                    board_led::set(true);
+                    return Result<Value>::ok(Value(true));
+                }},
+                {"off", [](const std::vector<Value>&) -> Result<Value> {
+                    board_led::set(false);
+                    return Result<Value>::ok(Value(false));
+                }},
+                {"clear", [](const std::vector<Value>&) -> Result<Value> {
+                    board_led::clear();
+                    return Result<Value>::ok(Value(true));
+                }},
+                {"status", [](const std::vector<Value>&) -> Result<Value> {
+                    return Result<Value>::ok(Value(board_led::active() && board_led::value()));
+                }}
+            }));
         registerComponent(std::make_unique<GenericComponent>(
             "i2c_scanner",
             std::vector<std::pair<std::string, GenericComponent::Handler>>{

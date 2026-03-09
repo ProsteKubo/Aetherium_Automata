@@ -67,6 +67,8 @@ defmodule AetheriumServer.DeviceTransports.SerialPortSession do
       Enum.reduce(frames, state, fn frame, acc ->
         case EngineProtocol.decode(frame) do
           {:ok, type, payload} ->
+            maybe_trace_frame(acc.port_name, type, payload)
+
             case DeviceIngress.route(type, payload, acc.device_id, acc.session_ref) do
               {:ok, device_id} ->
                 %{acc | device_id: device_id || acc.device_id}
@@ -157,5 +159,36 @@ defmodule AetheriumServer.DeviceTransports.SerialPortSession do
     }
 
     %{state | session_ref: session_ref}
+  end
+
+  defp maybe_trace_frame(port_name, type, payload) do
+    if serial_trace_enabled?() do
+      summary =
+        payload
+        |> Map.take([
+          :message_id,
+          "message_id",
+          :source_id,
+          "source_id",
+          :target_id,
+          "target_id",
+          :run_id,
+          "run_id",
+          :current_state,
+          "current_state",
+          :execution_state,
+          "execution_state",
+          :name,
+          "name",
+          :value,
+          "value"
+        ])
+
+      Logger.info("Serial frame #{port_name} #{type}: #{inspect(summary)}")
+    end
+  end
+
+  defp serial_trace_enabled? do
+    System.get_env("AETHERIUM_SERIAL_TRACE") in ["1", "true", "TRUE", "yes", "on"]
   end
 end

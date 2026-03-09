@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <memory>
 
+#include "AetheriumEsp32BoardLed.hpp"
 #include "AetheriumEsp32Node.hpp"
 #include "AetheriumEsp32SerialLink.hpp"
 
@@ -42,6 +43,11 @@ String computeDeviceName() {
 }
 
 void applyLedPattern(const aeth::EngineStatus& status, bool helloAcknowledged) {
+  if (aeth::embedded::arduino::board_led::active()) {
+    digitalWrite(kLedPin, aeth::embedded::arduino::board_led::value() ? HIGH : LOW);
+    return;
+  }
+
   const unsigned long now = millis();
   bool on = false;
 
