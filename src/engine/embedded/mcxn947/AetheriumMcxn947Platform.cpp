@@ -3,6 +3,7 @@
 #include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
 
 #if defined(AETHERIUM_PLATFORM_MCXN947)
+#include "board.h"
 #include "clock_config.h"
 #include "fsl_device_registers.h"
 #include "fsl_lpuart.h"
@@ -17,14 +18,32 @@ constexpr uint32_t kFlexcomm4Index = 4;
 constexpr uint32_t kDebugUartClockHz = 12'000'000U;
 constexpr int kStatusLedPort = 1;
 constexpr int kStatusLedPin = 2;
+constexpr size_t kUartRxBufferSize = 2048;
 
 volatile Timestamp g_ticksMs = 0;
 bool g_initialized = false;
 bool g_clockConfigured = false;
+volatile uint8_t g_uartRxBuffer[kUartRxBufferSize]{};
+volatile size_t g_uartRxHead = 0;
+volatile size_t g_uartRxTail = 0;
 
 #if defined(AETHERIUM_PLATFORM_MCXN947)
 GPIO_Type* const kGpioPorts[] = GPIO_BASE_PTRS;
 PORT_Type* const kPortRegs[] = PORT_BASE_PTRS;
+
+size_t nextRxIndex(size_t index) {
+    return (index + 1U) % kUartRxBufferSize;
+}
+
+void pushRxByte(uint8_t byte) {
+    const size_t nextHead = nextRxIndex(g_uartRxHead);
+    if (nextHead == g_uartRxTail) {
+        g_uartRxTail = nextRxIndex(g_uartRxTail);
+    }
+
+    g_uartRxBuffer[g_uartRxHead] = byte;
+    g_uartRxHead = nextHead;
+}
 
 void enablePeripheralClocks() {
     SYSCON->AHBCLKCTRLSET[0] =
@@ -84,6 +103,10 @@ void configureDebugUart(uint32_t baudRate) {
     config.enableTx = true;
     config.enableRx = true;
     (void)LPUART_Init(LPUART4, &config, kDebugUartClockHz);
+    LPUART_EnableInterrupts(LPUART4, static_cast<uint32_t>(kLPUART_RxDataRegFullInterruptEnable));
+    NVIC_ClearPendingIRQ(BOARD_UART_IRQ);
+    NVIC_SetPriority(BOARD_UART_IRQ, 3U);
+    EnableIRQ(BOARD_UART_IRQ);
 }
 
 void configureStatusLed() {
@@ -101,6 +124,23 @@ void configureStatusLed() {
 extern "C" void SysTick_Handler(void) {
     ++g_ticksMs;
 }
+
+extern "C" void LP_FLEXCOMM4_IRQHandler(void) {
+    const uint32_t status = LPUART_GetStatusFlags(LPUART4);
+    const uint32_t errorMask = static_cast<uint32_t>(
+        kLPUART_RxOverrunFlag | kLPUART_FramingErrorFlag | kLPUART_NoiseErrorFlag | kLPUART_ParityErrorFlag
+    );
+
+    if ((status & errorMask) != 0U) {
+        (void)LPUART_ClearStatusFlags(LPUART4, status & errorMask);
+    }
+
+    while ((LPUART_GetStatusFlags(LPUART4) & static_cast<uint32_t>(kLPUART_RxDataRegFullFlag)) != 0U) {
+        pushRxByte(static_cast<uint8_t>(LPUART4->DATA & 0xFFU));
+    }
+
+    __DSB();
+}
 #endif
 
 Result<void> initializePlatform(const UartConfig& uart) {
@@ -113,6 +153,8 @@ Result<void> initializePlatform(const UartConfig& uart) {
     enablePeripheralClocks();
     releasePeripheralResets();
     BOARD_InitDEBUG_UARTPins();
+    g_uartRxHead = 0;
+    g_uartRxTail = 0;
     configureDebugUart(uart.baudRate);
     configureStatusLed();
 
@@ -154,10 +196,11 @@ bool decodePin(int encodedPin, int& port, int& pin) {
 
 bool uartReadByte(uint8_t& byte) {
 #if defined(AETHERIUM_PLATFORM_MCXN947)
-    if ((LPUART4->STAT & LPUART_STAT_RDRF_MASK) == 0U) {
+    if (g_uartRxHead == g_uartRxTail) {
         return false;
     }
-    byte = static_cast<uint8_t>(LPUART4->DATA & 0xFFU);
+    byte = g_uartRxBuffer[g_uartRxTail];
+    g_uartRxTail = nextRxIndex(g_uartRxTail);
     return true;
 #else
     (void) byte;

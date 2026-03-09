@@ -66,6 +66,7 @@ add_library(aetherium_mcxn947_runtime STATIC
   ${MCUX_DEVICE_DRIVERS_DIR}/fsl_reset.c
   ${mcux_sdk_SOURCE_DIR}/drivers/lpflexcomm/fsl_lpflexcomm.c
   ${mcux_sdk_SOURCE_DIR}/drivers/lpflexcomm/lpuart/fsl_lpuart.c
+  ${mcux_sdk_SOURCE_DIR}/drivers/tsi/tsi_v6/fsl_tsi_v6.c
   ${MCUX_BOARD_DIR}/clock_config.c
   ${MCUX_BOARD_DIR}/pin_mux.c
   ${CMAKE_CURRENT_LIST_DIR}/AetheriumMcxn947Platform.cpp
@@ -84,6 +85,7 @@ target_include_directories(aetherium_mcxn947_runtime PUBLIC
   ${mcux_sdk_SOURCE_DIR}/drivers/port
   ${mcux_sdk_SOURCE_DIR}/drivers/lpflexcomm
   ${mcux_sdk_SOURCE_DIR}/drivers/lpflexcomm/lpuart
+  ${mcux_sdk_SOURCE_DIR}/drivers/tsi/tsi_v6
   ${MCUX_BOARD_DIR}
   ${AETHERIUM_CMSIS_CORE_INCLUDE_DIRS}
   ${lua_SOURCE_DIR}

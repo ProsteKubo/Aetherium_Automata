@@ -55,6 +55,30 @@ The node firmware currently uses the blue LED (`34`) as its own heartbeat/status
 - green LED: `27`
 - button input: `23` or `6`
 
+### Touch component
+
+The FRDM board touch pad is exposed as a built-in Lua component:
+
+```lua
+local touch = component("touch_pad")
+touch:init()           -- optional explicit calibration
+local raw = touch:raw()
+local delta = touch:delta()
+local pressed = touch:pressed()
+```
+
+Available methods:
+
+- `init([threshold])`
+- `raw()`
+- `baseline()`
+- `delta()`
+- `pressed([threshold])`
+- `threshold()`
+- `set_threshold(value)`
+
+The stable IDE-first path today is the simple press detector used by [`mcxn947_touch_pad_leds.yaml`](/Users/administratorik/dev/Aetherium_Automata/example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml): call `init()` once, then `pressed()` from state code. The extra telemetry methods (`raw`, `baseline`, `delta`, `threshold`) are available for deeper tuning, but only the press demo is currently promoted as a verified showcase.
+
 ### Minimal Lua smoke
 
 ```lua
