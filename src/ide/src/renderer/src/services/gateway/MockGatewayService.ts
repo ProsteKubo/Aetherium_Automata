@@ -43,6 +43,7 @@ import type {
   PersistedGatewayEvent,
   RuntimeCommandTarget,
   ConnectionDraft,
+  SnapshotRequestOptions,
 } from './IGatewayService';
 
 // ============================================================================
@@ -720,7 +721,11 @@ export class MockGatewayService implements IGatewayService {
     return snapshots;
   }
   
-  async getSnapshot(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse> {
+  async getSnapshot(
+    deviceId: DeviceId,
+    _target?: RuntimeCommandTarget,
+    _options?: SnapshotRequestOptions,
+  ): Promise<ExecutionSnapshotResponse> {
     await this.delay(50);
     
     const execution = this.executions.get(deviceId);

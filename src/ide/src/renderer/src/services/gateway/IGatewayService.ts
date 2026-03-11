@@ -82,6 +82,11 @@ export interface RuntimeCommandTarget {
   serverId?: ServerId;
 }
 
+export interface SnapshotRequestOptions {
+  silent?: boolean;
+  bypassCache?: boolean;
+}
+
 export type ConnectionDraft = Omit<AutomataBinding, 'id' | 'createdAt' | 'modifiedAt'>;
 
 export interface GatewayEventHandlers {
@@ -179,7 +184,11 @@ export interface IGatewayService {
     steps?: number,
     target?: RuntimeCommandTarget,
   ): Promise<ExecutionSnapshot[]>;
-  getSnapshot(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse>;
+  getSnapshot(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+    options?: SnapshotRequestOptions,
+  ): Promise<ExecutionSnapshotResponse>;
   
   // Time Travel
   startTimeTravel(deviceId: DeviceId, options?: {

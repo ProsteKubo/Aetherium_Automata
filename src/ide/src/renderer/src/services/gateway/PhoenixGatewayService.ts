@@ -47,6 +47,7 @@ import type {
   PersistedGatewayEvent,
   RuntimeCommandTarget,
   ConnectionDraft,
+  SnapshotRequestOptions,
 } from './IGatewayService';
 
 // ============================================================================
@@ -1957,8 +1958,12 @@ export class PhoenixGatewayService implements IGatewayService {
     return [snapshotResponse.snapshot];
   }
   
-  async getSnapshot(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse> {
-    const cached = this.getCachedSnapshot(_deviceId, target);
+  async getSnapshot(
+    _deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+    options?: SnapshotRequestOptions,
+  ): Promise<ExecutionSnapshotResponse> {
+    const cached = options?.bypassCache ? null : this.getCachedSnapshot(_deviceId, target);
     if (cached) {
       return cached;
     }
@@ -1999,12 +2004,14 @@ export class PhoenixGatewayService implements IGatewayService {
             ? 'stopped'
             : 'unknown';
 
-      this.emit('onExecutionSnapshot', {
-        deviceId: _deviceId,
-        automataId: result.snapshot.automataId,
-        snapshot: result.snapshot,
-      });
-      this.emitDeploymentStatusHint(_deviceId, status, target, result.snapshot);
+      if (!options?.silent) {
+        this.emit('onExecutionSnapshot', {
+          deviceId: _deviceId,
+          automataId: result.snapshot.automataId,
+          snapshot: result.snapshot,
+        });
+        this.emitDeploymentStatusHint(_deviceId, status, target, result.snapshot);
+      }
       this.setCachedSnapshot(_deviceId, result, target);
       return result;
     })();
