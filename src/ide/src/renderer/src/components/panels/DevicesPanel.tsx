@@ -4,9 +4,9 @@
  * Shows device network status, allows device management and OTA updates.
  */
 
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { useGatewayStore, useExecutionStore, useUIStore, useAutomataStore, useRuntimeViewStore, useProjectStore } from '../../stores';
-import type { Automata, Device } from '../../types';
+import type { Automata, Device, ExecutionSnapshot } from '../../types';
 import type { RuntimeDeployment, RuntimeDeploymentTransfer } from '../../types/runtimeView';
 import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 import {
@@ -42,6 +42,51 @@ interface DeviceDeploymentView {
   source: 'runtime' | 'device';
 }
 
+function signalMapsEqual(
+  left: ExecutionSnapshot['inputs'] | ExecutionSnapshot['outputs'],
+  right: ExecutionSnapshot['inputs'] | ExecutionSnapshot['outputs'],
+): boolean {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const leftEntry = left[key];
+    const rightEntry = right[key];
+    return rightEntry && leftEntry?.value === rightEntry.value;
+  });
+}
+
+function variablesEqual(
+  left: ExecutionSnapshot['variables'],
+  right: ExecutionSnapshot['variables'],
+): boolean {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const leftEntry = left[key];
+    const rightEntry = right[key];
+    return rightEntry && leftEntry?.value === rightEntry.value && leftEntry?.type === rightEntry.type;
+  });
+}
+
+function snapshotsSemanticallyEqual(left: ExecutionSnapshot | null, right: ExecutionSnapshot): boolean {
+  if (!left) return false;
+  if (left.automataId !== right.automataId) return false;
+  if (left.deviceId !== right.deviceId) return false;
+  if (left.currentState !== right.currentState) return false;
+  if (left.previousState !== right.previousState) return false;
+  if (left.lastTransition !== right.lastTransition) return false;
+  if (left.executionCycle !== right.executionCycle) return false;
+  if (left.errorState !== right.errorState) return false;
+  if (!variablesEqual(left.variables, right.variables)) return false;
+  if (!signalMapsEqual(left.inputs, right.inputs)) return false;
+  if (!signalMapsEqual(left.outputs, right.outputs)) return false;
+  return true;
+}
+
 export const DevicesPanel: React.FC = () => {
   const [expandedServers, setExpandedServers] = useState<Set<string>>(new Set());
   const [selectedDeviceId, setSelectedDeviceId] = useState<string | null>(null);
@@ -56,9 +101,15 @@ export const DevicesPanel: React.FC = () => {
   const [forceState, setForceState] = useState<string>('');
   const [showcaseEntries, setShowcaseEntries] = useState<ShowcaseAutomataEntry[]>([]);
   const [selectedShowcasePath, setSelectedShowcasePath] = useState<string>('');
+  const [showcaseFilterText, setShowcaseFilterText] = useState<string>('');
   const [showcaseBusy, setShowcaseBusy] = useState<boolean>(false);
   const [showHistory, setShowHistory] = useState<boolean>(false);
   const [deviceFilterText, setDeviceFilterText] = useState<string>('');
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState<boolean>(true);
+  const [polledSnapshot, setPolledSnapshot] = useState<ExecutionSnapshot | null>(null);
+  const [lastAutoRefreshAt, setLastAutoRefreshAt] = useState<number | null>(null);
+  const deferredDeviceFilterText = useDeferredValue(deviceFilterText);
+  const deferredShowcaseFilterText = useDeferredValue(showcaseFilterText);
   
   // Store data - get raw Maps and memoize array conversion
   const serversMap = useGatewayStore((state) => state.servers);
@@ -73,7 +124,6 @@ export const DevicesPanel: React.FC = () => {
   const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const selectDevice = useExecutionStore((state) => state.selectDevice);
-  const deviceExecutionsMap = useExecutionStore((state) => state.deviceExecutions);
   const addNotification = useUIStore((state) => state.addNotification);
   const togglePanel = useUIStore((state) => state.togglePanel);
   const runtimeVisible = useUIStore((state) => state.layout.panels.runtime?.isVisible ?? false);
@@ -141,27 +191,25 @@ export const DevicesPanel: React.FC = () => {
     };
   }, [addNotification]);
 
-  const importShowcaseAutomata = async (
-    target: string,
-  ): Promise<{ id: string; automata: Automata } | null> => {
-    const result = await window.api.automata.loadShowcase(target);
-    if (!result.success || !result.data) {
-      addNotification('error', 'Showcase', result.error || `Failed to load showcase automata: ${target}`);
-      return null;
-    }
-
-    const normalizedPath = String(result.filePath || '').replace(/\\/g, '/');
-    const existing = Array.from(automataMap.values()).find((automata) =>
-      String(automata.filePath || '').replace(/\\/g, '/') === normalizedPath,
-    );
+  const attachImportedAutomata = (
+    importedData: Partial<Automata>,
+    filePath?: string,
+    successLabel: string = 'Automata',
+  ): { id: string; automata: Automata } | null => {
+    const normalizedPath = String(filePath || '').replace(/\\/g, '/');
+    const existing = normalizedPath
+      ? Array.from(automataMap.values()).find((automata) =>
+          String(automata.filePath || '').replace(/\\/g, '/') === normalizedPath,
+        )
+      : undefined;
 
     if (existing?.id) {
       setActiveAutomata(existing.id);
       return { id: existing.id, automata: existing };
     }
 
-    const imported = normalizeImportedAutomata(result.data as Partial<Automata>, {
-      filePath: result.filePath,
+    const imported = normalizeImportedAutomata(importedData, {
+      filePath,
       keepDirty: true,
     });
 
@@ -179,8 +227,32 @@ export const DevicesPanel: React.FC = () => {
       markProjectDirty();
     }
 
-    addNotification('success', 'Showcase', `Loaded ${imported.config.name} into editor.`);
+    addNotification('success', successLabel, `Loaded ${imported.config.name} into editor.`);
     return { id: imported.id, automata: imported };
+  };
+
+  const importShowcaseAutomata = async (
+    target: string,
+  ): Promise<{ id: string; automata: Automata } | null> => {
+    const result = await window.api.automata.loadShowcase(target);
+    if (!result.success || !result.data) {
+      addNotification('error', 'Showcase', result.error || `Failed to load showcase automata: ${target}`);
+      return null;
+    }
+
+    return attachImportedAutomata(result.data as Partial<Automata>, result.filePath, 'Showcase');
+  };
+
+  const handleImportYamlAutomata = async (): Promise<{ id: string; automata: Automata } | null> => {
+    const result = await window.api.automata.loadYaml();
+    if (!result.success || !result.data) {
+      if (result.error && result.error !== 'Cancelled') {
+        addNotification('error', 'Import', result.error || 'Failed to load automata');
+      }
+      return null;
+    }
+
+    return attachImportedAutomata(result.data as Partial<Automata>, result.filePath, 'Import');
   };
 
   const pickDeployCandidate = (): { id: string; automata: any } | null => {
@@ -382,8 +454,27 @@ export const DevicesPanel: React.FC = () => {
       .sort((a, b) => b.updatedAt - a.updatedAt)[0];
   };
 
+  const workspaceAutomata = useMemo(() => {
+    return Array.from(automataMap.values()).sort((left, right) => {
+      if (left.id === activeAutomataId) return -1;
+      if (right.id === activeAutomataId) return 1;
+      const leftPath = String(left.filePath ?? '');
+      const rightPath = String(right.filePath ?? '');
+      return left.config.name.localeCompare(right.config.name) || leftPath.localeCompare(rightPath);
+    });
+  }, [activeAutomataId, automataMap]);
+
+  const filteredShowcaseEntries = useMemo(() => {
+    const query = deferredShowcaseFilterText.trim().toLowerCase();
+    const filtered = showcaseEntries.filter((entry) => {
+      if (!query) return true;
+      return `${entry.category} ${entry.name} ${entry.relativePath}`.toLowerCase().includes(query);
+    });
+    return filtered.slice(0, 10);
+  }, [deferredShowcaseFilterText, showcaseEntries]);
+
   const visibleDevices = useMemo(() => {
-    const query = deviceFilterText.trim().toLowerCase();
+    const query = deferredDeviceFilterText.trim().toLowerCase();
 
     return devices.filter((device) => {
       const deployments = getDeploymentsForDevice(device.id);
@@ -412,7 +503,7 @@ export const DevicesPanel: React.FC = () => {
 
       return haystack.includes(query);
     });
-  }, [deviceFilterText, devices, showHistory, transfersMap, deploymentsByDevice]);
+  }, [deferredDeviceFilterText, devices, showHistory, transfersMap, deploymentsByDevice]);
 
   const visibleServers = useMemo(() => {
     const visibleDeviceIds = new Set(visibleDevices.map((device) => device.id));
@@ -529,6 +620,8 @@ export const DevicesPanel: React.FC = () => {
     try {
       const selectedDeployment = resolveCommandDeployment(deviceId);
       const snapshot = await gatewayService.getSnapshot(deviceId, getCommandTarget(selectedDeployment));
+      setPolledSnapshot(snapshot.snapshot);
+      setLastAutoRefreshAt(Date.now());
       upsertRuntimeDeployment({
         deploymentId: selectedDeployment?.deploymentId ?? `${snapshot.snapshot.automataId}:${deviceId}`,
         automataId: snapshot.snapshot.automataId as any,
@@ -581,13 +674,7 @@ export const DevicesPanel: React.FC = () => {
     addNotification('info', 'OTA Update', `Initiating OTA update for device ${deviceId}`);
   };
 
-  const handleDeployActiveAutomata = async (deviceId: string) => {
-    const candidate = pickDeployCandidate();
-    if (!candidate) {
-      addNotification('warning', 'Deploy', 'No automata available. Create or import one first.');
-      return;
-    }
-
+  const handleDeployAutomataCandidate = async (deviceId: string, candidate: { id: string; automata: Automata }) => {
     try {
       await gatewayService.deployAutomata(candidate.id, deviceId, { automata: candidate.automata });
       const deploymentId = `${candidate.id}:${deviceId}`;
@@ -600,10 +687,20 @@ export const DevicesPanel: React.FC = () => {
         source: 'runtime',
       });
       setSelectedDeploymentId(deploymentId);
+      setActiveAutomata(candidate.id);
       addNotification('success', 'Deploy', `Deployed ${candidate.automata?.config?.name ?? candidate.id} to ${deviceId}`);
     } catch (err) {
       addNotification('error', 'Deploy', err instanceof Error ? err.message : 'Failed to deploy automata');
     }
+  };
+
+  const handleDeployActiveAutomata = async (deviceId: string) => {
+    const candidate = pickDeployCandidate();
+    if (!candidate) {
+      addNotification('warning', 'Deploy', 'No automata available. Create or import one first.');
+      return;
+    }
+    await handleDeployAutomataCandidate(deviceId, candidate as { id: string; automata: Automata });
   };
 
   const handleLoadShowcase = async () => {
@@ -633,18 +730,7 @@ export const DevicesPanel: React.FC = () => {
         return;
       }
 
-      await gatewayService.deployAutomata(candidate.id, deviceId, { automata: candidate.automata });
-      const deploymentId = `${candidate.id}:${deviceId}`;
-      pendingDeploymentTargetsRef.current.set(deviceId, {
-        deploymentId,
-        automataId: candidate.id,
-        deviceId,
-        status: 'loading',
-        updatedAt: Date.now(),
-        source: 'runtime',
-      });
-      setSelectedDeploymentId(deploymentId);
-      addNotification('success', 'Showcase Deploy', `Deployed ${candidate.automata.config.name} to ${deviceId}`);
+      await handleDeployAutomataCandidate(deviceId, candidate);
     } catch (err) {
       addNotification('error', 'Showcase Deploy', err instanceof Error ? err.message : 'Failed to deploy showcase');
     } finally {
@@ -793,13 +879,17 @@ export const DevicesPanel: React.FC = () => {
     null;
   const selectedRuntimeDeployment =
     selectedDeployment ? runtimeDeploymentsMap.get(selectedDeployment.deploymentId) : undefined;
-  const selectedExecution = selectedDevice ? deviceExecutionsMap.get(selectedDevice.id as any) : undefined;
+  const selectedExecution = useExecutionStore((state) =>
+    selectedDevice ? state.deviceExecutions.get(selectedDevice.id as any) : undefined,
+  );
   const selectedSnapshot =
-    selectedExecution?.currentSnapshot &&
-    (!selectedDeployment ||
-      String(selectedExecution.currentSnapshot.automataId) === selectedDeployment.automataId)
-      ? selectedExecution.currentSnapshot
-      : null;
+    polledSnapshot && (!selectedDeployment || String(polledSnapshot.automataId) === selectedDeployment.automataId)
+      ? polledSnapshot
+      : selectedExecution?.currentSnapshot &&
+          (!selectedDeployment ||
+            String(selectedExecution.currentSnapshot.automataId) === selectedDeployment.automataId)
+        ? selectedExecution.currentSnapshot
+        : null;
   const selectedVariableEntries = useMemo(() => {
     if (selectedSnapshot) {
       return Object.entries(selectedSnapshot.variables ?? {})
@@ -829,6 +919,8 @@ export const DevicesPanel: React.FC = () => {
   const selectedDeviceCanSnapshot = selectedDevice
     ? supportsCommand(selectedDevice.id, 'request_state')
     : false;
+  const selectedShowcaseEntry =
+    showcaseEntries.find((entry) => entry.relativePath === selectedShowcasePath) ?? null;
 
   const formatSignalValue = (value: unknown): string => {
     if (typeof value === 'string') return value;
@@ -876,7 +968,12 @@ export const DevicesPanel: React.FC = () => {
   }, [selectedDeploymentId, selectedDevice, selectedDeviceDeployments]);
 
   useEffect(() => {
-    if (!selectedDevice || !selectedDeployment) {
+    setPolledSnapshot(null);
+    setLastAutoRefreshAt(null);
+  }, [selectedDeployment?.deploymentId, selectedDevice?.id]);
+
+  useEffect(() => {
+    if (!selectedDevice || !selectedDeployment || !autoRefreshEnabled) {
       return;
     }
 
@@ -892,7 +989,19 @@ export const DevicesPanel: React.FC = () => {
 
     const refreshSnapshot = async () => {
       try {
-        await gatewayService.getSnapshot(selectedDevice.id, getCommandTarget(selectedDeployment));
+        const result = await gatewayService.getSnapshot(
+          selectedDevice.id,
+          getCommandTarget(selectedDeployment),
+          { silent: true, bypassCache: true },
+        );
+        if (cancelled) {
+          return;
+        }
+
+        setPolledSnapshot((current) =>
+          snapshotsSemanticallyEqual(current, result.snapshot) ? current : result.snapshot,
+        );
+        setLastAutoRefreshAt(Date.now());
       } catch {
         if (!cancelled) {
           // Best-effort live polling; surface errors only on explicit snapshot requests.
@@ -903,13 +1012,13 @@ export const DevicesPanel: React.FC = () => {
     void refreshSnapshot();
     const interval = setInterval(() => {
       void refreshSnapshot();
-    }, 1200);
+    }, 2500);
 
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [gatewayService, isConnected, selectedDeployment, selectedDevice, selectedDeviceCanSnapshot]);
+  }, [autoRefreshEnabled, gatewayService, isConnected, selectedDeployment, selectedDevice, selectedDeviceCanSnapshot]);
   
   return (
     <div className="devices-panel">
@@ -1150,6 +1259,117 @@ export const DevicesPanel: React.FC = () => {
                   <span className="detail-value">{selectedDevice.engineVersion}</span>
                 </div>
 
+                <div className="detail-section detail-section-prominent">
+                  <div className="section-header">
+                    <label className="section-label">Deployment Studio</label>
+                    <span className="section-meta">
+                      {workspaceAutomata.length} ready · {showcaseEntries.length} showcase
+                    </span>
+                  </div>
+
+                  <div className="deploy-studio">
+                    <div className="deploy-studio-toolbar">
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void handleImportYamlAutomata()}
+                      >
+                        Import YAML
+                      </button>
+                      <button
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleLoadShowcase}
+                        disabled={showcaseBusy || !selectedShowcasePath}
+                      >
+                        Load Showcase
+                      </button>
+                      <button
+                        className="btn btn-primary btn-sm"
+                        onClick={() => handleDeployShowcase(selectedDevice.id)}
+                        disabled={showcaseBusy || !selectedShowcasePath || !isDeviceReachable(selectedDevice.status)}
+                      >
+                        Deploy Showcase
+                      </button>
+                    </div>
+
+                    <div className="deploy-studio-columns">
+                      <div className="studio-column">
+                        <div className="studio-column-header">
+                          <span className="subsection-label">Ready To Deploy</span>
+                          {activeAutomata && (
+                            <span className="section-meta">active: {activeAutomata.config.name}</span>
+                          )}
+                        </div>
+                        <div className="studio-list">
+                          {workspaceAutomata.length === 0 ? (
+                            <div className="studio-empty">Import a YAML or load a showcase to stage it here.</div>
+                          ) : (
+                            workspaceAutomata.map((automata) => (
+                              <div
+                                key={automata.id}
+                                className={`studio-card ${activeAutomataId === automata.id ? 'active' : ''}`}
+                              >
+                                <div className="studio-card-main">
+                                  <div className="studio-card-title">{automata.config.name}</div>
+                                  <div className="studio-card-meta">
+                                    {automata.filePath ? String(automata.filePath).split(/[\\/]/).pop() : automata.id}
+                                  </div>
+                                </div>
+                                <div className="studio-card-actions">
+                                  <button
+                                    className={`btn btn-xs ${activeAutomataId === automata.id ? 'btn-primary' : 'btn-secondary'}`}
+                                    onClick={() => setActiveAutomata(automata.id)}
+                                  >
+                                    {activeAutomataId === automata.id ? 'Active' : 'Use'}
+                                  </button>
+                                  <button
+                                    className="btn btn-xs btn-secondary"
+                                    onClick={() => void handleDeployAutomataCandidate(selectedDevice.id, { id: automata.id, automata })}
+                                    disabled={!isDeviceReachable(selectedDevice.status)}
+                                  >
+                                    Deploy
+                                  </button>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="studio-column">
+                        <div className="studio-column-header">
+                          <span className="subsection-label">Showcase Browser</span>
+                          {selectedShowcaseEntry && (
+                            <span className="section-meta">{selectedShowcaseEntry.category}</span>
+                          )}
+                        </div>
+                        <input
+                          className="input devices-search"
+                          placeholder="Filter showcase examples"
+                          value={showcaseFilterText}
+                          onChange={(event) => setShowcaseFilterText(event.target.value)}
+                        />
+                        <div className="studio-list">
+                          {filteredShowcaseEntries.length === 0 ? (
+                            <div className="studio-empty">No showcase automata match this filter.</div>
+                          ) : (
+                            filteredShowcaseEntries.map((entry) => (
+                              <button
+                                key={entry.id}
+                                className={`showcase-card ${selectedShowcasePath === entry.relativePath ? 'selected' : ''}`}
+                                onClick={() => setSelectedShowcasePath(entry.relativePath)}
+                              >
+                                <span className="showcase-card-category">{entry.category}</span>
+                                <span className="showcase-card-name">{entry.name}</span>
+                                <span className="showcase-card-path">{entry.relativePath.split('/').slice(-2).join('/')}</span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {(selectedSnapshot?.currentState ?? selectedDeployment?.currentState) && (
                   <div className="detail-row">
                     <span className="detail-label">Current State:</span>
@@ -1213,7 +1433,23 @@ export const DevicesPanel: React.FC = () => {
                   selectedInputEntries.length > 0 ||
                   selectedOutputEntries.length > 0) && (
                   <div className="detail-section">
-                    <label className="section-label">Live Snapshot</label>
+                    <div className="section-header">
+                      <label className="section-label">Live Snapshot</label>
+                      <div className="snapshot-toolbar">
+                        <button
+                          className={`btn btn-xs ${autoRefreshEnabled ? 'btn-primary' : 'btn-secondary'}`}
+                          onClick={() => setAutoRefreshEnabled((value) => !value)}
+                          disabled={!selectedDeployment || !selectedDeviceCanSnapshot}
+                        >
+                          {autoRefreshEnabled ? 'Auto 2.5s' : 'Manual'}
+                        </button>
+                        {lastAutoRefreshAt && (
+                          <span className="section-meta">
+                            {new Date(lastAutoRefreshAt).toLocaleTimeString()}
+                          </span>
+                        )}
+                      </div>
+                    </div>
                     {selectedVariableEntries.length > 0 && (
                       <div className="signal-group">
                         <span className="subsection-label">Variables</span>
@@ -1323,45 +1559,6 @@ export const DevicesPanel: React.FC = () => {
                   </details>
                 )}
 
-                {showcaseEntries.length > 0 && (
-                  <details className="detail-accordion">
-                    <summary className="section-label">Showcase Automata</summary>
-                    <div className="detail-section accordion-body">
-                      <div className="showcase-controls">
-                        <select
-                          className="input showcase-select"
-                          value={selectedShowcasePath}
-                          onChange={(event) => setSelectedShowcasePath(event.target.value)}
-                          disabled={showcaseBusy}
-                          title="Curated automata examples for demos and quick testing"
-                        >
-                          {showcaseEntries.map((entry) => (
-                            <option key={entry.id} value={entry.relativePath}>
-                              {entry.category} · {entry.name}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={handleLoadShowcase}
-                          disabled={showcaseBusy}
-                          title="Load selected showcase automata into editor"
-                        >
-                          Load
-                        </button>
-                        <button
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => handleDeployShowcase(selectedDevice.id)}
-                          disabled={showcaseBusy || !isDeviceReachable(selectedDevice.status)}
-                          title="Load and deploy selected showcase automata to this device"
-                        >
-                          Deploy Showcase
-                        </button>
-                      </div>
-                    </div>
-                  </details>
-                )}
-                
                 {/* Device Actions */}
                 <div className="device-actions">
                   {selectedDeployment && isRunningLike(selectedDeployment.status) ? (
