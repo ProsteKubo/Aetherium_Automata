@@ -94,6 +94,51 @@ const initialState: ExecutionState = {
   isStopping: new Map(),
 };
 
+function signalMapsEqual(
+  left: ExecutionSnapshot['inputs'] | ExecutionSnapshot['outputs'],
+  right: ExecutionSnapshot['inputs'] | ExecutionSnapshot['outputs'],
+): boolean {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const leftEntry = left[key];
+    const rightEntry = right[key];
+    return rightEntry && leftEntry?.value === rightEntry.value;
+  });
+}
+
+function variablesEqual(
+  left: ExecutionSnapshot['variables'],
+  right: ExecutionSnapshot['variables'],
+): boolean {
+  const leftKeys = Object.keys(left ?? {});
+  const rightKeys = Object.keys(right ?? {});
+  if (leftKeys.length !== rightKeys.length) return false;
+
+  return leftKeys.every((key) => {
+    const leftEntry = left[key];
+    const rightEntry = right[key];
+    return rightEntry && leftEntry?.value === rightEntry.value && leftEntry?.type === rightEntry.type;
+  });
+}
+
+function snapshotsSemanticallyEqual(left: ExecutionSnapshot | null, right: ExecutionSnapshot): boolean {
+  if (!left) return false;
+  if (left.automataId !== right.automataId) return false;
+  if (left.deviceId !== right.deviceId) return false;
+  if (left.currentState !== right.currentState) return false;
+  if (left.previousState !== right.previousState) return false;
+  if (left.lastTransition !== right.lastTransition) return false;
+  if (left.executionCycle !== right.executionCycle) return false;
+  if (left.errorState !== right.errorState) return false;
+  if (!variablesEqual(left.variables, right.variables)) return false;
+  if (!signalMapsEqual(left.inputs, right.inputs)) return false;
+  if (!signalMapsEqual(left.outputs, right.outputs)) return false;
+  return true;
+}
+
 // ============================================================================
 // Store
 // ============================================================================
@@ -233,6 +278,11 @@ export const useExecutionStore = create<ExecutionStore>()(
           };
           state.deviceExecutions.set(deviceId, execution);
         }
+
+        if (snapshotsSemanticallyEqual(execution.currentSnapshot, snapshot)) {
+          return;
+        }
+
         execution.currentSnapshot = snapshot;
       });
     },

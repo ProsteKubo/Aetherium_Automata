@@ -1,0 +1,74 @@
+version: 0.0.1
+
+config:
+  name: ESP32 Bidirectional Loop Node
+  type: inline
+  language: lua
+  description: ESP32 node for the bidirectional loop demo. Samples a potentiometer and drives a local LED from the host command path.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - ide
+    - adc
+    - pwm
+    - bidirectional
+    - hardware-safe
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: remote_duty
+    type: int
+    direction: input
+    default: 0
+  - name: pot_raw
+    type: int
+    direction: output
+    default: 0
+  - name: pot_mv
+    type: int
+    direction: output
+    default: 0
+  - name: esp_online
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Loop
+
+  states:
+    Loop:
+      hooks:
+        onEnter: |-
+          pwm.attach(0, 18, 5000, 8)
+          next_sample_at = 0
+      code: |-
+        if next_sample_at ~= nil and now() < next_sample_at then
+          return
+        end
+
+        next_sample_at = now() + 80
+
+        local pot = adc.read(34)
+        local mv = adc.read_mv(34)
+        local duty = remote_duty or 0
+
+        if duty < 0 then
+          duty = 0
+        elseif duty > 255 then
+          duty = 255
+        end
+
+        pwm.write(0, duty)
+        setOutput("pot_raw", pot)
+        setOutput("pot_mv", mv)
+        setOutput("esp_online", true)
+
+  transitions:
+    stay_active:
+      from: Loop
+      to: Loop
+      type: classic
+      condition: false

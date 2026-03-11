@@ -77,6 +77,42 @@ defmodule AetheriumServer.DeviceManagerCommandsTest do
     assert current.current_state == nil
   end
 
+  test "host runtime device runs automata locally through the standard deployment API" do
+    suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    device_id = "host-runtime-device-#{suffix}"
+    automata_id = "host-runtime-automata-#{suffix}"
+    deployment_id = "#{automata_id}:#{device_id}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :desktop,
+          connector_type: :host_runtime,
+          transport: "host_runtime",
+          capabilities: 0xFFFF,
+          protocol_version: 1
+        },
+        self()
+      )
+
+    {:ok, deployment} =
+      DeviceManager.deploy_automata(automata_id, device_id, sample_automata(automata_id))
+
+    assert deployment.id == deployment_id
+    assert deployment.status == :stopped
+
+    assert :ok = DeviceManager.start_automata(deployment_id)
+    assert :ok = DeviceManager.set_input(deployment_id, "enabled", true)
+
+    Process.sleep(200)
+
+    assert {:ok, snapshot} = DeviceManager.request_state(deployment_id)
+    assert snapshot.running == true
+    assert snapshot.current_state == "running"
+    assert snapshot.variables["enabled"] == true
+  end
+
   defp sample_automata(id) do
     %{
       id: id,

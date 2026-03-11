@@ -87,6 +87,7 @@ defmodule AetheriumServer.GatewayConnection do
         %{channel: channel, heartbeat_interval: heartbeat_interval} = state
       ) do
     PhoenixClient.Channel.push(channel, "heartbeat", %{})
+    push_live_deployments(channel)
     push_connector_statuses(channel)
     Process.send_after(self(), :send_heartbeat, heartbeat_interval)
     {:noreply, state}
@@ -100,6 +101,7 @@ defmodule AetheriumServer.GatewayConnection do
       {:ok, _response, channel} ->
         Logger.info("Connected to gateway and joined server:gateway")
         push_current_devices(channel)
+        push_live_deployments(channel)
         push_connector_statuses(channel)
         Process.send_after(self(), :send_heartbeat, state.heartbeat_interval)
         {:noreply, %{state | channel: channel}}
@@ -550,6 +552,7 @@ defmodule AetheriumServer.GatewayConnection do
 
   defp resolve_deployments_for_device(device_id) do
     AetheriumServer.DeviceManager.get_device_deployments(device_id)
+    |> Enum.filter(&active_deployment?/1)
   end
 
   defp resolve_deployment_id(payload) do
@@ -597,10 +600,15 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   defp select_deployment_id_for_device(device_id, automata_id) do
-    device_id
-    |> AetheriumServer.DeviceManager.get_device_deployments()
+    deployments =
+      device_id
+      |> AetheriumServer.DeviceManager.get_device_deployments()
+      |> Enum.sort_by(fn deployment -> deployment.deployed_at || 0 end, :desc)
+
+    active_deployments = Enum.filter(deployments, &active_deployment?/1)
+
+    (if active_deployments == [], do: deployments, else: active_deployments)
     |> maybe_filter_deployments_by_automata(automata_id)
-    |> Enum.sort_by(fn deployment -> deployment.deployed_at || 0 end, :desc)
     |> List.first()
     |> case do
       nil -> nil
@@ -709,7 +717,12 @@ defmodule AetheriumServer.GatewayConnection do
     |> Enum.flat_map(fn device ->
       AetheriumServer.DeviceManager.get_device_deployments(device.id)
     end)
+    |> Enum.filter(&active_deployment?/1)
     |> Enum.filter(&(&1.automata_id == automata_id))
+  end
+
+  defp active_deployment?(deployment) do
+    deployment.status in [:running, :paused, :loading]
   end
 
   defp normalize_automata(automata) when is_map(automata), do: automata
@@ -746,6 +759,29 @@ defmodule AetheriumServer.GatewayConnection do
       end)
 
     PhoenixClient.Channel.push_async(channel, "device_update", %{"devices" => devices})
+  end
+
+  defp push_live_deployments(channel) do
+    deployments =
+      AetheriumServer.DeviceManager.list_devices()
+      |> Enum.flat_map(fn device ->
+        AetheriumServer.DeviceManager.get_device_deployments(device.id)
+      end)
+      |> Enum.filter(&active_deployment?/1)
+      |> Enum.map(fn deployment ->
+        %{
+          "deployment_id" => deployment.id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => deployment.device_id,
+          "status" => Atom.to_string(deployment.status),
+          "deployed_at" => deployment.deployed_at,
+          "current_state" => deployment.current_state,
+          "variables" => deployment.variables,
+          "error" => deployment.error
+        }
+      end)
+
+    PhoenixClient.Channel.push_async(channel, "deployment_inventory", %{"deployments" => deployments})
   end
 
   defp push_connector_statuses(channel) do

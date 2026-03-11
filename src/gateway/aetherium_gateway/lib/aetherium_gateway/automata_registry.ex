@@ -149,6 +149,12 @@ defmodule AetheriumGateway.AutomataRegistry do
     GenServer.call(__MODULE__, :list_deployments)
   end
 
+  @doc "Reconcile live deployments reported by a connected server"
+  @spec reconcile_server_deployments(server_id(), [map()]) :: [deployment()]
+  def reconcile_server_deployments(server_id, deployments) when is_binary(server_id) do
+    GenServer.call(__MODULE__, {:reconcile_server_deployments, server_id, deployments})
+  end
+
   @doc "Update device state (current automata state, variables)"
   @spec update_device_state(device_id(), String.t(), map()) :: :ok
   def update_device_state(device_id, current_state, variables) do
@@ -353,6 +359,49 @@ defmodule AetheriumGateway.AutomataRegistry do
   @impl true
   def handle_call(:list_deployments, _from, state) do
     {:reply, Map.values(state.deployments), state}
+  end
+
+  @impl true
+  def handle_call({:reconcile_server_deployments, server_id, live_deployments}, _from, state) do
+    normalized =
+      live_deployments
+      |> Enum.map(&normalize_live_deployment(server_id, &1))
+      |> Enum.reject(&is_nil/1)
+
+    live_keys =
+      normalized
+      |> Enum.map(&{&1.automata_id, &1.device_id})
+      |> MapSet.new()
+
+    server_keys =
+      state.deployments
+      |> Enum.filter(fn {_key, dep} -> deployment_field(dep, :server_id) == server_id end)
+      |> Enum.map(&elem(&1, 0))
+
+    reconciled_state =
+      Enum.reduce(normalized, state, fn deployment, acc ->
+        upsert_reconciled_deployment(acc, deployment)
+      end)
+
+    reconciled_state =
+      Enum.reduce(server_keys, reconciled_state, fn key, acc ->
+        if MapSet.member?(live_keys, key) do
+          acc
+        else
+          mark_reconciled_deployment_stale(acc, key)
+        end
+      end)
+
+    if reconciled_state != state do
+      persist_state(reconciled_state)
+
+      append_event("deployment_inventory_reconciled", %{
+        server_id: server_id,
+        count: length(normalized)
+      })
+    end
+
+    {:reply, Map.values(reconciled_state.deployments), reconciled_state}
   end
 
   @impl true
@@ -572,6 +621,96 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   defp normalize_timestamp(_), do: 0
+
+  defp normalize_live_deployment(server_id, deployment) when is_map(deployment) do
+    automata_id = deployment_field(deployment, :automata_id)
+    device_id = deployment_field(deployment, :device_id)
+
+    cond do
+      !is_binary(automata_id) or automata_id == "" ->
+        nil
+
+      !is_binary(device_id) or device_id == "" ->
+        nil
+
+      true ->
+        %{
+          automata_id: automata_id,
+          device_id: device_id,
+          server_id: server_id,
+          status: normalize_live_status(deployment_field(deployment, :status, :stopped)),
+          deployed_at:
+            deployment_field(deployment, :deployed_at) ||
+              deployment_field(deployment, :updated_at) ||
+              DateTime.utc_now(),
+          created_at: deployment_field(deployment, :created_at, DateTime.utc_now()),
+          updated_at: DateTime.utc_now(),
+          current_state: deployment_field(deployment, :current_state),
+          variables: deployment_field(deployment, :variables, %{}),
+          error: deployment_field(deployment, :error)
+        }
+    end
+  end
+
+  defp normalize_live_deployment(_server_id, _deployment), do: nil
+
+  defp normalize_live_status(status)
+       when status in [:pending, :deploying, :running, :paused, :stopped, :error],
+       do: status
+
+  defp normalize_live_status("pending"), do: :pending
+  defp normalize_live_status("deploying"), do: :deploying
+  defp normalize_live_status("running"), do: :running
+  defp normalize_live_status("paused"), do: :paused
+  defp normalize_live_status("stopped"), do: :stopped
+  defp normalize_live_status("error"), do: :error
+  defp normalize_live_status(_), do: :stopped
+
+  defp upsert_reconciled_deployment(state, deployment) do
+    key = {deployment.automata_id, deployment.device_id}
+
+    updated =
+      state.deployments
+      |> Map.get(key, %{
+        automata_id: deployment.automata_id,
+        device_id: deployment.device_id,
+        server_id: deployment.server_id,
+        created_at: deployment.created_at,
+        deployed_at: nil,
+        current_state: nil,
+        variables: %{},
+        error: nil,
+        status: :pending
+      })
+      |> Map.merge(deployment)
+      |> maybe_set_deployed_at(deployment.status)
+
+    if Map.get(state.deployments, key) != updated do
+      broadcast_deployment_update(updated)
+    end
+
+    put_in(state, [:deployments, key], updated)
+  end
+
+  defp mark_reconciled_deployment_stale(state, key) do
+    case Map.get(state.deployments, key) do
+      nil ->
+        state
+
+      deployment ->
+        updated =
+          deployment
+          |> Map.put(:status, :stopped)
+          |> Map.put(:current_state, nil)
+          |> Map.put(:updated_at, DateTime.utc_now())
+
+        if deployment != updated do
+          broadcast_deployment_update(updated)
+        end
+
+        put_in(state, [:deployments, key], updated)
+    end
+  end
 
   defp send_deployment_to_server(server_id, automata, device_id) do
     payload = %{"automata_id" => automata.id, "device_id" => device_id, "automata" => automata}

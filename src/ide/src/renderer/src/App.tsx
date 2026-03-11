@@ -363,28 +363,8 @@ const App: React.FC = () => {
     return (
       <aside className={`${className} panel-left panel-frame`} style={{ width }}>
         <div className="panel-shell-header">
-          <div className="panel-shell-tabs">
-            <button
-              type="button"
-              className={`panel-shell-tab ${activeSidebarPanel === 'explorer' ? 'active' : ''}`}
-              onClick={() => activatePanel('explorer')}
-            >
-              Explorer
-            </button>
-            <button
-              type="button"
-              className={`panel-shell-tab ${activeSidebarPanel === 'devices' ? 'active' : ''}`}
-              onClick={() => activatePanel('devices')}
-            >
-              Devices
-            </button>
-            <button
-              type="button"
-              className={`panel-shell-tab ${activeSidebarPanel === 'gateway' ? 'active' : ''}`}
-              onClick={() => activatePanel('gateway')}
-            >
-              Gateway
-            </button>
+          <div className="panel-shell-title" style={{ paddingLeft: 'var(--spacing-3)', textTransform: 'uppercase', fontSize: 'var(--font-size-xs)', fontWeight: 'var(--font-weight-semibold)', color: 'var(--color-text-secondary)', letterSpacing: '0.05em' }}>
+            {activeSidebarPanel}
           </div>
           <button type="button" className="panel-shell-close" onClick={toggleSidebar} title="Collapse sidebar">
             Collapse
@@ -463,9 +443,9 @@ const App: React.FC = () => {
       )}
 
       <AppHeader />
-      <ActivityBar />
 
       <div className="app-main">
+        <ActivityBar />
         <div className="app-content">
           {showSidebarInline && renderSidebarPanel('', sidebarInlineWidth)}
 

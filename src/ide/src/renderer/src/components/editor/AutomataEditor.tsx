@@ -28,12 +28,9 @@ import { TransitionDialog } from './TransitionDialog';
 import { EnhancedTransitionDialog } from './EnhancedTransitionDialog';
 import { useAutomataStore, useGatewayStore, useUIStore, useRuntimeViewStore } from '../../stores';
 import {
-  IconPlus,
-  IconLock,
-  IconUnlock,
-  IconTransition,
   IconRuntime,
 } from '../common/Icons';
+import { QuickCreationToolbar } from './QuickCreationToolbar';
 
 // Node types registration
 const nodeTypes = {
@@ -82,6 +79,11 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
   const updateState = useAutomataStore((state) => state.updateState);
   const deleteState = useAutomataStore((state) => state.deleteState);
   const deleteTransition = useAutomataStore((state) => state.deleteTransition);
+  const undo = useAutomataStore((state) => state.undo);
+  const redo = useAutomataStore((state) => state.redo);
+  const canUndo = useAutomataStore((state) => state.history.past.length > 0);
+  const canRedo = useAutomataStore((state) => state.history.future.length > 0);
+  const [isConnecting, setIsConnecting] = useState(false);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const gatewayStatus = useGatewayStore((state) => state.status);
   const devicesMap = useGatewayStore((state) => state.devices);
@@ -505,39 +507,47 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
           showInteractive={false}
         />
         
-        {/* Custom toolbar */}
-        <Panel position="top-left" className="editor-toolbar">
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={() => handleAddState('normal')}
-            title="Add State (N)"
-          >
-            <IconPlus size={16} />
-          </button>
-          <button
-            className="btn btn-ghost btn-icon"
-            onClick={() => {
-              setEditingTransitionId(undefined);
-              setShowTransitionDialog(true);
-            }}
-            title="Add Transition (T)"
-          >
-            <IconTransition size={16} />
-          </button>
-          <div className="toolbar-divider" />
-          <button
-            className={`btn btn-ghost btn-icon ${isLocked ? 'active' : ''}`}
-            onClick={() => setIsLocked(!isLocked)}
-            title={isLocked ? 'Unlock editing (L)' : 'Lock editing (L)'}
-          >
-            {isLocked ? <IconLock size={16} /> : <IconUnlock size={16} />}
-          </button>
-
-          <div className="toolbar-divider" />
-
-          <div className="editor-upload-controls">
+        {/* Quick Creation Toolbar */}
+        <QuickCreationToolbar
+          position="floating"
+          onAddState={handleAddState}
+          onStartConnect={() => setIsConnecting(true)}
+          onStopConnect={() => setIsConnecting(false)}
+          isConnecting={isConnecting}
+          onAddTransition={() => {
+            setEditingTransitionId(undefined);
+            setShowTransitionDialog(true);
+          }}
+          onToggleLock={() => setIsLocked(!isLocked)}
+          isLocked={isLocked}
+          onToggleGrid={() => setShowGrid(!showGrid)}
+          showGrid={showGrid}
+          onFitView={() => {
+            // we could call fitView if we used useReactFlow hook
+          }}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+        />
+        
+        {/* Info & Run panel */}
+        <Panel position="top-right" className="editor-info" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--spacing-2)' }}>
+          <div style={{ display: 'flex', gap: 'var(--spacing-4)' }}>
+            <div className="info-stat">
+              <span className="info-label">States:</span>
+              <span className="info-value">{Object.keys(automata.states).length}</span>
+            </div>
+            <div className="info-stat">
+              <span className="info-label">Transitions:</span>
+              <span className="info-value">{Object.keys(automata.transitions).length}</span>
+            </div>
+          </div>
+          
+          <div className="editor-upload-controls" style={{ marginTop: 'var(--spacing-2)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-2)' }}>
             <select
               className="input select editor-device-select"
+              style={{ minWidth: 160 }}
               value={targetDeviceId}
               onChange={(e) => setTargetDeviceId(e.target.value)}
               disabled={gatewayStatus !== 'connected' || reachableDevices.length === 0 || isUploading}
@@ -548,7 +558,7 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
               ) : (
                 reachableDevices.map((device) => (
                   <option key={device.id} value={device.id}>
-                    {device.name} ({device.id})
+                    {device.name}
                   </option>
                 ))
               )}
@@ -567,22 +577,10 @@ export const AutomataEditor: React.FC<AutomataEditorProps> = ({ automataId }) =>
               className="btn btn-ghost btn-sm"
               onClick={handleViewRuntime}
               title="Open runtime monitor"
+              style={{ padding: '0 var(--spacing-2)' }}
             >
-              <IconRuntime size={12} />
-              <span>View Runtime</span>
+              <IconRuntime size={14} />
             </button>
-          </div>
-        </Panel>
-        
-        {/* Info panel */}
-        <Panel position="top-right" className="editor-info">
-          <div className="info-stat">
-            <span className="info-label">States:</span>
-            <span className="info-value">{Object.keys(automata.states).length}</span>
-          </div>
-          <div className="info-stat">
-            <span className="info-label">Transitions:</span>
-            <span className="info-value">{Object.keys(automata.transitions).length}</span>
           </div>
         </Panel>
       </ReactFlow>

@@ -16,6 +16,7 @@ import type {
   ExecutionSnapshot,
   TimeTravelSession,
 } from './automata';
+import type { AutomataBinding } from './connections';
 
 // ============================================================================
 // Message Base Types
@@ -617,7 +618,7 @@ export interface DeploymentListEvent {
 }
 
 export interface ConnectionListEvent {
-  connections: Array<Record<string, unknown>>;
+  connections: Array<Record<string, unknown> | AutomataBinding>;
 }
 
 export interface DeviceLogEvent {

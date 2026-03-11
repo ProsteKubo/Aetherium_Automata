@@ -119,6 +119,7 @@ export const NetworkPanel: React.FC = () => {
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [particles, setParticles] = useState<DataParticle[]>([]);
   const [scanAngle, setScanAngle] = useState(0);
+  const [showHistory, setShowHistory] = useState(false);
   
   // Detail panel state
   const [showDetailPanel, setShowDetailPanel] = useState(false);
@@ -163,6 +164,27 @@ export const NetworkPanel: React.FC = () => {
   // Memoize array conversions
   const servers = useMemo(() => Array.from(serversMap.values()), [serversMap]);
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
+  const visibleDevices = useMemo(
+    () =>
+      devices.filter((device) =>
+        showHistory ? true : device.status === 'online' || device.status === 'updating',
+      ),
+    [devices, showHistory],
+  );
+  const visibleServers = useMemo(
+    () =>
+      servers.filter((server) => {
+        if (showHistory) {
+          return true;
+        }
+
+        return (
+          server.status === 'connected' ||
+          visibleDevices.some((device) => device.serverId === server.id)
+        );
+      }),
+    [servers, showHistory, visibleDevices],
+  );
   
   // Build network topology
   const { nodes, connections } = useMemo(() => {
@@ -177,7 +199,7 @@ export const NetworkPanel: React.FC = () => {
       status: isConnected ? 'online' : 'offline',
       x: 400,
       y: 300,
-      connections: servers.map(s => s.id),
+      connections: visibleServers.map(s => s.id),
       metrics: {
         cpu: 25 + Math.random() * 20,
         memory: 40 + Math.random() * 30,
@@ -187,8 +209,8 @@ export const NetworkPanel: React.FC = () => {
     
     // Add servers in a circle around gateway
     const serverRadius = 150;
-    servers.forEach((server, i) => {
-      const angle = (i / Math.max(servers.length, 1)) * 2 * Math.PI - Math.PI / 2;
+    visibleServers.forEach((server, i) => {
+      const angle = (i / Math.max(visibleServers.length, 1)) * 2 * Math.PI - Math.PI / 2;
       const x = 400 + Math.cos(angle) * serverRadius;
       const y = 300 + Math.sin(angle) * serverRadius;
       
@@ -200,7 +222,7 @@ export const NetworkPanel: React.FC = () => {
                server.status === 'error' ? 'error' : 'offline',
         x,
         y,
-        connections: devices.filter(d => d.serverId === server.id).map(d => d.id),
+        connections: visibleDevices.filter(d => d.serverId === server.id).map(d => d.id),
         metrics: {
           health: 85 + Math.random() * 15,
           latency: server.latency || 10 + Math.random() * 50,
@@ -221,11 +243,11 @@ export const NetworkPanel: React.FC = () => {
     
     // Add devices around their servers
     const deviceRadius = 100;
-    servers.forEach((server) => {
+    visibleServers.forEach((server) => {
       const serverNode = nodes.find(n => n.id === server.id);
       if (!serverNode) return;
       
-      const serverDevices = devices.filter(d => d.serverId === server.id);
+      const serverDevices = visibleDevices.filter(d => d.serverId === server.id);
       serverDevices.forEach((device, i) => {
         const angle = (i / Math.max(serverDevices.length, 1)) * 2 * Math.PI;
         const x = serverNode.x + Math.cos(angle) * deviceRadius;
@@ -264,13 +286,20 @@ export const NetworkPanel: React.FC = () => {
     });
     
     return { nodes, connections };
-  }, [servers, devices, isConnected]);
+  }, [visibleDevices, visibleServers, isConnected]);
   
   // Get selected node data
   const selectedNodeData = useMemo(() => {
     if (!selectedNode) return null;
     return nodes.find(n => n.id === selectedNode) || null;
   }, [selectedNode, nodes]);
+
+  useEffect(() => {
+    if (selectedNode && !selectedNodeData) {
+      setSelectedNode(null);
+      setShowDetailPanel(false);
+    }
+  }, [selectedNode, selectedNodeData]);
   
   // Load node data when selected
   useEffect(() => {
@@ -580,6 +609,20 @@ export const NetworkPanel: React.FC = () => {
       <div className="panel-header network-header">
         <IconNetwork size={16} />
         <span>Network Topology</span>
+        <div className="devices-toolbar-group" style={{ marginLeft: 'auto' }}>
+          <button
+            className={`btn btn-sm ${showHistory ? 'btn-secondary' : 'btn-primary'}`}
+            onClick={() => setShowHistory(false)}
+          >
+            Live Now
+          </button>
+          <button
+            className={`btn btn-sm ${showHistory ? 'btn-primary' : 'btn-secondary'}`}
+            onClick={() => setShowHistory(true)}
+          >
+            All Seen
+          </button>
+        </div>
         
         {/* Batch actions when multiple selected */}
         {selectedNodes.size > 0 && (
@@ -665,32 +708,13 @@ export const NetworkPanel: React.FC = () => {
                 <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0"/>
               </linearGradient>
               
-              <pattern id="hexGrid" width="56" height="100" patternUnits="userSpaceOnUse" patternTransform="scale(0.5)">
-                <path 
-                  d="M28 0 L56 17 L56 52 L28 69 L0 52 L0 17 Z M28 69 L56 86 L56 121 L28 138 L0 121 L0 86 Z M0 52 L0 86 M56 52 L56 86"
-                  fill="none"
-                  stroke="var(--color-primary)"
-                  strokeWidth="0.5"
-                  opacity="0.15"
-                />
+              <pattern id="dotGrid" width="20" height="20" patternUnits="userSpaceOnUse">
+                <circle cx="2" cy="2" r="1" fill="var(--color-border-emphasis)" opacity="0.5" />
               </pattern>
             </defs>
             
             {/* Background */}
-            <rect width="100%" height="100%" fill="url(#hexGrid)" />
-            
-            {/* Radar scan */}
-            <g transform="translate(400, 300)">
-              <circle r="250" fill="none" stroke="var(--color-primary)" strokeWidth="1" opacity="0.2" strokeDasharray="5,5" />
-              <circle r="175" fill="none" stroke="var(--color-primary)" strokeWidth="1" opacity="0.15" strokeDasharray="5,5" />
-              <circle r="100" fill="none" stroke="var(--color-primary)" strokeWidth="1" opacity="0.1" strokeDasharray="5,5" />
-              <line x1="0" y1="0" x2="250" y2="0" stroke="url(#radarGradient)" strokeWidth="2" transform={`rotate(${scanAngle})`} opacity="0.6" />
-              <path
-                d={`M 0 0 L ${250 * Math.cos((scanAngle - 30) * Math.PI / 180)} ${250 * Math.sin((scanAngle - 30) * Math.PI / 180)} A 250 250 0 0 1 ${250 * Math.cos(scanAngle * Math.PI / 180)} ${250 * Math.sin(scanAngle * Math.PI / 180)} Z`}
-                fill="var(--color-primary)"
-                opacity="0.05"
-              />
-            </g>
+            <rect width="100%" height="100%" fill="url(#dotGrid)" />
             
             {/* Connections */}
             {connections.map((conn) => {

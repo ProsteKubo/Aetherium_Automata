@@ -16,12 +16,6 @@ import {
   IconNetwork,
   IconRuntime,
   IconTimeTravel,
-  IconChevronLeft,
-  IconChevronRight,
-  IconSettings,
-  IconTransitions,
-  IconVariables,
-  IconConnections,
 } from './Icons';
 
 interface ToolbarButtonProps {
@@ -55,16 +49,21 @@ const activatePanel = (panelId: PanelId): void => {
 
 const switchSidebarPanel = (panelId: PanelId): void => {
   const store = useUIStore.getState();
-  if (store.sidebarCollapsed) {
+  const visible = store.layout.panels[panelId]?.isVisible ?? false;
+
+  if (visible && !store.sidebarCollapsed) {
     store.toggleSidebar();
+  } else {
+    if (store.sidebarCollapsed) {
+      store.toggleSidebar();
+    }
+    activatePanel(panelId);
   }
-  activatePanel(panelId);
 };
 
 export const ActivityBar: React.FC = () => {
   const layout = useUIStore((state) => state.layout);
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
-  const toggleSidebar = useUIStore((state) => state.toggleSidebar);
   const togglePanel = useUIStore((state) => state.togglePanel);
 
   const sidebarPanel: PanelId = layout.panels.explorer.isVisible
@@ -81,98 +80,59 @@ export const ActivityBar: React.FC = () => {
         ? 'timetravel'
         : 'automata';
 
-  const inspectorPanel: PanelId = layout.panels.transitions.isVisible
-    ? 'transitions'
-    : layout.panels.variables.isVisible
-      ? 'variables'
-      : layout.panels.connections.isVisible
-        ? 'connections'
-        : 'properties';
-
   return (
-    <nav className="workspace-toolbar" aria-label="Workspace Controls">
-      <div className="workspace-toolbar-section">
+    <nav className="activity-bar" aria-label="Workspace Controls">
+      <div className="activity-bar-top">
         <ToolbarButton
-          icon={sidebarCollapsed ? <IconChevronRight size={15} /> : <IconChevronLeft size={15} />}
-          label={sidebarCollapsed ? 'Show Sidebar' : 'Hide Sidebar'}
-          active={!sidebarCollapsed}
-          onClick={toggleSidebar}
-        />
-
-        <ToolbarButton
-          icon={<IconExplorer size={15} />}
+          icon={<IconExplorer size={20} />}
           label="Explorer"
           active={!sidebarCollapsed && sidebarPanel === 'explorer'}
           onClick={() => switchSidebarPanel('explorer')}
         />
         <ToolbarButton
-          icon={<IconDevice size={15} />}
+          icon={<IconDevice size={20} />}
           label="Devices"
           active={!sidebarCollapsed && sidebarPanel === 'devices'}
           onClick={() => switchSidebarPanel('devices')}
         />
         <ToolbarButton
-          icon={<IconGateway size={15} />}
+          icon={<IconGateway size={20} />}
           label="Gateway"
           active={!sidebarCollapsed && sidebarPanel === 'gateway'}
           onClick={() => switchSidebarPanel('gateway')}
         />
       </div>
 
-      <div className="workspace-toolbar-section workspace-toolbar-section-main">
+      <div className="activity-bar-center">
         <ToolbarButton
-          icon={<IconAutomata size={15} />}
+          icon={<IconAutomata size={20} />}
           label="Editor"
           active={modePanel === 'automata'}
           onClick={() => activatePanel('automata')}
         />
         <ToolbarButton
-          icon={<IconNetwork size={15} />}
+          icon={<IconNetwork size={20} />}
           label="Network"
           active={modePanel === 'network'}
           onClick={() => activatePanel('network')}
         />
         <ToolbarButton
-          icon={<IconRuntime size={15} />}
+          icon={<IconRuntime size={20} />}
           label="Runtime"
           active={modePanel === 'runtime'}
           onClick={() => activatePanel('runtime')}
         />
         <ToolbarButton
-          icon={<IconTimeTravel size={15} />}
+          icon={<IconTimeTravel size={20} />}
           label="Time Travel"
           active={modePanel === 'timetravel'}
           onClick={() => activatePanel('timetravel')}
         />
       </div>
 
-      <div className="workspace-toolbar-section">
+      <div className="activity-bar-bottom">
         <ToolbarButton
-          icon={<IconSettings size={15} />}
-          label="Properties"
-          active={inspectorPanel === 'properties' && layout.panels.properties.isVisible}
-          onClick={() => activatePanel('properties')}
-        />
-        <ToolbarButton
-          icon={<IconTransitions size={15} />}
-          label="Transitions"
-          active={inspectorPanel === 'transitions' && layout.panels.transitions.isVisible}
-          onClick={() => activatePanel('transitions')}
-        />
-        <ToolbarButton
-          icon={<IconVariables size={15} />}
-          label="Variables"
-          active={inspectorPanel === 'variables' && layout.panels.variables.isVisible}
-          onClick={() => activatePanel('variables')}
-        />
-        <ToolbarButton
-          icon={<IconConnections size={15} />}
-          label="Connections"
-          active={inspectorPanel === 'connections' && layout.panels.connections.isVisible}
-          onClick={() => activatePanel('connections')}
-        />
-        <ToolbarButton
-          icon={<IconConsole size={15} />}
+          icon={<IconConsole size={20} />}
           label="Console"
           active={layout.panels.console.isVisible}
           onClick={() => togglePanel('console')}

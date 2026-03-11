@@ -11,6 +11,7 @@ import type {
   Server,
   Device,
   Automata,
+  AutomataBinding,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -75,6 +76,14 @@ export type PersistedGatewayEvent = Record<string, unknown> & {
   data?: Record<string, unknown>;
 };
 
+export interface RuntimeCommandTarget {
+  automataId?: AutomataId;
+  deploymentId?: string;
+  serverId?: ServerId;
+}
+
+export type ConnectionDraft = Omit<AutomataBinding, 'id' | 'createdAt' | 'modifiedAt'>;
+
 export interface GatewayEventHandlers {
   onConnectionChange?: ConnectionEventHandler;
   onDeviceList?: DeviceListEventHandler;
@@ -125,6 +134,11 @@ export interface IGatewayService {
   createAutomata(automata: Omit<Automata, 'id'>): Promise<Automata>;
   updateAutomata(automataId: AutomataId, updates: Partial<Automata>): Promise<Automata>;
   deleteAutomata(automataId: AutomataId): Promise<boolean>;
+
+  // Connection Operations
+  listConnections(): Promise<AutomataBinding[]>;
+  createConnection(binding: ConnectionDraft): Promise<AutomataBinding>;
+  deleteConnection(connectionId: string): Promise<void>;
   
   // Deployment Operations
   deployAutomata(automataId: AutomataId, deviceId: DeviceId, options?: {
@@ -136,18 +150,36 @@ export interface IGatewayService {
   undeployAutomata(deviceId: DeviceId): Promise<ExecutionSnapshot | null>;
 
   // Runtime Control (device commands)
-  setVariable(deviceId: DeviceId, name: string, value: unknown): Promise<{ status: string }>;
-  triggerEvent(deviceId: DeviceId, event: string, data?: unknown): Promise<{ status: string }>;
-  forceTransition(deviceId: DeviceId, toState: string): Promise<{ status: string }>;
+  setVariable(
+    deviceId: DeviceId,
+    name: string,
+    value: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
+  triggerEvent(
+    deviceId: DeviceId,
+    event: string,
+    data?: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
+  forceTransition(
+    deviceId: DeviceId,
+    toState: string,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
   
   // Execution Control
-  startExecution(deviceId: DeviceId): Promise<ExecutionStartResponse>;
-  stopExecution(deviceId: DeviceId): Promise<ExecutionStopResponse>;
-  pauseExecution(deviceId: DeviceId): Promise<void>;
-  resumeExecution(deviceId: DeviceId): Promise<void>;
-  resetExecution(deviceId: DeviceId): Promise<ExecutionResetResponse>;
-  stepExecution(deviceId: DeviceId, steps?: number): Promise<ExecutionSnapshot[]>;
-  getSnapshot(deviceId: DeviceId): Promise<ExecutionSnapshotResponse>;
+  startExecution(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStartResponse>;
+  stopExecution(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStopResponse>;
+  pauseExecution(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void>;
+  resumeExecution(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void>;
+  resetExecution(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionResetResponse>;
+  stepExecution(
+    deviceId: DeviceId,
+    steps?: number,
+    target?: RuntimeCommandTarget,
+  ): Promise<ExecutionSnapshot[]>;
+  getSnapshot(deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse>;
   
   // Time Travel
   startTimeTravel(deviceId: DeviceId, options?: {

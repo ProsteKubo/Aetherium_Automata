@@ -10,6 +10,7 @@ defmodule AetheriumGateway.Persistence do
   @type event :: map()
 
   @default_event_capacity 10_000
+  @default_flush_interval_ms 200
 
   def start_link(opts \\ []) do
     GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -96,7 +97,13 @@ defmodule AetheriumGateway.Persistence do
         commands: read_term(Path.join(dir, "commands.bin"), %{}),
         events: read_term(Path.join(dir, "events.bin"), []),
         cursor: 0,
-        event_capacity: event_capacity()
+        event_capacity: event_capacity(),
+        flush_interval_ms: flush_interval_ms(),
+        dirty: MapSet.new(),
+        flush_timer_ref: nil,
+        flush_inflight: false,
+        pending_flush: false,
+        flush_generation: 0
       }
 
       # Rebuild cursor from persisted events.
@@ -110,7 +117,21 @@ defmodule AetheriumGateway.Persistence do
 
       {:ok, %{state | cursor: cursor}}
     else
-      {:ok, %{dir: nil, kv: %{}, commands: %{}, events: [], cursor: 0, event_capacity: event_capacity()}}
+      {:ok,
+       %{
+         dir: nil,
+         kv: %{},
+         commands: %{},
+         events: [],
+         cursor: 0,
+         event_capacity: event_capacity(),
+         flush_interval_ms: flush_interval_ms(),
+         dirty: MapSet.new(),
+         flush_timer_ref: nil,
+         flush_inflight: false,
+         pending_flush: false,
+         flush_generation: 0
+       }}
     end
   end
 
@@ -137,8 +158,14 @@ defmodule AetheriumGateway.Persistence do
       |> Map.put("cursor", cursor)
 
     events = [entry | state.events] |> Enum.take(state.event_capacity)
-    next = %{state | events: events, cursor: cursor}
-    persist(next)
+
+    next =
+      state
+      |> Map.put(:events, events)
+      |> Map.put(:cursor, cursor)
+      |> mark_dirty(:events)
+      |> schedule_flush()
+
     {:reply, cursor, next}
   end
 
@@ -163,24 +190,84 @@ defmodule AetheriumGateway.Persistence do
 
   @impl true
   def handle_cast({:save_state, key, value}, state) do
-    next = %{state | kv: Map.put(state.kv, key, value)}
-    persist(next)
+    next =
+      state
+      |> Map.put(:kv, Map.put(state.kv, key, value))
+      |> mark_dirty(:kv)
+      |> schedule_flush()
+
     {:noreply, next}
   end
 
   def handle_cast({:record_command, key, result}, state) do
     commands = Map.put(state.commands, key, stringify_keys(result))
-    next = %{state | commands: commands}
-    persist(next)
+    next =
+      state
+      |> Map.put(:commands, commands)
+      |> mark_dirty(:commands)
+      |> schedule_flush()
+
     {:noreply, next}
   end
 
-  defp persist(%{dir: nil}), do: :ok
+  @impl true
+  def handle_info(:flush_persist, %{flush_inflight: true} = state) do
+    {:noreply, %{state | flush_timer_ref: nil, pending_flush: true}}
+  end
 
-  defp persist(state) do
-    write_term(Path.join(state.dir, "state.bin"), state.kv)
-    write_term(Path.join(state.dir, "commands.bin"), state.commands)
-    write_term(Path.join(state.dir, "events.bin"), state.events)
+  def handle_info(:flush_persist, state) do
+    dirty = state.dirty
+
+    if MapSet.size(dirty) == 0 or is_nil(state.dir) do
+      {:noreply, %{state | flush_timer_ref: nil, pending_flush: false}}
+    else
+      snapshot = %{dir: state.dir, kv: state.kv, commands: state.commands, events: state.events}
+      generation = state.flush_generation + 1
+      owner = self()
+
+      Task.start(fn ->
+        persist_snapshot(snapshot, dirty)
+        send(owner, {:flush_complete, generation})
+      end)
+
+      {:noreply,
+       %{
+         state
+         | flush_timer_ref: nil,
+           dirty: MapSet.new(),
+           flush_inflight: true,
+           pending_flush: false,
+           flush_generation: generation
+       }}
+    end
+  end
+
+  def handle_info({:flush_complete, generation}, %{flush_generation: generation} = state) do
+    next = %{state | flush_inflight: false}
+
+    if next.pending_flush or MapSet.size(next.dirty) > 0 do
+      {:noreply, schedule_flush(%{next | pending_flush: false})}
+    else
+      {:noreply, next}
+    end
+  end
+
+  def handle_info({:flush_complete, _generation}, state), do: {:noreply, state}
+
+  defp persist_snapshot(%{dir: nil}, _dirty), do: :ok
+
+  defp persist_snapshot(snapshot, dirty) do
+    if MapSet.member?(dirty, :kv) do
+      write_term(Path.join(snapshot.dir, "state.bin"), snapshot.kv)
+    end
+
+    if MapSet.member?(dirty, :commands) do
+      write_term(Path.join(snapshot.dir, "commands.bin"), snapshot.commands)
+    end
+
+    if MapSet.member?(dirty, :events) do
+      write_term(Path.join(snapshot.dir, "events.bin"), snapshot.events)
+    end
   end
 
   defp data_dir do
@@ -191,6 +278,11 @@ defmodule AetheriumGateway.Persistence do
   defp event_capacity do
     config = Application.get_env(:aetherium_gateway, __MODULE__, [])
     Keyword.get(config, :event_capacity, @default_event_capacity)
+  end
+
+  defp flush_interval_ms do
+    config = Application.get_env(:aetherium_gateway, __MODULE__, [])
+    Keyword.get(config, :flush_interval_ms, @default_flush_interval_ms)
   end
 
   defp read_term(path, default) do
@@ -212,6 +304,23 @@ defmodule AetheriumGateway.Persistence do
     :ok = File.write(tmp, :erlang.term_to_binary(value, compressed: 6))
     :ok = File.rename(tmp, path)
   end
+
+  defp mark_dirty(state, field) do
+    %{state | dirty: MapSet.put(state.dirty, field)}
+  end
+
+  defp schedule_flush(%{dir: nil} = state), do: state
+
+  defp schedule_flush(%{flush_inflight: true} = state) do
+    %{state | pending_flush: true}
+  end
+
+  defp schedule_flush(%{flush_timer_ref: nil} = state) do
+    ref = Process.send_after(self(), :flush_persist, state.flush_interval_ms)
+    %{state | flush_timer_ref: ref}
+  end
+
+  defp schedule_flush(state), do: state
 
   defp stringify_keys(%_{} = struct) do
     struct

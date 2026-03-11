@@ -1,0 +1,96 @@
+version: 0.0.1
+
+config:
+  name: Bidirectional Demo Controller
+  type: inline
+  language: lua
+  description: Host automata that turns normalized cross-device signals into commands for both the ESP LED and FRDM LEDs.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - ide
+    - bidirectional
+    - controller
+
+variables:
+  - name: pot_band
+    type: int
+    direction: input
+    default: 0
+  - name: allow_remote
+    type: bool
+    direction: input
+    default: false
+  - name: manual_boost
+    type: bool
+    direction: input
+    default: false
+  - name: remote_duty
+    type: int
+    direction: output
+    default: 0
+  - name: remote_red
+    type: bool
+    direction: output
+    default: false
+  - name: remote_green
+    type: bool
+    direction: output
+    default: false
+  - name: controller_state
+    type: string
+    direction: output
+    default: standby
+
+automata:
+  initial_state: Control
+
+  states:
+    Control:
+      code: |-
+        local band = pot_band or 0
+        if band < 0 then
+          band = 0
+        elseif band > 3 then
+          band = 3
+        end
+
+        local duty = 0
+        if allow_remote == true then
+          if band == 1 then
+            duty = 80
+          elseif band == 2 then
+            duty = 160
+          elseif band >= 3 then
+            duty = 255
+          end
+        end
+
+        if manual_boost == true then
+          duty = 255
+        end
+
+        local red = band >= 2
+        local green = allow_remote == true
+        local state_name = "standby"
+
+        if manual_boost == true then
+          red = true
+          green = true
+          state_name = "boost"
+        elseif allow_remote == true then
+          state_name = "armed"
+        end
+
+        setOutput("remote_duty", duty)
+        setOutput("remote_red", red)
+        setOutput("remote_green", green)
+        setOutput("controller_state", state_name)
+
+  transitions:
+    stay_active:
+      from: Control
+      to: Control
+      type: classic
+      condition: false

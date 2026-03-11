@@ -12,6 +12,7 @@ import type {
   Device,
   ConnectorStatus,
   Automata,
+  AutomataBinding,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -44,6 +45,8 @@ import type {
   IGatewayService,
   GatewayEventHandlers,
   PersistedGatewayEvent,
+  RuntimeCommandTarget,
+  ConnectionDraft,
 } from './IGatewayService';
 
 // ============================================================================
@@ -326,6 +329,121 @@ export class PhoenixGatewayService implements IGatewayService {
     };
   }
 
+  private deploymentStatusRank(status: unknown): number {
+    switch (String(status ?? '').toLowerCase()) {
+      case 'running':
+        return 6;
+      case 'loading':
+      case 'deploying':
+      case 'pending':
+        return 5;
+      case 'paused':
+        return 4;
+      case 'stopped':
+        return 3;
+      case 'error':
+        return 2;
+      default:
+        return 0;
+    }
+  }
+
+  private reconcileDeviceAssignmentsFromDeployments(deployments: Array<Record<string, any>>): void {
+    const grouped = new Map<string, Array<Record<string, any>>>();
+
+    deployments.forEach((deployment) => {
+      const deviceId = String(deployment.device_id ?? deployment.deviceId ?? '');
+      if (!deviceId) return;
+      const list = grouped.get(deviceId) ?? [];
+      list.push(deployment);
+      grouped.set(deviceId, list);
+    });
+
+    let changed = false;
+
+    this.devices.forEach((device, deviceId) => {
+      const deploymentsForDevice = [...(grouped.get(deviceId) ?? [])].sort((left, right) => {
+        const rankDelta =
+          this.deploymentStatusRank(right.status ?? right['status']) -
+          this.deploymentStatusRank(left.status ?? left['status']);
+        if (rankDelta !== 0) return rankDelta;
+        return String(right.automata_id ?? right.automataId ?? '').localeCompare(
+          String(left.automata_id ?? left.automataId ?? ''),
+        );
+      });
+
+      const isHostRuntime =
+        device.connectorType === 'host_runtime' || device.transport === 'host_runtime';
+
+      const nextAssigned =
+        deploymentsForDevice.length === 0
+          ? undefined
+          : deploymentsForDevice.length === 1 || !isHostRuntime
+            ? String(
+                deploymentsForDevice[0].automata_id ?? deploymentsForDevice[0].automataId ?? '',
+              ) || undefined
+            : undefined;
+
+      const nextState =
+        deploymentsForDevice.length === 0
+          ? undefined
+          : deploymentsForDevice.length === 1 || !isHostRuntime
+            ? String(
+                deploymentsForDevice[0].current_state ??
+                  deploymentsForDevice[0].currentState ??
+                  '',
+              ) || undefined
+            : undefined;
+
+      if (
+        nextAssigned !== device.assignedAutomataId ||
+        nextState !== device.currentState
+      ) {
+        this.devices.set(deviceId, {
+          ...device,
+          assignedAutomataId: nextAssigned,
+          currentState: nextState,
+        });
+        changed = true;
+      }
+    });
+
+    if (changed) {
+      this.emit('onDeviceList', Array.from(this.devices.values()));
+    }
+  }
+
+  private normalizeConnection(payload: Record<string, any>): AutomataBinding {
+    const sourceOutput = String(payload.source_output ?? payload.sourceOutput ?? '');
+    const targetInput = String(payload.target_input ?? payload.targetInput ?? '');
+    const createdAtRaw = payload.created_at ?? payload.createdAt;
+    const createdAt =
+      typeof createdAtRaw === 'number'
+        ? createdAtRaw
+        : typeof createdAtRaw === 'string'
+          ? Number(createdAtRaw)
+          : Date.now();
+
+    return {
+      id: String(payload.id ?? this.makeId('conn')),
+      sourceAutomataId: String(payload.source_automata ?? payload.sourceAutomata ?? ''),
+      sourceOutputId: sourceOutput,
+      sourceOutputName: sourceOutput,
+      targetAutomataId: String(payload.target_automata ?? payload.targetAutomata ?? ''),
+      targetInputId: targetInput,
+      targetInputName: targetInput,
+      sourceType: 'any',
+      targetType: 'any',
+      transform:
+        payload.transform === undefined || payload.transform === null
+          ? undefined
+          : String(payload.transform),
+      enabled: payload.enabled !== false,
+      createdAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+      modifiedAt: Number.isFinite(createdAt) ? createdAt : Date.now(),
+    };
+  }
+
   private handleCommandOutcome(payload: Record<string, any>): void {
     const outcome = this.normalizeCommandOutcome(payload);
     this.emit('onCommandOutcome', outcome);
@@ -358,12 +476,12 @@ export class PhoenixGatewayService implements IGatewayService {
     return new Error(`${commandType} ${status}: ${reason}`);
   }
 
-  private getSnapshotCacheKey(deviceId: DeviceId): string {
-    return String(deviceId);
+  private getSnapshotCacheKey(deviceId: DeviceId, target?: RuntimeCommandTarget): string {
+    return `${String(deviceId)}::${target?.automataId ?? target?.deploymentId ?? 'default'}`;
   }
 
-  private getCachedSnapshot(deviceId: DeviceId): ExecutionSnapshotResponse | null {
-    const key = this.getSnapshotCacheKey(deviceId);
+  private getCachedSnapshot(deviceId: DeviceId, target?: RuntimeCommandTarget): ExecutionSnapshotResponse | null {
+    const key = this.getSnapshotCacheKey(deviceId, target);
     const entry = this.snapshotCache.get(key);
     if (!entry) return null;
 
@@ -375,18 +493,83 @@ export class PhoenixGatewayService implements IGatewayService {
     return entry.response;
   }
 
-  private setCachedSnapshot(deviceId: DeviceId, response: ExecutionSnapshotResponse): void {
-    const key = this.getSnapshotCacheKey(deviceId);
+  private setCachedSnapshot(
+    deviceId: DeviceId,
+    response: ExecutionSnapshotResponse,
+    target?: RuntimeCommandTarget,
+  ): void {
+    const key = this.getSnapshotCacheKey(deviceId, target);
     this.snapshotCache.set(key, { response, cachedAt: Date.now() });
   }
 
-  private invalidateSnapshotCache(deviceId?: DeviceId): void {
+  private invalidateSnapshotCache(deviceId?: DeviceId, target?: RuntimeCommandTarget): void {
     if (deviceId === undefined || deviceId === null) {
       this.snapshotCache.clear();
       return;
     }
 
-    this.snapshotCache.delete(this.getSnapshotCacheKey(deviceId));
+    this.snapshotCache.delete(this.getSnapshotCacheKey(deviceId, target));
+  }
+
+  private buildCommandTargetPayload(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+  ): Record<string, any> {
+    return {
+      device_id: deviceId,
+      ...(target?.automataId ? { automata_id: target.automataId } : null),
+      ...(target?.deploymentId ? { deployment_id: target.deploymentId } : null),
+      ...(target?.serverId ? { server_id: target.serverId } : null),
+    };
+  }
+
+  private emitDeploymentStatusHint(
+    deviceId: DeviceId,
+    status: string,
+    target?: RuntimeCommandTarget,
+    snapshot?: ExecutionSnapshot,
+  ): void {
+    const automataId =
+      target?.automataId ??
+      target?.deploymentId?.split(':')[0] ??
+      snapshot?.automataId;
+
+    if (!automataId) {
+      return;
+    }
+
+    this.emit('onDeploymentStatus', {
+      deployment_id: target?.deploymentId ?? `${automataId}:${deviceId}`,
+      automata_id: automataId,
+      device_id: deviceId,
+      status,
+      current_state: snapshot?.currentState,
+      variables: snapshot
+        ? Object.fromEntries(
+            Object.entries(snapshot.variables ?? {}).map(([name, meta]) => [name, meta?.value]),
+          )
+        : undefined,
+      timestamp: Date.now(),
+    });
+  }
+
+  private buildBestEffortSnapshot(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+    runtimeState?: Record<string, any>,
+  ): ExecutionSnapshotResponse['snapshot'] {
+    const cached = this.getCachedSnapshot(deviceId, target);
+    if (cached) {
+      return cached.snapshot;
+    }
+
+    const snapshot = this.buildSnapshot(deviceId, {
+      ...(runtimeState ?? {}),
+      ...(target?.automataId ? { automata_id: target.automataId } : null),
+    });
+
+    this.setCachedSnapshot(deviceId, { snapshot }, target);
+    return snapshot;
   }
 
   private inferVariableType(value: unknown): 'number' | 'string' | 'bool' | 'any' | 'table' {
@@ -395,6 +578,37 @@ export class PhoenixGatewayService implements IGatewayService {
     if (typeof value === 'boolean') return 'bool';
     if (value !== null && typeof value === 'object') return 'table';
     return 'any';
+  }
+
+  private buildSignalMap(
+    signals: unknown,
+    now: number,
+  ): ExecutionSnapshotResponse['snapshot']['inputs'] {
+    if (!signals || typeof signals !== 'object' || Array.isArray(signals)) {
+      return {};
+    }
+
+    return Object.entries(signals as Record<string, unknown>).reduce((acc, [name, value]) => {
+      if (value && typeof value === 'object' && !Array.isArray(value) && 'value' in (value as Record<string, unknown>)) {
+        const entry = value as Record<string, unknown>;
+        acc[name] = {
+          name,
+          value: entry.value,
+          timestamp:
+            typeof entry.timestamp === 'number' && Number.isFinite(entry.timestamp)
+              ? entry.timestamp
+              : now,
+        };
+        return acc;
+      }
+
+      acc[name] = {
+        name,
+        value,
+        timestamp: now,
+      };
+      return acc;
+    }, {} as ExecutionSnapshotResponse['snapshot']['inputs']);
   }
 
   private buildSnapshot(deviceId: DeviceId, runtimeState?: Record<string, any>): ExecutionSnapshotResponse['snapshot'] {
@@ -424,8 +638,8 @@ export class PhoenixGatewayService implements IGatewayService {
       currentState:
         String(runtimeState?.current_state ?? runtimeState?.currentState ?? device?.currentState ?? 'unknown'),
       variables,
-      inputs: {},
-      outputs: {},
+      inputs: this.buildSignalMap(runtimeState?.inputs, now),
+      outputs: this.buildSignalMap(runtimeState?.outputs, now),
       executionCycle:
         Number(runtimeState?.execution_cycle ?? runtimeState?.executionCycle ?? runtimeState?.tick ?? 0) || 0,
     };
@@ -439,8 +653,13 @@ export class PhoenixGatewayService implements IGatewayService {
     const envelope = this.buildEnvelope(command, timeout);
     const commandPayload = { ...payload, ...envelope };
     const targetDeviceId = (commandPayload.device_id ?? commandPayload.deviceId) as DeviceId | undefined;
+    const targetAutomataId = commandPayload.automata_id ?? commandPayload.automataId;
+    const targetDeploymentId = commandPayload.deployment_id ?? commandPayload.deploymentId;
     if (command !== 'request_state' && targetDeviceId) {
-      this.invalidateSnapshotCache(targetDeviceId);
+      this.invalidateSnapshotCache(targetDeviceId, {
+        automataId: typeof targetAutomataId === 'string' ? targetAutomataId : undefined,
+        deploymentId: typeof targetDeploymentId === 'string' ? targetDeploymentId : undefined,
+      });
     }
     const commandId = envelope.command_id;
     const outcomePromise = this.awaitCommandOutcome(commandId, timeout);
@@ -1200,7 +1419,11 @@ export class PhoenixGatewayService implements IGatewayService {
           automataId: (automataId ?? snapshot.automataId) as any,
           snapshot,
         });
-        this.setCachedSnapshot(deviceId as any, { snapshot });
+        this.setCachedSnapshot(
+          deviceId as any,
+          { snapshot },
+          automataId ? { automataId: String(automataId) as AutomataId } : undefined,
+        );
 
         const deploymentStatus: DeploymentStatusEvent = {
           deployment_id: payload.deployment_id ?? payload.deploymentId,
@@ -1218,6 +1441,9 @@ export class PhoenixGatewayService implements IGatewayService {
         const deployments: DeploymentListEvent = {
           deployments: Array.isArray(payload?.deployments) ? payload.deployments : [],
         };
+        this.reconcileDeviceAssignmentsFromDeployments(
+          deployments.deployments as Array<Record<string, any>>,
+        );
         this.emit('onDeploymentList', deployments);
       });
 
@@ -1528,14 +1754,71 @@ export class PhoenixGatewayService implements IGatewayService {
     await this.sendAutomataCommand('delete_automata', { id: _automataId });
     return true;
   }
+
+  async listConnections(): Promise<AutomataBinding[]> {
+    const result = await this.sendAutomataCommand<{ connections?: Record<string, any>[] }>(
+      'list_connections',
+      {},
+    );
+
+    const connections = Array.isArray(result.connections)
+      ? result.connections.map((entry) => this.normalizeConnection(entry))
+      : [];
+
+    this.emit('onConnectionList', { connections });
+    return connections;
+  }
+
+  async createConnection(binding: ConnectionDraft): Promise<AutomataBinding> {
+    const { response } = await this.sendAutomataCommandWithOutcome<{ connection_id?: string }>(
+      'create_connection',
+      {
+        source_automata_id: binding.sourceAutomataId,
+        source_output: binding.sourceOutputName,
+        target_automata_id: binding.targetAutomataId,
+        target_input: binding.targetInputName,
+        transform: binding.transform,
+        enabled: binding.enabled,
+      },
+      10_000,
+    );
+
+    const created: AutomataBinding = {
+      ...binding,
+      id: String(response.connection_id ?? this.makeId('conn')),
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
+    };
+
+    try {
+      await this.listConnections();
+    } catch (error) {
+      console.warn('[Gateway] Failed to refresh connections after create:', error);
+    }
+
+    return created;
+  }
+
+  async deleteConnection(connectionId: string): Promise<void> {
+    await this.sendAutomataCommandWithOutcome(
+      'delete_connection',
+      { id: connectionId },
+      10_000,
+    );
+
+    try {
+      await this.listConnections();
+    } catch (error) {
+      console.warn('[Gateway] Failed to refresh connections after delete:', error);
+    }
+  }
   
   async deployAutomata(
     _automataId: AutomataId,
     _deviceId: DeviceId,
     _options?: any
   ): Promise<DeployResponse> {
-    const device = this.devices.get(_deviceId);
-    const serverId = (device?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID) as any;
+    const serverId = (this.devices.get(_deviceId)?.serverId ?? PhoenixGatewayService.DEFAULT_SERVER_ID) as any;
     const payload: Record<string, any> = {
       automata_id: _automataId,
       device_id: _deviceId,
@@ -1547,12 +1830,6 @@ export class PhoenixGatewayService implements IGatewayService {
     }
 
     await this.sendAutomataCommandWithOutcome('deploy', payload, 15_000);
-
-    if (device) {
-      // Create new object to avoid mutating frozen Immer objects
-      this.devices.set(_deviceId, { ...device, assignedAutomataId: _automataId });
-      this.emit('onDeviceList', Array.from(this.devices.values()));
-    }
 
     return {
       deploymentId: `${_automataId}:${_deviceId}`,
@@ -1570,81 +1847,104 @@ export class PhoenixGatewayService implements IGatewayService {
     return null;
   }
 
-  async setVariable(deviceId: DeviceId, name: string, value: unknown): Promise<{ status: string }> {
+  async setVariable(
+    deviceId: DeviceId,
+    name: string,
+    value: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
     const { outcome } = await this.sendAutomataCommandWithOutcome(
       'set_variable',
-      { device_id: deviceId, name, value },
+      { ...this.buildCommandTargetPayload(deviceId, target), name, value },
       10_000
     );
     return { status: outcome.status };
   }
 
-  async triggerEvent(deviceId: DeviceId, event: string, data?: unknown): Promise<{ status: string }> {
-    const payload: Record<string, any> = { device_id: deviceId, event };
+  async triggerEvent(
+    deviceId: DeviceId,
+    event: string,
+    data?: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
+    const payload: Record<string, any> = { ...this.buildCommandTargetPayload(deviceId, target), event };
     if (data !== undefined) payload.data = data;
     const { outcome } = await this.sendAutomataCommandWithOutcome('trigger_event', payload, 10_000);
     return { status: outcome.status };
   }
 
-  async forceTransition(deviceId: DeviceId, toState: string): Promise<{ status: string }> {
+  async forceTransition(
+    deviceId: DeviceId,
+    toState: string,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
     const { outcome } = await this.sendAutomataCommandWithOutcome(
       'force_transition',
-      { device_id: deviceId, to_state: toState },
+      { ...this.buildCommandTargetPayload(deviceId, target), to_state: toState },
       10_000
     );
     return { status: outcome.status };
   }
   
-  async startExecution(_deviceId: DeviceId): Promise<ExecutionStartResponse> {
+  async startExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStartResponse> {
     await this.sendAutomataCommandWithOutcome(
       'start_execution',
-      { device_id: _deviceId },
+      this.buildCommandTargetPayload(_deviceId, target),
       10_000
     );
-    const snapshotResponse = await this.getSnapshot(_deviceId);
-    return { started: true, snapshot: snapshotResponse.snapshot };
+    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
+    this.emitDeploymentStatusHint(_deviceId, 'running', target, snapshot);
+    return { started: true, snapshot };
   }
   
-  async stopExecution(_deviceId: DeviceId): Promise<ExecutionStopResponse> {
+  async stopExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStopResponse> {
     await this.sendAutomataCommandWithOutcome(
       'stop_execution',
-      { device_id: _deviceId },
+      this.buildCommandTargetPayload(_deviceId, target),
       10_000
     );
-    const snapshotResponse = await this.getSnapshot(_deviceId);
-    return { stopped: true, finalSnapshot: snapshotResponse.snapshot };
+    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
+    this.emitDeploymentStatusHint(_deviceId, 'stopped', target, snapshot);
+    return { stopped: true, finalSnapshot: snapshot };
   }
   
-  async pauseExecution(_deviceId: DeviceId): Promise<void> {
+  async pauseExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void> {
     await this.sendAutomataCommandWithOutcome(
       'pause_execution',
-      { device_id: _deviceId },
+      this.buildCommandTargetPayload(_deviceId, target),
       10_000
     );
+    this.emitDeploymentStatusHint(_deviceId, 'paused', target);
   }
   
-  async resumeExecution(_deviceId: DeviceId): Promise<void> {
+  async resumeExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void> {
     await this.sendAutomataCommandWithOutcome(
       'resume_execution',
-      { device_id: _deviceId },
+      this.buildCommandTargetPayload(_deviceId, target),
       10_000
     );
+    this.emitDeploymentStatusHint(_deviceId, 'running', target);
   }
 
-  async resetExecution(_deviceId: DeviceId): Promise<ExecutionResetResponse> {
+  async resetExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionResetResponse> {
     await this.sendAutomataCommandWithOutcome(
       'reset_execution',
-      { device_id: _deviceId },
+      this.buildCommandTargetPayload(_deviceId, target),
       10_000
     );
-    const snapshotResponse = await this.getSnapshot(_deviceId);
-    return { reset: true, snapshot: snapshotResponse.snapshot };
+    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
+    this.emitDeploymentStatusHint(_deviceId, 'stopped', target, snapshot);
+    return { reset: true, snapshot };
   }
   
-  async stepExecution(_deviceId: DeviceId, _steps?: number): Promise<ExecutionSnapshot[]> {
+  async stepExecution(
+    _deviceId: DeviceId,
+    _steps?: number,
+    target?: RuntimeCommandTarget,
+  ): Promise<ExecutionSnapshot[]> {
     const { outcome } = await this.sendAutomataCommandWithOutcome(
       'step_execution',
-      { device_id: _deviceId, steps: _steps ?? 1 },
+      { ...this.buildCommandTargetPayload(_deviceId, target), steps: _steps ?? 1 },
       10_000
     );
 
@@ -1653,17 +1953,17 @@ export class PhoenixGatewayService implements IGatewayService {
       return snapshots;
     }
 
-    const snapshotResponse = await this.getSnapshot(_deviceId);
+    const snapshotResponse = await this.getSnapshot(_deviceId, target);
     return [snapshotResponse.snapshot];
   }
   
-  async getSnapshot(_deviceId: DeviceId): Promise<ExecutionSnapshotResponse> {
-    const cached = this.getCachedSnapshot(_deviceId);
+  async getSnapshot(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse> {
+    const cached = this.getCachedSnapshot(_deviceId, target);
     if (cached) {
       return cached;
     }
 
-    const cacheKey = this.getSnapshotCacheKey(_deviceId);
+    const cacheKey = this.getSnapshotCacheKey(_deviceId, target);
     const inFlight = this.snapshotInFlight.get(cacheKey);
     if (inFlight) {
       return inFlight;
@@ -1672,7 +1972,7 @@ export class PhoenixGatewayService implements IGatewayService {
     const fetchPromise = (async (): Promise<ExecutionSnapshotResponse> => {
       const { response, outcome } = await this.sendAutomataCommandWithOutcome(
         'request_state',
-        { device_id: _deviceId },
+        this.buildCommandTargetPayload(_deviceId, target),
         10_000
       );
 
@@ -1681,10 +1981,31 @@ export class PhoenixGatewayService implements IGatewayService {
         ((response as any)?.result?.state as Record<string, any> | undefined) ??
         ((response as any)?.state as Record<string, any> | undefined);
 
+      const normalizedStateData =
+        stateData || target?.automataId
+          ? {
+              ...(stateData ?? {}),
+              ...(target?.automataId ? { automata_id: target.automataId } : null),
+            }
+          : undefined;
+
       const result = {
-        snapshot: this.buildSnapshot(_deviceId, stateData),
+        snapshot: this.buildSnapshot(_deviceId, normalizedStateData),
       };
-      this.setCachedSnapshot(_deviceId, result);
+      const status =
+        stateData?.running === true
+          ? 'running'
+          : stateData?.running === false
+            ? 'stopped'
+            : 'unknown';
+
+      this.emit('onExecutionSnapshot', {
+        deviceId: _deviceId,
+        automataId: result.snapshot.automataId,
+        snapshot: result.snapshot,
+      });
+      this.emitDeploymentStatusHint(_deviceId, status, target, result.snapshot);
+      this.setCachedSnapshot(_deviceId, result, target);
       return result;
     })();
 
@@ -1744,8 +2065,8 @@ export class PhoenixGatewayService implements IGatewayService {
         deviceId,
         currentState: String(state?.current_state ?? 'unknown'),
         variables,
-        inputs: {},
-        outputs: {},
+        inputs: this.buildSignalMap(state?.inputs, timestamp),
+        outputs: this.buildSignalMap(state?.outputs, timestamp),
         executionCycle: Number(entry?.snapshot_cursor ?? index),
         ...(state?.error ? { errorState: String(state.error) } : {}),
       };

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { useExecutionStore, useGatewayStore, useLogStore, useRuntimeViewStore } from '../../stores';
 import type { PersistedGatewayEvent } from '../../services/gateway/IGatewayService';
@@ -87,27 +87,16 @@ function mapPersistedEventMessage(event: PersistedGatewayEvent): string {
 export const GatewayEventBridge: FC = () => {
   const service = useGatewayStore((state) => state.service);
   const gatewayStatus = useGatewayStore((state) => state.status);
-  const devicesMap = useGatewayStore((state) => state.devices);
   const updateSnapshot = useExecutionStore((state) => state.updateSnapshot);
   const applyDeploymentStatus = useExecutionStore((state) => state.applyDeploymentStatus);
   const ingestTransition = useRuntimeViewStore((state) => state.ingestTransition);
   const ingestDeploymentStatus = useRuntimeViewStore((state) => state.ingestDeploymentStatus);
   const ingestDeploymentTransfer = useRuntimeViewStore((state) => state.ingestDeploymentTransfer);
-  const seedFromDevices = useRuntimeViewStore((state) => state.seedFromDevices);
+  const replaceDeploymentInventory = useRuntimeViewStore((state) => state.replaceDeploymentInventory);
+  const clearStale = useRuntimeViewStore((state) => state.clearStale);
   const addLog = useLogStore((state) => state.addLog);
   const previousStatusRef = useRef<string>('disconnected');
   const eventCursorRef = useRef<number>(0);
-  const devices = useMemo(
-    () =>
-      Array.from(devicesMap.values()).map((device) => ({
-        id: String(device.id),
-        status: String(device.status ?? 'unknown'),
-        assignedAutomataId: device.assignedAutomataId ? String(device.assignedAutomataId) : undefined,
-        currentState: device.currentState ? String(device.currentState) : undefined,
-      })),
-    [devicesMap],
-  );
-
   useEffect(() => {
     const unsubs: Array<() => void> = [];
 
@@ -153,12 +142,12 @@ export const GatewayEventBridge: FC = () => {
 
     unsubs.push(
       service.on('onDeploymentList', (event) => {
-        event.deployments.forEach((deployment) => {
-          ingestDeploymentStatus({
+        replaceDeploymentInventory(
+          event.deployments.map((deployment) => ({
             ...deployment,
             variables: cloneRecord((deployment as Record<string, unknown>).variables),
-          });
-        });
+          })),
+        );
       }),
     );
 
@@ -246,13 +235,18 @@ export const GatewayEventBridge: FC = () => {
     ingestDeploymentStatus,
     ingestDeploymentTransfer,
     ingestTransition,
+    replaceDeploymentInventory,
     service,
     updateSnapshot,
   ]);
 
   useEffect(() => {
-    seedFromDevices(devices);
-  }, [devices, seedFromDevices]);
+    const interval = setInterval(() => {
+      clearStale(Date.now(), 30_000);
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [clearStale]);
 
   useEffect(() => {
     const previous = previousStatusRef.current;
@@ -268,7 +262,7 @@ export const GatewayEventBridge: FC = () => {
       if (!deployment || !isRunningLike(deployment.status)) return;
 
       service
-        .getSnapshot(deployment.deviceId)
+        .getSnapshot(deployment.deviceId, { automataId: deployment.automataId })
         .then((snapshot) => updateSnapshot(deployment.deviceId, snapshot.snapshot))
         .catch(() => {
           // Snapshot is best-effort on reconnect.

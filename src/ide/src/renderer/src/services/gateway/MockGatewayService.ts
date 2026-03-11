@@ -12,6 +12,7 @@ import type {
   Server,
   Device,
   Automata,
+  AutomataBinding,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -40,6 +41,8 @@ import type {
   IGatewayService,
   GatewayEventHandlers,
   PersistedGatewayEvent,
+  RuntimeCommandTarget,
+  ConnectionDraft,
 } from './IGatewayService';
 
 // ============================================================================
@@ -192,6 +195,7 @@ export class MockGatewayService implements IGatewayService {
   private servers: Map<ServerId, Server> = new Map();
   private devices: Map<DeviceId, Device> = new Map();
   private automata: Map<AutomataId, Automata> = new Map();
+  private connections: Map<string, AutomataBinding> = new Map();
   private deployments: Map<DeviceId, AutomataId> = new Map();
   private executions: Map<DeviceId, { running: boolean; cycle: number; currentState: string }> = new Map();
   private timeTravelSessions: Map<string, TimeTravelSession> = new Map();
@@ -440,6 +444,33 @@ export class MockGatewayService implements IGatewayService {
     await this.delay(100);
     return this.automata.delete(automataId);
   }
+
+  async listConnections(): Promise<AutomataBinding[]> {
+    await this.delay(50);
+    const bindings = Array.from(this.connections.values());
+    this.handlers.onConnectionList?.({ connections: bindings });
+    return bindings;
+  }
+
+  async createConnection(binding: ConnectionDraft): Promise<AutomataBinding> {
+    await this.delay(50);
+    const created: AutomataBinding = {
+      ...binding,
+      id: `conn-${uuid().slice(0, 8)}`,
+      createdAt: Date.now(),
+      modifiedAt: Date.now(),
+    };
+
+    this.connections.set(created.id, created);
+    this.handlers.onConnectionList?.({ connections: Array.from(this.connections.values()) });
+    return created;
+  }
+
+  async deleteConnection(connectionId: string): Promise<void> {
+    await this.delay(50);
+    this.connections.delete(connectionId);
+    this.handlers.onConnectionList?.({ connections: Array.from(this.connections.values()) });
+  }
   
   // ==========================================================================
   // Deployment Operations
@@ -543,17 +574,31 @@ export class MockGatewayService implements IGatewayService {
     return finalSnapshot;
   }
 
-  async setVariable(_deviceId: DeviceId, _name: string, _value: unknown): Promise<{ status: string }> {
+  async setVariable(
+    _deviceId: DeviceId,
+    _name: string,
+    _value: unknown,
+    _target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
     await this.delay(50);
     return { status: 'sent' };
   }
 
-  async triggerEvent(_deviceId: DeviceId, _event: string, _data?: unknown): Promise<{ status: string }> {
+  async triggerEvent(
+    _deviceId: DeviceId,
+    _event: string,
+    _data?: unknown,
+    _target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
     await this.delay(50);
     return { status: 'sent' };
   }
 
-  async forceTransition(_deviceId: DeviceId, _toState: string): Promise<{ status: string }> {
+  async forceTransition(
+    _deviceId: DeviceId,
+    _toState: string,
+    _target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
     await this.delay(50);
     return { status: 'sent' };
   }
@@ -562,7 +607,7 @@ export class MockGatewayService implements IGatewayService {
   // Execution Control
   // ==========================================================================
   
-  async startExecution(deviceId: DeviceId): Promise<ExecutionStartResponse> {
+  async startExecution(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<ExecutionStartResponse> {
     await this.delay(100);
     
     const execution = this.executions.get(deviceId);
@@ -581,7 +626,7 @@ export class MockGatewayService implements IGatewayService {
     return { started: true, snapshot };
   }
   
-  async stopExecution(deviceId: DeviceId): Promise<ExecutionStopResponse> {
+  async stopExecution(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<ExecutionStopResponse> {
     await this.delay(100);
     
     const execution = this.executions.get(deviceId);
@@ -604,7 +649,7 @@ export class MockGatewayService implements IGatewayService {
     return { stopped: true, finalSnapshot: snapshot };
   }
   
-  async pauseExecution(deviceId: DeviceId): Promise<void> {
+  async pauseExecution(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<void> {
     await this.delay(50);
     const execution = this.executions.get(deviceId);
     if (execution) {
@@ -618,7 +663,7 @@ export class MockGatewayService implements IGatewayService {
     }
   }
   
-  async resumeExecution(deviceId: DeviceId): Promise<void> {
+  async resumeExecution(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<void> {
     await this.delay(50);
     const execution = this.executions.get(deviceId);
     if (execution) {
@@ -627,7 +672,7 @@ export class MockGatewayService implements IGatewayService {
     }
   }
 
-  async resetExecution(deviceId: DeviceId): Promise<ExecutionResetResponse> {
+  async resetExecution(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<ExecutionResetResponse> {
     await this.delay(50);
 
     const execution = this.executions.get(deviceId);
@@ -645,7 +690,11 @@ export class MockGatewayService implements IGatewayService {
     return { reset: true, snapshot };
   }
   
-  async stepExecution(deviceId: DeviceId, steps = 1): Promise<ExecutionSnapshot[]> {
+  async stepExecution(
+    deviceId: DeviceId,
+    steps = 1,
+    _target?: RuntimeCommandTarget,
+  ): Promise<ExecutionSnapshot[]> {
     await this.delay(100);
     
     const execution = this.executions.get(deviceId);
@@ -671,7 +720,7 @@ export class MockGatewayService implements IGatewayService {
     return snapshots;
   }
   
-  async getSnapshot(deviceId: DeviceId): Promise<ExecutionSnapshotResponse> {
+  async getSnapshot(deviceId: DeviceId, _target?: RuntimeCommandTarget): Promise<ExecutionSnapshotResponse> {
     await this.delay(50);
     
     const execution = this.executions.get(deviceId);
