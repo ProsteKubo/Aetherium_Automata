@@ -87,9 +87,7 @@ kbd {
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background:
-    linear-gradient(180deg, rgba(96, 139, 189, 0.07) 0%, rgba(10, 18, 27, 0) 24%),
-    linear-gradient(160deg, #0c1622 0%, #0a121b 52%, #09111a 100%);
+  background: var(--color-bg-deep);
 }
 
 .app-container::before {
@@ -98,19 +96,23 @@ kbd {
   inset: 0;
   pointer-events: none;
   background-image:
-    linear-gradient(rgba(119, 166, 221, 0.04) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(119, 166, 221, 0.04) 1px, transparent 1px);
+    linear-gradient(rgba(31, 29, 27, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(31, 29, 27, 0.05) 1px, transparent 1px);
   background-size: 32px 32px;
-  opacity: 0.45;
+  opacity: 0.8;
 }
 
 .app-main,
-.app-header,
 .workspace-toolbar,
 .status-bar,
 .toast-container {
   position: relative;
   z-index: 1;
+}
+
+.app-header {
+  position: relative;
+  z-index: 100;
 }
 
 .app-main {
@@ -201,7 +203,7 @@ kbd {
   min-height: 34px;
   padding: 0 var(--spacing-2);
   border-bottom: 1px solid var(--color-border-subtle);
-  background: linear-gradient(180deg, #1a2a3e 0%, #172739 100%);
+  background: var(--color-bg-surface);
 }
 
 .panel-shell-tabs {
@@ -292,9 +294,8 @@ kbd {
   justify-content: space-between;
   height: var(--header-height);
   padding: 0 var(--spacing-3);
-  border-bottom: 1px solid var(--color-border-default);
-  background: linear-gradient(180deg, #1d2d43 0%, #172536 100%);
-  box-shadow: 0 2px 10px rgba(5, 10, 20, 0.35);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
   user-select: none;
   -webkit-app-region: drag;
 }
@@ -532,54 +533,62 @@ kbd {
 }
 
 /* ============================================================================
-   Workspace Toolbar
+   Activity Bar (Vertical Left)
    ============================================================================ */
 
-.workspace-toolbar {
+.activity-bar {
   display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 48px;
+  background: var(--color-bg-elevated);
+  border-right: 1px solid var(--color-border-subtle);
+  padding: var(--spacing-2) 0;
+  z-index: 10;
+  flex-shrink: 0;
+}
+
+.activity-bar-top {
+  display: flex;
+  flex-direction: column;
   align-items: center;
   gap: var(--spacing-2);
-  min-height: 38px;
-  padding: var(--spacing-1) var(--spacing-2);
-  border-bottom: 1px solid var(--color-border-subtle);
-  background: linear-gradient(180deg, #1b2b40 0%, #152436 100%);
-  overflow-x: auto;
-  overflow-y: hidden;
+  width: 100%;
 }
 
-.workspace-toolbar-section {
+.activity-bar-center {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: var(--spacing-1);
-  flex-shrink: 0;
-  min-width: 0;
-  padding-right: var(--spacing-2);
-  border-right: 1px solid var(--color-border-subtle);
+  gap: var(--spacing-2);
+  width: 100%;
+  margin-top: var(--spacing-4);
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-border-subtle);
 }
 
-.workspace-toolbar-section-main {
-  flex: 1;
-  justify-content: center;
-}
-
-.workspace-toolbar-section:last-child {
-  border-right: none;
-  padding-right: 0;
+.activity-bar-bottom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-2);
+  width: 100%;
+  margin-top: auto;
 }
 
 .workspace-tool-btn {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-2);
-  height: 30px;
-  padding: 0 var(--spacing-2);
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
   border: 1px solid transparent;
   border-radius: var(--radius-md);
   background: transparent;
   color: var(--color-text-tertiary);
   cursor: pointer;
-  white-space: nowrap;
   transition: all var(--transition-fast);
 }
 
@@ -590,30 +599,27 @@ kbd {
 }
 
 .workspace-tool-label {
-  font-size: var(--font-size-xs);
-  letter-spacing: 0.01em;
+  display: none;
 }
 
 .workspace-tool-btn:hover {
   color: var(--color-text-primary);
-  border-color: var(--color-border-default);
   background: rgba(255, 255, 255, 0.04);
 }
 
 .workspace-tool-btn.active {
   color: var(--color-primary-300);
-  border-color: var(--color-border-emphasis);
   background: rgba(61, 143, 233, 0.14);
 }
 
 .workspace-tool-btn.active::before {
   content: '';
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 2px;
-  height: 1px;
-  border-radius: 1px;
+  left: -4px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+  border-radius: 0 3px 3px 0;
   background: var(--color-primary);
 }
 
@@ -626,7 +632,7 @@ kbd {
   align-items: center;
   min-height: var(--tab-bar-height);
   border-bottom: 1px solid var(--color-border-default);
-  background: linear-gradient(180deg, #1a283a 0%, #182537 100%);
+  background: var(--color-bg-elevated);
   overflow-x: auto;
   overflow-y: hidden;
 }
@@ -740,7 +746,7 @@ kbd {
 
 .btn-primary {
   border-color: rgba(104, 183, 255, 0.35);
-  background: linear-gradient(180deg, #3f92ea 0%, #2a73c2 100%);
+  background: var(--color-primary);
 }
 
 .btn-primary:hover:not(:disabled) {
@@ -771,7 +777,7 @@ kbd {
 
 .btn-danger {
   border-color: rgba(234, 102, 94, 0.4);
-  background: linear-gradient(180deg, #df6d68 0%, #be4f49 100%);
+  background: var(--color-error);
 }
 
 .btn-icon {
@@ -861,9 +867,7 @@ kbd {
   padding: clamp(1.75rem, 2vw + 1rem, 2.75rem);
   border: 1px solid var(--color-border-default);
   border-radius: var(--radius-xl);
-  background:
-    linear-gradient(120deg, rgba(61, 143, 233, 0.12) 0%, rgba(10, 18, 27, 0) 32%),
-    linear-gradient(180deg, #1a283a 0%, #142030 100%);
+  background: var(--color-bg-surface);
   box-shadow: var(--shadow-lg);
 }
 
@@ -942,7 +946,7 @@ kbd {
   min-height: 24px;
   padding: 0 var(--spacing-2);
   border-top: 1px solid var(--color-border-default);
-  background: linear-gradient(180deg, #172536 0%, #122031 100%);
+  background: var(--color-bg-elevated);
 }
 
 .status-bar-left,

@@ -96,7 +96,7 @@ defmodule AetheriumServer.AutomataRuntime do
   @impl true
   def init(opts) do
     deployment_id = Keyword.fetch!(opts, :deployment_id)
-    automata = Keyword.fetch!(opts, :automata)
+    automata = opts |> Keyword.fetch!(:automata) |> normalize_automata()
     tick_interval = Keyword.get(opts, :tick_interval, @default_tick_interval)
 
     # Find initial state
@@ -548,7 +548,7 @@ defmodule AetheriumServer.AutomataRuntime do
         state
 
       state_def ->
-        case state_def[:on_tick] do
+        case state_def[:on_tick] || state_def[:code] do
           nil -> state
           action -> execute_action(action, state)
         end
@@ -556,9 +556,17 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp execute_action(action, state) when is_binary(action) do
+    action = String.trim(action)
+
     # Simple action execution - parse and execute
     # Format: "set var = value" or "output name = value" etc.
     cond do
+      action == "" ->
+        state
+
+      script_action?(action) ->
+        execute_script_action(action, state)
+
       String.starts_with?(action, "set ") ->
         execute_set_action(action, state)
 
@@ -576,6 +584,13 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp execute_action(_action, state), do: state
 
+  defp script_action?(action) do
+    String.contains?(action, "\n") or
+      String.starts_with?(action, "local ") or
+      String.starts_with?(action, "if ") or
+      String.starts_with?(action, "setOutput(")
+  end
+
   defp execute_set_action(action, state) do
     case Regex.run(~r/set\s+(\w+)\s*=\s*(.+)/, action) do
       [_, var_name, value_str] ->
@@ -591,7 +606,10 @@ defmodule AetheriumServer.AutomataRuntime do
     case Regex.run(~r/output\s+(\w+)\s*=\s*(.+)/, action) do
       [_, output_name, value_str] ->
         value = parse_value(value_str, state)
-        new_state = put_in(state, [:outputs, output_name], value)
+        new_state =
+          state
+          |> put_in([:outputs, output_name], value)
+          |> put_in([:variables, output_name], value)
 
         # Propagate to connection manager
         broadcast_output(output_name, value, state)
@@ -614,6 +632,286 @@ defmodule AetheriumServer.AutomataRuntime do
 
     state
   end
+
+  defp execute_script_action(action, state) do
+    lines =
+      action
+      |> String.split("\n")
+      |> Enum.map(&String.trim/1)
+      |> Enum.reject(&(&1 == ""))
+
+    env =
+      state.variables
+      |> Map.merge(state.inputs)
+      |> Map.merge(state.outputs)
+
+    {new_state, _env, _stack, _halted} =
+      Enum.reduce(lines, {state, env, [], false}, fn line, {acc_state, acc_env, stack, halted} ->
+        cond do
+          halted ->
+            {acc_state, acc_env, stack, halted}
+
+          true ->
+            execute_script_line(line, acc_state, acc_env, stack)
+        end
+      end)
+
+    new_state
+  end
+
+  defp execute_script_line(line, state, env, stack) do
+    cond do
+      Regex.match?(~r/^if\s+.+\s+then$/, line) ->
+        expr =
+          line
+          |> String.trim_leading("if")
+          |> String.trim_trailing("then")
+          |> String.trim()
+
+        parent_active = current_script_path_active?(stack)
+        branch_active = parent_active and truthy?(evaluate_script_expression(expr, env))
+        branch = %{parent_active: parent_active, active: branch_active, matched: branch_active}
+        {state, env, [branch | stack], false}
+
+      Regex.match?(~r/^elseif\s+.+\s+then$/, line) ->
+        expr =
+          line
+          |> String.trim_leading("elseif")
+          |> String.trim_trailing("then")
+          |> String.trim()
+
+        case stack do
+          [top | rest] ->
+            branch_active =
+              top.parent_active and not top.matched and truthy?(evaluate_script_expression(expr, env))
+
+            next = %{top | active: branch_active, matched: top.matched or branch_active}
+            {state, env, [next | rest], false}
+
+          [] ->
+            {state, env, stack, false}
+        end
+
+      line == "else" ->
+        case stack do
+          [top | rest] ->
+            branch_active = top.parent_active and not top.matched
+            next = %{top | active: branch_active, matched: true}
+            {state, env, [next | rest], false}
+
+          [] ->
+            {state, env, stack, false}
+        end
+
+      line == "end" ->
+        case stack do
+          [_top | rest] -> {state, env, rest, false}
+          [] -> {state, env, stack, false}
+        end
+
+      line == "return" ->
+        {state, env, stack, true}
+
+      not current_script_path_active?(stack) ->
+        {state, env, stack, false}
+
+      Regex.match?(~r/^setOutput\("([^"]+)",\s*(.+)\)$/, line) ->
+        [_, output_name, expr] = Regex.run(~r/^setOutput\("([^"]+)",\s*(.+)\)$/, line)
+        value = evaluate_script_expression(expr, env)
+
+        next_state =
+          state
+          |> put_in([:outputs, output_name], value)
+          |> put_in([:variables, output_name], value)
+
+        broadcast_output(output_name, value, next_state)
+        {next_state, Map.put(env, output_name, value), stack, false}
+
+      Regex.match?(~r/^(local\s+)?([A-Za-z_]\w*)\s*=\s*(.+)$/, line) ->
+        [_, _local, name, expr] = Regex.run(~r/^(local\s+)?([A-Za-z_]\w*)\s*=\s*(.+)$/, line)
+        value = evaluate_script_expression(expr, env)
+        {state, Map.put(env, name, value), stack, false}
+
+      true ->
+        Logger.debug("Unknown script action line: #{line}")
+        {state, env, stack, false}
+    end
+  end
+
+  defp current_script_path_active?([]), do: true
+  defp current_script_path_active?(stack), do: Enum.all?(stack, & &1.active)
+
+  defp evaluate_script_expression(expression, env) when is_binary(expression) do
+    tokens = tokenize_script_expression(expression)
+    {value, _rest} = parse_script_or(tokens, env)
+    value
+  end
+
+  defp tokenize_script_expression(expression) do
+    do_tokenize_script_expression(String.trim(expression), [])
+  end
+
+  defp do_tokenize_script_expression("", acc), do: Enum.reverse(acc)
+
+  defp do_tokenize_script_expression(<<" ", rest::binary>>, acc),
+    do: do_tokenize_script_expression(String.trim_leading(rest), acc)
+
+  defp do_tokenize_script_expression(<<"\t", rest::binary>>, acc),
+    do: do_tokenize_script_expression(String.trim_leading(rest), acc)
+
+  defp do_tokenize_script_expression(<<"(", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["(" | acc])
+
+  defp do_tokenize_script_expression(<<")", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, [")" | acc])
+
+  defp do_tokenize_script_expression(<<"==", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["==" | acc])
+
+  defp do_tokenize_script_expression(<<"~=", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["~=" | acc])
+
+  defp do_tokenize_script_expression(<<">=", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, [">=" | acc])
+
+  defp do_tokenize_script_expression(<<"<=", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["<=" | acc])
+
+  defp do_tokenize_script_expression(<<"+", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["+" | acc])
+
+  defp do_tokenize_script_expression(<<"-", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["-" | acc])
+
+  defp do_tokenize_script_expression(<<">", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, [">" | acc])
+
+  defp do_tokenize_script_expression(<<"<", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["<" | acc])
+
+  defp do_tokenize_script_expression(<<"\"", rest::binary>>, acc) do
+    {string, rest_after} = take_script_string(rest, "")
+    do_tokenize_script_expression(rest_after, [{:string, string} | acc])
+  end
+
+  defp do_tokenize_script_expression(binary, acc) do
+    case Regex.run(~r/^-?\d+(\.\d+)?/, binary) do
+      [number | _] ->
+        token =
+          if String.contains?(number, "."),
+            do: {:number, String.to_float(number)},
+            else: {:number, String.to_integer(number)}
+
+        rest = binary_part(binary, byte_size(number), byte_size(binary) - byte_size(number))
+        do_tokenize_script_expression(rest, [token | acc])
+
+      nil ->
+        case Regex.run(~r/^[A-Za-z_]\w*/, binary) do
+          [identifier] ->
+            token =
+              case identifier do
+                "true" -> {:literal, true}
+                "false" -> {:literal, false}
+                "nil" -> {:literal, nil}
+                "and" -> "and"
+                "or" -> "or"
+                _ -> {:identifier, identifier}
+              end
+
+            rest = binary_part(binary, byte_size(identifier), byte_size(binary) - byte_size(identifier))
+            do_tokenize_script_expression(rest, [token | acc])
+
+          nil ->
+            raise ArgumentError, "Unsupported script expression segment: #{binary}"
+        end
+    end
+  end
+
+  defp take_script_string(<<"\"", rest::binary>>, acc), do: {acc, rest}
+  defp take_script_string(<<char::utf8, rest::binary>>, acc), do: take_script_string(rest, acc <> <<char::utf8>>)
+  defp take_script_string(<<>>, acc), do: {acc, ""}
+
+  defp parse_script_or(tokens, env) do
+    {left, rest} = parse_script_and(tokens, env)
+    parse_script_or_tail(left, rest, env)
+  end
+
+  defp parse_script_or_tail(left, ["or" | rest], env) do
+    {right, rest_after} = parse_script_and(rest, env)
+    parse_script_or_tail(left || right, rest_after, env)
+  end
+
+  defp parse_script_or_tail(left, rest, _env), do: {left, rest}
+
+  defp parse_script_and(tokens, env) do
+    {left, rest} = parse_script_comparison(tokens, env)
+    parse_script_and_tail(left, rest, env)
+  end
+
+  defp parse_script_and_tail(left, ["and" | rest], env) do
+    {right, rest_after} = parse_script_comparison(rest, env)
+    parse_script_and_tail(left && right, rest_after, env)
+  end
+
+  defp parse_script_and_tail(left, rest, _env), do: {left, rest}
+
+  defp parse_script_comparison(tokens, env) do
+    {left, rest} = parse_script_additive(tokens, env)
+
+    case rest do
+      [op | tail] when op in ["==", "~=", ">", "<", ">=", "<="] ->
+        {right, rest_after} = parse_script_additive(tail, env)
+
+        value =
+          case op do
+            "==" -> left == right
+            "~=" -> left != right
+            ">" -> left > right
+            "<" -> left < right
+            ">=" -> left >= right
+            "<=" -> left <= right
+          end
+
+        {value, rest_after}
+
+      _ ->
+        {left, rest}
+    end
+  end
+
+  defp parse_script_additive(tokens, env) do
+    {left, rest} = parse_script_primary(tokens, env)
+    parse_script_additive_tail(left, rest, env)
+  end
+
+  defp parse_script_additive_tail(left, ["+" | rest], env) do
+    {right, rest_after} = parse_script_primary(rest, env)
+    parse_script_additive_tail(left + right, rest_after, env)
+  end
+
+  defp parse_script_additive_tail(left, ["-" | rest], env) do
+    {right, rest_after} = parse_script_primary(rest, env)
+    parse_script_additive_tail(left - right, rest_after, env)
+  end
+
+  defp parse_script_additive_tail(left, rest, _env), do: {left, rest}
+
+  defp parse_script_primary([{:number, value} | rest], _env), do: {value, rest}
+  defp parse_script_primary([{:string, value} | rest], _env), do: {value, rest}
+  defp parse_script_primary([{:literal, value} | rest], _env), do: {value, rest}
+  defp parse_script_primary([{:identifier, name} | rest], env), do: {Map.get(env, name), rest}
+
+  defp parse_script_primary(["(" | rest], env) do
+    {value, rest_after} = parse_script_or(rest, env)
+
+    case rest_after do
+      [")" | remaining] -> {value, remaining}
+      _ -> raise ArgumentError, "Unclosed script expression group"
+    end
+  end
+
+  defp parse_script_primary(tokens, _env),
+    do: raise(ArgumentError, "Unsupported script tokens: #{inspect(tokens)}")
 
   # ============================================================================
   # Condition Evaluation
@@ -722,67 +1020,232 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp find_initial_state(automata) do
-    states = automata[:states] || %{}
+    states = automata[:states] || automata["states"] || %{}
 
-    initial =
-      states
-      |> Map.values()
-      |> Enum.find(&(&1[:type] == :initial))
+    explicit =
+      automata[:initial_state] ||
+        automata["initial_state"] ||
+        get_in(automata, [:automata, :initial_state]) ||
+        get_in(automata, ["automata", "initial_state"])
 
-    if initial, do: initial[:id], else: nil
+    resolve_state_ref(explicit, states) ||
+      Enum.find_value(states, fn {key, state} ->
+        type = state[:type] || state["type"]
+        id = state[:id] || state["id"] || key
+
+        if type in [:initial, "initial"], do: resolve_state_ref(id, states), else: nil
+      end) ||
+      Enum.find_value(states, fn {key, state} ->
+        state[:id] || state["id"] || key
+      end)
   end
 
   defp get_state_def(state_id, state) do
-    states = state.automata[:states] || %{}
-    Map.get(states, state_id)
+    states = state.automata[:states] || state.automata["states"] || %{}
+    Map.get(states, state_id) ||
+      Enum.find_value(states, fn {key, value} ->
+        id = value[:id] || value["id"] || key
+        if to_string(id) == to_string(state_id), do: value, else: nil
+      end)
+  end
+
+  defp resolve_state_ref(nil, _states), do: nil
+
+  defp resolve_state_ref(ref, states) do
+    states
+    |> Enum.find_value(fn {key, state} ->
+      id = state[:id] || state["id"] || key
+      if to_string(id) == to_string(ref), do: to_string(id), else: nil
+    end)
   end
 
   defp initialize_variables(variables) do
     variables
-    |> Enum.map(fn var -> {var[:name], var[:default]} end)
+    |> Enum.map(fn var -> {field(var, :name), field(var, :default)} end)
+    |> Enum.reject(fn {name, _default} -> is_nil(name) end)
     |> Enum.into(%{})
   end
 
   defp separate_io(variables) do
     inputs =
       variables
-      |> Enum.filter(&(&1[:direction] == :input))
-      |> Enum.map(fn var -> {var[:name], var[:default]} end)
+      |> Enum.filter(&(field(&1, :direction) == :input))
+      |> Enum.map(fn var -> {field(var, :name), field(var, :default)} end)
+      |> Enum.reject(fn {name, _default} -> is_nil(name) end)
       |> Enum.into(%{})
 
     outputs =
       variables
-      |> Enum.filter(&(&1[:direction] == :output))
-      |> Enum.map(fn var -> {var[:name], var[:default]} end)
+      |> Enum.filter(&(field(&1, :direction) == :output))
+      |> Enum.map(fn var -> {field(var, :name), field(var, :default)} end)
+      |> Enum.reject(fn {name, _default} -> is_nil(name) end)
       |> Enum.into(%{})
 
     {inputs, outputs}
   end
 
+  defp normalize_automata(automata) when is_map(automata) do
+    states =
+      automata
+      |> field(:states, %{})
+      |> Enum.into(%{}, fn {key, state_def} ->
+        id = state_def |> field(:id, key) |> to_string()
+        {id, normalize_state_def(id, state_def)}
+      end)
+
+    transitions =
+      automata
+      |> field(:transitions, %{})
+      |> Enum.into(%{}, fn {key, transition} ->
+        id = transition |> field(:id, key) |> to_string()
+        {id, normalize_transition(id, transition)}
+      end)
+
+    %{
+      id: field(automata, :id),
+      name: field(automata, :name),
+      description: field(automata, :description),
+      version: field(automata, :version, "1.0.0"),
+      initial_state:
+        field(automata, :initial_state) ||
+          get_in(automata, [:automata, :initial_state]) ||
+          get_in(automata, ["automata", "initial_state"]),
+      states: states,
+      transitions: transitions,
+      variables:
+        automata
+        |> field(:variables, [])
+        |> Enum.map(&normalize_variable/1)
+    }
+  end
+
+  defp normalize_automata(other), do: other
+
+  defp normalize_state_def(id, state_def) do
+    hooks = field(state_def, :hooks, %{})
+
+    %{
+      id: to_string(field(state_def, :id, id)),
+      name: field(state_def, :name, id),
+      type: normalize_state_type(field(state_def, :type, :normal)),
+      on_enter:
+        field(state_def, :on_enter) ||
+          field(hooks, :on_enter) ||
+          field(hooks, :onEnter),
+      on_exit:
+        field(state_def, :on_exit) ||
+          field(hooks, :on_exit) ||
+          field(hooks, :onExit),
+      on_tick:
+        field(state_def, :on_tick) ||
+          field(hooks, :on_tick) ||
+          field(hooks, :onTick),
+      code: field(state_def, :code)
+    }
+  end
+
+  defp normalize_transition(id, transition) do
+    %{
+      id: to_string(field(transition, :id, id)),
+      from: field(transition, :from) |> to_string(),
+      to: field(transition, :to) |> to_string(),
+      type: normalize_transition_type(field(transition, :type, :classic)),
+      condition: field(transition, :condition),
+      priority: field(transition, :priority, 0),
+      weight: field(transition, :weight),
+      timed: normalize_timed(field(transition, :timed)),
+      event: field(transition, :event)
+    }
+  end
+
+  defp normalize_timed(nil), do: %{}
+
+  defp normalize_timed(timed) when is_map(timed) do
+    %{
+      mode: normalize_timed_mode(field(timed, :mode, :after)),
+      delay_ms: field(timed, :delay_ms, 0),
+      jitter_ms: field(timed, :jitter_ms, 0)
+    }
+  end
+
+  defp normalize_timed(_), do: %{}
+
+  defp normalize_variable(variable) when is_map(variable) do
+    %{
+      id: field(variable, :id),
+      name: field(variable, :name),
+      type: field(variable, :type),
+      direction: normalize_direction(field(variable, :direction, :internal)),
+      default: field(variable, :default)
+    }
+  end
+
+  defp normalize_variable(other), do: other
+
+  defp normalize_state_type("initial"), do: :initial
+  defp normalize_state_type("final"), do: :final
+  defp normalize_state_type("normal"), do: :normal
+  defp normalize_state_type(:initial), do: :initial
+  defp normalize_state_type(:final), do: :final
+  defp normalize_state_type(:normal), do: :normal
+  defp normalize_state_type(_), do: :normal
+
+  defp normalize_transition_type("classic"), do: :classic
+  defp normalize_transition_type("timed"), do: :timed
+  defp normalize_transition_type("event"), do: :event
+  defp normalize_transition_type("probabilistic"), do: :probabilistic
+  defp normalize_transition_type("immediate"), do: :immediate
+  defp normalize_transition_type(:classic), do: :classic
+  defp normalize_transition_type(:timed), do: :timed
+  defp normalize_transition_type(:event), do: :event
+  defp normalize_transition_type(:probabilistic), do: :probabilistic
+  defp normalize_transition_type(:immediate), do: :immediate
+  defp normalize_transition_type(_), do: :classic
+
+  defp normalize_direction("input"), do: :input
+  defp normalize_direction("output"), do: :output
+  defp normalize_direction("internal"), do: :internal
+  defp normalize_direction(:input), do: :input
+  defp normalize_direction(:output), do: :output
+  defp normalize_direction(:internal), do: :internal
+  defp normalize_direction(_), do: :internal
+
+  defp normalize_timed_mode("after"), do: :after
+  defp normalize_timed_mode("every"), do: :every
+  defp normalize_timed_mode(:after), do: :after
+  defp normalize_timed_mode(:every), do: :every
+  defp normalize_timed_mode(_), do: :after
+
+  defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do
+    Map.get(data, key, Map.get(data, Atom.to_string(key), default))
+  end
+
   defp broadcast_transition(from, to, transition_id, context, state) do
-    AetheriumServer.GatewayConnection.report_alert(%{
-      type: :transition_fired,
-      data: %{
-        deployment_id: state.deployment_id,
-        from: from,
-        to: to,
-        transition_id: transition_id,
-        context: context,
-        timestamp: System.system_time(:millisecond)
-      }
+    AetheriumServer.GatewayConnection.push("transition_fired", %{
+      "deployment_id" => state.deployment_id,
+      "automata_id" => state.automata[:id],
+      "from" => from,
+      "to" => to,
+      "transition_id" => transition_id,
+      "weight_used" => nil,
+      "context" => context,
+      "timestamp" => System.system_time(:millisecond)
     })
   end
 
   defp broadcast_output(output_name, value, state) do
-    AetheriumServer.GatewayConnection.report_alert(%{
-      type: :output_changed,
-      data: %{
-        deployment_id: state.deployment_id,
-        automata_id: state.automata[:id],
-        output: output_name,
-        value: value,
-        timestamp: System.system_time(:millisecond)
-      }
-    })
+    payload = %{
+      "deployment_id" => state.deployment_id,
+      "automata_id" => state.automata[:id],
+      "output" => output_name,
+      "name" => output_name,
+      "value" => value,
+      "direction" => "output",
+      "timestamp" => System.system_time(:millisecond)
+    }
+
+    AetheriumServer.GatewayConnection.push("output_changed", payload)
+
+    AetheriumServer.GatewayConnection.push("variable_updated", payload)
   end
 end

@@ -1,12 +1,12 @@
 /**
  * Aetherium Automata - Automata Connections Panel
  * 
- * Shows how automata are connected via input/output bindings.
- * Visualizes the network topology of inter-automata communication.
+ * Shows explicit override routes between automata.
+ * Same-name topics propagate automatically; this panel is for manual routes only.
  */
 
-import React, { useState, useMemo, useCallback } from 'react';
-import { useAutomataStore, useUIStore } from '../../stores';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useAutomataStore, useUIStore, useGatewayStore } from '../../stores';
 import type { Automata } from '../../types';
 import type { AutomataBinding } from '../../types/connections';
 
@@ -582,7 +582,7 @@ const AddBindingDialog: React.FC<AddBindingDialogProps> = ({ automataList, onAdd
           gap: 'var(--spacing-2)',
         }}>
           <LinkIcon size={16} />
-          Add Connection
+          Add Explicit Route
         </h3>
         
         {/* Source */}
@@ -738,7 +738,7 @@ const AddBindingDialog: React.FC<AddBindingDialogProps> = ({ automataList, onAdd
             disabled={!sourceId || !sourceOutputName || !targetId || !targetInputName}
             style={{ padding: 'var(--spacing-2) var(--spacing-3)' }}
           >
-            Add Connection
+            Add Route
           </button>
         </div>
       </div>
@@ -871,7 +871,7 @@ const NetworkGraph: React.FC<NetworkGraphProps> = ({
                   y={pos.y - 22}
                   textAnchor="middle"
                   dominantBaseline="middle"
-                  fill="white"
+                  fill="var(--color-text-primary)"
                   fontSize={9}
                   fontWeight={600}
                 >
@@ -896,15 +896,55 @@ export const AutomataConnectionsPanel: React.FC = () => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // This would come from a connections store in a real implementation
   const [bindings, setBindings] = useState<AutomataBinding[]>([]);
+  const [bindingsBusy, setBindingsBusy] = useState(false);
   
   const automataMap = useAutomataStore((state) => state.automata);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const openTab = useUIStore((state) => state.openTab);
+  const addNotification = useUIStore((state) => state.addNotification);
+  const gatewayService = useGatewayStore((state) => state.service);
+  const gatewayStatus = useGatewayStore((state) => state.status);
   
   const automataList = useMemo(() => Array.from(automataMap.values()), [automataMap]);
+
+  const refreshBindings = useCallback(async () => {
+    if (gatewayStatus !== 'connected') {
+      setBindings([]);
+      return;
+    }
+
+    setBindingsBusy(true);
+    try {
+      const next = await gatewayService.listConnections();
+      setBindings(next);
+    } catch (error) {
+      addNotification(
+        'error',
+        'Connections',
+        error instanceof Error ? error.message : 'Failed to load connections',
+      );
+    } finally {
+      setBindingsBusy(false);
+    }
+  }, [addNotification, gatewayService, gatewayStatus]);
+
+  useEffect(() => {
+    void refreshBindings();
+  }, [refreshBindings]);
+
+  useEffect(() => {
+    if (gatewayStatus !== 'connected') {
+      setBindings([]);
+      return;
+    }
+
+    const unsubscribe = gatewayService.on('onConnectionList', (event) => {
+      setBindings(((event.connections as unknown) as AutomataBinding[]) ?? []);
+    });
+
+    return unsubscribe;
+  }, [gatewayService, gatewayStatus]);
   
   // Build node data with bindings
   const nodeDataList = useMemo(() => {
@@ -948,17 +988,43 @@ export const AutomataConnectionsPanel: React.FC = () => {
     });
   }, [setActiveAutomata, openTab, automataMap]);
   
-  const handleAddBinding = useCallback((binding: Omit<AutomataBinding, 'id'>) => {
-    const newBinding: AutomataBinding = {
-      ...binding,
-      id: `binding-${Date.now()}`,
-    };
-    setBindings((prev) => [...prev, newBinding]);
-  }, []);
+  const handleAddBinding = useCallback(async (binding: Omit<AutomataBinding, 'id'>) => {
+    if (gatewayStatus !== 'connected') {
+      addNotification('warning', 'Connections', 'Connect to the gateway before creating bindings.');
+      return;
+    }
+
+    try {
+      await gatewayService.createConnection(binding);
+      addNotification('success', 'Connections', 'Binding created.');
+      await refreshBindings();
+    } catch (error) {
+      addNotification(
+        'error',
+        'Connections',
+        error instanceof Error ? error.message : 'Failed to create binding',
+      );
+    }
+  }, [addNotification, gatewayService, gatewayStatus, refreshBindings]);
   
-  const handleDeleteBinding = useCallback((bindingId: string) => {
-    setBindings((prev) => prev.filter((b) => b.id !== bindingId));
-  }, []);
+  const handleDeleteBinding = useCallback(async (bindingId: string) => {
+    if (gatewayStatus !== 'connected') {
+      addNotification('warning', 'Connections', 'Connect to the gateway before deleting bindings.');
+      return;
+    }
+
+    try {
+      await gatewayService.deleteConnection(bindingId);
+      addNotification('success', 'Connections', 'Binding removed.');
+      await refreshBindings();
+    } catch (error) {
+      addNotification(
+        'error',
+        'Connections',
+        error instanceof Error ? error.message : 'Failed to delete binding',
+      );
+    }
+  }, [addNotification, gatewayService, gatewayStatus, refreshBindings]);
 
   return (
     <div className="automata-connections-panel" style={{ 
@@ -985,8 +1051,15 @@ export const AutomataConnectionsPanel: React.FC = () => {
               fontSize: 'var(--font-size-sm)',
               color: 'var(--color-text-primary)',
             }}>
-              Connections
+              Explicit Routes
             </span>
+          </div>
+          
+          <div style={{
+            fontSize: 'var(--font-size-xs)',
+            color: 'var(--color-text-tertiary)',
+          }}>
+            Same-name topics flow automatically. Use routes only for explicit overrides.
           </div>
           
           <div style={{ display: 'flex', gap: 'var(--spacing-1)' }}>
@@ -1012,6 +1085,14 @@ export const AutomataConnectionsPanel: React.FC = () => {
               Graph
             </button>
             
+            <button
+              onClick={() => void refreshBindings()}
+              className="btn btn-ghost btn-sm"
+              disabled={bindingsBusy || gatewayStatus !== 'connected'}
+              style={{ marginLeft: 'var(--spacing-1)' }}
+            >
+              Refresh
+            </button>
             <button
               onClick={() => setShowAddDialog(true)}
               className="btn btn-primary btn-sm"
@@ -1071,7 +1152,7 @@ export const AutomataConnectionsPanel: React.FC = () => {
               letterSpacing: '0.05em',
               marginBottom: 'var(--spacing-2)',
             }}>
-              Active Connections ({bindings.length})
+              Explicit Routes ({bindings.length})
             </div>
             {bindings.map((b) => (
               <ConnectionRow
@@ -1132,7 +1213,7 @@ export const AutomataConnectionsPanel: React.FC = () => {
         justifyContent: 'space-between',
       }}>
         <span>{automataList.length} automata</span>
-        <span>{bindings.length} connections</span>
+        <span>{bindings.length} explicit routes{bindingsBusy ? ' · syncing' : ''}</span>
       </div>
       
       {/* Add dialog */}

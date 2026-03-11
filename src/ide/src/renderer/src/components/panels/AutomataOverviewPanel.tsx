@@ -213,7 +213,7 @@ export const AutomataOverviewPanel: React.FC = () => {
     return Array.from(clusters.values());
   }, [automataNodes, devices, servers]);
   
-  // Find data channels (connections via shared input/output names)
+  // Find topic peers via shared input/output names.
   const dataChannels: DataChannel[] = useMemo(() => {
     const channels: DataChannel[] = [];
     
@@ -757,7 +757,7 @@ export const AutomataOverviewPanel: React.FC = () => {
                         fill="var(--color-info)"
                         opacity="0.8"
                       />
-                      <text x={-4} y={3} fill="white" fontSize="8" textAnchor="middle">I</text>
+                      <text x={-4} y={3} fill="var(--color-text-primary)" fontSize="8" textAnchor="middle">I</text>
                     </g>
                   )}
                   {automata.outputs.length > 0 && (
@@ -771,7 +771,7 @@ export const AutomataOverviewPanel: React.FC = () => {
                         fill="var(--color-success)"
                         opacity="0.8"
                       />
-                      <text x={4} y={3} fill="white" fontSize="8" textAnchor="middle">O</text>
+                      <text x={4} y={3} fill="var(--color-text-primary)" fontSize="8" textAnchor="middle">O</text>
                     </g>
                   )}
                   
@@ -913,13 +913,13 @@ export const AutomataOverviewPanel: React.FC = () => {
                 <div className="io-list">
                   {selectedAutomataData.outputs.length > 0 ? (
                     selectedAutomataData.outputs.map((output) => {
-                      const connections = dataChannels.filter(c => c.name === output && c.sourceAutomataId === selectedAutomataData.id);
+                      const topicPeers = dataChannels.filter(c => c.name === output && c.sourceAutomataId === selectedAutomataData.id);
                       return (
                         <div key={output} className="io-item output">
                           <IconChevronRight size={12} />
                           <span>{output}</span>
-                          {connections.length > 0 && (
-                            <span className="connected-badge">{connections.length} receiver{connections.length > 1 ? 's' : ''}</span>
+                          {topicPeers.length > 0 && (
+                            <span className="connected-badge">{topicPeers.length} subscriber{topicPeers.length > 1 ? 's' : ''}</span>
                           )}
                         </div>
                       );
@@ -930,9 +930,9 @@ export const AutomataOverviewPanel: React.FC = () => {
                 </div>
               </div>
               
-              {/* Connected Automatas */}
+              {/* Topic Peers */}
               <div className="info-section">
-                <h4 className="section-title">Connected Automatas</h4>
+                <h4 className="section-title">Topic Peers</h4>
                 <div className="connected-list">
                   {(() => {
                     const connectedIds = new Set<string>();
@@ -955,7 +955,7 @@ export const AutomataOverviewPanel: React.FC = () => {
                         </div>
                       ))
                     ) : (
-                      <div className="io-empty">No connections</div>
+                      <div className="io-empty">No topic peers</div>
                     );
                   })()}
                 </div>

@@ -110,6 +110,12 @@ config :aetherium_server, :ros2_transport,
   bind_ip: System.get_env("ROS2_BIND_IP") || "0.0.0.0",
   port: String.to_integer(System.get_env("ROS2_PORT") || "5501")
 
+config :aetherium_server, :host_runtime_device,
+  enabled:
+    (System.get_env("ENABLE_HOST_RUNTIME_DEVICE") || "0") in ["1", "true", "TRUE", "yes", "YES"],
+  device_id: System.get_env("HOST_RUNTIME_DEVICE_ID"),
+  connector_id: System.get_env("HOST_RUNTIME_CONNECTOR_ID") || "host_runtime"
+
 config :aetherium_server, AetheriumServer.TimeSeriesStore,
   enabled:
     (System.get_env("ENABLE_TIME_SERIES_STORE") || "1") in ["1", "true", "TRUE", "yes", "YES"],

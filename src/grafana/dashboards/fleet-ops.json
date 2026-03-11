@@ -45,7 +45,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "mode": "background"
+            "mode": "thresholds"
           }
         },
         "overrides": []
@@ -58,7 +58,7 @@
       },
       "id": 2,
       "options": {
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "justifyMode": "center",
         "orientation": "auto",

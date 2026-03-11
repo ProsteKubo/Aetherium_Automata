@@ -1,0 +1,83 @@
+version: 0.0.1
+
+config:
+  name: Bidirectional Signal Conditioner
+  type: inline
+  language: lua
+  description: Host automata that normalizes ESP potentiometer data and FRDM interaction signals into a compact control contract.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - ide
+    - bidirectional
+    - conditioning
+
+variables:
+  - name: pot_mv
+    type: int
+    direction: input
+    default: 0
+  - name: sw2_pressed
+    type: bool
+    direction: input
+    default: false
+  - name: touch_pressed
+    type: bool
+    direction: input
+    default: false
+  - name: pot_band
+    type: int
+    direction: output
+    default: 0
+  - name: allow_remote
+    type: bool
+    direction: output
+    default: false
+  - name: manual_boost
+    type: bool
+    direction: output
+    default: false
+  - name: conditioner_state
+    type: string
+    direction: output
+    default: standby
+
+automata:
+  initial_state: Monitor
+
+  states:
+    Monitor:
+      code: |-
+        local mv = pot_mv or 0
+        local band = 0
+
+        if mv >= 2600 then
+          band = 3
+        elseif mv >= 1800 then
+          band = 2
+        elseif mv >= 900 then
+          band = 1
+        end
+
+        local allow = sw2_pressed == true
+        local boost = touch_pressed == true
+        local state_name = "standby"
+
+        if boost then
+          state_name = "boost"
+        elseif allow then
+          state_name = "armed"
+        end
+
+        setOutput("pot_band", band)
+        setOutput("allow_remote", allow)
+        setOutput("manual_boost", boost)
+        setOutput("conditioner_state", state_name)
+
+  transitions:
+    stay_active:
+      from: Monitor
+      to: Monitor
+      type: classic
+      condition: false

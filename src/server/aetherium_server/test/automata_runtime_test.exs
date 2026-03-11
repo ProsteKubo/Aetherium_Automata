@@ -118,6 +118,59 @@ defmodule AetheriumServer.AutomataRuntimeTest do
 
       GenServer.stop(pid)
     end
+
+    test "executes code blocks on tick for host-runtime style automata", %{prefix: prefix} do
+      deployment_id = "#{prefix}-deploy-code"
+      automata = automata_with_code_tick()
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: automata,
+          tick_interval: 20
+        )
+
+      AutomataRuntime.set_input(deployment_id, "esp_pot_mv", 2100)
+      AutomataRuntime.set_input(deployment_id, "sw2_pressed", true)
+      AutomataRuntime.set_input(deployment_id, "touch_pressed", false)
+      AutomataRuntime.start_execution(deployment_id)
+
+      Process.sleep(120)
+
+      {:ok, state} = AutomataRuntime.get_state(deployment_id)
+      assert state.running == true
+      assert state.outputs["pot_band"] == 2
+      assert state.outputs["allow_remote"] == true
+      assert state.outputs["manual_boost"] == false
+      assert state.outputs["conditioner_state"] == "armed"
+
+      GenServer.stop(pid)
+    end
+
+    test "normalizes string-key automata payloads from the IDE", %{prefix: prefix} do
+      deployment_id = "#{prefix}-deploy-string"
+
+      {:ok, pid} =
+        AutomataRuntime.start_link(
+          deployment_id: deployment_id,
+          automata: string_key_automata(),
+          tick_interval: 20
+        )
+
+      AutomataRuntime.set_input(deployment_id, "pot_mv", 2100)
+      AutomataRuntime.set_input(deployment_id, "sw2_pressed", true)
+      AutomataRuntime.start_execution(deployment_id)
+
+      Process.sleep(120)
+
+      {:ok, state} = AutomataRuntime.get_state(deployment_id)
+      assert state.current_state == "Monitor"
+      assert state.outputs["pot_band"] == 2
+      assert state.outputs["allow_remote"] == true
+      assert state.outputs["conditioner_state"] == "armed"
+
+      GenServer.stop(pid)
+    end
   end
 
   describe "input handling" do
@@ -333,6 +386,104 @@ defmodule AetheriumServer.AutomataRuntimeTest do
         }
       },
       variables: []
+    }
+  end
+
+  defp automata_with_code_tick do
+    %{
+      id: "code-tick",
+      name: "Code Tick Automata",
+      states: %{
+        "monitor" => %{
+          id: "monitor",
+          name: "Monitor",
+          type: :initial,
+          code: """
+          local mv = esp_pot_mv or 0
+          local band = 0
+
+          if mv >= 2600 then
+            band = 3
+          elseif mv >= 1800 then
+            band = 2
+          elseif mv >= 900 then
+            band = 1
+          end
+
+          local allow = sw2_pressed == true
+          local boost = touch_pressed == true
+          local state_name = "standby"
+
+          if boost then
+            state_name = "boost"
+          elseif allow then
+            state_name = "armed"
+          end
+
+          setOutput("pot_band", band)
+          setOutput("allow_remote", allow)
+          setOutput("manual_boost", boost)
+          setOutput("conditioner_state", state_name)
+          """
+        }
+      },
+      transitions: %{},
+      variables: [
+        %{id: "v1", name: "esp_pot_mv", type: "int", direction: :input, default: 0},
+        %{id: "v2", name: "sw2_pressed", type: "bool", direction: :input, default: false},
+        %{id: "v3", name: "touch_pressed", type: "bool", direction: :input, default: false},
+        %{id: "v4", name: "pot_band", type: "int", direction: :output, default: 0},
+        %{id: "v5", name: "allow_remote", type: "bool", direction: :output, default: false},
+        %{id: "v6", name: "manual_boost", type: "bool", direction: :output, default: false},
+        %{id: "v7", name: "conditioner_state", type: "string", direction: :output, default: "standby"}
+      ]
+    }
+  end
+
+  defp string_key_automata do
+    %{
+      "id" => "string-key-runtime",
+      "name" => "String Key Runtime",
+      "version" => "1.0.0",
+      "initial_state" => "Monitor",
+      "states" => %{
+        "Monitor" => %{
+          "code" => """
+          local mv = pot_mv or 0
+          local band = 0
+
+          if mv >= 1800 then
+            band = 2
+          elseif mv >= 900 then
+            band = 1
+          end
+
+          local allow = sw2_pressed == true
+          local state_name = "standby"
+
+          if allow then
+            state_name = "armed"
+          end
+
+          setOutput("pot_band", band)
+          setOutput("allow_remote", allow)
+          setOutput("conditioner_state", state_name)
+          """
+        }
+      },
+      "transitions" => %{},
+      "variables" => [
+        %{"name" => "pot_mv", "type" => "int", "direction" => "input", "default" => 0},
+        %{"name" => "sw2_pressed", "type" => "bool", "direction" => "input", "default" => false},
+        %{"name" => "pot_band", "type" => "int", "direction" => "output", "default" => 0},
+        %{"name" => "allow_remote", "type" => "bool", "direction" => "output", "default" => false},
+        %{
+          "name" => "conditioner_state",
+          "type" => "string",
+          "direction" => "output",
+          "default" => "standby"
+        }
+      ]
     }
   end
 end

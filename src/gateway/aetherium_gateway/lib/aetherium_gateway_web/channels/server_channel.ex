@@ -186,6 +186,31 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   end
 
   @impl true
+  def handle_in("deployment_validation", payload, socket) do
+    server_payload = Map.put(payload, "server_id", socket.assigns.server_id)
+
+    Persistence.append_event(%{
+      kind: "deployment_validation",
+      source: "server_channel",
+      data: server_payload
+    })
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "deployment_validation",
+      server_payload
+    )
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "deployment_validation",
+      payload
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
   def handle_in("connector_status", %{"connectors" => connectors} = payload, socket)
       when is_list(connectors) do
     server_payload =
@@ -203,6 +228,44 @@ defmodule AetheriumGatewayWeb.ServerChannel do
       "gateway:control",
       "connector_status",
       server_payload
+    )
+
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_in("deployment_inventory", %{"deployments" => deployments} = payload, socket)
+      when is_list(deployments) do
+    server_id = socket.assigns.server_id
+    deployments = AutomataRegistry.reconcile_server_deployments(server_id, deployments)
+
+    Persistence.append_event(%{
+      kind: "deployment_inventory",
+      source: "server_channel",
+      data:
+        payload
+        |> Map.put("server_id", server_id)
+        |> Map.put("timestamp", payload["timestamp"] || DateTime.utc_now())
+    })
+
+    serialized =
+      Enum.map(deployments, fn deployment ->
+        %{
+          automata_id: field(deployment, :automata_id),
+          device_id: field(deployment, :device_id),
+          server_id: field(deployment, :server_id),
+          status: field(deployment, :status),
+          deployed_at: field(deployment, :deployed_at),
+          current_state: field(deployment, :current_state),
+          variables: field(deployment, :variables, %{}),
+          error: field(deployment, :error)
+        }
+      end)
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "automata:control",
+      "deployment_list",
+      %{deployments: serialized}
     )
 
     {:noreply, socket}
@@ -246,6 +309,23 @@ defmodule AetheriumGatewayWeb.ServerChannel do
 
     AetheriumGatewayWeb.Endpoint.broadcast!("gateway:control", "command_outcome", payload)
     AetheriumGatewayWeb.Endpoint.broadcast!("automata:control", "command_outcome", payload)
+    {:noreply, socket}
+  end
+
+  @impl true
+  def handle_in(event, payload, socket) when is_binary(event) do
+    Logger.warning("Unhandled server_channel event #{inspect(event)}: #{inspect(payload)}")
+
+    Persistence.append_event(%{
+      kind: "unhandled_server_event",
+      source: "server_channel",
+      data: %{
+        server_id: socket.assigns.server_id,
+        event: event,
+        payload: payload
+      }
+    })
+
     {:noreply, socket}
   end
 
@@ -314,8 +394,8 @@ defmodule AetheriumGatewayWeb.ServerChannel do
     server_id = socket.assigns[:server_id]
 
     if server_id do
-      :ok = ServerTracker.unregister(server_id)
-      broadcast_server_lists()
+      maybe_unregister_server(server_id)
+      maybe_broadcast_server_lists()
     end
 
     :ok
@@ -335,6 +415,22 @@ defmodule AetheriumGatewayWeb.ServerChannel do
     )
   end
 
+  defp maybe_unregister_server(server_id) when is_binary(server_id) do
+    if Process.whereis(ServerTracker) do
+      _ = ServerTracker.unregister(server_id)
+    end
+
+    :ok
+  end
+
+  defp maybe_broadcast_server_lists do
+    if Process.whereis(ServerTracker) do
+      broadcast_server_lists()
+    end
+
+    :ok
+  end
+
   defp normalize_status("pending"), do: :pending
   defp normalize_status("deploying"), do: :deploying
   defp normalize_status("loading"), do: :deploying
@@ -349,6 +445,10 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   defp normalize_status(:stopped), do: :stopped
   defp normalize_status(:error), do: :error
   defp normalize_status(_), do: :error
+
+  defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do
+    Map.get(data, key, Map.get(data, Atom.to_string(key), default))
+  end
 
   defp stringify_keys(%_{} = struct), do: struct
 

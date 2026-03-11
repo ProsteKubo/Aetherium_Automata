@@ -27,6 +27,7 @@ interface RuntimeViewState {
 
 interface RuntimeViewActions {
   upsertDeployment: (deployment: RuntimeDeployment) => void;
+  replaceDeploymentInventory: (deployments: Array<Record<string, unknown>>) => void;
   ingestTransition: (event: RuntimeTransitionEvent) => void;
   ingestDeploymentStatus: (payload: Record<string, unknown>) => void;
   ingestDeploymentTransfer: (payload: Record<string, unknown>) => void;
@@ -162,7 +163,6 @@ function shallowDeploymentEqual(a: RuntimeDeployment | undefined, b: RuntimeDepl
   if (a.deviceId !== b.deviceId) return false;
   if (a.status !== b.status) return false;
   if ((a.currentState ?? '') !== (b.currentState ?? '')) return false;
-  if (a.updatedAt !== b.updatedAt) return false;
 
   const aVars = a.variables ?? {};
   const bVars = b.variables ?? {};
@@ -226,14 +226,76 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
 
     set((state) => {
       const deployments = new Map(state.deployments);
-      const merged = mergeDeployment(deployments.get(safeDeployment.deploymentId), safeDeployment);
       const previous = deployments.get(safeDeployment.deploymentId);
-      if (shallowDeploymentEqual(previous, merged)) {
+      const merged = mergeDeployment(previous, safeDeployment);
+      if (previous && shallowDeploymentEqual(previous, merged)) {
         return state;
       }
+      merged.updatedAt =
+        previous && shallowDeploymentEqual(previous, merged)
+          ? previous.updatedAt
+          : safeDeployment.updatedAt || Date.now();
 
       deployments.set(safeDeployment.deploymentId, merged);
       return { ...state, deployments };
+    });
+  },
+
+  replaceDeploymentInventory: (inventory) => {
+    set((state) => {
+      const nextDeployments = new Map<string, RuntimeDeployment>();
+      const now = Date.now();
+
+      inventory.forEach((payload) => {
+        const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+        const automataId = String(payload.automata_id ?? payload.automataId ?? '');
+        const deploymentId =
+          String(payload.deployment_id ?? payload.deploymentId ?? '') ||
+          (automataId && deviceId ? `${automataId}:${deviceId}` : '');
+
+        if (!deploymentId || !deviceId) {
+          return;
+        }
+
+        const existing = state.deployments.get(deploymentId);
+        nextDeployments.set(deploymentId, {
+          deploymentId,
+          deviceId: deviceId as RuntimeDeployment['deviceId'],
+          automataId: (automataId || existing?.automataId || 'unknown') as RuntimeDeployment['automataId'],
+          status: mapStatus(payload.status),
+          currentState: String(payload.current_state ?? payload.currentState ?? existing?.currentState ?? ''),
+          variables: cloneRecord(payload.variables) ?? existing?.variables,
+          updatedAt:
+            toFiniteNumber(payload.updated_at ?? payload.updatedAt ?? payload.timestamp) ?? now,
+        });
+      });
+
+      const previousEntries = Array.from(state.deployments.entries());
+      const nextEntries = Array.from(nextDeployments.entries());
+
+      const sameEntries =
+        previousEntries.length === nextEntries.length &&
+        previousEntries.every(([deploymentId, deployment], index) => {
+          const [nextDeploymentId, nextDeployment] = nextEntries[index] ?? [];
+          return (
+            deploymentId === nextDeploymentId &&
+            shallowDeploymentEqual(deployment, nextDeployment as RuntimeDeployment)
+          );
+        });
+
+      if (sameEntries) {
+        return state;
+      }
+
+      const selectedDeploymentIds = state.selectedDeploymentIds.filter((deploymentId) =>
+        nextDeployments.has(deploymentId),
+      );
+
+      return {
+        ...state,
+        deployments: nextDeployments,
+        selectedDeploymentIds,
+      };
     });
   },
 
@@ -299,6 +361,8 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
 
       const deployments = new Map(state.deployments);
       const existing = deployments.get(deploymentId);
+      const proposedUpdatedAt =
+        toFiniteNumber(payload.updated_at ?? payload.updatedAt ?? payload.timestamp) ?? Date.now();
       const next: RuntimeDeployment = {
         deploymentId,
         deviceId: deviceId as RuntimeDeployment['deviceId'],
@@ -306,7 +370,7 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
         status: mapStatus(payload.status),
         currentState: String(payload.current_state ?? payload.currentState ?? existing?.currentState ?? ''),
         variables: cloneRecord(payload.variables) ?? existing?.variables,
-        updatedAt: Date.now(),
+        updatedAt: proposedUpdatedAt,
       };
 
       if (shallowDeploymentEqual(existing, next)) {

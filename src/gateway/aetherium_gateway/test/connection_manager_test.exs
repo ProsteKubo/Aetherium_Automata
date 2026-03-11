@@ -208,6 +208,80 @@ defmodule AetheriumGateway.ConnectionManagerTest do
 
       ConnectionManager.delete_connection(conn.id)
     end
+
+    test "propagates same-name topics without explicit connections", %{prefix: prefix, auto_a: auto_a} do
+      target = "#{prefix}-topic-target"
+      :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
+      {:ok, _deployment} =
+        AutomataRegistry.deploy_automata(target, "#{prefix}-topic-device", "srv_test", dispatch: false)
+
+      :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-topic-device", :running)
+
+      on_exit(fn ->
+        :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-topic-device", :stopped)
+        AutomataRegistry.delete_automata(target)
+      end)
+
+      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
+
+      ConnectionManager.propagate_output(auto_a, "result", 42)
+
+      assert_receive %Phoenix.Socket.Broadcast{
+                       event: "set_input",
+                       payload: %{automata_id: ^target, input: "result", value: 42}
+                     },
+                     500
+    end
+
+    test "replays latest topic value for matching input names", %{prefix: prefix, auto_a: auto_a} do
+      target = "#{prefix}-topic-replay"
+      :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
+      {:ok, _deployment} =
+        AutomataRegistry.deploy_automata(target, "#{prefix}-replay-device", "srv_test", dispatch: false)
+
+      :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-replay-device", :running)
+
+      on_exit(fn ->
+        :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-replay-device", :stopped)
+        AutomataRegistry.delete_automata(target)
+      end)
+
+      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
+
+      ConnectionManager.propagate_output(auto_a, "result", 77)
+      assert_receive %Phoenix.Socket.Broadcast{
+                       event: "set_input",
+                       payload: %{automata_id: ^target, input: "result", value: 77}
+                     },
+                     500
+
+      ConnectionManager.replay_for_automata(target)
+
+      assert_receive %Phoenix.Socket.Broadcast{
+                       event: "set_input",
+                       payload: %{automata_id: ^target, input: "result", value: 77}
+                     },
+                     500
+    end
+
+    test "does not propagate same-name topics to undeployed automata", %{prefix: prefix, auto_a: auto_a} do
+      target = "#{prefix}-topic-idle"
+      :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
+
+      on_exit(fn ->
+        AutomataRegistry.delete_automata(target)
+      end)
+
+      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
+
+      ConnectionManager.propagate_output(auto_a, "result", 13)
+
+      refute_receive %Phoenix.Socket.Broadcast{
+                       event: "set_input",
+                       payload: %{automata_id: ^target}
+                     },
+                     200
+    end
   end
 
   # Helper to create automata with I/O variables
@@ -223,6 +297,22 @@ defmodule AetheriumGateway.ConnectionManagerTest do
       variables: [
         %{id: "v1", name: "input_val", type: "int", direction: :input, default: 0},
         %{id: "v2", name: "result", type: "int", direction: :output, default: 0}
+      ]
+    }
+  end
+
+  defp topic_automata(id, input_name) do
+    %{
+      id: id,
+      name: "Topic Automata #{id}",
+      version: "1.0.0",
+      states: %{
+        "s1" => %{id: "s1", name: "Initial", type: :initial}
+      },
+      transitions: %{},
+      variables: [
+        %{id: "v1", name: input_name, type: "int", direction: :input, default: 0},
+        %{id: "v2", name: "status", type: "bool", direction: :output, default: false}
       ]
     }
   end

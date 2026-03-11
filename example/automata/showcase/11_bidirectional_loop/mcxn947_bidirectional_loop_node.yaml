@@ -1,0 +1,69 @@
+version: 0.0.1
+
+config:
+  name: MCXN947 Bidirectional Loop Node
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 peer node for the bidirectional loop demo. Exports button and touch input while mirroring host-driven LED commands locally.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - ide
+    - touch
+    - gpio
+    - bidirectional
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: remote_red
+    type: bool
+    direction: input
+    default: false
+  - name: remote_green
+    type: bool
+    direction: input
+    default: false
+  - name: sw2_pressed
+    type: bool
+    direction: output
+    default: false
+  - name: touch_pressed
+    type: bool
+    direction: output
+    default: false
+  - name: nxp_online
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Loop
+
+  states:
+    Loop:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(27, "output")
+          gpio.mode(23, "input_pullup")
+          component("touch_pad"):init()
+      code: |-
+        local sw2 = gpio.read(23) == 0
+        local touch = component("touch_pad"):pressed()
+
+        gpio.write(10, remote_red == true)
+        gpio.write(27, remote_green == true)
+
+        setOutput("sw2_pressed", sw2)
+        setOutput("touch_pressed", touch)
+        setOutput("nxp_online", true)
+
+  transitions:
+    stay_active:
+      from: Loop
+      to: Loop
+      type: classic
+      condition: false

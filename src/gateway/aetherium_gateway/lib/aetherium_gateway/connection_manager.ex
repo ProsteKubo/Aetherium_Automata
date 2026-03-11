@@ -44,6 +44,8 @@ defmodule AetheriumGateway.ConnectionManager do
           by_target: %{automata_id() => [connection_id()]},
           # Current propagated values
           values: %{{automata_id(), variable_name()} => any()},
+          # Latest topic values by global input/output name
+          topics: %{variable_name() => any()},
           # Event subscriptions
           event_routes: %{String.t() => [{automata_id(), String.t()}]}
         }
@@ -158,6 +160,7 @@ defmodule AetheriumGateway.ConnectionManager do
       by_source: %{},
       by_target: %{},
       values: %{},
+      topics: %{},
       event_routes: %{}
     }
 
@@ -328,7 +331,21 @@ defmodule AetheriumGateway.ConnectionManager do
       |> Enum.reject(&is_nil/1)
       |> Enum.filter(&(&1.source_output == output_name && &1.enabled))
 
-    # Propagate to each target
+    manual_targets =
+      connections
+      |> Enum.map(&{&1.target_automata, &1.target_input})
+      |> MapSet.new()
+
+    topic_targets =
+      output_name
+      |> topic_subscribers(source_automata)
+      |> Enum.reject(&MapSet.member?(manual_targets, {&1, output_name}))
+
+    Enum.each(topic_targets, fn automata_id ->
+      notify_input_change(automata_id, output_name, value)
+    end)
+
+    # Propagate explicit transformed connections
     {new_connections, new_values} =
       Enum.reduce(connections, {state.connections, state.values}, fn conn,
                                                                      {conn_acc, value_acc} ->
@@ -367,6 +384,7 @@ defmodule AetheriumGateway.ConnectionManager do
       state
       |> Map.put(:connections, new_connections)
       |> Map.put(:values, Map.put(new_values, {source_automata, output_name}, value))
+      |> put_in([:topics, output_name], value)
 
     persist_state(new_state)
     {:noreply, new_state}
@@ -438,6 +456,15 @@ defmodule AetheriumGateway.ConnectionManager do
 
         _ ->
           :ok
+      end
+    end)
+
+    automata_id
+    |> input_topics_for_automata()
+    |> Enum.each(fn input_name ->
+      case Map.fetch(state.topics, input_name) do
+        {:ok, value} -> notify_input_change(automata_id, input_name, value)
+        :error -> :ok
       end
     end)
 
@@ -596,6 +623,67 @@ defmodule AetheriumGateway.ConnectionManager do
     end)
   end
 
+  defp topic_subscribers(topic_name, source_automata) do
+    active_automata_ids()
+    |> Enum.reject(&(&1 == source_automata))
+    |> Enum.filter(fn automata_id ->
+      case AutomataRegistry.get_automata(automata_id) do
+        {:ok, automata} -> automata_has_input?(automata, topic_name)
+        _ -> false
+      end
+    end)
+    |> Enum.uniq()
+  end
+
+  defp active_automata_ids do
+    AutomataRegistry.list_deployments()
+    |> Enum.filter(&active_deployment?/1)
+    |> Enum.map(&(Map.get(&1, :automata_id) || Map.get(&1, "automata_id")))
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&to_string/1)
+    |> Enum.uniq()
+  end
+
+  defp active_deployment?(deployment) when is_map(deployment) do
+    status = Map.get(deployment, :status) || Map.get(deployment, "status")
+    status in [:loading, :running, :paused, "loading", "running", "paused"]
+  end
+
+  defp active_deployment?(_), do: false
+
+  defp input_topics_for_automata(automata_id) do
+    case AutomataRegistry.get_automata(automata_id) do
+      {:ok, automata} ->
+        automata
+        |> extract_inputs()
+        |> Enum.uniq()
+
+      _ ->
+        []
+    end
+  end
+
+  defp automata_has_input?(automata, topic_name) do
+    topic_name in extract_inputs(automata)
+  end
+
+  defp extract_inputs(automata) do
+    variables = automata[:variables] || automata["variables"] || []
+    explicit_inputs = automata[:inputs] || automata["inputs"] || []
+
+    variable_inputs =
+      variables
+      |> Enum.filter(fn var ->
+        direction = var[:direction] || var["direction"]
+        direction in [:input, "input"]
+      end)
+      |> Enum.map(fn var -> var[:name] || var["name"] end)
+
+    (explicit_inputs ++ variable_inputs)
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&to_string/1)
+  end
+
   defp add_to_index(state, index_key, automata_id, connection_id) do
     update_in(state, [index_key, automata_id], fn
       nil -> [connection_id]
@@ -691,8 +779,9 @@ defmodule AetheriumGateway.ConnectionManager do
     state
     |> Map.put(:by_source, %{})
     |> Map.put(:by_target, %{})
-    |> Map.put_new(:values, %{})
-    |> Map.put_new(:event_routes, %{})
+    |> Map.put(:values, %{})
+    |> Map.put(:topics, %{})
+    |> Map.put(:event_routes, %{})
     |> rebuild_indexes()
     |> normalize_connection_runtime()
   end
@@ -720,7 +809,7 @@ defmodule AetheriumGateway.ConnectionManager do
   defp persist_state(state) do
     Persistence.save_state(
       "connection_manager_state",
-      Map.take(state, [:connections, :values, :event_routes])
+      Map.take(state, [:connections, :values, :topics, :event_routes])
     )
   end
 end

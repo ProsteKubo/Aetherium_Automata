@@ -140,6 +140,45 @@ defmodule AetheriumGateway.AutomataRegistryTest do
       # Cleanup
       AutomataRegistry.delete_automata(auto_id)
     end
+
+    test "reconciles live server inventory and clears stale deployments", %{prefix: prefix} do
+      auto_a = "#{prefix}-auto-a"
+      auto_b = "#{prefix}-auto-b"
+      device_a = "#{prefix}-device-a"
+      device_b = "#{prefix}-device-b"
+      server_id = "#{prefix}-server"
+
+      :ok = AutomataRegistry.register_automata(sample_automata(auto_a))
+      :ok = AutomataRegistry.register_automata(sample_automata(auto_b))
+      {:ok, _} = AutomataRegistry.deploy_automata(auto_a, device_a, server_id)
+      {:ok, _} = AutomataRegistry.deploy_automata(auto_b, device_b, server_id)
+      :ok = AutomataRegistry.update_deployment_status(auto_a, device_a, :running)
+      :ok = AutomataRegistry.update_deployment_status(auto_b, device_b, :running)
+      Process.sleep(20)
+
+      deployments =
+        AutomataRegistry.reconcile_server_deployments(server_id, [
+          %{
+            "automata_id" => auto_a,
+            "device_id" => device_a,
+            "status" => "running",
+            "current_state" => "s2",
+            "variables" => %{"result" => 42}
+          }
+        ])
+
+      dep_a = Enum.find(deployments, &(&1.automata_id == auto_a and &1.device_id == device_a))
+      dep_b = Enum.find(deployments, &(&1.automata_id == auto_b and &1.device_id == device_b))
+
+      assert dep_a.status == :running
+      assert dep_a.current_state == "s2"
+      assert dep_a.variables["result"] == 42
+      assert dep_b.status == :stopped
+      assert dep_b.current_state == nil
+
+      AutomataRegistry.delete_automata(auto_a)
+      AutomataRegistry.delete_automata(auto_b)
+    end
   end
 
   describe "transition tracking" do

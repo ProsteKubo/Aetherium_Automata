@@ -393,9 +393,16 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
         socket
       ) do
     with_command("set_variable", payload, socket, fn envelope ->
-      case AutomataRegistry.get_device_deployment(device_id) do
+      case resolve_device_deployment(device_id, payload) do
         {:ok, deployment} ->
-          command_payload = %{"device_id" => device_id, "input" => name, "value" => value}
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id,
+            "input" => name,
+            "value" => value
+          }
+
           dispatch_server_command(deployment.server_id, "set_input", command_payload, envelope)
 
         {:error, :not_found} ->
@@ -405,8 +412,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
-  def handle_in("get_variables", %{"device_id" => device_id}, socket) do
-    case AutomataRegistry.get_device_deployment(device_id) do
+  def handle_in("get_variables", %{"device_id" => device_id} = payload, socket) do
+    case resolve_device_deployment(device_id, payload) do
       {:ok, deployment} ->
         {:reply, {:ok, %{variables: deployment.variables}}, socket}
 
@@ -435,10 +442,12 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   @impl true
   def handle_in("trigger_event", %{"device_id" => device_id, "event" => event} = payload, socket) do
     with_command("trigger_event", payload, socket, fn envelope ->
-      case AutomataRegistry.get_device_deployment(device_id) do
+      case resolve_device_deployment(device_id, payload) do
         {:ok, deployment} ->
           command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
             "device_id" => device_id,
+            "automata_id" => deployment.automata_id,
             "event" => event,
             "data" => payload["data"]
           }
@@ -463,9 +472,15 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
         socket
       ) do
     with_command("force_transition", payload, socket, fn envelope ->
-      case AutomataRegistry.get_device_deployment(device_id) do
+      case resolve_device_deployment(device_id, payload) do
         {:ok, deployment} ->
-          command_payload = %{"device_id" => device_id, "state_id" => to_state}
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id,
+            "state_id" => to_state
+          }
+
           dispatch_server_command(deployment.server_id, "force_state", command_payload, envelope)
 
         {:error, :not_found} ->
@@ -479,7 +494,9 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
     automata = AutomataRegistry.list_automata()
     push(socket, "automata_list", %{automata: Enum.map(automata, &serialize_automata/1)})
 
-    deployments = AutomataRegistry.list_deployments()
+    deployments =
+      AutomataRegistry.list_deployments()
+      |> Enum.filter(&live_deployment?/1)
 
     push(socket, "deployment_list", %{deployments: Enum.map(deployments, &serialize_deployment/1)})
 
@@ -633,6 +650,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       name: payload["name"],
       description: payload["description"],
       version: payload["version"] || "1.0.0",
+      initial_state:
+        payload["initial_state"] || payload["initialState"] || get_in(payload, ["automata", "initial_state"]),
       states: normalize_states(payload["states"] || %{}),
       transitions: normalize_transitions(payload["transitions"] || %{}),
       variables: normalize_variables(payload["variables"] || []),
@@ -703,14 +722,17 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp to_gateway_automata(payload, automata_id) when is_map(payload) do
     cfg = payload["config"] || %{}
+    nested = payload["automata"] || %{}
 
     %{
       "id" => payload["id"] || automata_id,
       "name" => payload["name"] || cfg["name"] || automata_id,
       "description" => payload["description"] || cfg["description"],
       "version" => payload["version"] || cfg["version"] || "1.0.0",
-      "states" => payload["states"] || %{},
-      "transitions" => payload["transitions"] || %{},
+      "initial_state" =>
+        payload["initial_state"] || payload["initialState"] || nested["initial_state"],
+      "states" => payload["states"] || nested["states"] || %{},
+      "transitions" => payload["transitions"] || nested["transitions"] || %{},
       "variables" => payload["variables"] || [],
       "inputs" => payload["inputs"] || [],
       "outputs" => payload["outputs"] || []
@@ -720,14 +742,26 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   defp normalize_states(states) when is_map(states) do
     states
     |> Enum.map(fn {id, state} ->
+      hooks = field(state, :hooks, %{})
+
       {id,
        %{
          id: id,
-         name: state["name"] || id,
-         type: parse_state_type(state["type"]),
-         on_enter: state["on_enter"],
-         on_exit: state["on_exit"],
-         on_tick: state["on_tick"]
+         name: field(state, :name, id),
+         type: parse_state_type(field(state, :type)),
+         on_enter:
+           field(state, :on_enter) ||
+             field(hooks, :on_enter) ||
+             field(hooks, :onEnter),
+         on_exit:
+           field(state, :on_exit) ||
+             field(hooks, :on_exit) ||
+             field(hooks, :onExit),
+         on_tick:
+           field(state, :on_tick) ||
+             field(hooks, :on_tick) ||
+             field(hooks, :onTick),
+         code: field(state, :code)
        }}
     end)
     |> Enum.into(%{})
@@ -958,6 +992,13 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       error: field(deployment, :error)
     }
   end
+
+  defp live_deployment?(deployment) when is_map(deployment) do
+    status = field(deployment, :status)
+    status in [:pending, :deploying, :running, :paused, "pending", "deploying", "running", "paused"]
+  end
+
+  defp live_deployment?(_), do: false
 
   defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do
     Map.get(data, key, Map.get(data, Atom.to_string(key), default))

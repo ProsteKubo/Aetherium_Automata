@@ -20,6 +20,7 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
 - `08_esp32/` ESP32 demos for serial + IDE imports, including rich Lua hardware showcases
 - `09_mcxn947/` FRDM-MCXN947 hardware demos for serial validation and IDE-first board features
 - `10_guarded_cell/` multi-board guarded actuation chain combining MCXN947, host automata, and ESP32 actuators
+- `11_bidirectional_loop/` cross-device demo where ESP sensing and MCXN947 interaction feed a host chain that drives both boards back in return
 
 ## Scenarios
 
@@ -75,6 +76,14 @@ This catalog is a curated set of runnable automata scenarios for demos, QA runs,
    - ESP32 actuator node that mirrors `actuate_cmd` onto the visible board LED via the built-in `board_led` component.
 26. `10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml`
    - ESP32 alarm node that mirrors `supervisor_alarm` onto the visible board LED via the built-in `board_led` component.
+27. `11_bidirectional_loop/esp32_bidirectional_loop_node.yaml`
+   - ESP32 node that samples a potentiometer and drives a local LED from host-issued PWM duty.
+28. `11_bidirectional_loop/mcxn947_bidirectional_loop_node.yaml`
+   - FRDM node that exports `SW2` and touch-pad signals while mirroring host-issued red/green LED commands.
+29. `11_bidirectional_loop/bidirectional_signal_conditioner.yaml`
+   - Host-side conditioner that turns raw ESP and FRDM inputs into a compact contract for the controller stage.
+30. `11_bidirectional_loop/bidirectional_demo_controller.yaml`
+   - Host-side controller that sends commands back to both boards, completing the bidirectional loop through the computer.
 
 ## Usage
 

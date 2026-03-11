@@ -17,6 +17,7 @@ defmodule AetheriumServer.Application do
       AetheriumServer.TimeSeriesInfluxSink,
       AetheriumServer.TimeSeriesStore,
       AetheriumServer.DeviceManager,
+      AetheriumServer.HostRuntimeDevice,
       AetheriumServer.GatewayConnection,
       AetheriumServer.DeviceConnectorSupervisor
     ]
