@@ -43,7 +43,8 @@ defmodule AetheriumServer.DeviceManager do
           connector_id: String.t() | nil,
           connector_type: atom() | nil,
           transport: String.t() | nil,
-          link: String.t() | nil
+          link: String.t() | nil,
+          deployment_metadata: map()
         }
 
   @type deployment :: %{
@@ -62,7 +63,8 @@ defmodule AetheriumServer.DeviceManager do
           artifact_version_id: String.t() | nil,
           snapshot_id: String.t() | nil,
           migration_plan_ref: String.t() | nil,
-          patch_mode: String.t() | nil
+          patch_mode: String.t() | nil,
+          deployment_metadata: map()
         }
 
   @type state :: %{
@@ -71,6 +73,7 @@ defmodule AetheriumServer.DeviceManager do
           automata_cache: %{automata_id() => map()},
           device_by_transport: %{pid() => device_id()},
           pending_chunk_deploys: %{String.t() => map()},
+          pending_state_requests: %{String.t() => %{callers: [term()], timer_ref: reference()}},
           delivered_topic_versions: %{{String.t(), String.t()} => non_neg_integer()},
           heartbeat_timeout: integer()
         }
@@ -79,6 +82,7 @@ defmodule AetheriumServer.DeviceManager do
   @default_chunk_ack_timeout_ms 2_000
   @default_chunk_ack_retries 3
   @default_final_load_ack_timeout_ms 5_000
+  @default_request_state_timeout_ms 750
 
   # ============================================================================
   # Public API
@@ -214,6 +218,12 @@ defmodule AetheriumServer.DeviceManager do
     GenServer.call(__MODULE__, {:request_state, deployment_id})
   end
 
+  @doc "Describe the black-box interface for a deployment"
+  @spec describe_black_box(String.t()) :: {:ok, map()} | {:error, term()}
+  def describe_black_box(deployment_id) do
+    GenServer.call(__MODULE__, {:describe_black_box, deployment_id})
+  end
+
   @doc "List deployment timeline events/snapshots from the time-series store"
   @spec list_time_series(String.t(), keyword()) :: map()
   def list_time_series(deployment_id, opts \\ []) do
@@ -240,6 +250,7 @@ defmodule AetheriumServer.DeviceManager do
       automata_cache: %{},
       device_by_transport: %{},
       pending_chunk_deploys: %{},
+      pending_state_requests: %{},
       delivered_topic_versions: %{},
       heartbeat_timeout: heartbeat_timeout
     }
@@ -284,6 +295,13 @@ defmodule AetheriumServer.DeviceManager do
           hello_payload[:transport] || session_ref.metadata[:transport] || existing.transport
         )
         |> Map.put(:link, hello_payload[:link] || session_ref.metadata[:link] || existing.link)
+        |> Map.put(
+          :deployment_metadata,
+          merge_deployment_metadata(
+            existing[:deployment_metadata] || %{},
+            hello_payload[:deployment_metadata] || %{}
+          )
+        )
 
       # Idempotent refresh: same connector/session, do not tear down existing attachment.
       AetheriumServer.ConnectorRegistry.attach_device(session_ref, device_id)
@@ -327,7 +345,8 @@ defmodule AetheriumServer.DeviceManager do
         connector_id: hello_payload[:connector_id] || session_ref.connector_id,
         connector_type: hello_payload[:connector_type] || session_ref.connector_type,
         transport: hello_payload[:transport] || session_ref.metadata[:transport] || "unknown",
-        link: hello_payload[:link] || session_ref.metadata[:link]
+        link: hello_payload[:link] || session_ref.metadata[:link],
+        deployment_metadata: hello_payload[:deployment_metadata] || %{}
       }
 
       # Monitor the transport process
@@ -708,11 +727,23 @@ defmodule AetheriumServer.DeviceManager do
         {:reply, {:error, :deployment_not_found}, state}
 
       deployment ->
-        Logger.warning(
-          "trigger_event unsupported for device #{deployment.device_id}: #{event_name} #{inspect(data)}"
-        )
+        with :ok <- validate_black_box_event(deployment, state, event_name) do
+          cond do
+            runtime_registered?(deployment_id) ->
+              :ok = AetheriumServer.AutomataRuntime.trigger_event(deployment_id, event_name, data)
+              {:reply, :ok, state}
 
-        {:reply, {:error, :unsupported_command}, state}
+            true ->
+              Logger.warning(
+                "trigger_event unsupported for device #{deployment.device_id}: #{event_name} #{inspect(data)}"
+              )
+
+              {:reply, {:error, :unsupported_command}, state}
+          end
+        else
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
     end
   end
 
@@ -722,54 +753,62 @@ defmodule AetheriumServer.DeviceManager do
       nil ->
         {:reply, {:error, :deployment_not_found}, state}
 
-      _deployment ->
-        if runtime_registered?(deployment_id) do
-          {:reply, AetheriumServer.AutomataRuntime.force_state(deployment_id, state_id), state}
-        else
-          Logger.warning(
-            "force_state unsupported for deployment #{deployment_id}: runtime unavailable"
-          )
+      deployment ->
+        with :ok <- validate_black_box_state(deployment, state, state_id) do
+          if runtime_registered?(deployment_id) do
+            {:reply, AetheriumServer.AutomataRuntime.force_state(deployment_id, state_id), state}
+          else
+            Logger.warning(
+              "force_state unsupported for deployment #{deployment_id}: runtime unavailable"
+            )
 
-          {:reply, {:error, :unsupported_command}, state}
+            {:reply, {:error, :unsupported_command}, state}
+          end
+        else
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
         end
     end
   end
 
   @impl true
-  def handle_call({:request_state, deployment_id}, _from, state) do
+  def handle_call({:request_state, deployment_id}, from, state) do
     case Map.get(state.deployments, deployment_id) do
       nil ->
         {:reply, {:error, :deployment_not_found}, state}
 
       deployment ->
-        if deployment.status in [:running, :paused] do
-          case resolve_device_transport(state, deployment.device_id) do
-            {:ok, protocol_id, session_ref} ->
-              send_message(session_ref, :status, %{
-                target_id: protocol_id,
-                run_id: deployment.run_id
-              })
+        if runtime_registered?(deployment_id) do
+          reply =
+            case AetheriumServer.AutomataRuntime.get_state(deployment_id) do
+              {:ok, runtime_state} ->
+                {:ok, enrich_black_box_snapshot(runtime_state, deployment, state)}
 
-            _ ->
-              :ok
+              error ->
+                error
+            end
+
+          {:reply, reply, state}
+        else
+          case maybe_request_live_state(state, deployment, from) do
+            {:pending, next_state} ->
+              {:noreply, next_state}
+
+            {:reply, reply, next_state} ->
+              {:reply, reply, next_state}
           end
         end
+    end
+  end
 
-        if runtime_registered?(deployment_id) do
-          {:reply, AetheriumServer.AutomataRuntime.get_state(deployment_id), state}
-        else
-          snapshot = %{
-            deployment_id: deployment.id,
-            automata_id: deployment.automata_id,
-            device_id: deployment.device_id,
-            running: deployment.status == :running,
-            current_state: deployment.current_state,
-            variables: deployment.variables,
-            source: "device_manager_snapshot"
-          }
+  @impl true
+  def handle_call({:describe_black_box, deployment_id}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
 
-          {:reply, {:ok, snapshot}, state}
-        end
+      deployment ->
+        {:reply, {:ok, black_box_description(deployment, state)}, state}
     end
   end
 
@@ -902,7 +941,8 @@ defmodule AetheriumServer.DeviceManager do
           artifact_version_id: nil,
           snapshot_id: nil,
           migration_plan_ref: nil,
-          patch_mode: "replace_restart"
+          patch_mode: "replace_restart",
+          deployment_metadata: %{}
         }
 
         new_state =
@@ -1018,7 +1058,8 @@ defmodule AetheriumServer.DeviceManager do
       artifact_version_id: nil,
       snapshot_id: nil,
       migration_plan_ref: nil,
-      patch_mode: "replace_restart"
+      patch_mode: "replace_restart",
+      deployment_metadata: %{}
     }
 
     with :ok <- start_runtime_process(deployment_id, automata) do
@@ -1368,6 +1409,27 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @impl true
+  def handle_info({:request_state_timeout, deployment_id}, state) do
+    case Map.get(state.pending_state_requests, deployment_id) do
+      nil ->
+        {:noreply, state}
+
+      %{callers: callers} ->
+        reply =
+          case Map.get(state.deployments, deployment_id) do
+            nil ->
+              {:error, :deployment_not_found}
+
+            deployment ->
+              {:ok, snapshot_for_deployment(deployment, state)}
+          end
+
+        Enum.each(callers, &GenServer.reply(&1, reply))
+        {:noreply, clear_pending_state_request(state, deployment_id)}
+    end
+  end
+
+  @impl true
   def handle_info({:DOWN, _ref, :process, pid, _reason}, state) do
     case Map.get(state.device_by_transport, pid) do
       nil ->
@@ -1441,14 +1503,35 @@ defmodule AetheriumServer.DeviceManager do
   defp handle_message(device_id, :telemetry, payload, state) do
     device = Map.get(state.devices, device_id)
     deployment = find_active_deployment(device_id, payload, state)
+    deployment_metadata = build_deployment_metadata(device, deployment, payload)
+    telemetry_variables = telemetry_variables_map(payload)
+
+    state =
+      case deployment do
+        %{id: deployment_id} ->
+          state
+          |> maybe_put_device_metadata(device_id, deployment_metadata)
+          |> maybe_merge_deployment_snapshot(
+            deployment_id,
+            telemetry_variables,
+            deployment_metadata
+          )
+
+        _ ->
+          state
+      end
 
     if device do
+      deployment = deployment && Map.get(state.deployments, deployment.id, deployment)
       persist_device_metrics(device, deployment, payload)
 
       push_to_gateway("device_alert", %{
         "device_id" => device_id,
+        "deployment_id" => deployment && deployment.id,
+        "automata_id" => deployment && deployment.automata_id,
         "type" => "metrics",
         "telemetry" => payload,
+        "deployment_metadata" => deployment_metadata,
         "timestamp" => System.system_time(:millisecond)
       })
     end
@@ -1458,6 +1541,7 @@ defmodule AetheriumServer.DeviceManager do
 
   defp handle_message(device_id, :status, payload, state) do
     deployment = find_active_deployment(device_id, payload, state)
+    device = Map.get(state.devices, device_id)
 
     if deployment do
       status =
@@ -1477,10 +1561,15 @@ defmodule AetheriumServer.DeviceManager do
           deployment.current_state
         end
 
+      variables = named_snapshot_map(payload)
+      deployment_metadata = build_deployment_metadata(device, deployment, payload)
+
       new_state =
         state
         |> put_in([:deployments, deployment.id, :status], status)
         |> put_in([:deployments, deployment.id, :current_state], current_state)
+        |> maybe_put_device_metadata(device_id, deployment_metadata)
+        |> maybe_merge_deployment_snapshot(deployment.id, variables, deployment_metadata)
 
       push_to_gateway("deployment_status", %{
         "deployment_id" => deployment.id,
@@ -1488,9 +1577,12 @@ defmodule AetheriumServer.DeviceManager do
         "device_id" => device_id,
         "status" => Atom.to_string(status),
         "current_state" => current_state,
-        "variables" => get_in(new_state, [:deployments, deployment.id, :variables]) || %{}
+        "variables" => get_in(new_state, [:deployments, deployment.id, :variables]) || %{},
+        "deployment_metadata" =>
+          get_in(new_state, [:deployments, deployment.id, :deployment_metadata]) || %{}
       })
 
+      new_state = maybe_reply_pending_state_request(new_state, deployment.id)
       snapshot_deployment(new_state, deployment.id, "device_status")
       new_state
     else
@@ -1763,6 +1855,154 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   defp local_runtime_device?(_), do: false
+
+  defp maybe_request_live_state(state, deployment, from)
+       when is_map(state) and is_map(deployment) do
+    cond do
+      deployment.status not in [:running, :paused] ->
+        {:reply, {:ok, snapshot_for_deployment(deployment, state)}, state}
+
+      true ->
+        case resolve_device_transport(state, deployment.device_id) do
+          {:ok, protocol_id, session_ref} ->
+            case send_message(session_ref, :status, %{
+                   target_id: protocol_id,
+                   run_id: deployment.run_id
+                 }) do
+              {:ok, _message_id} ->
+                timer_ref =
+                  case Map.get(state.pending_state_requests, deployment.id) do
+                    nil ->
+                      Process.send_after(
+                        self(),
+                        {:request_state_timeout, deployment.id},
+                        @default_request_state_timeout_ms
+                      )
+
+                    %{timer_ref: existing_timer_ref} ->
+                      existing_timer_ref
+                  end
+
+                pending =
+                  state.pending_state_requests
+                  |> Map.get(deployment.id, %{callers: [], timer_ref: timer_ref})
+                  |> Map.update!(:callers, &[from | &1])
+                  |> Map.put(:timer_ref, timer_ref)
+
+                {:pending, put_in(state, [:pending_state_requests, deployment.id], pending)}
+
+              {:error, _reason} ->
+                {:reply, {:ok, snapshot_for_deployment(deployment, state)}, state}
+            end
+
+          _ ->
+            {:reply, {:ok, snapshot_for_deployment(deployment, state)}, state}
+        end
+    end
+  end
+
+  defp snapshot_for_deployment(deployment, state) when is_map(deployment) and is_map(state) do
+    %{
+      deployment_id: deployment.id,
+      automata_id: deployment.automata_id,
+      device_id: deployment.device_id,
+      running: deployment.status == :running,
+      current_state: deployment.current_state,
+      variables: deployment.variables,
+      source: "device_manager_snapshot"
+    }
+    |> enrich_black_box_snapshot(deployment, state)
+  end
+
+  defp maybe_reply_pending_state_request(state, deployment_id)
+       when is_map(state) and is_binary(deployment_id) do
+    case Map.get(state.pending_state_requests, deployment_id) do
+      nil ->
+        state
+
+      %{callers: callers, timer_ref: timer_ref} ->
+        if is_reference(timer_ref), do: Process.cancel_timer(timer_ref)
+
+        case Map.get(state.deployments, deployment_id) do
+          nil ->
+            Enum.each(callers, &GenServer.reply(&1, {:error, :deployment_not_found}))
+
+          deployment ->
+            snapshot = snapshot_for_deployment(deployment, state)
+            Enum.each(callers, &GenServer.reply(&1, {:ok, snapshot}))
+        end
+
+        clear_pending_state_request(state, deployment_id)
+    end
+  end
+
+  defp clear_pending_state_request(state, deployment_id)
+       when is_map(state) and is_binary(deployment_id) do
+    update_in(state, [:pending_state_requests], &Map.delete(&1, deployment_id))
+  end
+
+  defp maybe_merge_deployment_snapshot(state, deployment_id, variables, deployment_metadata)
+       when is_map(state) and is_binary(deployment_id) do
+    state =
+      if is_map(variables) and map_size(variables) > 0 do
+        put_in(state, [:deployments, deployment_id, :variables], variables)
+      else
+        state
+      end
+
+    if is_map(deployment_metadata) and map_size(deployment_metadata) > 0 do
+      deployment = get_in(state, [:deployments, deployment_id]) || %{}
+
+      merged_metadata =
+        merge_deployment_metadata(deployment[:deployment_metadata] || %{}, deployment_metadata)
+
+      put_in(state, [:deployments, deployment_id, :deployment_metadata], merged_metadata)
+    else
+      state
+    end
+  end
+
+  defp maybe_put_device_metadata(state, device_id, deployment_metadata)
+       when is_map(state) and is_binary(device_id) and is_map(deployment_metadata) do
+    if map_size(deployment_metadata) > 0 and get_in(state, [:devices, device_id]) do
+      device = get_in(state, [:devices, device_id])
+      merged = merge_deployment_metadata(device[:deployment_metadata] || %{}, deployment_metadata)
+      put_in(state, [:devices, device_id, :deployment_metadata], merged)
+    else
+      state
+    end
+  end
+
+  defp maybe_put_device_metadata(state, _device_id, _deployment_metadata), do: state
+
+  defp named_snapshot_map(payload) when is_map(payload) do
+    case payload[:variables] || payload["variables"] do
+      variables when is_map(variables) -> variables
+      _ -> %{}
+    end
+  end
+
+  defp telemetry_variables_map(payload) when is_map(payload) do
+    case payload[:variables] || payload["variables"] do
+      variables when is_map(variables) ->
+        variables
+
+      variables when is_list(variables) ->
+        Enum.reduce(variables, %{}, fn
+          %{name: name, value: value}, acc when is_binary(name) ->
+            Map.put(acc, name, value)
+
+          %{"name" => name, "value" => value}, acc when is_binary(name) ->
+            Map.put(acc, name, value)
+
+          _, acc ->
+            acc
+        end)
+
+      _ ->
+        %{}
+    end
+  end
 
   defp retire_device_deployments(state, device_id, keep_deployment_id)
        when is_map(state) and is_binary(device_id) and is_binary(keep_deployment_id) do
@@ -2234,6 +2474,14 @@ defmodule AetheriumServer.DeviceManager do
         :ok
 
       deployment ->
+        device = Map.get(state.devices, deployment.device_id)
+
+        deployment_metadata =
+          merge_deployment_metadata(
+            deployment.deployment_metadata || %{},
+            build_deployment_metadata(device, deployment, %{})
+          )
+
         state_payload = %{
           "deployment_id" => deployment.id,
           "automata_id" => deployment.automata_id,
@@ -2241,7 +2489,8 @@ defmodule AetheriumServer.DeviceManager do
           "status" => Atom.to_string(deployment.status),
           "current_state" => deployment.current_state,
           "variables" => deployment.variables || %{},
-          "error" => deployment.error
+          "error" => deployment.error,
+          "deployment_metadata" => deployment_metadata
         }
 
         _ =
@@ -2309,6 +2558,9 @@ defmodule AetheriumServer.DeviceManager do
 
       device ->
         deployment = latest_device_deployment(device_id, state)
+        deployment_metadata = build_deployment_metadata(device, deployment, %{})
+        battery = deployment_metadata["battery"] || %{}
+        latency = deployment_metadata["latency"] || %{}
 
         TimeSeriesInfluxSink.append_device_status(%{
           "device_id" => device.id,
@@ -2325,6 +2577,12 @@ defmodule AetheriumServer.DeviceManager do
           "current_state" => deployment && deployment.current_state,
           "error" => deployment && deployment.error,
           "link" => device.link,
+          "placement" => deployment_metadata["placement"],
+          "battery_percent" => battery["percent"],
+          "battery_low" => battery["low"],
+          "latency_budget_ms" => latency["budget_ms"],
+          "latency_warning_ms" => latency["warning_ms"],
+          "observed_latency_ms" => latency["observed_ms"],
           "timestamp" => System.system_time(:millisecond)
         })
     end
@@ -2335,6 +2593,10 @@ defmodule AetheriumServer.DeviceManager do
     telemetry_timestamp =
       payload[:timestamp] || payload["timestamp"] || System.system_time(:millisecond)
 
+    deployment_metadata = build_deployment_metadata(device, deployment, payload)
+    battery = deployment_metadata["battery"] || %{}
+    latency = deployment_metadata["latency"] || %{}
+
     TimeSeriesInfluxSink.append_device_metrics(%{
       "device_id" => device.id,
       "deployment_id" => deployment && deployment.id,
@@ -2342,6 +2604,8 @@ defmodule AetheriumServer.DeviceManager do
       "server_id" => configured_server_id(),
       "connector_type" => normalize_dimension(device.connector_type),
       "transport" => normalize_dimension(device.transport),
+      "placement" => deployment_metadata["placement"],
+      "link" => device.link,
       "cpu_usage" => payload[:cpu_usage] || payload["cpu_usage"] || 0.0,
       "heap_free" => payload[:heap_free] || payload["heap_free"] || 0,
       "heap_total" => payload[:heap_total] || payload["heap_total"] || 0,
@@ -2352,8 +2616,261 @@ defmodule AetheriumServer.DeviceManager do
       "telemetry_timestamp_ms" => telemetry_timestamp,
       "received_at_ms" => System.system_time(:millisecond),
       "variable_count" => telemetry_variable_count(payload),
+      "battery_percent" => battery["percent"],
+      "battery_low" => battery["low"],
+      "battery_present" => battery["present"],
+      "battery_external_power" => battery["external_power"],
+      "latency_budget_ms" => latency["budget_ms"],
+      "latency_warning_ms" => latency["warning_ms"],
+      "observed_latency_ms" => latency["observed_ms"],
+      "ingress_latency_ms" => latency["ingress_ms"],
+      "egress_latency_ms" => latency["egress_ms"],
+      "send_timestamp_ms" => latency["send_timestamp"],
+      "receive_timestamp_ms" => latency["receive_timestamp"],
+      "handle_timestamp_ms" => latency["handle_timestamp"],
       "timestamp" => telemetry_timestamp
     })
+  end
+
+  defp build_deployment_metadata(device, deployment, payload)
+       when (is_map(device) or is_nil(device)) and (is_map(deployment) or is_nil(deployment)) and
+              is_map(payload) do
+    existing = if is_map(deployment), do: deployment.deployment_metadata || %{}, else: %{}
+    device_metadata = if is_map(device), do: device[:deployment_metadata] || %{}, else: %{}
+    payload_metadata = payload_value(payload, "deployment_metadata") || %{}
+
+    metadata =
+      compact_metadata(%{
+        "server" =>
+          compact_metadata(%{
+            "server_id" => configured_server_id()
+          }),
+        "placement" =>
+          payload_value(payload, "placement") ||
+            payload_metadata["placement"] ||
+            device_metadata["placement"] ||
+            existing["placement"] ||
+            infer_placement(device),
+        "transport" =>
+          compact_metadata(%{
+            "type" => device && normalize_dimension(device.transport),
+            "link" => device && device.link,
+            "connector_id" => device && device.connector_id,
+            "connector_type" => device && normalize_dimension(device.connector_type)
+          }),
+        "runtime" =>
+          compact_metadata(%{
+            "run_id" => deployment && deployment.run_id,
+            "target_profile" =>
+              (deployment && deployment.target_profile) ||
+                payload_value(payload, "target_profile"),
+            "patch_mode" => deployment && deployment.patch_mode,
+            "artifact_version_id" => deployment && deployment.artifact_version_id,
+            "snapshot_id" => deployment && deployment.snapshot_id,
+            "migration_plan_ref" => deployment && deployment.migration_plan_ref
+          }),
+        "battery" =>
+          compact_metadata(%{
+            "present" => payload_value(payload, "battery_present"),
+            "percent" => payload_value(payload, "battery_percent"),
+            "low" => payload_value(payload, "battery_low"),
+            "external_power" => payload_value(payload, "battery_external_power")
+          }),
+        "latency" =>
+          compact_metadata(%{
+            "budget_ms" => payload_value(payload, "latency_budget_ms"),
+            "warning_ms" => payload_value(payload, "latency_warning_ms"),
+            "observed_ms" => payload_value(payload, "observed_latency_ms"),
+            "ingress_ms" => payload_value(payload, "ingress_latency_ms"),
+            "egress_ms" => payload_value(payload, "egress_latency_ms"),
+            "send_timestamp" => payload_value(payload, "send_timestamp"),
+            "receive_timestamp" => payload_value(payload, "receive_timestamp"),
+            "handle_timestamp" => payload_value(payload, "handle_timestamp")
+          }),
+        "black_box" =>
+          payload_value(payload, "black_box") || payload_value(payload, "black_box_contract") ||
+            payload_value(payload, "contract"),
+        "trace" =>
+          compact_metadata(%{
+            "fault_profile" => payload_value(payload, "fault_profile"),
+            "trace_file" => payload_value(payload, "trace_file"),
+            "trace_event_count" => payload_value(payload, "trace_event_count")
+          })
+      })
+
+    existing
+    |> merge_deployment_metadata(device_metadata)
+    |> merge_deployment_metadata(payload_metadata)
+    |> merge_deployment_metadata(metadata)
+  end
+
+  defp build_deployment_metadata(_device, _deployment, _payload), do: %{}
+
+  defp enrich_black_box_snapshot(snapshot, deployment, state)
+       when is_map(snapshot) and is_map(deployment) and is_map(state) do
+    description = black_box_description(deployment, state)
+
+    snapshot
+    |> Map.put(:deployment_metadata, description["deployment_metadata"])
+    |> Map.put(:black_box, description["black_box"])
+    |> Map.put(:observable_state, description["observable_state"])
+  end
+
+  defp black_box_description(deployment, state) when is_map(deployment) and is_map(state) do
+    device = Map.get(state.devices, deployment.device_id)
+    automata = Map.get(state.automata_cache, deployment.automata_id, %{})
+    deployment_metadata = build_deployment_metadata(device, deployment, %{})
+    black_box = black_box_contract(automata, deployment_metadata)
+
+    %{
+      "deployment_id" => deployment.id,
+      "automata_id" => deployment.automata_id,
+      "device_id" => deployment.device_id,
+      "status" => Atom.to_string(deployment.status),
+      "observable_state" => deployment.current_state,
+      "deployment_metadata" => deployment_metadata,
+      "black_box" => black_box
+    }
+  end
+
+  defp black_box_contract(automata, deployment_metadata) when is_map(deployment_metadata) do
+    declared =
+      case automata[:black_box] || automata["black_box"] || deployment_metadata["black_box"] do
+        %{} = declared -> declared
+        _ -> %{}
+      end
+
+    if map_size(declared) > 0 do
+      declared
+    else
+      derive_black_box_contract(automata)
+    end
+  end
+
+  defp derive_black_box_contract(automata) when is_map(automata) do
+    variables = automata[:variables] || automata["variables"] || []
+    states = automata[:states] || automata["states"] || %{}
+    transitions = automata[:transitions] || automata["transitions"] || %{}
+
+    ports =
+      Enum.map(variables, fn variable ->
+        %{
+          "name" => variable[:name] || variable["name"],
+          "direction" => normalize_port_direction(variable[:direction] || variable["direction"]),
+          "type" => variable[:type] || variable["type"] || "unknown"
+        }
+      end)
+      |> Enum.reject(&is_nil(&1["name"]))
+
+    emitted_events =
+      transitions
+      |> Enum.map(fn {_id, transition} ->
+        event = transition[:event] || transition["event"] || %{}
+
+        cond do
+          is_binary(event[:name]) -> event[:name]
+          is_binary(event["name"]) -> event["name"]
+          is_binary(transition[:event]) -> transition[:event]
+          is_binary(transition["event"]) -> transition["event"]
+          true -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    %{
+      "ports" => ports,
+      "observable_states" => Map.keys(states),
+      "emitted_events" => emitted_events,
+      "resources" => []
+    }
+  end
+
+  defp derive_black_box_contract(_automata),
+    do: %{"ports" => [], "observable_states" => [], "emitted_events" => [], "resources" => []}
+
+  defp validate_black_box_event(deployment, state, event_name)
+       when is_map(deployment) and is_map(state) and is_binary(event_name) and event_name != "" do
+    emitted_events =
+      black_box_description(deployment, state)
+      |> get_in(["black_box", "emitted_events"])
+      |> List.wrap()
+
+    if event_name in emitted_events do
+      :ok
+    else
+      {:error, :invalid_black_box_event}
+    end
+  end
+
+  defp validate_black_box_event(_deployment, _state, _event_name),
+    do: {:error, :invalid_black_box_event}
+
+  defp validate_black_box_state(deployment, state, state_name)
+       when is_map(deployment) and is_map(state) and is_binary(state_name) and state_name != "" do
+    observable_states =
+      black_box_description(deployment, state)
+      |> get_in(["black_box", "observable_states"])
+      |> List.wrap()
+
+    if state_name in observable_states do
+      :ok
+    else
+      {:error, :invalid_black_box_state}
+    end
+  end
+
+  defp validate_black_box_state(_deployment, _state, _state_name),
+    do: {:error, :invalid_black_box_state}
+
+  defp normalize_port_direction(direction) when direction in [:input, :output, :internal],
+    do: Atom.to_string(direction)
+
+  defp normalize_port_direction(direction)
+       when direction in ["input", "output", "internal"],
+       do: direction
+
+  defp normalize_port_direction(_direction), do: "internal"
+
+  defp merge_deployment_metadata(existing, incoming) when is_map(existing) and is_map(incoming) do
+    Map.merge(existing, incoming, fn _key, left, right ->
+      if is_map(left) and is_map(right) do
+        Map.merge(left, right)
+      else
+        right
+      end
+    end)
+  end
+
+  defp merge_deployment_metadata(_existing, incoming) when is_map(incoming), do: incoming
+  defp merge_deployment_metadata(existing, _incoming) when is_map(existing), do: existing
+  defp merge_deployment_metadata(_existing, _incoming), do: %{}
+
+  defp compact_metadata(map) when is_map(map) do
+    map
+    |> Enum.reject(fn
+      {_key, nil} -> true
+      {_key, ""} -> true
+      {_key, value} when is_map(value) -> map_size(value) == 0
+      _ -> false
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp infer_placement(%{device_type: :desktop}), do: "host"
+  defp infer_placement(%{connector_type: nil, transport: nil}), do: "host"
+  defp infer_placement(%{transport: "local_runtime"}), do: "host"
+
+  defp infer_placement(%{connector_type: connector_type}) when not is_nil(connector_type),
+    do: "device"
+
+  defp infer_placement(%{}), do: "device"
+  defp infer_placement(_device), do: nil
+
+  defp payload_value(payload, key) when is_map(payload) and is_binary(key) do
+    Map.get(payload, String.to_existing_atom(key), Map.get(payload, key))
+  rescue
+    ArgumentError -> Map.get(payload, key)
   end
 
   defp latest_device_deployment(device_id, state) do
@@ -2560,6 +3077,11 @@ defmodule AetheriumServer.DeviceManager do
       "resume_execution",
       "reset_execution",
       "set_variable",
+      "black_box_describe",
+      "black_box_snapshot",
+      "black_box_set_input",
+      "black_box_trigger_event",
+      "black_box_force_state",
       "request_state",
       "time_travel_query",
       "rewind_deployment"

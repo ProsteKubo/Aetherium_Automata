@@ -36,11 +36,13 @@ services:
       - "8081:4000"
     volumes:
       - ./server/aetherium_server:/app
+      - ../example:/repo/example:cached
       - server1_deps:/app/deps
       - server1_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
+      - AETHERIUM_REPO_ROOT=/repo
       - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_01
@@ -57,11 +59,13 @@ services:
         ipv4_address: 172.20.0.22
     volumes:
       - ./server/aetherium_server:/app
+      - ../example:/repo/example:cached
       - server2_deps:/app/deps
       - server2_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
+      - AETHERIUM_REPO_ROOT=/repo
       - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_02
@@ -80,11 +84,13 @@ services:
       - "5501:5501"
     volumes:
       - ./server/aetherium_server:/app
+      - ../example:/repo/example:cached
       - server3_deps:/app/deps
       - server3_build:/app/_build
     environment:
       - MIX_ENV=dev
       - BIND_IP=0.0.0.0
+      - AETHERIUM_REPO_ROOT=/repo
       - GATEWAY_WS_URL=ws://172.20.0.10:4000/socket/websocket
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_03
@@ -154,6 +160,37 @@ services:
       - DEVICE_ID=device_cpp_01
     command: [
       "--verbose",
+      "--run", "-",
+      "--mode", "network",
+      "--server", "ws://172.20.0.23:4000/socket/device/websocket"
+    ]
+
+  blackbox1:
+    build:
+      context: ..
+      dockerfile: Dockerfile.cpp
+    container_name: cpp-blackbox-1
+    depends_on:
+      - server3
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.32
+    environment:
+      - DEVICE_ID=black_box_01
+    volumes:
+      - ./server/aetherium_server/var/docker_blackbox:/var/aetherium
+    command: [
+      "--verbose",
+      "--trace-file", "/var/aetherium/black_box_01.jsonl",
+      "--instance-id", "black_box_01",
+      "--placement", "docker_black_box",
+      "--transport", "websocket",
+      "--control-plane-instance", "svr_03",
+      "--battery-present",
+      "--battery-percent", "88",
+      "--battery-low-threshold-percent", "25",
+      "--latency-budget-ms", "35",
+      "--latency-warning-ms", "20",
       "--run", "-",
       "--mode", "network",
       "--server", "ws://172.20.0.23:4000/socket/device/websocket"

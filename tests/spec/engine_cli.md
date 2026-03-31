@@ -21,8 +21,24 @@ This spec defines the minimal CLI behavior targeted for the first milestone to s
   - Output (success): Short confirmation (e.g., `valid`), optional warnings.
   - Output (failure): A helpful error message describing the first error found (schema/semantic), with a non‑zero exit code.
 
+- `--run <path/to/automata.yaml> --trace-file <path>`
+  - Exit code: 0 when the engine run completes and the trace file is written.
+  - Output: Execution summary plus the trace file path.
+  - Trace file:
+    - JSONL
+    - Contains deployment metadata (`instance_id`, `placement`, `transport` via per-record fields)
+    - Contains black-box contract records and black-box port/state annotations when declared
+    - Carries simulated deployment health metadata such as battery level and latency budget
+    - Contains runtime and protocol-boundary events
+    - Contains fault annotations when a validation profile injects delay/drop/duplicate behavior
+
+- Deployment and validation flags
+  - `--instance-id`, `--placement`, `--transport`, `--control-plane-instance`
+  - `--fault-*` flags for local validation profiles
+  - `--battery-*` flags for deployment-energy simulation
+  - `--latency-*` flags for deployment latency budgets/warnings
+
 ## Notes
 
 - No execution occurs in `--validate` mode; only parsing/validation.
-- Future: add `run <yaml>` with `--transport` flags, but not required for this milestone.
-
+- Initial deployment/fault/battery/latency flags are local-engine metadata and simulation controls, not full board orchestration.

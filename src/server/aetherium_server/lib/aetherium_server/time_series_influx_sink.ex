@@ -232,7 +232,9 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
           {"automata_id", get_string(metrics, "automata_id")},
           {"server_id", get_string(metrics, "server_id")},
           {"connector_type", get_string(metrics, "connector_type")},
-          {"transport", get_string(metrics, "transport")}
+          {"transport", get_string(metrics, "transport")},
+          {"placement", get_string(metrics, "placement")},
+          {"link", get_string(metrics, "link")}
         ]
         |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
 
@@ -246,7 +248,19 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
         "message_id" => get_int(metrics, "message_id", 0),
         "telemetry_timestamp_ms" => get_int(metrics, "telemetry_timestamp_ms", 0),
         "received_at_ms" => get_int(metrics, "received_at_ms", 0),
-        "variable_count" => metrics |> fetch_by_key("variable_count", 0) |> integer_or_default(0)
+        "variable_count" => metrics |> fetch_by_key("variable_count", 0) |> integer_or_default(0),
+        "battery_percent" => get_float(metrics, "battery_percent", 0.0),
+        "battery_low" => get_bool(metrics, "battery_low", false),
+        "battery_present" => get_bool(metrics, "battery_present", false),
+        "battery_external_power" => get_bool(metrics, "battery_external_power", false),
+        "latency_budget_ms" => get_int(metrics, "latency_budget_ms", 0),
+        "latency_warning_ms" => get_int(metrics, "latency_warning_ms", 0),
+        "observed_latency_ms" => get_int(metrics, "observed_latency_ms", 0),
+        "ingress_latency_ms" => get_int(metrics, "ingress_latency_ms", 0),
+        "egress_latency_ms" => get_int(metrics, "egress_latency_ms", 0),
+        "send_timestamp_ms" => get_int(metrics, "send_timestamp_ms", 0),
+        "receive_timestamp_ms" => get_int(metrics, "receive_timestamp_ms", 0),
+        "handle_timestamp_ms" => get_int(metrics, "handle_timestamp_ms", 0)
       }
 
       measurement_line("aeth_device_metrics", tags, fields, timestamp_ns(metrics))
@@ -265,6 +279,7 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
           {"server_id", get_string(status, "server_id")},
           {"connector_type", get_string(status, "connector_type")},
           {"transport", get_string(status, "transport")},
+          {"placement", get_string(status, "placement")},
           {"status", get_string(status, "status", "unknown")}
         ]
         |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
@@ -280,7 +295,12 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
         "deployment_status_text" => empty_to_nil(get_string(status, "deployment_status")),
         "current_state" => empty_to_nil(get_string(status, "current_state")),
         "error" => empty_to_nil(get_string(status, "error")),
-        "link" => empty_to_nil(get_string(status, "link"))
+        "link" => empty_to_nil(get_string(status, "link")),
+        "battery_percent" => fetch_optional_float(status, "battery_percent"),
+        "battery_low" => fetch_optional_bool(status, "battery_low"),
+        "latency_budget_ms" => fetch_optional_int(status, "latency_budget_ms"),
+        "latency_warning_ms" => fetch_optional_int(status, "latency_warning_ms"),
+        "observed_latency_ms" => fetch_optional_int(status, "observed_latency_ms")
       }
 
       measurement_line("aeth_device_status", tags, fields, timestamp_ns(status))
@@ -340,6 +360,26 @@ defmodule AetheriumServer.TimeSeriesInfluxSink do
   defp get_bool(map, key, default) when is_map(map) do
     value = fetch_by_key(map, key, default)
     if is_boolean(value), do: value, else: default
+  end
+
+  defp fetch_optional_int(map, key) when is_map(map) do
+    value = fetch_by_key(map, key, nil)
+    if is_integer(value), do: value, else: nil
+  end
+
+  defp fetch_optional_float(map, key) when is_map(map) do
+    value = fetch_by_key(map, key, nil)
+
+    cond do
+      is_float(value) -> value
+      is_integer(value) -> value * 1.0
+      true -> nil
+    end
+  end
+
+  defp fetch_optional_bool(map, key) when is_map(map) do
+    value = fetch_by_key(map, key, nil)
+    if is_boolean(value), do: value, else: nil
   end
 
   defp fetch_by_key(map, key, default) when is_map(map) and is_binary(key) do

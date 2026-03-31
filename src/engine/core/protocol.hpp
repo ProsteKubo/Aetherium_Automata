@@ -158,6 +158,55 @@ struct Message {
     virtual std::vector<uint8_t> serialize() const = 0;
 };
 
+struct NamedValueSnapshotEntry {
+    std::string variableName;
+    Value value;
+};
+
+struct DeploymentMetadataExtension {
+    std::string placement;
+    std::string transport;
+    std::string controlPlaneInstance;
+    std::string targetClass;
+    bool batteryPresent = false;
+    bool batteryLow = false;
+    bool batteryExternalPower = true;
+    double batteryPercent = 0.0;
+    uint32_t latencyBudgetMs = 0;
+    uint32_t latencyWarningMs = 0;
+    uint32_t observedLatencyMs = 0;
+    uint32_t ingressLatencyMs = 0;
+    uint32_t egressLatencyMs = 0;
+    Timestamp sendTimestamp = 0;
+    Timestamp receiveTimestamp = 0;
+    Timestamp handleTimestamp = 0;
+    std::string traceFile;
+    std::string faultProfile;
+    uint32_t traceEventCount = 0;
+
+    [[nodiscard]] bool hasData() const {
+        return !placement.empty() ||
+               !transport.empty() ||
+               !controlPlaneInstance.empty() ||
+               !targetClass.empty() ||
+               batteryPresent ||
+               batteryLow ||
+               !batteryExternalPower ||
+               batteryPercent > 0.0 ||
+               latencyBudgetMs > 0 ||
+               latencyWarningMs > 0 ||
+               observedLatencyMs > 0 ||
+               ingressLatencyMs > 0 ||
+               egressLatencyMs > 0 ||
+               sendTimestamp > 0 ||
+               receiveTimestamp > 0 ||
+               handleTimestamp > 0 ||
+               !traceFile.empty() ||
+               !faultProfile.empty() ||
+               traceEventCount > 0;
+    }
+};
+
 // ============================================================================
 // Control Plane Messages
 // ============================================================================
@@ -169,6 +218,7 @@ struct HelloMessage : Message {
     uint8_t versionPatch = 0;
     DeviceCapabilities capabilities;
     std::string name;
+    DeploymentMetadataExtension deployment;
 
     MessageType type() const override { return MessageType::Hello; }
     std::vector<uint8_t> serialize() const override;
@@ -277,6 +327,8 @@ struct StatusMessage : Message {
     uint64_t transitionCount = 0;
     uint64_t tickCount = 0;
     uint32_t errorCount = 0;
+    std::vector<NamedValueSnapshotEntry> variableSnapshot;
+    DeploymentMetadataExtension deployment;
 
     MessageType type() const override { return MessageType::Status; }
     std::vector<uint8_t> serialize() const override;
@@ -362,6 +414,8 @@ struct TelemetryMessage : Message {
     
     // Optional variable snapshot
     std::vector<std::pair<VariableId, Value>> variableSnapshot;
+    std::vector<NamedValueSnapshotEntry> namedVariableSnapshot;
+    DeploymentMetadataExtension deployment;
 
     MessageType type() const override { return MessageType::Telemetry; }
     std::vector<uint8_t> serialize() const override;

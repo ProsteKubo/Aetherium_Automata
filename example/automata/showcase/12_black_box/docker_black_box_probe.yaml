@@ -1,0 +1,95 @@
+version: 0.0.1
+
+config:
+  name: Docker Black Box Probe
+  type: inline
+
+variables:
+  - name: arm
+    type: bool
+    direction: input
+    default: false
+  - name: fault
+    type: bool
+    direction: input
+    default: false
+  - name: armed
+    type: bool
+    direction: output
+    default: false
+  - name: status_code
+    type: int
+    direction: output
+    default: 0
+
+black_box:
+  ports:
+    - name: arm
+      direction: input
+      type: bool
+      description: External arming command
+    - name: fault
+      direction: input
+      type: bool
+      description: External injected fault signal
+    - name: armed
+      direction: output
+      type: bool
+      observable: true
+      fault_injectable: true
+      description: Public arming indicator
+    - name: status_code
+      direction: output
+      type: int
+      observable: true
+      description: Coarse external status register
+  observable_states:
+    - Idle
+    - Armed
+    - Faulted
+  emitted_events:
+    - black_box_fault
+  resources:
+    - name: battery_pack
+      kind: energy
+      capacity: 1
+      shared: false
+      latency_sensitive: true
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("armed", false)
+        setVal("status_code", 0)
+
+    Armed:
+      on_enter: |
+        setVal("armed", true)
+        setVal("status_code", 1)
+
+    Faulted:
+      on_enter: |
+        setVal("armed", false)
+        setVal("status_code", 2)
+
+  transitions:
+    arm_box:
+      from: Idle
+      to: Armed
+      type: classic
+      condition: arm == true
+
+    trip_fault:
+      from: Armed
+      to: Faulted
+      type: classic
+      condition: fault == true
+
+    reset_fault:
+      from: Faulted
+      to: Idle
+      type: classic
+      condition: fault == false and arm == false

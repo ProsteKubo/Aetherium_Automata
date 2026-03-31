@@ -9,7 +9,12 @@ import {
   useRuntimeViewStore,
   useUIStore,
 } from '../../stores';
-import type { Automata, ExecutionSnapshot } from '../../types';
+import type {
+  Automata,
+  BlackBoxDescription,
+  BlackBoxSnapshot,
+  ExecutionSnapshot,
+} from '../../types';
 import type { RuntimeDeploymentTransfer, RuntimeRenderFrame } from '../../types/runtimeView';
 import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 import { StateNode } from '../editor/StateNode';
@@ -89,6 +94,37 @@ function parseJsonOrString(text: string): unknown {
   } catch {
     return trimmed;
   }
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function supportsRuntimeCommand(commands: string[] | undefined, command: string): boolean {
+  return !commands || commands.length === 0 || commands.includes(command);
+}
+
+function snapshotToBlackBoxSnapshot(snapshot: ExecutionSnapshot | null): BlackBoxSnapshot | null {
+  if (!snapshot?.blackBox) return null;
+
+  return {
+    automataId: snapshot.automataId,
+    deviceId: snapshot.deviceId,
+    currentState: snapshot.currentState,
+    variables: Object.fromEntries(
+      Object.entries(snapshot.variables ?? {}).map(([name, meta]) => [name, meta?.value]),
+    ),
+    outputs: Object.fromEntries(
+      Object.entries(snapshot.outputs ?? {}).map(([name, meta]) => [name, meta?.value]),
+    ),
+    deploymentMetadata: snapshot.deploymentMetadata,
+    blackBox: snapshot.blackBox,
+    observableState: snapshot.observableState,
+  };
 }
 
 function RuntimeGraphCard({
@@ -213,6 +249,14 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const [eventName, setEventName] = useState('');
   const [eventData, setEventData] = useState('');
   const [forceState, setForceState] = useState('');
+  const [blackBoxDescription, setBlackBoxDescription] = useState<BlackBoxDescription | null>(null);
+  const [blackBoxSnapshot, setBlackBoxSnapshot] = useState<BlackBoxSnapshot | null>(null);
+  const [blackBoxLoading, setBlackBoxLoading] = useState(false);
+  const [blackBoxInputPort, setBlackBoxInputPort] = useState('');
+  const [blackBoxInputValue, setBlackBoxInputValue] = useState('');
+  const [blackBoxEvent, setBlackBoxEvent] = useState('');
+  const [blackBoxEventData, setBlackBoxEventData] = useState('');
+  const [blackBoxForceState, setBlackBoxForceState] = useState('');
   const [manualSnapshot, setManualSnapshot] = useState<ExecutionSnapshot | null>(null);
   const [lastSnapshotAt, setLastSnapshotAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -441,7 +485,20 @@ export const RuntimeMonitorPanel: React.FC = () => {
   useEffect(() => {
     setManualSnapshot(null);
     setLastSnapshotAt(null);
+    setBlackBoxDescription(null);
+    setBlackBoxSnapshot(null);
   }, [focusedDeviceId, selectedFocusDeployment?.deploymentId]);
+
+  const selectedCommandTarget = useMemo(
+    () =>
+      selectedFocusDeployment
+        ? {
+            automataId: selectedFocusDeployment.automataId as any,
+            deploymentId: selectedFocusDeployment.deploymentId,
+          }
+        : undefined,
+    [selectedFocusDeployment],
+  );
 
   const selectedSnapshot =
     manualSnapshot &&
@@ -452,6 +509,50 @@ export const RuntimeMonitorPanel: React.FC = () => {
             String(focusedExecution.currentSnapshot.automataId) === selectedFocusDeployment.automataId)
         ? focusedExecution.currentSnapshot
         : null;
+
+  const derivedBlackBoxSnapshot = useMemo(
+    () => snapshotToBlackBoxSnapshot(selectedSnapshot),
+    [selectedSnapshot],
+  );
+
+  const activeBlackBoxSnapshot = blackBoxSnapshot ?? derivedBlackBoxSnapshot;
+  const activeBlackBoxDescription = useMemo<BlackBoxDescription | null>(() => {
+    if (blackBoxDescription) return blackBoxDescription;
+    if (!derivedBlackBoxSnapshot?.blackBox) return null;
+
+    return {
+      deploymentId: selectedFocusDeployment?.deploymentId,
+      automataId: derivedBlackBoxSnapshot.automataId,
+      deviceId: derivedBlackBoxSnapshot.deviceId,
+      status: selectedFocusDeployment?.status,
+      observableState: derivedBlackBoxSnapshot.observableState,
+      deploymentMetadata: derivedBlackBoxSnapshot.deploymentMetadata,
+      blackBox: derivedBlackBoxSnapshot.blackBox,
+    };
+  }, [blackBoxDescription, derivedBlackBoxSnapshot, selectedFocusDeployment]);
+
+  const blackBoxContract = activeBlackBoxDescription?.blackBox ?? activeBlackBoxSnapshot?.blackBox ?? null;
+  const blackBoxMetadata =
+    activeBlackBoxSnapshot?.deploymentMetadata ?? activeBlackBoxDescription?.deploymentMetadata;
+  const blackBoxBattery = asRecord(blackBoxMetadata?.battery);
+  const blackBoxLatency = asRecord(blackBoxMetadata?.latency);
+  const blackBoxInputPorts = useMemo(
+    () => blackBoxContract?.ports.filter((port) => port.direction === 'input') ?? [],
+    [blackBoxContract],
+  );
+  const blackBoxOutputPorts = useMemo(
+    () => blackBoxContract?.ports.filter((port) => port.direction === 'output') ?? [],
+    [blackBoxContract],
+  );
+  const blackBoxInternalPorts = useMemo(
+    () => blackBoxContract?.ports.filter((port) => port.direction === 'internal') ?? [],
+    [blackBoxContract],
+  );
+  const blackBoxMetadataEntries = useMemo(
+    () =>
+      Object.entries(blackBoxMetadata ?? {}).sort(([left], [right]) => left.localeCompare(right)),
+    [blackBoxMetadata],
+  );
 
   const workspaceAutomata = useMemo(() => {
     return Array.from(automataMap.values()).sort((left, right) => {
@@ -471,6 +572,92 @@ export const RuntimeMonitorPanel: React.FC = () => {
     });
     return filtered.slice(0, 10);
   }, [showcaseEntries, showcaseFilterText]);
+
+  useEffect(() => {
+    if (!blackBoxContract) {
+      setBlackBoxInputPort('');
+      setBlackBoxEvent('');
+      setBlackBoxForceState('');
+      return;
+    }
+
+    setBlackBoxInputPort((current) =>
+      blackBoxInputPorts.some((port) => port.name === current) ? current : (blackBoxInputPorts[0]?.name ?? ''),
+    );
+    setBlackBoxEvent((current) =>
+      blackBoxContract.emittedEvents.includes(current) ? current : (blackBoxContract.emittedEvents[0] ?? ''),
+    );
+    setBlackBoxForceState((current) =>
+      blackBoxContract.observableStates.includes(current)
+        ? current
+        : (blackBoxContract.observableStates[0] ?? ''),
+    );
+  }, [blackBoxContract, blackBoxInputPorts]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const canDescribe =
+      Boolean(focusedDevice && selectedCommandTarget) &&
+      supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_describe');
+    const canSnapshot =
+      Boolean(focusedDevice && selectedCommandTarget) &&
+      supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_snapshot');
+
+    if (!focusedDevice || !selectedCommandTarget || (!canDescribe && !canSnapshot)) {
+      setBlackBoxDescription(null);
+      setBlackBoxSnapshot(null);
+      setBlackBoxLoading(false);
+      return;
+    }
+
+    const loadBlackBoxContext = async () => {
+      setBlackBoxLoading(true);
+
+      let nextDescription: BlackBoxDescription | null = null;
+      let nextSnapshot: BlackBoxSnapshot | null = null;
+
+      if (canDescribe) {
+        try {
+          nextDescription = await gatewayService.describeBlackBox(focusedDevice.id, selectedCommandTarget);
+        } catch {
+          nextDescription = null;
+        }
+      }
+
+      if (canSnapshot) {
+        try {
+          nextSnapshot = await gatewayService.getBlackBoxSnapshot(
+            focusedDevice.id,
+            selectedCommandTarget,
+            { silent: true },
+          );
+        } catch {
+          nextSnapshot = null;
+        }
+      }
+
+      if (cancelled) return;
+
+      setBlackBoxDescription(nextDescription);
+      setBlackBoxSnapshot(nextSnapshot);
+      if (nextSnapshot) {
+        setLastSnapshotAt(Date.now());
+      }
+      setBlackBoxLoading(false);
+    };
+
+    void loadBlackBoxContext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    focusedDevice?.id,
+    (focusedDevice?.supportedCommands ?? []).join('|'),
+    gatewayService,
+    selectedCommandTarget,
+  ]);
 
   const attachImportedAutomata = (
     importedData: Partial<Automata>,
@@ -585,21 +772,73 @@ export const RuntimeMonitorPanel: React.FC = () => {
     }
   };
 
-  const getCommandTarget = (deployment?: DeviceDeploymentView | null) =>
-    deployment
-      ? {
-          automataId: deployment.automataId as any,
-          deploymentId: deployment.deploymentId,
-        }
-      : undefined;
+  const refreshBlackBoxContext = async (options?: { notify?: boolean; silentError?: boolean }) => {
+    if (!focusedDevice || !selectedCommandTarget) return null;
+
+    const canDescribe = supportsRuntimeCommand(focusedDevice.supportedCommands, 'black_box_describe');
+    const canSnapshot = supportsRuntimeCommand(focusedDevice.supportedCommands, 'black_box_snapshot');
+
+    if (!canDescribe && !canSnapshot) return null;
+
+    setBlackBoxLoading(true);
+
+    let nextDescription: BlackBoxDescription | null = null;
+    let nextSnapshot: BlackBoxSnapshot | null = null;
+    let lastError: unknown = null;
+
+    if (canDescribe) {
+      try {
+        nextDescription = await gatewayService.describeBlackBox(focusedDevice.id, selectedCommandTarget);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    if (canSnapshot) {
+      try {
+        nextSnapshot = await gatewayService.getBlackBoxSnapshot(
+          focusedDevice.id,
+          selectedCommandTarget,
+          { silent: true },
+        );
+      } catch (err) {
+        lastError = err;
+      }
+    }
+
+    setBlackBoxDescription(nextDescription);
+    setBlackBoxSnapshot(nextSnapshot);
+
+    if (nextSnapshot && selectedFocusDeployment) {
+      setLastSnapshotAt(Date.now());
+      upsertRuntimeDeployment({
+        deploymentId: selectedFocusDeployment.deploymentId,
+        automataId: (nextSnapshot.automataId ?? selectedFocusDeployment.automataId) as any,
+        deviceId: focusedDevice.id as any,
+        status: selectedFocusDeployment.status,
+        currentState: nextSnapshot.currentState,
+        variables: nextSnapshot.variables,
+        updatedAt: Date.now(),
+      });
+    }
+
+    setBlackBoxLoading(false);
+
+    if (!nextDescription && !nextSnapshot && lastError && !options?.silentError) {
+      throw lastError;
+    }
+
+    if ((nextDescription || nextSnapshot) && options?.notify) {
+      addNotification('info', 'Black Box', `Refreshed ${focusedDevice.name}`);
+    }
+
+    return { description: nextDescription, snapshot: nextSnapshot };
+  };
 
   const handleSnapshot = async () => {
-    if (!focusedDevice || !selectedFocusDeployment) return;
+    if (!focusedDevice || !selectedFocusDeployment || !selectedCommandTarget) return;
     try {
-      const snapshot = await gatewayService.getSnapshot(
-        focusedDevice.id,
-        getCommandTarget(selectedFocusDeployment),
-      );
+      const snapshot = await gatewayService.getSnapshot(focusedDevice.id, selectedCommandTarget);
       setManualSnapshot(snapshot.snapshot);
       setLastSnapshotAt(Date.now());
       upsertRuntimeDeployment({
@@ -613,6 +852,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
         ),
         updatedAt: Date.now(),
       });
+      await refreshBlackBoxContext({ silentError: true });
       addNotification('info', 'Snapshot', `${focusedDevice.name} is in state ${snapshot.snapshot.currentState}`);
     } catch (err) {
       addNotification('error', 'Snapshot', err instanceof Error ? err.message : 'Failed to fetch snapshot');
@@ -620,7 +860,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
   };
 
   const handleSendVariable = async () => {
-    if (!focusedDevice || !selectedFocusDeployment) return;
+    if (!focusedDevice || !selectedFocusDeployment || !selectedCommandTarget) return;
     if (!varName.trim()) {
       addNotification('warning', 'Set Variable', 'Variable name is required');
       return;
@@ -631,7 +871,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
         focusedDevice.id,
         varName.trim(),
         parseJsonOrString(varValue),
-        getCommandTarget(selectedFocusDeployment),
+        selectedCommandTarget,
       );
       addNotification('success', 'Set Variable', `Sent ${varName.trim()} to ${focusedDevice.name}`);
     } catch (err) {
@@ -640,7 +880,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
   };
 
   const handleTriggerEvent = async () => {
-    if (!focusedDevice || !selectedFocusDeployment) return;
+    if (!focusedDevice || !selectedFocusDeployment || !selectedCommandTarget) return;
     if (!eventName.trim()) {
       addNotification('warning', 'Trigger Event', 'Event name is required');
       return;
@@ -652,7 +892,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
         focusedDevice.id,
         eventName.trim(),
         data,
-        getCommandTarget(selectedFocusDeployment),
+        selectedCommandTarget,
       );
       addNotification('success', 'Trigger Event', `Triggered ${eventName.trim()} on ${focusedDevice.name}`);
     } catch (err) {
@@ -661,7 +901,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
   };
 
   const handleForceTransition = async () => {
-    if (!focusedDevice || !selectedFocusDeployment) return;
+    if (!focusedDevice || !selectedFocusDeployment || !selectedCommandTarget) return;
     if (!forceState.trim()) {
       addNotification('warning', 'Force Transition', 'Target state is required');
       return;
@@ -671,11 +911,81 @@ export const RuntimeMonitorPanel: React.FC = () => {
       await gatewayService.forceTransition(
         focusedDevice.id,
         forceState.trim(),
-        getCommandTarget(selectedFocusDeployment),
+        selectedCommandTarget,
       );
       addNotification('success', 'Force Transition', `Forced ${focusedDevice.name} to ${forceState.trim()}`);
     } catch (err) {
       addNotification('error', 'Force Transition', err instanceof Error ? err.message : 'Failed to send');
+    }
+  };
+
+  const handleBlackBoxSnapshot = async () => {
+    try {
+      await refreshBlackBoxContext({ notify: true });
+    } catch (err) {
+      addNotification('error', 'Black Box', err instanceof Error ? err.message : 'Failed to refresh black box');
+    }
+  };
+
+  const handleSetBlackBoxInput = async () => {
+    if (!focusedDevice || !selectedCommandTarget) return;
+    if (!blackBoxInputPort.trim()) {
+      addNotification('warning', 'Black Box Input', 'Input port is required');
+      return;
+    }
+
+    try {
+      await gatewayService.setBlackBoxInput(
+        focusedDevice.id,
+        blackBoxInputPort.trim(),
+        parseJsonOrString(blackBoxInputValue),
+        selectedCommandTarget,
+      );
+      await refreshBlackBoxContext({ silentError: true });
+      addNotification('success', 'Black Box Input', `Sent ${blackBoxInputPort.trim()} to ${focusedDevice.name}`);
+    } catch (err) {
+      addNotification('error', 'Black Box Input', err instanceof Error ? err.message : 'Failed to send');
+    }
+  };
+
+  const handleTriggerBlackBoxEvent = async () => {
+    if (!focusedDevice || !selectedCommandTarget) return;
+    if (!blackBoxEvent.trim()) {
+      addNotification('warning', 'Black Box Event', 'Event name is required');
+      return;
+    }
+
+    try {
+      await gatewayService.triggerBlackBoxEvent(
+        focusedDevice.id,
+        blackBoxEvent.trim(),
+        blackBoxEventData.trim() ? parseJsonOrString(blackBoxEventData) : undefined,
+        selectedCommandTarget,
+      );
+      await refreshBlackBoxContext({ silentError: true });
+      addNotification('success', 'Black Box Event', `Triggered ${blackBoxEvent.trim()} on ${focusedDevice.name}`);
+    } catch (err) {
+      addNotification('error', 'Black Box Event', err instanceof Error ? err.message : 'Failed to send');
+    }
+  };
+
+  const handleForceBlackBoxState = async () => {
+    if (!focusedDevice || !selectedCommandTarget) return;
+    if (!blackBoxForceState.trim()) {
+      addNotification('warning', 'Black Box State', 'Target state is required');
+      return;
+    }
+
+    try {
+      await gatewayService.forceBlackBoxState(
+        focusedDevice.id,
+        blackBoxForceState.trim(),
+        selectedCommandTarget,
+      );
+      await refreshBlackBoxContext({ silentError: true });
+      addNotification('success', 'Black Box State', `Forced ${focusedDevice.name} to ${blackBoxForceState.trim()}`);
+    } catch (err) {
+      addNotification('error', 'Black Box State', err instanceof Error ? err.message : 'Failed to send');
     }
   };
 
@@ -688,14 +998,41 @@ export const RuntimeMonitorPanel: React.FC = () => {
         .sort(([a], [b]) => a.localeCompare(b)),
     [selectedSnapshot],
   );
+  const blackBoxOutputEntries = useMemo(
+    () =>
+      Object.entries(activeBlackBoxSnapshot?.outputs ?? {}).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    [activeBlackBoxSnapshot],
+  );
+  const blackBoxVariableEntries = useMemo(
+    () =>
+      Object.entries(activeBlackBoxSnapshot?.variables ?? {}).sort(([left], [right]) =>
+        left.localeCompare(right),
+      ),
+    [activeBlackBoxSnapshot],
+  );
+  const blackBoxCanDescribe =
+    Boolean(focusedDevice && selectedCommandTarget) &&
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_describe');
+  const blackBoxCanSnapshot =
+    Boolean(focusedDevice && selectedCommandTarget) &&
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_snapshot');
+  const blackBoxCanSetInput =
+    Boolean(focusedDevice && selectedCommandTarget) &&
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_set_input');
+  const blackBoxCanTriggerEvent =
+    Boolean(focusedDevice && selectedCommandTarget) &&
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_trigger_event');
+  const blackBoxCanForceState =
+    Boolean(focusedDevice && selectedCommandTarget) &&
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'black_box_force_state');
+  const hasBlackBoxView =
+    Boolean(activeBlackBoxDescription || activeBlackBoxSnapshot || blackBoxCanDescribe || blackBoxCanSnapshot);
   const snapshotCanRun =
     Boolean(focusedDevice && selectedFocusDeployment) &&
     isDeviceReachable(focusedDevice?.status ?? 'unknown') &&
-    Boolean(
-      !focusedDevice?.supportedCommands ||
-        focusedDevice.supportedCommands.length === 0 ||
-        focusedDevice.supportedCommands.includes('request_state'),
-    );
+    supportsRuntimeCommand(focusedDevice?.supportedCommands, 'request_state');
 
   return (
     <div className="runtime-monitor-panel">
@@ -840,7 +1177,11 @@ export const RuntimeMonitorPanel: React.FC = () => {
                 <div className="runtime-overview-stat">
                   <span className="runtime-overview-label">Current State</span>
                   <span className="runtime-overview-value">
-                    {selectedSnapshot?.currentState || selectedFocusDeployment?.currentState || focusedDevice.currentState || 'Idle'}
+                    {activeBlackBoxSnapshot?.currentState ||
+                      selectedSnapshot?.currentState ||
+                      selectedFocusDeployment?.currentState ||
+                      focusedDevice.currentState ||
+                      'Idle'}
                   </span>
                 </div>
                 <div className="runtime-overview-stat">
@@ -851,7 +1192,11 @@ export const RuntimeMonitorPanel: React.FC = () => {
                 </div>
                 <div className="runtime-overview-stat">
                   <span className="runtime-overview-label">Signals</span>
-                  <span className="runtime-overview-value">{selectedVariableEntries.length} vars</span>
+                  <span className="runtime-overview-value">
+                    {hasBlackBoxView
+                      ? `${blackBoxOutputEntries.length} outputs`
+                      : `${selectedVariableEntries.length} vars`}
+                  </span>
                 </div>
               </div>
 
@@ -883,6 +1228,27 @@ export const RuntimeMonitorPanel: React.FC = () => {
                   <span>Transport</span>
                   <span>{focusedDevice.transport || focusedDevice.link || 'n/a'}</span>
                 </div>
+                {typeof blackBoxMetadata?.placement === 'string' && (
+                  <div className="runtime-meta-row">
+                    <span>Placement</span>
+                    <span>{blackBoxMetadata.placement}</span>
+                  </div>
+                )}
+                {typeof blackBoxBattery?.percent === 'number' && (
+                  <div className="runtime-meta-row">
+                    <span>Battery</span>
+                    <span>
+                      {blackBoxBattery.percent.toFixed(1)}%
+                      {blackBoxBattery.low === true ? ' low' : ''}
+                    </span>
+                  </div>
+                )}
+                {typeof blackBoxLatency?.observed_ms === 'number' && (
+                  <div className="runtime-meta-row">
+                    <span>Observed Latency</span>
+                    <span>{blackBoxLatency.observed_ms} ms</span>
+                  </div>
+                )}
                 {focusedDevice.lastSeen && (
                   <div className="runtime-meta-row">
                     <span>Last Seen</span>
@@ -1009,6 +1375,298 @@ export const RuntimeMonitorPanel: React.FC = () => {
                   )}
                 </div>
               </div>
+            </section>
+
+            <section className="runtime-focus-card">
+              <div className="runtime-focus-card-header">
+                <div>
+                  <div className="runtime-focus-card-title">Black Box</div>
+                  <div className="runtime-focus-card-subtitle">
+                    Contract-driven interface for the focused deployment
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleBlackBoxSnapshot}
+                  disabled={!blackBoxCanSnapshot || blackBoxLoading}
+                >
+                  <IconRefresh size={12} />
+                  <span>{blackBoxLoading ? 'Loading' : 'Refresh'}</span>
+                </button>
+              </div>
+
+              {!hasBlackBoxView ? (
+                <div className="runtime-inline-empty">
+                  No black-box contract is available for this deployment yet.
+                </div>
+              ) : (
+                <>
+                  <div className="runtime-overview-grid">
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Observable State</span>
+                      <span className="runtime-overview-value">
+                        {activeBlackBoxSnapshot?.observableState ||
+                          activeBlackBoxDescription?.observableState ||
+                          activeBlackBoxSnapshot?.currentState ||
+                          'unknown'}
+                      </span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Placement</span>
+                      <span className="runtime-overview-value">
+                        {typeof blackBoxMetadata?.placement === 'string'
+                          ? blackBoxMetadata.placement
+                          : 'n/a'}
+                      </span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Battery</span>
+                      <span className="runtime-overview-value">
+                        {typeof blackBoxBattery?.percent === 'number'
+                          ? `${blackBoxBattery.percent.toFixed(1)}%${blackBoxBattery.low === true ? ' low' : ''}`
+                          : 'n/a'}
+                      </span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Observed Latency</span>
+                      <span className="runtime-overview-value">
+                        {typeof blackBoxLatency?.observed_ms === 'number'
+                          ? `${blackBoxLatency.observed_ms} ms`
+                          : 'n/a'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {blackBoxMetadataEntries.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Deployment Metadata</span>
+                        <span>{blackBoxMetadataEntries.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {blackBoxMetadataEntries.map(([name, value]) => (
+                          <span key={name} className="tag-item" title={formatSignalValue(value)}>
+                            {name}: {formatSignalValue(value)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {blackBoxInputPorts.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Input Ports</span>
+                        <span>{blackBoxInputPorts.length}</span>
+                      </div>
+                      <div className="runtime-black-box-port-grid">
+                        {blackBoxInputPorts.map((port) => (
+                          <div key={port.name} className="runtime-black-box-port-card">
+                            <div className="runtime-black-box-port-head">
+                              <span>{port.name}</span>
+                              <span>{port.type}</span>
+                            </div>
+                            <div className="runtime-black-box-port-meta">
+                              {port.description || 'No description'}
+                            </div>
+                            <div className="runtime-black-box-port-value">
+                              {formatSignalValue(activeBlackBoxSnapshot?.variables?.[port.name])}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {blackBoxOutputPorts.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Output Ports</span>
+                        <span>{blackBoxOutputPorts.length}</span>
+                      </div>
+                      <div className="runtime-black-box-port-grid">
+                        {blackBoxOutputPorts.map((port) => (
+                          <div key={port.name} className="runtime-black-box-port-card">
+                            <div className="runtime-black-box-port-head">
+                              <span>{port.name}</span>
+                              <span>{port.type}</span>
+                            </div>
+                            <div className="runtime-black-box-port-meta">
+                              {port.description || 'No description'}
+                            </div>
+                            <div className="runtime-black-box-port-value">
+                              {formatSignalValue(activeBlackBoxSnapshot?.outputs?.[port.name])}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {blackBoxInternalPorts.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Internal Ports</span>
+                        <span>{blackBoxInternalPorts.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {blackBoxInternalPorts.map((port) => (
+                          <span key={port.name} className="tag-item" title={port.description}>
+                            {port.name}: {port.type}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {blackBoxContract?.resources.length ? (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Resources</span>
+                        <span>{blackBoxContract.resources.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {blackBoxContract.resources.map((resource) => (
+                          <span key={resource.name} className="tag-item" title={resource.description}>
+                            {resource.name}: {resource.kind}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ) : null}
+
+                  <div className="runtime-form">
+                    <label className="runtime-form-row">
+                      <span>Set Input</span>
+                      <select
+                        className="input"
+                        value={blackBoxInputPort}
+                        onChange={(event) => setBlackBoxInputPort(event.target.value)}
+                        disabled={!blackBoxCanSetInput || blackBoxInputPorts.length === 0}
+                      >
+                        {blackBoxInputPorts.length === 0 ? (
+                          <option value="">No input ports</option>
+                        ) : (
+                          blackBoxInputPorts.map((port) => (
+                            <option key={port.name} value={port.name}>
+                              {port.name}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <input
+                        className="input"
+                        placeholder="value (json or text)"
+                        value={blackBoxInputValue}
+                        onChange={(event) => setBlackBoxInputValue(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleSetBlackBoxInput}
+                        disabled={!blackBoxCanSetInput || blackBoxInputPorts.length === 0}
+                      >
+                        Send
+                      </button>
+                    </label>
+
+                    <label className="runtime-form-row">
+                      <span>Trigger Event</span>
+                      <select
+                        className="input"
+                        value={blackBoxEvent}
+                        onChange={(event) => setBlackBoxEvent(event.target.value)}
+                        disabled={!blackBoxCanTriggerEvent || !blackBoxContract?.emittedEvents.length}
+                      >
+                        {!blackBoxContract?.emittedEvents.length ? (
+                          <option value="">No emitted events</option>
+                        ) : (
+                          blackBoxContract.emittedEvents.map((eventName) => (
+                            <option key={eventName} value={eventName}>
+                              {eventName}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <input
+                        className="input"
+                        placeholder="data (optional json/text)"
+                        value={blackBoxEventData}
+                        onChange={(event) => setBlackBoxEventData(event.target.value)}
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleTriggerBlackBoxEvent}
+                        disabled={!blackBoxCanTriggerEvent || !blackBoxContract?.emittedEvents.length}
+                      >
+                        Send
+                      </button>
+                    </label>
+
+                    <label className="runtime-form-row compact">
+                      <span>Force State</span>
+                      <select
+                        className="input"
+                        value={blackBoxForceState}
+                        onChange={(event) => setBlackBoxForceState(event.target.value)}
+                        disabled={!blackBoxCanForceState || !blackBoxContract?.observableStates.length}
+                      >
+                        {!blackBoxContract?.observableStates.length ? (
+                          <option value="">No observable states</option>
+                        ) : (
+                          blackBoxContract.observableStates.map((stateName) => (
+                            <option key={stateName} value={stateName}>
+                              {stateName}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn btn-danger btn-sm"
+                        onClick={handleForceBlackBoxState}
+                        disabled={!blackBoxCanForceState || !blackBoxContract?.observableStates.length}
+                      >
+                        Force
+                      </button>
+                    </label>
+                  </div>
+
+                  {blackBoxOutputEntries.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Observed Outputs</span>
+                        <span>{blackBoxOutputEntries.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {blackBoxOutputEntries.map(([name, value]) => (
+                          <span key={name} className="tag-item" title={formatSignalValue(value)}>
+                            {name}: {formatSignalValue(value)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {blackBoxVariableEntries.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Observed Variables</span>
+                        <span>{blackBoxVariableEntries.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {blackBoxVariableEntries.slice(0, 12).map(([name, value]) => (
+                          <span key={name} className="tag-item" title={formatSignalValue(value)}>
+                            {name}: {formatSignalValue(value)}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </section>
 
             <section className="runtime-focus-card">

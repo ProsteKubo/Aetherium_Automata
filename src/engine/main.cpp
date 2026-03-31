@@ -94,6 +94,41 @@ int runAutomata(const std::string& automataFile, bool networkMode, const std::st
     if (const char* envId = std::getenv("DEVICE_ID")) {
         initOptions.deviceName = envId;
     }
+    initOptions.deployment.instanceId = ArgParser::instanceId;
+    initOptions.deployment.placement = ArgParser::placement;
+    initOptions.deployment.transport = ArgParser::transportName;
+    initOptions.deployment.controlPlaneInstance = ArgParser::controlPlaneInstance;
+    initOptions.deployment.battery.present = ArgParser::batteryPresent;
+    initOptions.deployment.battery.externalPower = ArgParser::batteryExternalPower;
+    initOptions.deployment.battery.chargePercent = ArgParser::batteryPercent;
+    initOptions.deployment.battery.lowThresholdPercent = ArgParser::batteryLowThresholdPercent;
+    initOptions.deployment.battery.drainPerTickPercent = ArgParser::batteryDrainPerTickPercent;
+    initOptions.deployment.battery.drainPerMessagePercent = ArgParser::batteryDrainPerMessagePercent;
+    initOptions.deployment.latency.budgetMs = ArgParser::latencyBudgetMs;
+    initOptions.deployment.latency.warningMs = ArgParser::latencyWarningMs;
+    initOptions.faultProfile.name = ArgParser::faultProfileName;
+    initOptions.faultProfile.enabled =
+        ArgParser::faultDelayMs > 0 ||
+        ArgParser::faultJitterMs > 0 ||
+        ArgParser::faultDropProbability > 0.0 ||
+        ArgParser::faultDuplicateProbability > 0.0 ||
+        ArgParser::faultSuccessProbability < 1.0 ||
+        (ArgParser::faultDisconnectPeriodMs > 0 && ArgParser::faultDisconnectDurationMs > 0);
+    initOptions.faultProfile.applyToIngress = ArgParser::faultIngressFlag;
+    initOptions.faultProfile.applyToEgress = true;
+    initOptions.faultProfile.fixedDelayMs = ArgParser::faultDelayMs;
+    initOptions.faultProfile.jitterMs = ArgParser::faultJitterMs;
+    initOptions.faultProfile.dropProbability = ArgParser::faultDropProbability;
+    initOptions.faultProfile.duplicateProbability = ArgParser::faultDuplicateProbability;
+    initOptions.faultProfile.successProbability = ArgParser::faultSuccessProbability;
+    initOptions.faultProfile.disconnectPeriodMs = ArgParser::faultDisconnectPeriodMs;
+    initOptions.faultProfile.disconnectDurationMs = ArgParser::faultDisconnectDurationMs;
+    if (!ArgParser::traceFile.empty()) {
+        initOptions.traceOutputPath = ArgParser::traceFile;
+    }
+    if (ArgParser::seedProvided) {
+        initOptions.faultRandomSeed = ArgParser::seed;
+    }
 
     auto initResult = engine.initialize(initOptions);
     if (initResult.isError()) {
@@ -130,6 +165,21 @@ int runAutomata(const std::string& automataFile, bool networkMode, const std::st
         std::cout << "Connecting to server: " << serverUrl << "\n";
         transport = std::make_unique<aeth::WebSocketTransport>(serverUrl);
         transport->setDeviceName(initOptions.deviceName);
+        aeth::protocol::DeploymentMetadataExtension helloDeployment;
+        helloDeployment.placement = initOptions.deployment.placement;
+        helloDeployment.transport = initOptions.deployment.transport;
+        helloDeployment.controlPlaneInstance = initOptions.deployment.controlPlaneInstance;
+        helloDeployment.targetClass = initOptions.deployment.targetClass;
+        helloDeployment.batteryPresent = initOptions.deployment.battery.present;
+        helloDeployment.batteryExternalPower = initOptions.deployment.battery.externalPower;
+        helloDeployment.batteryPercent = initOptions.deployment.battery.chargePercent;
+        helloDeployment.latencyBudgetMs = initOptions.deployment.latency.budgetMs;
+        helloDeployment.latencyWarningMs = initOptions.deployment.latency.warningMs;
+        if (!ArgParser::traceFile.empty()) {
+            helloDeployment.traceFile = ArgParser::traceFile;
+        }
+        helloDeployment.faultProfile = initOptions.faultProfile.name;
+        transport->setHelloDeploymentMetadata(std::move(helloDeployment));
         auto result = transport->connect();
         if (result.isError()) {
             std::cerr << "[WARN] Initial connect failed: " << result.error() << "\n";
@@ -152,8 +202,8 @@ int runAutomata(const std::string& automataFile, bool networkMode, const std::st
         std::cout << "Network mode: waiting for load/start commands...\n";
     }
 
-    auto lastTelemetry = std::chrono::steady_clock::now();
     static constexpr auto TELEMETRY_INTERVAL = std::chrono::seconds(5);
+    auto lastTelemetry = std::chrono::steady_clock::now() - TELEMETRY_INTERVAL;
     while (g_running && (networkMode || engine.isRunning())) {
         bool sawControlCommand = false;
 
@@ -211,17 +261,7 @@ int runAutomata(const std::string& automataFile, bool networkMode, const std::st
             auto now = std::chrono::steady_clock::now();
             if (now - lastTelemetry >= TELEMETRY_INTERVAL) {
                 lastTelemetry = now;
-
-                aeth::protocol::TelemetryMessage telemetry;
-                telemetry.runId = engine.activeRunId();
-                telemetry.timestamp = static_cast<aeth::Timestamp>(
-                    std::chrono::duration_cast<std::chrono::milliseconds>(
-                        std::chrono::system_clock::now().time_since_epoch()).count());
-                telemetry.heapFree = 0;
-                telemetry.heapTotal = 0;
-                telemetry.cpuUsage = 0.0f;
-                telemetry.tickRate = 0;
-                transport->send(std::make_unique<aeth::protocol::TelemetryMessage>(telemetry));
+                transport->send(engine.buildTelemetryMessage());
             }
         }
 
@@ -242,6 +282,15 @@ int runAutomata(const std::string& automataFile, bool networkMode, const std::st
     std::cout << "Total ticks: " << finalStatus.tickCount << "\n";
     std::cout << "Total transitions: " << finalStatus.transitionCount << "\n";
     std::cout << "Errors: " << finalStatus.errorCount << "\n";
+
+    auto traceResult = engine.writeTrace();
+    if (traceResult.isError()) {
+        std::cerr << "Failed to write trace: " << traceResult.error() << "\n";
+        return 1;
+    }
+    if (!ArgParser::traceFile.empty()) {
+        std::cout << "Trace written to: " << ArgParser::traceFile << "\n";
+    }
 
     return 0;
 }

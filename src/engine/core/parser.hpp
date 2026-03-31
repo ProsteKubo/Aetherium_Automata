@@ -80,6 +80,7 @@ private:
     void parseRoot(ryml::ConstNodeRef root, Automata& automata, ParseContext& ctx);
     void parseConfig(ryml::ConstNodeRef node, Automata& automata, ParseContext& ctx);
     void parseAutomataSection(ryml::ConstNodeRef node, Automata& automata, ParseContext& ctx);
+    void parseBlackBox(ryml::ConstNodeRef node, Automata& automata, ParseContext& ctx);
 
     // Component parsing
     void parseStates(ryml::ConstNodeRef node, Automata& automata, ParseContext& ctx);
@@ -93,6 +94,8 @@ private:
     VariableSpec parseVariableSpec(ryml::ConstNodeRef node, ParseContext& ctx);
     VariableSpec parseVariableShort(const std::string& spec, ParseContext& ctx);
     CodeBlock parseCode(ryml::ConstNodeRef node);
+    BlackBoxPort parseBlackBoxPort(ryml::ConstNodeRef node, ParseContext& ctx);
+    BlackBoxResource parseBlackBoxResource(ryml::ConstNodeRef node, ParseContext& ctx);
 
     // Transition type parsing
     ClassicConfig parseClassicConfig(ryml::ConstNodeRef node, ParseContext& ctx);
@@ -201,6 +204,11 @@ inline void AutomataParser::parseRoot(ryml::ConstNodeRef root, Automata& automat
         if (root.has_child("variables")) {
             parseVariables(root["variables"], automata, ctx);
         }
+        if (root.has_child("black_box")) {
+            parseBlackBox(root["black_box"], automata, ctx);
+        } else if (root.has_child("contract")) {
+            parseBlackBox(root["contract"], automata, ctx);
+        }
     } else if (root.is_seq()) {
         // List-of-singletons format
         for (auto child : root.children()) {
@@ -213,6 +221,10 @@ inline void AutomataParser::parseRoot(ryml::ConstNodeRef root, Automata& automat
                     parseAutomataSection(child["automata"], automata, ctx);
                 } else if (child.has_child("variables")) {
                     parseVariables(child["variables"], automata, ctx);
+                } else if (child.has_child("black_box")) {
+                    parseBlackBox(child["black_box"], automata, ctx);
+                } else if (child.has_child("contract")) {
+                    parseBlackBox(child["contract"], automata, ctx);
                 }
             }
         }
@@ -243,6 +255,34 @@ inline void AutomataParser::parseConfig(ryml::ConstNodeRef node, Automata& autom
     if (auto n = findChild(node, "tags"); n && (*n).is_seq()) {
         for (auto tag : (*n).children()) {
             automata.config.tags.push_back(getString(tag));
+        }
+    }
+}
+
+inline void AutomataParser::parseBlackBox(ryml::ConstNodeRef node,
+                                          Automata& automata,
+                                          ParseContext& ctx) {
+    if (auto portsNode = findChild(node, "ports"); portsNode && (*portsNode).is_seq()) {
+        for (auto portNode : (*portsNode).children()) {
+            automata.blackBox.ports.push_back(parseBlackBoxPort(portNode, ctx));
+        }
+    }
+
+    if (auto emittedNode = findChild(node, "emitted_events"); emittedNode && (*emittedNode).is_seq()) {
+        for (auto eventNode : (*emittedNode).children()) {
+            automata.blackBox.emittedEvents.push_back(getString(eventNode));
+        }
+    }
+
+    if (auto observableNode = findChild(node, "observable_states"); observableNode && (*observableNode).is_seq()) {
+        for (auto stateNode : (*observableNode).children()) {
+            automata.blackBox.observableStates.push_back(getString(stateNode));
+        }
+    }
+
+    if (auto resourcesNode = findChild(node, "resources"); resourcesNode && (*resourcesNode).is_seq()) {
+        for (auto resourceNode : (*resourcesNode).children()) {
+            automata.blackBox.resources.push_back(parseBlackBoxResource(resourceNode, ctx));
         }
     }
 }
@@ -577,6 +617,68 @@ inline VariableSpec AutomataParser::parseVariableShort(const std::string& spec,
     }
 
     return result;
+}
+
+inline BlackBoxPort AutomataParser::parseBlackBoxPort(ryml::ConstNodeRef node,
+                                                      ParseContext& ctx) {
+    BlackBoxPort port;
+
+    if (auto nameNode = findChild(node, "name")) {
+        port.name = getString(*nameNode);
+    } else {
+        ctx.error("black_box port missing name");
+    }
+    if (auto dirNode = findChild(node, "direction")) {
+        port.direction = parseDirection(getString(*dirNode));
+    }
+    if (auto typeNode = findChild(node, "type")) {
+        port.type = parseValueType(getString(*typeNode));
+    }
+    if (auto observableNode = findChild(node, "observable")) {
+        port.observable = getBool(*observableNode, true);
+    }
+    if (auto faultNode = findChild(node, "fault_injectable")) {
+        port.faultInjectable = getBool(*faultNode, true);
+    } else if (auto faultNode = findChild(node, "faultInjectable")) {
+        port.faultInjectable = getBool(*faultNode, true);
+    }
+    if (auto latencyNode = findChild(node, "latency_critical")) {
+        port.latencyCritical = getBool(*latencyNode, false);
+    } else if (auto latencyNode = findChild(node, "latencyCritical")) {
+        port.latencyCritical = getBool(*latencyNode, false);
+    }
+    if (auto descNode = findChild(node, "description")) {
+        port.description = getString(*descNode);
+    }
+
+    return port;
+}
+
+inline BlackBoxResource AutomataParser::parseBlackBoxResource(ryml::ConstNodeRef node,
+                                                              ParseContext& ctx) {
+    BlackBoxResource resource;
+
+    if (auto nameNode = findChild(node, "name")) {
+        resource.name = getString(*nameNode);
+    } else {
+        ctx.error("black_box resource missing name");
+    }
+    if (auto kindNode = findChild(node, "kind")) {
+        resource.kind = getString(*kindNode);
+    }
+    if (auto capNode = findChild(node, "capacity")) {
+        resource.capacity = static_cast<uint32_t>(std::max(1, getInt(*capNode, 1)));
+    }
+    if (auto sharedNode = findChild(node, "shared")) {
+        resource.shared = getBool(*sharedNode, true);
+    }
+    if (auto latencyNode = findChild(node, "latency_sensitive")) {
+        resource.latencySensitive = getBool(*latencyNode, false);
+    } else if (auto latencyNode = findChild(node, "latencySensitive")) {
+        resource.latencySensitive = getBool(*latencyNode, false);
+    }
+
+    return resource;
 }
 
 inline CodeBlock AutomataParser::parseCode(ryml::ConstNodeRef node) {

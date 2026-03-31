@@ -4,6 +4,12 @@ GATEWAY_ONLY_SERVICES ?= gateway
 ROS2_SERVICES ?= gateway server3 ros2-bridge
 ROS2_DEMO_SERVICES ?= gateway server3 ros2-bridge ros2-emulator ros2-sensor
 TS_SERVICES ?= gateway server3 device1 influxdb grafana
+BLACK_BOX_SERVICES ?= gateway server3 blackbox1
+BLACK_BOX_GATEWAY_WS_URL ?= ws://172.20.0.10:4000/socket/websocket
+BLACK_BOX_OPERATOR_TOKEN ?= dev_secret_token
+BLACK_BOX_DEVICE_ID ?= black_box_01
+BLACK_BOX_SERVER_ID ?= svr_03
+BLACK_BOX_SHOWCASE ?= example/automata/showcase/12_black_box/docker_black_box_probe.yaml
 empty :=
 space := $(empty) $(empty)
 comma := ,
@@ -42,7 +48,7 @@ MCXN947_TARGET ?= mcxn947vdf
 MCXN947_PROBE_UID ?=
 MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
 
-.PHONY: help up u up-gateway ug down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd logs l logs0 l0 build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
+.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
 
 help:
 	@echo "Aetherium src dev shortcuts"
@@ -51,6 +57,11 @@ help:
 	@echo "  make up / make u               - start gateway+server3+device1"
 	@echo "  make up-gateway / make ug      - start gateway only (for host server + ESP32)"
 	@echo "  make restart / make r          - restart gateway+server3+device1"
+	@echo "  make up-blackbox / make ubb    - start gateway+server3+blackbox1"
+	@echo "  make logs-blackbox / make lbb  - follow logs for blackbox stack"
+	@echo "  make rebuild-blackbox / make rbb"
+	@echo "                               - build + recreate blackbox1 only"
+	@echo "  make smoke-blackbox / make sbb - deploy and exercise the docker black-box probe"
 	@echo "  make logs / make l             - follow logs (tail=100)"
 	@echo "  make logs0 / make l0           - follow only fresh logs (tail=0)"
 	@echo "  make ps                        - compose service status"
@@ -115,6 +126,9 @@ up u:
 up-gateway ug:
 	$(COMPOSE) up -d $(GATEWAY_ONLY_SERVICES)
 
+up-blackbox ubb:
+	$(COMPOSE) up -d $(BLACK_BOX_SERVICES)
+
 down:
 	$(COMPOSE) down
 
@@ -144,11 +158,21 @@ rebuild-device rb-device:
 	$(COMPOSE) build device1
 	$(COMPOSE) up -d --no-deps --force-recreate device1
 
+rebuild-blackbox rbb:
+	$(COMPOSE) build blackbox1
+	$(COMPOSE) up -d --no-deps --force-recreate blackbox1
+
 logs l:
 	$(COMPOSE) logs -f --tail=100 $(DEV_SERVICES)
 
 logs0 l0:
 	$(COMPOSE) logs -f --tail=0 $(DEV_SERVICES)
+
+logs-blackbox lbb:
+	$(COMPOSE) logs -f --tail=100 $(BLACK_BOX_SERVICES)
+
+smoke-blackbox sbb:
+	$(COMPOSE) exec -T server3 sh -lc "cd /app && AETHERIUM_REPO_ROOT=/repo mix aetherium.black_box.smoke --gateway-url $(BLACK_BOX_GATEWAY_WS_URL) --token $(BLACK_BOX_OPERATOR_TOKEN) --device-id $(BLACK_BOX_DEVICE_ID) --server-id $(BLACK_BOX_SERVER_ID) --showcase $(BLACK_BOX_SHOWCASE)"
 
 ps:
 	$(COMPOSE) ps

@@ -120,7 +120,7 @@ type UIStore = UIState & UIActions;
 // ============================================================================
 
 const SIDEBAR_PANELS: PanelId[] = ['explorer', 'devices', 'gateway'];
-const CENTER_VIEW_PANELS: PanelId[] = ['automata', 'network', 'runtime', 'timetravel'];
+const CENTER_VIEW_PANELS: PanelId[] = ['automata', 'petri', 'network', 'runtime'];
 const RIGHT_PANEL_PANELS: PanelId[] = ['properties', 'transitions', 'variables', 'connections'];
 
 const defaultLayout: LayoutConfig = {
@@ -139,6 +139,20 @@ const defaultLayout: LayoutConfig = {
       position: 'center',
       isCollapsed: false,
     },
+    petri: {
+      id: 'petri',
+      isVisible: false,
+      size: 100,
+      position: 'center',
+      isCollapsed: false,
+    },
+    network: {
+      id: 'network',
+      isVisible: false,
+      size: 100,
+      position: 'center',
+      isCollapsed: false,
+    },
     devices: {
       id: 'devices',
       isVisible: false,
@@ -153,25 +167,11 @@ const defaultLayout: LayoutConfig = {
       position: 'left',
       isCollapsed: true,
     },
-    network: {
-      id: 'network',
-      isVisible: false,
-      size: 300,
-      position: 'right',
-      isCollapsed: true,
-    },
     runtime: {
       id: 'runtime',
       isVisible: false,
       size: 300,
       position: 'center',
-      isCollapsed: true,
-    },
-    timetravel: {
-      id: 'timetravel',
-      isVisible: false,
-      size: 200,
-      position: 'bottom',
       isCollapsed: true,
     },
     properties: {
@@ -222,7 +222,14 @@ const normalizePanelGroupVisibility = (
 ): void => {
   const visible = group.filter((panelId) => layout.panels[panelId]?.isVisible);
 
-  if (visible.length <= 1) {
+  if (visible.length === 0) {
+    if (layout.panels[preferred]) {
+      layout.panels[preferred]!.isVisible = true;
+    }
+    return;
+  }
+
+  if (visible.length === 1) {
     return;
   }
 
@@ -238,9 +245,13 @@ const normalizePanelGroupVisibility = (
 
 const normalizeLayout = (layout: LayoutConfig): LayoutConfig => {
   const normalized: LayoutConfig = {
+    ...defaultLayout,
     ...layout,
     panels: Object.fromEntries(
-      Object.entries(layout.panels).map(([panelId, panel]) => [panelId, { ...panel }]),
+      Object.entries({
+        ...defaultLayout.panels,
+        ...layout.panels,
+      }).map(([panelId, panel]) => [panelId, { ...panel }]),
     ) as LayoutConfig['panels'],
   };
 

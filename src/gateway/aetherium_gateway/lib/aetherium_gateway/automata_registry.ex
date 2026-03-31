@@ -73,7 +73,8 @@ defmodule AetheriumGateway.AutomataRegistry do
           deployed_at: DateTime.t() | nil,
           current_state: String.t() | nil,
           variables: map(),
-          error: String.t() | nil
+          error: String.t() | nil,
+          deployment_metadata: map()
         }
 
   # ============================================================================
@@ -165,6 +166,12 @@ defmodule AetheriumGateway.AutomataRegistry do
   @spec update_device_state(device_id(), String.t(), map()) :: :ok
   def update_device_state(device_id, current_state, variables) do
     GenServer.cast(__MODULE__, {:update_device_state, device_id, current_state, variables})
+  end
+
+  @doc "Update a single deployment variable for a device"
+  @spec update_device_variable(device_id(), variable_name(), any()) :: :ok
+  def update_device_variable(device_id, variable_name, value) do
+    GenServer.cast(__MODULE__, {:update_device_variable, device_id, variable_name, value})
   end
 
   @doc "Record a state transition event"
@@ -317,7 +324,8 @@ defmodule AetheriumGateway.AutomataRegistry do
           deployed_at: nil,
           current_state: nil,
           variables: initialize_variables(automata.variables),
-          error: nil
+          error: nil,
+          deployment_metadata: %{}
         }
 
         key = {automata_id, device_id}
@@ -459,7 +467,7 @@ defmodule AetheriumGateway.AutomataRegistry do
             deployment
             |> Map.put(:status, status)
             |> Map.put(:updated_at, DateTime.utc_now())
-            |> Map.merge(extras)
+            |> merge_deployment_extras(extras)
             |> maybe_set_deployed_at(status)
 
           broadcast_deployment_update(updated)
@@ -501,6 +509,30 @@ defmodule AetheriumGateway.AutomataRegistry do
           next = put_in(state, [:deployments, key], updated)
           persist_state(next)
           append_event("device_state", %{device_id: device_id, current_state: current_state})
+          next
+      end
+
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_cast({:update_device_variable, device_id, variable_name, value}, state) do
+    deployment_entry =
+      Enum.find(state.deployments, fn {{_aid, did}, _dep} -> did == device_id end)
+
+    new_state =
+      case deployment_entry do
+        nil ->
+          state
+
+        {key, deployment} ->
+          updated =
+            deployment
+            |> Map.put(:updated_at, DateTime.utc_now())
+            |> Map.put(:variables, Map.put(deployment.variables || %{}, variable_name, value))
+
+          next = put_in(state, [:deployments, key], updated)
+          persist_state(next)
           next
       end
 
@@ -576,6 +608,34 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   defp maybe_set_deployed_at(deployment, _status), do: deployment
+
+  defp merge_deployment_extras(deployment, extras) when is_map(extras) do
+    existing_metadata =
+      case Map.get(deployment, :deployment_metadata, %{}) do
+        metadata when is_map(metadata) -> metadata
+        _ -> %{}
+      end
+
+    incoming_metadata =
+      case Map.get(extras, :deployment_metadata, Map.get(extras, "deployment_metadata", %{})) do
+        metadata when is_map(metadata) -> metadata
+        _ -> %{}
+      end
+
+    metadata =
+      Map.merge(existing_metadata, incoming_metadata)
+
+    extras =
+      extras
+      |> Map.delete(:deployment_metadata)
+      |> Map.delete("deployment_metadata")
+
+    deployment
+    |> Map.merge(extras)
+    |> Map.put(:deployment_metadata, metadata)
+  end
+
+  defp merge_deployment_extras(deployment, _extras), do: deployment
 
   defp deployment_matches_opts?(automata_id, deployment, opts) do
     matches_automata? =
@@ -683,7 +743,8 @@ defmodule AetheriumGateway.AutomataRegistry do
           updated_at: DateTime.utc_now(),
           current_state: deployment_field(deployment, :current_state),
           variables: deployment_field(deployment, :variables, %{}),
-          error: deployment_field(deployment, :error)
+          error: deployment_field(deployment, :error),
+          deployment_metadata: deployment_field(deployment, :deployment_metadata, %{})
         }
     end
   end
@@ -717,9 +778,13 @@ defmodule AetheriumGateway.AutomataRegistry do
         current_state: nil,
         variables: %{},
         error: nil,
-        status: :pending
+        status: :pending,
+        deployment_metadata: %{}
       })
       |> Map.merge(deployment)
+      |> Map.update(:deployment_metadata, %{}, fn existing ->
+        Map.merge(existing || %{}, deployment.deployment_metadata || %{})
+      end)
       |> maybe_set_deployed_at(deployment.status)
 
     if Map.get(state.deployments, key) != updated do

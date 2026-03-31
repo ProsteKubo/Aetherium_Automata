@@ -15,7 +15,7 @@ import type {
   ServerId,
   DeviceId,
 } from '../types';
-import { IGatewayService, MockGatewayService, PhoenixGatewayService } from '../services/gateway';
+import { IGatewayService, PhoenixGatewayService } from '../services/gateway';
 
 // ============================================================================
 // State Types
@@ -40,7 +40,6 @@ interface GatewayState {
   
   // Service instance
   service: IGatewayService;
-  useMockService: boolean;
 }
 
 interface GatewayActions {
@@ -59,9 +58,6 @@ interface GatewayActions {
   // Server operations
   updateServer: (serverId: ServerId, updates: Partial<Server>) => void;
   
-  // Service switching
-  setUseMockService: (useMock: boolean) => void;
-  
   // Utility
   reset: () => void;
 }
@@ -79,7 +75,7 @@ function clearGatewayEventSubscriptions(): void {
 // Initial State
 // ============================================================================
 
-const initialState: Omit<GatewayState, 'service' | 'useMockService'> = {
+const initialState: Omit<GatewayState, 'service'> = {
   status: 'disconnected',
   config: null,
   sessionId: null,
@@ -100,7 +96,6 @@ export const useGatewayStore = create<GatewayStore>()(
   immer((set, get) => ({
     ...initialState,
     service: new PhoenixGatewayService(), // Use Phoenix by default
-    useMockService: false,
     
     // ========================================================================
     // Connection
@@ -384,27 +379,6 @@ export const useGatewayStore = create<GatewayStore>()(
           nextServers.set(serverId, { ...server, ...updates });
           state.servers = nextServers;
         }
-      });
-    },
-    
-    // ========================================================================
-    // Service Switching
-    // ========================================================================
-    
-    setUseMockService: (useMock: boolean) => {
-      const currentStatus = get().status;
-      
-      // Don't switch if connected
-      if (currentStatus === 'connected') {
-        console.warn('Cannot switch service while connected. Disconnect first.');
-        return;
-      }
-      
-      set((state) => {
-        clearGatewayEventSubscriptions();
-        state.useMockService = useMock;
-        state.service = useMock ? new MockGatewayService() : new PhoenixGatewayService();
-        state.connectors = new Map();
       });
     },
     

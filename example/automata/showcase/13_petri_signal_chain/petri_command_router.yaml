@@ -1,0 +1,96 @@
+version: 0.0.1
+
+config:
+  name: Petri Command Router
+  type: inline
+  description: Emits operator command topics that drive the Petri signal-chain demo.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - signal-chain
+
+variables:
+  - name: operator_enable
+    type: bool
+    direction: input
+    default: false
+  - name: watchdog_ok
+    type: bool
+    direction: input
+    default: true
+  - name: arm_request
+    type: bool
+    direction: output
+    default: false
+  - name: heartbeat
+    type: bool
+    direction: output
+    default: false
+  - name: route_state
+    type: string
+    direction: output
+    default: standby
+
+automata:
+  initial_state: Standby
+
+  states:
+    Standby:
+      inputs:
+        - operator_enable
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+      on_enter: |
+        setVal("arm_request", false)
+        setVal("heartbeat", false)
+        setVal("route_state", "standby")
+
+    Armed:
+      inputs:
+        - watchdog_ok
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+      on_enter: |
+        setVal("arm_request", true)
+        setVal("heartbeat", true)
+        setVal("route_state", "armed")
+
+    Fault:
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+      on_enter: |
+        setVal("arm_request", false)
+        setVal("heartbeat", false)
+        setVal("route_state", "fault")
+
+  transitions:
+    operator_enable_to_armed:
+      from: Standby
+      to: Armed
+      type: classic
+      condition: value("operator_enable") == true
+
+    watchdog_drop_to_fault:
+      from: Armed
+      to: Fault
+      type: classic
+      condition: value("watchdog_ok") == false
+
+    operator_release_to_standby:
+      from: Armed
+      to: Standby
+      type: classic
+      condition: value("operator_enable") == false and value("watchdog_ok") == true
+
+    fault_reset:
+      from: Fault
+      to: Standby
+      type: classic
+      condition: value("operator_enable") == false and value("watchdog_ok") == true

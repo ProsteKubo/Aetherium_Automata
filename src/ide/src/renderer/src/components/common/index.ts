@@ -7,6 +7,5 @@ export * from './AppHeader';
 export * from './ActivityBar';
 export * from './StatusBar';
 export * from './TabBar';
-export * from './ResizablePanel';
 export * from './NotificationToasts';
 export * from './GatewaySettings';

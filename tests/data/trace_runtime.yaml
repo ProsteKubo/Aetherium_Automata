@@ -1,0 +1,47 @@
+version: 0.0.1
+
+config:
+  name: Trace CLI Smoke
+  type: inline
+
+variables:
+  - name: flag
+    type: bool
+    direction: output
+    default: false
+
+black_box:
+  ports:
+    - name: flag
+      direction: output
+      type: bool
+      observable: true
+      fault_injectable: true
+      latency_critical: true
+      description: Completion indicator exposed at the automaton boundary
+  observable_states:
+    - Done
+  resources:
+    - name: battery_pack
+      kind: energy
+      capacity: 1
+      shared: false
+      latency_sensitive: true
+  emitted_events:
+    - completion_reported
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setVal("flag", true)
+
+    Done:
+
+  transitions:
+    finish:
+      from: Idle
+      to: Done
+      type: immediate

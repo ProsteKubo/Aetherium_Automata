@@ -41,6 +41,15 @@ T* findMessage(const Engine::Replies& replies) {
     return nullptr;
 }
 
+const aeth::Value* findSnapshotValue(const protocol::StatusMessage& status, const std::string& name) {
+    for (const auto& entry : status.variableSnapshot) {
+        if (entry.variableName == name) {
+            return &entry.value;
+        }
+    }
+    return nullptr;
+}
+
 uint32_t nextMessageId() {
     static uint32_t id = 1;
     return id++;
@@ -436,6 +445,25 @@ int main() {
         expectAck(replies, "set-input door_open");
     }
     engine.tick();
+
+    {
+        auto statusReq = makeMessage<protocol::StatusMessage>();
+        statusReq->runId = 43;
+        auto replies = send(engine, std::move(statusReq));
+        auto* status = findMessage<protocol::StatusMessage>(replies);
+        require(status != nullptr, "status-latched: expected STATUS");
+        require(status->currentState != aeth::INVALID_STATE, "status-latched: expected current state");
+
+        const auto* overTemp = findSnapshotValue(*status, "over_temp");
+        require(overTemp != nullptr, "status-latched: missing over_temp snapshot");
+        require(overTemp->type() == aeth::ValueType::Bool && overTemp->get<bool>(),
+                "status-latched: expected over_temp=true");
+
+        const auto* latchCount = findSnapshotValue(*status, "latch_count");
+        require(latchCount != nullptr, "status-latched: missing latch_count snapshot");
+        require(latchCount->type() == aeth::ValueType::Int32 && latchCount->get<int32_t>() >= 1,
+                "status-latched: expected latch_count>=1");
+    }
 
     {
         auto inputReq = makeMessage<protocol::InputMessage>();

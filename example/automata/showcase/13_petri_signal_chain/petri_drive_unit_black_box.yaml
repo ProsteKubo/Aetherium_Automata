@@ -1,0 +1,117 @@
+version: 0.0.1
+
+config:
+  name: Petri Drive Unit Black Box
+  type: inline
+  description: Black-box drive node that consumes permit signals and shares bus/battery resources.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - black-box
+    - signal-chain
+
+variables:
+  - name: permit_ok
+    type: bool
+    direction: input
+    default: false
+  - name: module_status
+    type: string
+    direction: output
+    default: idle
+  - name: torque_ready
+    type: bool
+    direction: output
+    default: false
+
+black_box:
+  ports:
+    - name: permit_ok
+      direction: input
+      type: bool
+      description: Safety permit entering the sealed drive unit
+    - name: module_status
+      direction: output
+      type: string
+      observable: true
+      description: Public black-box state channel
+    - name: torque_ready
+      direction: output
+      type: bool
+      observable: true
+      description: Public actuator readiness
+  observable_states:
+    - Idle
+    - Ready
+    - Cooldown
+  emitted_events:
+    - torque_lost
+  resources:
+    - name: field_bus
+      kind: network
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+    - name: battery_pack
+      kind: energy
+      capacity: 1
+      shared: false
+      latency_sensitive: true
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      inputs:
+        - permit_ok
+      outputs:
+        - module_status
+        - torque_ready
+      code: |
+        local field_bus = "idle"
+        local battery_pack = "float"
+      on_enter: |
+        setVal("module_status", "idle")
+        setVal("torque_ready", false)
+
+    Ready:
+      outputs:
+        - module_status
+        - torque_ready
+      code: |
+        local field_bus = "active"
+        local battery_pack = "load"
+      on_enter: |
+        setVal("module_status", "ready")
+        setVal("torque_ready", true)
+
+    Cooldown:
+      outputs:
+        - module_status
+        - torque_ready
+      code: |
+        local battery_pack = "recover"
+      on_enter: |
+        setVal("module_status", "cooldown")
+        setVal("torque_ready", false)
+
+  transitions:
+    permit_to_ready:
+      from: Idle
+      to: Ready
+      type: classic
+      condition: value("permit_ok") == true
+
+    release_to_cooldown:
+      from: Ready
+      to: Cooldown
+      type: classic
+      condition: value("permit_ok") == false
+
+    cooldown_to_idle:
+      from: Cooldown
+      to: Idle
+      type: timed
+      after: 2

@@ -30,3 +30,11 @@ example/automata/showcase/11_bidirectional_loop/esp32_bidirectional_loop_node.ya
 example/automata/showcase/11_bidirectional_loop/mcxn947_bidirectional_loop_node.yaml
 example/automata/showcase/11_bidirectional_loop/bidirectional_signal_conditioner.yaml
 example/automata/showcase/11_bidirectional_loop/bidirectional_demo_controller.yaml
+example/automata/showcase/12_black_box/docker_black_box_probe.yaml
+example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml
+example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml
+example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml
+example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml
+example/automata/showcase/14_petri_contention/petri_power_allocator.yaml
+example/automata/showcase/14_petri_contention/petri_charger_node.yaml
+example/automata/showcase/14_petri_contention/petri_motion_axis.yaml

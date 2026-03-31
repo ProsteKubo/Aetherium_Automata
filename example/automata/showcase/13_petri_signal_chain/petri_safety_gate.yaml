@@ -1,0 +1,128 @@
+version: 0.0.1
+
+config:
+  name: Petri Safety Gate
+  type: inline
+  description: Turns arm requests into permits while sharing the same field bus as downstream nodes.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - signal-chain
+    - safety
+
+variables:
+  - name: arm_request
+    type: bool
+    direction: input
+    default: false
+  - name: permit_ok
+    type: bool
+    direction: output
+    default: false
+  - name: alarm_latched
+    type: bool
+    direction: output
+    default: false
+  - name: supervisor_state
+    type: string
+    direction: output
+    default: inhibit
+
+black_box:
+  ports:
+    - name: arm_request
+      direction: input
+      type: bool
+      description: Routed arm request from the operator side
+    - name: permit_ok
+      direction: output
+      type: bool
+      observable: true
+      description: Safety permission for the drive unit
+    - name: alarm_latched
+      direction: output
+      type: bool
+      observable: true
+      description: Alarm path consumed by telemetry
+  observable_states:
+    - Inhibit
+    - Permit
+    - Alarm
+  emitted_events:
+    - supervisor_alarm
+  resources:
+    - name: field_bus
+      kind: network
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Inhibit
+
+  states:
+    Inhibit:
+      inputs:
+        - arm_request
+      outputs:
+        - permit_ok
+        - alarm_latched
+        - supervisor_state
+      code: |
+        local field_bus = "reserved"
+      on_enter: |
+        setVal("permit_ok", false)
+        setVal("alarm_latched", false)
+        setVal("supervisor_state", "inhibit")
+
+    Permit:
+      inputs:
+        - arm_request
+      outputs:
+        - permit_ok
+        - alarm_latched
+        - supervisor_state
+      code: |
+        local field_bus = "passing"
+      on_enter: |
+        setVal("permit_ok", true)
+        setVal("alarm_latched", false)
+        setVal("supervisor_state", "permit")
+
+    Alarm:
+      outputs:
+        - permit_ok
+        - alarm_latched
+        - supervisor_state
+      code: |
+        local field_bus = "tripped"
+      on_enter: |
+        setVal("permit_ok", false)
+        setVal("alarm_latched", true)
+        setVal("supervisor_state", "alarm")
+
+  transitions:
+    request_to_permit:
+      from: Inhibit
+      to: Permit
+      type: classic
+      condition: value("arm_request") == true
+
+    release_to_inhibit:
+      from: Permit
+      to: Inhibit
+      type: classic
+      condition: value("arm_request") == false
+
+    alarm_trip:
+      from: Permit
+      to: Alarm
+      type: timed
+      after: 3
+
+    alarm_reset:
+      from: Alarm
+      to: Inhibit
+      type: classic
+      condition: value("arm_request") == false

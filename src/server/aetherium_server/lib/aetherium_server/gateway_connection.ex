@@ -42,7 +42,8 @@ defmodule AetheriumServer.GatewayConnection do
        token: token,
        server_id: server_id,
        heartbeat_interval: heartbeat_interval,
-       join_retry_interval: join_retry_interval
+       join_retry_interval: join_retry_interval,
+       gateway_link: %{}
      }}
   end
 
@@ -56,7 +57,12 @@ defmodule AetheriumServer.GatewayConnection do
   @impl true
   def handle_cast({:report_devices, devices}, %{channel: channel} = state)
       when not is_nil(channel) do
-    PhoenixClient.Channel.push_async(channel, "device_update", %{"devices" => devices})
+    PhoenixClient.Channel.push_async(
+      channel,
+      "device_update",
+      decorate_gateway_payload(state, "device_update", %{"devices" => devices})
+    )
+
     {:noreply, state}
   end
 
@@ -64,7 +70,12 @@ defmodule AetheriumServer.GatewayConnection do
 
   @impl true
   def handle_cast({:report_alert, alert}, %{channel: channel} = state) when not is_nil(channel) do
-    PhoenixClient.Channel.push_async(channel, "device_alert", alert)
+    PhoenixClient.Channel.push_async(
+      channel,
+      "device_alert",
+      decorate_gateway_payload(state, "device_alert", alert)
+    )
+
     {:noreply, state}
   end
 
@@ -73,7 +84,12 @@ defmodule AetheriumServer.GatewayConnection do
   @impl true
   def handle_cast({:push, event, payload}, %{channel: channel} = state)
       when not is_nil(channel) do
-    PhoenixClient.Channel.push_async(channel, event, payload)
+    PhoenixClient.Channel.push_async(
+      channel,
+      event,
+      decorate_gateway_payload(state, event, payload)
+    )
+
     {:noreply, state}
   end
 
@@ -86,9 +102,9 @@ defmodule AetheriumServer.GatewayConnection do
         :send_heartbeat,
         %{channel: channel, heartbeat_interval: heartbeat_interval} = state
       ) do
-    PhoenixClient.Channel.push(channel, "heartbeat", %{})
-    push_live_deployments(channel)
-    push_connector_statuses(channel)
+    state = send_gateway_heartbeat(state, channel)
+    push_live_deployments(state)
+    push_connector_statuses(state)
     Process.send_after(self(), :send_heartbeat, heartbeat_interval)
     {:noreply, state}
   end
@@ -100,11 +116,12 @@ defmodule AetheriumServer.GatewayConnection do
     case PhoenixClient.Channel.join(socket, "server:gateway", join_payload) do
       {:ok, _response, channel} ->
         Logger.info("Connected to gateway and joined server:gateway")
-        push_current_devices(channel)
-        push_live_deployments(channel)
-        push_connector_statuses(channel)
+        joined_state = %{state | channel: channel}
+        push_current_devices(joined_state)
+        push_live_deployments(joined_state)
+        push_connector_statuses(joined_state)
         Process.send_after(self(), :send_heartbeat, state.heartbeat_interval)
-        {:noreply, %{state | channel: channel}}
+        {:noreply, joined_state}
 
       {:error, :socket_not_connected} ->
         Process.send_after(self(), :try_join, state.join_retry_interval)
@@ -330,6 +347,9 @@ defmodule AetheriumServer.GatewayConnection do
             :ok ->
               {:ack, :ok, %{"deployment_id" => deployment_id}}
 
+            {:error, :invalid_black_box_event} ->
+              {:nak, :invalid_black_box_event, %{"deployment_id" => deployment_id}}
+
             {:error, :unsupported_command} ->
               {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
 
@@ -360,6 +380,9 @@ defmodule AetheriumServer.GatewayConnection do
           case AetheriumServer.DeviceManager.force_state(deployment_id, state_id) do
             :ok ->
               {:ack, :ok, %{"deployment_id" => deployment_id, "state_id" => state_id}}
+
+            {:error, :invalid_black_box_state} ->
+              {:nak, :invalid_black_box_state, %{"deployment_id" => deployment_id}}
 
             {:error, :unsupported_command} ->
               {:nak, :unsupported_command, %{"deployment_id" => deployment_id}}
@@ -397,9 +420,14 @@ defmodule AetheriumServer.GatewayConnection do
 
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
+                automata_id: runtime_state[:automata_id] || runtime_state["automata_id"],
+                device_id: runtime_state[:device_id] || runtime_state["device_id"],
                 status: if(running?, do: "running", else: "stopped"),
                 current_state: runtime_state[:current_state] || runtime_state["current_state"],
-                variables: runtime_state[:variables] || runtime_state["variables"] || %{}
+                variables: runtime_state[:variables] || runtime_state["variables"] || %{},
+                deployment_metadata:
+                  runtime_state[:deployment_metadata] || runtime_state["deployment_metadata"] ||
+                    %{}
               })
 
               {:ack, :ok, %{"deployment_id" => deployment_id, "state" => runtime_state}}
@@ -755,10 +783,257 @@ defmodule AetheriumServer.GatewayConnection do
   defp format_reason(reason) when is_binary(reason), do: reason
   defp format_reason(reason), do: inspect(reason)
 
+  defp send_gateway_heartbeat(state, channel) do
+    server_sent_at_ms = System.system_time(:millisecond)
+
+    payload =
+      %{
+        "server_id" => state.server_id,
+        "server_sent_at_ms" => server_sent_at_ms,
+        "heartbeat_interval_ms" => state.heartbeat_interval
+      }
+      |> maybe_put_map("gateway_link", gateway_link_snapshot(state))
+
+    case PhoenixClient.Channel.push(channel, "heartbeat", payload) do
+      {:ok, reply} when is_map(reply) ->
+        gateway_ack_at_ms = System.system_time(:millisecond)
+        round_trip_latency_ms = max(gateway_ack_at_ms - server_sent_at_ms, 0)
+        gateway_received_at_ms = reply["gateway_received_at_ms"] || gateway_ack_at_ms
+        gateway_sent_at_ms = reply["gateway_sent_at_ms"] || gateway_received_at_ms
+
+        gateway_link = %{
+          "status" => "ok",
+          "server_sent_at_ms" => server_sent_at_ms,
+          "gateway_received_at_ms" => gateway_received_at_ms,
+          "gateway_sent_at_ms" => gateway_sent_at_ms,
+          "server_ack_at_ms" => gateway_ack_at_ms,
+          "round_trip_latency_ms" => round_trip_latency_ms,
+          "heartbeat_interval_ms" => state.heartbeat_interval,
+          "clock_skew_ms" => gateway_received_at_ms - server_sent_at_ms
+        }
+
+        %{state | gateway_link: gateway_link}
+
+      {:error, reason} ->
+        Logger.warning("Gateway heartbeat failed: #{inspect(reason)}")
+
+        %{state | gateway_link: %{"status" => "error", "reason" => inspect(reason)}}
+    end
+  end
+
+  defp decorate_gateway_payload(state, event, payload)
+       when is_map(state) and is_binary(event) and is_map(payload) do
+    payload = stringify_keys(payload)
+    gateway_link = gateway_link_snapshot(state)
+
+    payload =
+      payload
+      |> maybe_put_map("gateway_link", gateway_link)
+      |> maybe_put_int("reported_at_ms", System.system_time(:millisecond))
+
+    case build_deployment_metadata_for_payload(state, payload) do
+      %{} ->
+        payload
+
+      metadata ->
+        payload
+        |> Map.update("deployment_metadata", metadata, fn existing ->
+          existing =
+            case stringify_keys(existing) do
+              %{} = existing_map -> existing_map
+              _ -> %{}
+            end
+
+          Map.merge(metadata, existing)
+        end)
+    end
+  end
+
+  defp decorate_gateway_payload(_state, _event, payload), do: payload
+
+  defp build_deployment_metadata_for_payload(state, payload) when is_map(payload) do
+    device = find_device_for_payload(payload)
+    deployment = find_deployment_for_payload(payload, device)
+    build_deployment_metadata(state, payload, device, deployment)
+  end
+
+  defp build_deployment_metadata(state, payload, device, deployment) do
+    transport =
+      compact_map(%{
+        "type" => device && device.transport,
+        "link" => device && device.link,
+        "connector_id" => device && device.connector_id,
+        "connector_type" => normalize_text(device && device.connector_type)
+      })
+
+    runtime =
+      compact_map(%{
+        "run_id" => deployment && deployment.run_id,
+        "target_profile" =>
+          (deployment && deployment.target_profile) || payload["target_profile"],
+        "patch_mode" => deployment && deployment.patch_mode,
+        "artifact_version_id" => deployment && deployment.artifact_version_id,
+        "snapshot_id" => deployment && deployment.snapshot_id,
+        "migration_plan_ref" => deployment && deployment.migration_plan_ref
+      })
+
+    battery =
+      compact_map(%{
+        "present" => payload["battery_present"],
+        "percent" => payload["battery_percent"],
+        "low" => payload["battery_low"],
+        "external_power" => payload["battery_external_power"]
+      })
+
+    latency =
+      compact_map(%{
+        "budget_ms" => payload["latency_budget_ms"],
+        "warning_ms" => payload["latency_warning_ms"],
+        "observed_ms" => payload["observed_latency_ms"],
+        "ingress_ms" => payload["ingress_latency_ms"],
+        "egress_ms" => payload["egress_latency_ms"],
+        "send_timestamp" => payload["send_timestamp"],
+        "receive_timestamp" => payload["receive_timestamp"],
+        "handle_timestamp" => payload["handle_timestamp"]
+      })
+      |> maybe_put_map("gateway_link", gateway_link_snapshot(state))
+
+    black_box =
+      payload["black_box"] ||
+        payload["black_box_contract"] ||
+        payload["contract"] ||
+        existing_metadata(payload, ["black_box", "contract"])
+
+    trace =
+      compact_map(%{
+        "trace_file" => payload["trace_file"],
+        "trace_event_count" => payload["trace_event_count"],
+        "fault_profile" => payload["fault_profile"]
+      })
+
+    compact_map(%{
+      "server" =>
+        compact_map(%{
+          "server_id" => state.server_id,
+          "reported_at_ms" => System.system_time(:millisecond)
+        }),
+      "placement" =>
+        payload["placement"] || existing_metadata(payload, ["placement"]) ||
+          infer_placement(device, deployment),
+      "transport" => transport,
+      "runtime" => runtime,
+      "battery" => battery,
+      "latency" => latency,
+      "black_box" => black_box,
+      "trace" => trace
+    })
+  end
+
+  defp find_device_for_payload(payload) when is_map(payload) do
+    case payload["device_id"] do
+      device_id when is_binary(device_id) and device_id != "" ->
+        case AetheriumServer.DeviceManager.get_device(device_id) do
+          {:ok, device} -> device
+          _ -> nil
+        end
+
+      _ ->
+        nil
+    end
+  end
+
+  defp find_deployment_for_payload(payload, device) when is_map(payload) do
+    deployment_id = payload["deployment_id"]
+    automata_id = payload["automata_id"]
+
+    deployments =
+      case device do
+        %{id: device_id} -> AetheriumServer.DeviceManager.get_device_deployments(device_id)
+        _ -> []
+      end
+
+    Enum.find(deployments, fn deployment ->
+      same_deployment? =
+        !is_binary(deployment_id) or deployment_id == "" or deployment.id == deployment_id
+
+      same_automata? =
+        !is_binary(automata_id) or automata_id == "" or deployment.automata_id == automata_id
+
+      same_deployment? and same_automata?
+    end)
+  end
+
+  defp infer_placement(device, deployment) do
+    cond do
+      deployment && deployment.target_profile == "local_runtime" ->
+        "host"
+
+      device && normalize_text(device.connector_type) in ["local", "loopback"] ->
+        "host"
+
+      device && normalize_text(device.device_type) == "desktop" ->
+        "host"
+
+      device ->
+        "device"
+
+      true ->
+        nil
+    end
+  end
+
+  defp gateway_link_snapshot(%{gateway_link: gateway_link})
+       when is_map(gateway_link) and map_size(gateway_link) > 0,
+       do: gateway_link
+
+  defp gateway_link_snapshot(_state), do: %{}
+
+  defp existing_metadata(payload, [section, inner]) do
+    case payload["deployment_metadata"] do
+      %{} = metadata ->
+        get_in(metadata, [section, inner])
+
+      _ ->
+        nil
+    end
+  end
+
+  defp existing_metadata(payload, [section]) do
+    case payload["deployment_metadata"] do
+      %{} = metadata -> Map.get(metadata, section)
+      _ -> nil
+    end
+  end
+
+  defp maybe_put_map(map, _key, value) when value in [%{}, nil], do: map
+  defp maybe_put_map(map, key, value), do: Map.put(map, key, value)
+
+  defp maybe_put_int(map, _key, value) when not is_integer(value), do: map
+  defp maybe_put_int(map, key, value), do: Map.put(map, key, value)
+
+  defp compact_map(map) when is_map(map) do
+    map
+    |> Enum.reject(fn
+      {_key, nil} -> true
+      {_key, ""} -> true
+      {_key, value} when is_map(value) -> map_size(value) == 0
+      _ -> false
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp normalize_text(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_text(value) when is_binary(value), do: value
+  defp normalize_text(_value), do: nil
+
   defp push_to_gateway(%{channel: nil}, _event, _payload), do: :ok
 
-  defp push_to_gateway(%{channel: channel}, event, payload) do
-    PhoenixClient.Channel.push_async(channel, event, payload)
+  defp push_to_gateway(%{channel: channel} = state, event, payload) do
+    PhoenixClient.Channel.push_async(
+      channel,
+      event,
+      decorate_gateway_payload(state, event, payload)
+    )
   end
 
   defp find_deployments_by_automata(automata_id) do
@@ -777,7 +1052,7 @@ defmodule AetheriumServer.GatewayConnection do
   defp normalize_automata(automata) when is_map(automata), do: automata
   defp normalize_automata(_), do: %{}
 
-  defp push_current_devices(channel) do
+  defp push_current_devices(%{channel: channel} = state) do
     devices =
       AetheriumServer.DeviceManager.list_devices()
       |> Enum.map(fn d ->
@@ -807,17 +1082,22 @@ defmodule AetheriumServer.GatewayConnection do
         }
       end)
 
-    PhoenixClient.Channel.push_async(channel, "device_update", %{"devices" => devices})
+    PhoenixClient.Channel.push_async(
+      channel,
+      "device_update",
+      decorate_gateway_payload(state, "device_update", %{"devices" => devices})
+    )
   end
 
-  defp push_live_deployments(channel) do
+  defp push_live_deployments(%{channel: channel} = state) do
     deployments =
       AetheriumServer.DeviceManager.list_devices()
       |> Enum.flat_map(fn device ->
         AetheriumServer.DeviceManager.get_device_deployments(device.id)
+        |> Enum.map(&{device, &1})
       end)
-      |> Enum.filter(&active_deployment?/1)
-      |> Enum.map(fn deployment ->
+      |> Enum.filter(fn {_device, deployment} -> active_deployment?(deployment) end)
+      |> Enum.map(fn {device, deployment} ->
         %{
           "deployment_id" => deployment.id,
           "automata_id" => deployment.automata_id,
@@ -826,18 +1106,26 @@ defmodule AetheriumServer.GatewayConnection do
           "deployed_at" => deployment.deployed_at,
           "current_state" => deployment.current_state,
           "variables" => deployment.variables,
-          "error" => deployment.error
+          "error" => deployment.error,
+          "deployment_metadata" => build_deployment_metadata(state, %{}, device, deployment)
         }
       end)
 
-    PhoenixClient.Channel.push_async(channel, "deployment_inventory", %{
-      "deployments" => deployments
-    })
+    PhoenixClient.Channel.push_async(
+      channel,
+      "deployment_inventory",
+      decorate_gateway_payload(state, "deployment_inventory", %{"deployments" => deployments})
+    )
   end
 
-  defp push_connector_statuses(channel) do
+  defp push_connector_statuses(%{channel: channel} = state) do
     connectors = AetheriumServer.DeviceConnectorSupervisor.connector_statuses()
-    PhoenixClient.Channel.push_async(channel, "connector_status", %{"connectors" => connectors})
+
+    PhoenixClient.Channel.push_async(
+      channel,
+      "connector_status",
+      decorate_gateway_payload(state, "connector_status", %{"connectors" => connectors})
+    )
   end
 
   defp deployment_error_payload(

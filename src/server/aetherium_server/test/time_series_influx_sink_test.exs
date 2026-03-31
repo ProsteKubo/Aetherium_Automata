@@ -34,6 +34,7 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
       "server_id" => "srv_test",
       "connector_type" => "websocket",
       "transport" => "websocket",
+      "placement" => "device",
       "status" => "connected",
       "last_seen_at" => now,
       "connected_at" => now - 5_000,
@@ -42,6 +43,11 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
       "automata_id" => "automata-a",
       "deployment_status" => "running",
       "current_state" => "idle",
+      "battery_percent" => 92.5,
+      "battery_low" => false,
+      "latency_budget_ms" => 50,
+      "latency_warning_ms" => 25,
+      "observed_latency_ms" => 18,
       "timestamp" => now
     })
 
@@ -51,6 +57,8 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
       "server_id" => "srv_test",
       "connector_type" => "websocket",
       "transport" => "websocket",
+      "placement" => "device",
+      "link" => "ws://lab/device-a",
       "cpu_usage" => 12.5,
       "heap_free" => 128,
       "heap_total" => 256,
@@ -61,6 +69,18 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
       "telemetry_timestamp_ms" => now,
       "received_at_ms" => now,
       "variable_count" => 2,
+      "battery_percent" => 92.5,
+      "battery_low" => false,
+      "battery_present" => true,
+      "battery_external_power" => false,
+      "latency_budget_ms" => 50,
+      "latency_warning_ms" => 25,
+      "observed_latency_ms" => 18,
+      "ingress_latency_ms" => 8,
+      "egress_latency_ms" => 10,
+      "send_timestamp_ms" => now - 20,
+      "receive_timestamp_ms" => now - 12,
+      "handle_timestamp_ms" => now - 2,
       "timestamp" => now
     })
 
@@ -70,6 +90,9 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
     assert Enum.any?(queue, &String.contains?(&1, "status=connected"))
     assert Enum.any?(queue, &String.starts_with?(&1, "aeth_device_metrics,"))
     assert Enum.any?(queue, &String.contains?(&1, "cpu_usage=12.500000"))
+    assert Enum.any?(queue, &String.contains?(&1, "placement=device"))
+    assert Enum.any?(queue, &String.contains?(&1, "battery_percent=92.500000"))
+    assert Enum.any?(queue, &String.contains?(&1, "observed_latency_ms=18i"))
   end
 
   test "device manager persists telemetry and disconnect status for grafana measurements" do
@@ -100,7 +123,20 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
       heap_total: 128,
       cpu_usage: 1.5,
       tick_rate: 30,
-      variables: [%{id: 1, value: true}]
+      variables: [%{id: 1, value: true}],
+      placement: "device",
+      battery_present: true,
+      battery_percent: 84.0,
+      battery_low: false,
+      battery_external_power: false,
+      latency_budget_ms: 45,
+      latency_warning_ms: 20,
+      observed_latency_ms: 17,
+      ingress_latency_ms: 7,
+      egress_latency_ms: 10,
+      send_timestamp: System.system_time(:millisecond) - 25,
+      receive_timestamp: System.system_time(:millisecond) - 15,
+      handle_timestamp: System.system_time(:millisecond) - 5
     })
 
     DeviceManager.device_disconnected(device_id)
@@ -114,6 +150,8 @@ defmodule AetheriumServer.TimeSeriesInfluxSinkTest do
     assert Enum.any?(queue, &String.contains?(&1, "deployment_id=#{automata_id}:#{device_id}"))
     assert Enum.any?(queue, &String.contains?(&1, "cpu_usage=1.500000"))
     assert Enum.any?(queue, &String.contains?(&1, "status=disconnected"))
+    assert Enum.any?(queue, &String.contains?(&1, "battery_percent=84.000000"))
+    assert Enum.any?(queue, &String.contains?(&1, "observed_latency_ms=17i"))
   end
 
   defp wait_for_queue(predicate, attempts \\ 20)

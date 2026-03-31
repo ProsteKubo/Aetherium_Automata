@@ -1,0 +1,64 @@
+version: 0.0.1
+
+config:
+  name: Petri Charger Node
+  type: inline
+  description: Charging consumer competing for the shared dc_bus resource.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - contention
+
+variables:
+  - name: charge_enable
+    type: bool
+    direction: input
+    default: false
+  - name: charger_state
+    type: string
+    direction: output
+    default: standby
+
+black_box:
+  resources:
+    - name: dc_bus
+      kind: energy
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Standby
+
+  states:
+    Standby:
+      outputs:
+        - charger_state
+      code: |
+        local dc_bus = "open"
+      on_enter: |
+        setVal("charger_state", "standby")
+
+    Charging:
+      inputs:
+        - charge_enable
+      outputs:
+        - charger_state
+      code: |
+        local dc_bus = "charging"
+      on_enter: |
+        setVal("charger_state", "charging")
+
+  transitions:
+    start_charging:
+      from: Standby
+      to: Charging
+      type: classic
+      condition: value("charge_enable") == true
+
+    stop_charging:
+      from: Charging
+      to: Standby
+      type: classic
+      condition: value("charge_enable") == false

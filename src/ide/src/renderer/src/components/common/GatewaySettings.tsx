@@ -9,10 +9,13 @@ import './GatewaySettings.css';
 
 interface GatewaySettingsProps {
   onConnect: (host: string, port: string) => void;
-  onSkip: () => void;
+  onContinueOffline: () => void;
 }
 
-export const GatewaySettings: React.FC<GatewaySettingsProps> = ({ onConnect, onSkip }) => {
+export const GatewaySettings: React.FC<GatewaySettingsProps> = ({
+  onConnect,
+  onContinueOffline,
+}) => {
   const [host, setHost] = useState('localhost');
   const [port, setPort] = useState('4000');
   
@@ -35,9 +38,9 @@ export const GatewaySettings: React.FC<GatewaySettingsProps> = ({ onConnect, onS
     onConnect(host, port);
   };
   
-  const handleSkip = () => {
-    console.log('[GatewaySettings] Skip clicked - using mock service');
-    onSkip();
+  const handleContinueOffline = () => {
+    console.log('[GatewaySettings] Continue offline clicked');
+    onContinueOffline();
   };
   
   return (
@@ -45,7 +48,7 @@ export const GatewaySettings: React.FC<GatewaySettingsProps> = ({ onConnect, onS
       <div className="gateway-settings-modal">
         <div className="gateway-settings-header">
           <h2>Gateway Connection Settings</h2>
-          <p>Configure your gateway connection before starting</p>
+          <p>Connect to the live gateway now, or continue offline with runtime features disabled.</p>
         </div>
         
         <div className="gateway-settings-content">
@@ -83,8 +86,8 @@ export const GatewaySettings: React.FC<GatewaySettingsProps> = ({ onConnect, onS
         </div>
         
         <div className="gateway-settings-actions">
-          <button className="btn btn-secondary" onClick={handleSkip}>
-            Skip (Use Mock)
+          <button className="btn btn-secondary" onClick={handleContinueOffline}>
+            Continue Offline
           </button>
           <button className="btn btn-primary" onClick={handleConnect}>
             Connect to Gateway

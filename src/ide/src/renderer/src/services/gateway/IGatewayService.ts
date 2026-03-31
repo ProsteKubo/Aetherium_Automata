@@ -12,6 +12,8 @@ import type {
   Device,
   Automata,
   AutomataBinding,
+  BlackBoxDescription,
+  BlackBoxSnapshot,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -170,6 +172,33 @@ export interface IGatewayService {
   forceTransition(
     deviceId: DeviceId,
     toState: string,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
+
+  describeBlackBox(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+  ): Promise<BlackBoxDescription>;
+  getBlackBoxSnapshot(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+    options?: SnapshotRequestOptions,
+  ): Promise<BlackBoxSnapshot>;
+  setBlackBoxInput(
+    deviceId: DeviceId,
+    port: string,
+    value: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
+  triggerBlackBoxEvent(
+    deviceId: DeviceId,
+    event: string,
+    data?: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }>;
+  forceBlackBoxState(
+    deviceId: DeviceId,
+    state: string,
     target?: RuntimeCommandTarget,
   ): Promise<{ status: string }>;
   

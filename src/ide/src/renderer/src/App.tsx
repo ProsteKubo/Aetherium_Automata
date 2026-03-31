@@ -27,9 +27,9 @@ import {
   GatewayPanel,
   NetworkPanel,
   OutputPanel,
+  PetriNetPanel,
   PropertiesPanel,
   RuntimeMonitorPanel,
-  TimeTravelPanel,
   TransitionGroupPanel,
   VariableManagementPanel,
 } from './components/panels';
@@ -38,7 +38,7 @@ import { GatewayEventBridge } from './components/runtime/GatewayEventBridge';
 import './styles/index.css';
 
 type SidebarPanelId = 'explorer' | 'devices' | 'gateway';
-type CenterPanelId = 'automata' | 'network' | 'runtime' | 'timetravel';
+type CenterPanelId = 'automata' | 'petri' | 'network' | 'runtime';
 type RightPanelId = 'properties' | 'transitions' | 'variables' | 'connections';
 
 const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
@@ -49,14 +49,10 @@ const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
       return <DevicesPanel />;
     case 'gateway':
       return <GatewayPanel />;
-    case 'timetravel':
-      return <TimeTravelPanel />;
     case 'properties':
       return <PropertiesPanel />;
     case 'console':
       return <OutputPanel />;
-    case 'network':
-      return <NetworkPanel />;
     case 'runtime':
       return <RuntimeMonitorPanel />;
     case 'transitions':
@@ -190,7 +186,6 @@ const App: React.FC = () => {
     return !window.localStorage.getItem('gateway_settings_shown');
   });
   const connect = useGatewayStore((state) => state.connect);
-  const setUseMockService = useGatewayStore((state) => state.setUseMockService);
   const addNotification = useUIStore((state) => state.addNotification);
   const layout = useUIStore((state) => state.layout);
   const sidebarCollapsed = useUIStore((state) => state.sidebarCollapsed);
@@ -249,10 +244,10 @@ const App: React.FC = () => {
     }
   };
 
-  const handleSkipGateway = (): void => {
-    setUseMockService(true);
+  const handleContinueOffline = (): void => {
     localStorage.setItem('gateway_settings_shown', 'true');
     setShowGatewaySettings(false);
+    addNotification('info', 'Gateway Connection', 'Continuing offline. Live runtime panels need a gateway connection.');
   };
 
   const activeSidebarPanel = useMemo<SidebarPanelId | null>(() => {
@@ -261,7 +256,7 @@ const App: React.FC = () => {
   }, [layout.panels]);
 
   const activeCenterPanel = useMemo<CenterPanelId | null>(() => {
-    const order: CenterPanelId[] = ['automata', 'network', 'runtime', 'timetravel'];
+    const order: CenterPanelId[] = ['automata', 'petri', 'network', 'runtime'];
     return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
   }, [layout.panels]);
 
@@ -301,8 +296,11 @@ const App: React.FC = () => {
 
   const showSidebarInline = Boolean(!sidebarCollapsed && activeSidebarPanel && !isCompactViewport);
   const showSidebarOverlay = Boolean(!sidebarCollapsed && activeSidebarPanel && isCompactViewport);
-  const showRightInline = Boolean(activeRightPanel && !isNarrowViewport);
-  const showRightOverlay = Boolean(activeRightPanel && isNarrowViewport && !showSidebarOverlay);
+  const centerOwnsInspector = activeCenterPanel === 'petri' || activeCenterPanel === 'network';
+  const showRightInline = Boolean(activeRightPanel && !isNarrowViewport && !centerOwnsInspector);
+  const showRightOverlay = Boolean(
+    activeRightPanel && isNarrowViewport && !showSidebarOverlay && !centerOwnsInspector,
+  );
   const showPanelBackdrop = showSidebarOverlay || showRightOverlay;
 
   const activatePanel = (panelId: PanelId): void => {
@@ -324,22 +322,22 @@ const App: React.FC = () => {
 
   const renderMainView = (): React.ReactNode => {
     switch (activeCenterPanel) {
-      case 'timetravel':
+      case 'network':
         return (
-          <div className="timetravel-view-container">
-            <TimeTravelPanel />
+          <div className="runtime-view-container">
+            <NetworkPanel />
+          </div>
+        );
+      case 'petri':
+        return (
+          <div className="runtime-view-container">
+            <PetriNetPanel />
           </div>
         );
       case 'runtime':
         return (
           <div className="runtime-view-container">
             <RuntimeMonitorPanel />
-          </div>
-        );
-      case 'network':
-        return (
-          <div className="network-view-container">
-            <NetworkPanel />
           </div>
         );
       case 'automata':
@@ -439,7 +437,7 @@ const App: React.FC = () => {
     <div className={`app-container ${viewportClass}`}>
       <GatewayEventBridge />
       {showGatewaySettings && (
-        <GatewaySettings onConnect={handleGatewayConnect} onSkip={handleSkipGateway} />
+        <GatewaySettings onConnect={handleGatewayConnect} onContinueOffline={handleContinueOffline} />
       )}
 
       <AppHeader />

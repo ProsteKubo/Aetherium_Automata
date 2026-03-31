@@ -215,6 +215,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
       ])
 
     initial_state = resolve_state_name.(initial_ref)
+    black_box = as_non_empty_map(first_present([root["black_box"], source["black_box"]]))
 
     %{
       "name" => to_s(config["name"], to_s(root["name"], "Showcase Automata")),
@@ -235,7 +236,8 @@ defmodule AetheriumServer.ShowcaseCatalog do
       "initial_state" => if(initial_state == "", do: nil, else: initial_state),
       "states" => states,
       "transitions" => transitions,
-      "variables" => variables
+      "variables" => variables,
+      "black_box" => black_box
     }
     |> reject_nil_values()
   end

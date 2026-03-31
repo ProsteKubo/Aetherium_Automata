@@ -1,0 +1,108 @@
+version: 0.0.1
+
+config:
+  name: Petri Telemetry Observer
+  type: inline
+  description: Observes heartbeat, drive status, and alarm flow for the Petri signal-chain demo.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - signal-chain
+    - telemetry
+
+variables:
+  - name: heartbeat
+    type: bool
+    direction: input
+    default: false
+  - name: module_status
+    type: string
+    direction: input
+    default: idle
+  - name: alarm_latched
+    type: bool
+    direction: input
+    default: false
+  - name: dashboard_ready
+    type: bool
+    direction: output
+    default: false
+  - name: telemetry_state
+    type: string
+    direction: output
+    default: quiet
+
+black_box:
+  resources:
+    - name: field_bus
+      kind: network
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Quiet
+
+  states:
+    Quiet:
+      inputs:
+        - heartbeat
+        - module_status
+        - alarm_latched
+      outputs:
+        - dashboard_ready
+        - telemetry_state
+      code: |
+        local field_bus = "listening"
+      on_enter: |
+        setVal("dashboard_ready", false)
+        setVal("telemetry_state", "quiet")
+
+    Streaming:
+      inputs:
+        - heartbeat
+        - module_status
+      outputs:
+        - dashboard_ready
+        - telemetry_state
+      code: |
+        local field_bus = "streaming"
+      on_enter: |
+        setVal("dashboard_ready", true)
+        setVal("telemetry_state", value("module_status"))
+
+    Alarmed:
+      inputs:
+        - alarm_latched
+      outputs:
+        - dashboard_ready
+        - telemetry_state
+      on_enter: |
+        setVal("dashboard_ready", true)
+        setVal("telemetry_state", "alarm")
+
+  transitions:
+    quiet_to_streaming:
+      from: Quiet
+      to: Streaming
+      type: classic
+      condition: value("heartbeat") == true and value("alarm_latched") == false
+
+    streaming_to_quiet:
+      from: Streaming
+      to: Quiet
+      type: classic
+      condition: value("heartbeat") == false and value("alarm_latched") == false
+
+    any_to_alarmed:
+      from: Streaming
+      to: Alarmed
+      type: classic
+      condition: value("alarm_latched") == true
+
+    alarmed_to_quiet:
+      from: Alarmed
+      to: Quiet
+      type: classic
+      condition: value("alarm_latched") == false and value("heartbeat") == false

@@ -5,6 +5,7 @@
  */
 
 #include "protocol.hpp"
+#include <cmath>
 #include <cstring>
 
 namespace aeth {
@@ -107,6 +108,138 @@ static std::optional<Value> readValue(ByteReader& reader) {
     }
 }
 
+static uint16_t encodePercentHundredths(double percent) {
+    if (std::isnan(percent) || percent <= 0.0) {
+        return 0;
+    }
+    if (percent >= 655.35) {
+        return 65535;
+    }
+    return static_cast<uint16_t>(percent * 100.0);
+}
+
+static double decodePercentHundredths(uint16_t encoded) {
+    return static_cast<double>(encoded) / 100.0;
+}
+
+static void writeNamedValueSnapshot(ByteWriter& writer,
+                                    const std::vector<NamedValueSnapshotEntry>& snapshot) {
+    writer.writeU16(static_cast<uint16_t>(snapshot.size()));
+    for (const auto& entry : snapshot) {
+        writer.writeString(entry.variableName);
+        writeValue(writer, entry.value);
+    }
+}
+
+static std::optional<std::vector<NamedValueSnapshotEntry>> readNamedValueSnapshot(ByteReader& reader) {
+    auto count = reader.readU16();
+    if (!count) return std::nullopt;
+
+    std::vector<NamedValueSnapshotEntry> snapshot;
+    snapshot.reserve(*count);
+    for (uint16_t i = 0; i < *count; ++i) {
+        auto name = reader.readString();
+        auto value = readValue(reader);
+        if (!name || !value) return std::nullopt;
+        snapshot.push_back(NamedValueSnapshotEntry{std::move(*name), std::move(*value)});
+    }
+
+    return snapshot;
+}
+
+static void writeDeploymentMetadataExtension(ByteWriter& writer,
+                                             const DeploymentMetadataExtension& deployment) {
+    writer.writeU8(deployment.hasData() ? 1 : 0);
+    if (!deployment.hasData()) {
+        return;
+    }
+
+    writer.writeString(deployment.placement);
+    writer.writeString(deployment.transport);
+    writer.writeString(deployment.controlPlaneInstance);
+    writer.writeString(deployment.targetClass);
+    writer.writeU8(deployment.batteryPresent ? 1 : 0);
+    writer.writeU8(deployment.batteryLow ? 1 : 0);
+    writer.writeU8(deployment.batteryExternalPower ? 1 : 0);
+    writer.writeU16(encodePercentHundredths(deployment.batteryPercent));
+    writer.writeU32(deployment.latencyBudgetMs);
+    writer.writeU32(deployment.latencyWarningMs);
+    writer.writeU32(deployment.observedLatencyMs);
+    writer.writeU32(deployment.ingressLatencyMs);
+    writer.writeU32(deployment.egressLatencyMs);
+    writer.writeU64(deployment.sendTimestamp);
+    writer.writeU64(deployment.receiveTimestamp);
+    writer.writeU64(deployment.handleTimestamp);
+    writer.writeString(deployment.traceFile);
+    writer.writeString(deployment.faultProfile);
+    writer.writeU32(deployment.traceEventCount);
+}
+
+static std::optional<DeploymentMetadataExtension> readDeploymentMetadataExtension(ByteReader& reader) {
+    if (!reader.hasMore()) {
+        return DeploymentMetadataExtension{};
+    }
+
+    auto version = reader.readU8();
+    if (!version) return std::nullopt;
+    if (*version == 0) {
+        return DeploymentMetadataExtension{};
+    }
+    if (*version != 1) {
+        return std::nullopt;
+    }
+
+    auto placement = reader.readString();
+    auto transport = reader.readString();
+    auto controlPlaneInstance = reader.readString();
+    auto targetClass = reader.readString();
+    auto batteryPresent = reader.readU8();
+    auto batteryLow = reader.readU8();
+    auto batteryExternalPower = reader.readU8();
+    auto batteryPercent = reader.readU16();
+    auto latencyBudgetMs = reader.readU32();
+    auto latencyWarningMs = reader.readU32();
+    auto observedLatencyMs = reader.readU32();
+    auto ingressLatencyMs = reader.readU32();
+    auto egressLatencyMs = reader.readU32();
+    auto sendTimestamp = reader.readU64();
+    auto receiveTimestamp = reader.readU64();
+    auto handleTimestamp = reader.readU64();
+    auto traceFile = reader.readString();
+    auto faultProfile = reader.readString();
+    auto traceEventCount = reader.readU32();
+
+    if (!placement || !transport || !controlPlaneInstance || !targetClass || !batteryPresent ||
+        !batteryLow || !batteryExternalPower || !batteryPercent || !latencyBudgetMs ||
+        !latencyWarningMs || !observedLatencyMs || !ingressLatencyMs || !egressLatencyMs ||
+        !sendTimestamp || !receiveTimestamp || !handleTimestamp || !traceFile ||
+        !faultProfile || !traceEventCount) {
+        return std::nullopt;
+    }
+
+    DeploymentMetadataExtension deployment;
+    deployment.placement = std::move(*placement);
+    deployment.transport = std::move(*transport);
+    deployment.controlPlaneInstance = std::move(*controlPlaneInstance);
+    deployment.targetClass = std::move(*targetClass);
+    deployment.batteryPresent = *batteryPresent != 0;
+    deployment.batteryLow = *batteryLow != 0;
+    deployment.batteryExternalPower = *batteryExternalPower != 0;
+    deployment.batteryPercent = decodePercentHundredths(*batteryPercent);
+    deployment.latencyBudgetMs = *latencyBudgetMs;
+    deployment.latencyWarningMs = *latencyWarningMs;
+    deployment.observedLatencyMs = *observedLatencyMs;
+    deployment.ingressLatencyMs = *ingressLatencyMs;
+    deployment.egressLatencyMs = *egressLatencyMs;
+    deployment.sendTimestamp = *sendTimestamp;
+    deployment.receiveTimestamp = *receiveTimestamp;
+    deployment.handleTimestamp = *handleTimestamp;
+    deployment.traceFile = std::move(*traceFile);
+    deployment.faultProfile = std::move(*faultProfile);
+    deployment.traceEventCount = *traceEventCount;
+    return deployment;
+}
+
 // ============================================================================
 // Hello Message
 // ============================================================================
@@ -130,6 +263,7 @@ std::vector<uint8_t> HelloMessage::serialize() const {
     w.writeU8(versionPatch);
     w.writeU16(capabilities.raw);
     w.writeString(name);
+    writeDeploymentMetadataExtension(w, deployment);
     
     auto result = w.finish();
     
@@ -176,6 +310,10 @@ std::optional<HelloMessage> HelloMessage::deserialize(const uint8_t* data, size_
     msg.versionPatch = *verPat;
     msg.capabilities.raw = *caps;
     msg.name = std::move(*name);
+
+    auto deployment = readDeploymentMetadataExtension(r);
+    if (!deployment) return std::nullopt;
+    msg.deployment = std::move(*deployment);
     
     return msg;
 }
@@ -635,6 +773,8 @@ std::vector<uint8_t> StatusMessage::serialize() const {
     w.writeU64(transitionCount);
     w.writeU64(tickCount);
     w.writeU32(errorCount);
+    writeNamedValueSnapshot(w, variableSnapshot);
+    writeDeploymentMetadataExtension(w, deployment);
     
     auto result = w.finish();
     uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
@@ -675,6 +815,16 @@ std::optional<StatusMessage> StatusMessage::deserialize(const uint8_t* data, siz
     msg.transitionCount = *transCount;
     msg.tickCount = *tickCount;
     msg.errorCount = *errCount;
+
+    if (r.hasMore()) {
+        auto variableSnapshot = readNamedValueSnapshot(r);
+        if (!variableSnapshot) return std::nullopt;
+        msg.variableSnapshot = std::move(*variableSnapshot);
+
+        auto deployment = readDeploymentMetadataExtension(r);
+        if (!deployment) return std::nullopt;
+        msg.deployment = std::move(*deployment);
+    }
     
     return msg;
 }
@@ -1018,6 +1168,8 @@ std::vector<uint8_t> TelemetryMessage::serialize() const {
         w.writeU16(id);
         writeValue(w, val);
     }
+    writeNamedValueSnapshot(w, namedVariableSnapshot);
+    writeDeploymentMetadataExtension(w, deployment);
     
     auto result = w.finish();
     uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
@@ -1063,6 +1215,16 @@ std::optional<TelemetryMessage> TelemetryMessage::deserialize(const uint8_t* dat
         auto val = readValue(r);
         if (!id || !val) return std::nullopt;
         msg.variableSnapshot.emplace_back(*id, std::move(*val));
+    }
+
+    if (r.hasMore()) {
+        auto namedVariableSnapshot = readNamedValueSnapshot(r);
+        if (!namedVariableSnapshot) return std::nullopt;
+        msg.namedVariableSnapshot = std::move(*namedVariableSnapshot);
+
+        auto deployment = readDeploymentMetadataExtension(r);
+        if (!deployment) return std::nullopt;
+        msg.deployment = std::move(*deployment);
     }
     
     return msg;

@@ -41,6 +41,7 @@ public:
 
 private:
     void setupBuiltins();
+    void setLuaGlobalValue(const std::string& name, const Value& value);
     void syncVariablesToLua();
     void syncVariablesFromLua();
 
