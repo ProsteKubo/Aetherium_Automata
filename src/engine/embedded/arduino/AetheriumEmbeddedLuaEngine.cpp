@@ -24,7 +24,7 @@ namespace aeth::embedded::arduino {
 namespace {
 
 void requireLibrary(lua_State* L, const char* name, lua_CFunction openFn) {
-#if defined(luaL_requiref)
+#if defined(LUA_VERSION_NUM) && LUA_VERSION_NUM >= 502
     luaL_requiref(L, name, openFn, 1);
     lua_pop(L, 1);
 #else

@@ -6,6 +6,12 @@
 #include "hardware_service.hpp"
 
 #define SOL_ALL_SAFETIES_ON 1
+#define SOL_USE_LUA_HPP 0
+extern "C" {
+#include <lua.h>
+#include <lauxlib.h>
+#include <lualib.h>
+}
 #include <sol/sol.hpp>
 #include <algorithm>
 #include <chrono>
