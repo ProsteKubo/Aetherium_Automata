@@ -80,6 +80,7 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
       message: "Device crashed: #{inspect(reason)}",
       timestamp: DateTime.utc_now()
     })
+
     {:noreply, socket}
   end
 
@@ -105,6 +106,7 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
       message: "Lua runtime error: #{error}",
       timestamp: DateTime.utc_now()
     })
+
     {:noreply, socket}
   end
 

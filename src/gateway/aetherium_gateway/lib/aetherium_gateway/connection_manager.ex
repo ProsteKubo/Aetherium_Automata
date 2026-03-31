@@ -13,6 +13,8 @@ defmodule AetheriumGateway.ConnectionManager do
   require Logger
 
   alias AetheriumGateway.AutomataRegistry
+  alias AetheriumGateway.CommandDispatcher
+  alias AetheriumGateway.CommandEnvelope
   alias AetheriumGateway.Persistence
 
   # ============================================================================
@@ -44,11 +46,15 @@ defmodule AetheriumGateway.ConnectionManager do
           by_target: %{automata_id() => [connection_id()]},
           # Current propagated values
           values: %{{automata_id(), variable_name()} => any()},
-          # Latest topic values by global input/output name
-          topics: %{variable_name() => any()},
+          # Latest global topic values, versions, and source metadata.
+          topics: %{variable_name() => map()},
+          # Last delivered input state per concrete deployment/input target.
+          delivered_inputs: %{{String.t(), variable_name()} => map()},
           # Event subscriptions
           event_routes: %{String.t() => [{automata_id(), String.t()}]}
         }
+
+  @dispatch_warning_ms 200
 
   # ============================================================================
   # Public API
@@ -108,9 +114,16 @@ defmodule AetheriumGateway.ConnectionManager do
   end
 
   @doc "Propagate an output value from source to all connected targets"
-  @spec propagate_output(automata_id(), variable_name(), any()) :: :ok
-  def propagate_output(source_automata, output_name, value) do
-    GenServer.cast(__MODULE__, {:propagate_output, source_automata, output_name, value})
+  @spec propagate_output(map() | automata_id(), variable_name(), any()) :: :ok
+  def propagate_output(%{} = source, output_name, value) do
+    GenServer.cast(
+      __MODULE__,
+      {:propagate_output, normalize_source_context(source), output_name, value}
+    )
+  end
+
+  def propagate_output(source_automata, output_name, value) when is_binary(source_automata) do
+    propagate_output(%{automata_id: source_automata}, output_name, value)
   end
 
   @doc "Route an event to subscribed automata"
@@ -161,6 +174,7 @@ defmodule AetheriumGateway.ConnectionManager do
       by_target: %{},
       values: %{},
       topics: %{},
+      delivered_inputs: %{},
       event_routes: %{}
     }
 
@@ -321,73 +335,48 @@ defmodule AetheriumGateway.ConnectionManager do
   end
 
   @impl true
-  def handle_cast({:propagate_output, source_automata, output_name, value}, state) do
+  def handle_cast({:propagate_output, source, output_name, value}, state) do
+    started_at_ms = System.monotonic_time(:millisecond)
+    source_automata = source.automata_id
     connection_ids = Map.get(state.by_source, source_automata, [])
 
-    # Find connections for this output
     connections =
       connection_ids
       |> Enum.map(&Map.get(state.connections, &1))
       |> Enum.reject(&is_nil/1)
       |> Enum.filter(&(&1.source_output == output_name && &1.enabled))
 
+    state = put_in(state, [:values, {source_automata, output_name}], value)
+    now_ms = System.system_time(:millisecond)
+    {state, topic_entry} = maybe_update_topic(state, source, output_name, value, now_ms)
+
     manual_targets =
       connections
       |> Enum.map(&{&1.target_automata, &1.target_input})
       |> MapSet.new()
 
-    topic_targets =
-      output_name
-      |> topic_subscribers(source_automata)
-      |> Enum.reject(&MapSet.member?(manual_targets, {&1, output_name}))
+    {state, topic_dispatch_count} =
+      case topic_entry do
+        nil ->
+          {state, 0}
 
-    Enum.each(topic_targets, fn automata_id ->
-      notify_input_change(automata_id, output_name, value)
-    end)
+        _ ->
+          fanout_topic_targets(state, topic_entry, source, manual_targets)
+      end
 
-    # Propagate explicit transformed connections
-    {new_connections, new_values} =
-      Enum.reduce(connections, {state.connections, state.values}, fn conn,
-                                                                     {conn_acc, value_acc} ->
-        transformed_value = apply_transform(value, conn.transform)
-        target_key = {conn.target_automata, conn.target_input}
-        now = System.system_time(:millisecond)
+    {state, explicit_dispatch_count} =
+      fanout_explicit_connections(state, connections, source, output_name, value, topic_entry)
 
-        if Map.get(value_acc, target_key) == transformed_value do
-          runtime =
-            conn.runtime
-            |> Map.update(:dedupe_count, 1, &(&1 + 1))
-            |> Map.put(:last_value, transformed_value)
-            |> Map.put(:last_value_timestamp, now)
+    elapsed_ms = System.monotonic_time(:millisecond) - started_at_ms
 
-          {Map.put(conn_acc, conn.id, %{conn | runtime: runtime}), value_acc}
-        else
-          notify_input_change(conn.target_automata, conn.target_input, transformed_value)
+    if elapsed_ms > @dispatch_warning_ms do
+      Logger.warning(
+        "Global topic fanout for #{output_name} from #{source_automata} took #{elapsed_ms}ms " <>
+          "(topic_targets=#{topic_dispatch_count}, explicit_targets=#{explicit_dispatch_count})"
+      )
+    end
 
-          runtime =
-            conn.runtime
-            |> Map.update(:message_count, 1, &(&1 + 1))
-            |> Map.put(:last_value, transformed_value)
-            |> Map.put(:last_value_timestamp, now)
-            |> Map.put(:average_latency_ms, 0)
-            |> Map.put(:max_latency_ms, 0)
-
-          {
-            Map.put(conn_acc, conn.id, %{conn | runtime: runtime}),
-            Map.put(value_acc, target_key, transformed_value)
-          }
-        end
-      end)
-
-    # Store current value
-    new_state =
-      state
-      |> Map.put(:connections, new_connections)
-      |> Map.put(:values, Map.put(new_values, {source_automata, output_name}, value))
-      |> put_in([:topics, output_name], value)
-
-    persist_state(new_state)
-    {:noreply, new_state}
+    {:noreply, state}
   end
 
   @impl true
@@ -438,35 +427,76 @@ defmodule AetheriumGateway.ConnectionManager do
 
   @impl true
   def handle_cast({:replay_for_automata, automata_id}, state) do
-    incoming_ids = Map.get(state.by_target, automata_id, [])
+    targets = active_deployments_for_automata(automata_id)
 
-    Enum.each(incoming_ids, fn id ->
-      case Map.get(state.connections, id) do
-        %{enabled: true} = conn ->
-          source_key = {conn.source_automata, conn.source_output}
+    state =
+      Enum.reduce(Map.get(state.by_target, automata_id, []), state, fn id, acc ->
+        case Map.get(acc.connections, id) do
+          %{enabled: true} = conn ->
+            source_key = {conn.source_automata, conn.source_output}
 
-          case Map.fetch(state.values, source_key) do
-            {:ok, value} ->
-              transformed_value = apply_transform(value, conn.transform)
-              notify_input_change(conn.target_automata, conn.target_input, transformed_value)
+            case Map.fetch(acc.values, source_key) do
+              {:ok, value} ->
+                transformed_value = apply_transform(value, conn.transform)
 
-            :error ->
-              :ok
-          end
+                deliver_targets =
+                  Enum.filter(targets, &(&1.automata_id == conn.target_automata))
 
-        _ ->
-          :ok
-      end
-    end)
+                {_count, next_state} =
+                  Enum.reduce(deliver_targets, {0, acc}, fn target, {count, state_acc} ->
+                    metadata =
+                      topic_metadata_for(state_acc, conn.source_output)
+                      |> Map.put(:force_replay, true)
 
-    automata_id
-    |> input_topics_for_automata()
-    |> Enum.each(fn input_name ->
-      case Map.fetch(state.topics, input_name) do
-        {:ok, value} -> notify_input_change(automata_id, input_name, value)
-        :error -> :ok
-      end
-    end)
+                    case dispatch_input_change(
+                           state_acc,
+                           target,
+                           conn.target_input,
+                           transformed_value,
+                           metadata
+                         ) do
+                      {:dispatched, updated_state} -> {count + 1, updated_state}
+                      {:deduped, updated_state} -> {count, updated_state}
+                    end
+                  end)
+
+                next_state
+
+              :error ->
+                acc
+            end
+
+          _ ->
+            acc
+        end
+      end)
+
+    state =
+      Enum.reduce(input_topics_for_automata(automata_id), state, fn input_name, acc ->
+        case Map.get(acc.topics, input_name) do
+          nil ->
+            acc
+
+          topic_entry ->
+            Enum.reduce(targets, acc, fn target, state_acc ->
+              metadata =
+                topic_entry
+                |> metadata_from_topic(input_name)
+                |> Map.put(:force_replay, true)
+
+              case dispatch_input_change(
+                     state_acc,
+                     target,
+                     input_name,
+                     topic_entry.value,
+                     metadata
+                   ) do
+                {:dispatched, updated_state} -> updated_state
+                {:deduped, updated_state} -> updated_state
+              end
+            end)
+        end
+      end)
 
     {:noreply, state}
   end
@@ -477,7 +507,15 @@ defmodule AetheriumGateway.ConnectionManager do
 
   defp normalize_connection_params(params) when is_map(params) do
     Enum.reduce(
-      [:source_automata, :source_output, :target_automata, :target_input, :transform, :enabled, :binding_type],
+      [
+        :source_automata,
+        :source_output,
+        :target_automata,
+        :target_input,
+        :transform,
+        :enabled,
+        :binding_type
+      ],
       %{},
       fn key, acc ->
         case fetch_param(params, key) do
@@ -623,25 +661,103 @@ defmodule AetheriumGateway.ConnectionManager do
     end)
   end
 
-  defp topic_subscribers(topic_name, source_automata) do
-    active_automata_ids()
-    |> Enum.reject(&(&1 == source_automata))
-    |> Enum.filter(fn automata_id ->
-      case AutomataRegistry.get_automata(automata_id) do
+  defp maybe_update_topic(state, source, topic_name, value, now_ms) do
+    case Map.get(state.topics, topic_name) do
+      %{value: current_value} when current_value == value ->
+        {state, nil}
+
+      current_topic ->
+        next_topic = %{
+          value: value,
+          version: ((current_topic && current_topic.version) || 0) + 1,
+          updated_at: now_ms,
+          source_deployment_id: source.deployment_id
+        }
+
+        {put_in(state, [:topics, topic_name], next_topic),
+         Map.put(next_topic, :topic_name, topic_name)}
+    end
+  end
+
+  defp fanout_topic_targets(state, topic_entry, source, manual_targets) do
+    targets =
+      topic_subscriber_deployments(topic_entry.topic_name, source)
+      |> Enum.reject(&MapSet.member?(manual_targets, {&1.automata_id, topic_entry.topic_name}))
+
+    Enum.reduce(targets, {state, 0}, fn target, {acc, count} ->
+      metadata = metadata_from_topic(topic_entry, topic_entry.topic_name)
+
+      case dispatch_input_change(acc, target, topic_entry.topic_name, topic_entry.value, metadata) do
+        {:dispatched, updated_state} -> {updated_state, count + 1}
+        {:deduped, updated_state} -> {updated_state, count}
+      end
+    end)
+  end
+
+  defp fanout_explicit_connections(state, connections, source, output_name, value, _topic_entry) do
+    Enum.reduce(connections, {state, 0}, fn conn, {state_acc, total_count} ->
+      transformed_value = apply_transform(value, conn.transform)
+      now = System.system_time(:millisecond)
+      targets = active_deployments_for_automata(conn.target_automata)
+
+      {dispatch_count, dedupe_count, updated_state} =
+        Enum.reduce(targets, {0, 0, state_acc}, fn target, {count, dedupes, acc} ->
+          metadata =
+            topic_metadata_for(acc, output_name)
+            |> Map.put_new(:origin_deployment_id, source.deployment_id)
+
+          case dispatch_input_change(acc, target, conn.target_input, transformed_value, metadata) do
+            {:dispatched, next_state} -> {count + 1, dedupes, next_state}
+            {:deduped, next_state} -> {count, dedupes + 1, next_state}
+          end
+        end)
+
+      runtime =
+        cond do
+          dispatch_count > 0 ->
+            conn.runtime
+            |> Map.update(:message_count, dispatch_count, &(&1 + dispatch_count))
+            |> Map.put(:last_value, transformed_value)
+            |> Map.put(:last_value_timestamp, now)
+            |> Map.put(:average_latency_ms, 0)
+            |> Map.put(:max_latency_ms, 0)
+
+          dedupe_count > 0 ->
+            conn.runtime
+            |> Map.update(:dedupe_count, dedupe_count, &(&1 + dedupe_count))
+            |> Map.put(:last_value, transformed_value)
+            |> Map.put(:last_value_timestamp, now)
+
+          true ->
+            conn.runtime
+        end
+
+      next_state = put_in(updated_state, [:connections, conn.id, :runtime], runtime)
+      {next_state, total_count + dispatch_count}
+    end)
+  end
+
+  defp topic_subscriber_deployments(topic_name, source) do
+    active_deployments()
+    |> Enum.reject(&(&1.deployment_id == source.deployment_id))
+    |> Enum.filter(fn deployment ->
+      case AutomataRegistry.get_automata(deployment.automata_id) do
         {:ok, automata} -> automata_has_input?(automata, topic_name)
         _ -> false
       end
     end)
-    |> Enum.uniq()
   end
 
-  defp active_automata_ids do
+  defp active_deployments do
     AutomataRegistry.list_deployments()
     |> Enum.filter(&active_deployment?/1)
-    |> Enum.map(&(Map.get(&1, :automata_id) || Map.get(&1, "automata_id")))
+    |> Enum.map(&normalize_target_deployment/1)
     |> Enum.reject(&is_nil/1)
-    |> Enum.map(&to_string/1)
-    |> Enum.uniq()
+  end
+
+  defp active_deployments_for_automata(automata_id) when is_binary(automata_id) do
+    active_deployments()
+    |> Enum.filter(&(&1.automata_id == automata_id))
   end
 
   defp active_deployment?(deployment) when is_map(deployment) do
@@ -713,29 +829,165 @@ defmodule AetheriumGateway.ConnectionManager do
     end
   end
 
-  defp notify_input_change(automata_id, input_name, value) do
-    # Broadcast to the automata channel
-    AetheriumGatewayWeb.Endpoint.broadcast(
-      "automata:control",
-      "input_changed",
-      %{
-        automata_id: automata_id,
-        input: input_name,
-        value: value
-      }
-    )
+  defp dispatch_input_change(state, target, input_name, value, metadata) do
+    delivery_key = {target.deployment_id, input_name}
+    previous_delivery = Map.get(state.delivered_inputs, delivery_key)
 
-    # Also notify any servers running this automata
-    AetheriumGatewayWeb.Endpoint.broadcast(
-      "server:gateway",
-      "set_input",
-      %{
-        automata_id: automata_id,
-        input: input_name,
-        value: value
-      }
-    )
+    if duplicate_delivery?(previous_delivery, value, metadata) do
+      {:deduped, state}
+    else
+      AetheriumGatewayWeb.Endpoint.broadcast(
+        "automata:control",
+        "input_changed",
+        %{
+          automata_id: target.automata_id,
+          deployment_id: target.deployment_id,
+          device_id: target.device_id,
+          server_id: target.server_id,
+          input: input_name,
+          value: value
+        }
+      )
+
+      payload =
+        %{
+          "deployment_id" => target.deployment_id,
+          "device_id" => target.device_id,
+          "automata_id" => target.automata_id,
+          "input" => input_name,
+          "value" => value,
+          "internal_propagation" => true,
+          "topic_dispatched_at_ms" => System.system_time(:millisecond)
+        }
+        |> maybe_put_payload("topic", metadata[:topic])
+        |> maybe_put_payload("topic_version", metadata[:topic_version])
+        |> maybe_put_payload("origin_deployment_id", metadata[:origin_deployment_id])
+        |> maybe_put_payload("force_replay", metadata[:force_replay])
+
+      envelope = system_envelope("set_input", payload, target)
+      CommandDispatcher.dispatch(target.server_id, "set_input", payload, envelope)
+
+      delivered_inputs =
+        Map.put(state.delivered_inputs, delivery_key, %{
+          value: value,
+          topic: metadata[:topic],
+          topic_version: metadata[:topic_version],
+          origin_deployment_id: metadata[:origin_deployment_id],
+          delivered_at: System.system_time(:millisecond)
+        })
+
+      {:dispatched, %{state | delivered_inputs: delivered_inputs}}
+    end
   end
+
+  defp duplicate_delivery?(previous_delivery, value, metadata) when is_map(previous_delivery) do
+    cond do
+      metadata[:force_replay] ->
+        false
+
+      is_integer(metadata[:topic_version]) and previous_delivery[:topic] == metadata[:topic] ->
+        previous_delivery[:topic_version] == metadata[:topic_version]
+
+      true ->
+        previous_delivery[:value] == value and previous_delivery[:topic] == metadata[:topic]
+    end
+  end
+
+  defp duplicate_delivery?(_previous_delivery, _value, _metadata), do: false
+
+  defp metadata_from_topic(topic_entry, topic_name) when is_map(topic_entry) do
+    %{
+      topic: topic_name,
+      topic_version: topic_entry.version,
+      origin_deployment_id: topic_entry.source_deployment_id,
+      force_replay: false
+    }
+  end
+
+  defp topic_metadata_for(state, topic_name) do
+    case Map.get(state.topics, topic_name) do
+      nil -> %{topic: topic_name, force_replay: false}
+      topic_entry -> metadata_from_topic(topic_entry, topic_name)
+    end
+  end
+
+  defp normalize_target_deployment(deployment) when is_map(deployment) do
+    automata_id = deployment_field(deployment, :automata_id)
+    device_id = deployment_field(deployment, :device_id)
+    server_id = deployment_field(deployment, :server_id)
+
+    deployment_id =
+      deployment_field(deployment, :deployment_id, default_deployment_id(automata_id, device_id))
+
+    cond do
+      !is_binary(automata_id) or automata_id == "" ->
+        nil
+
+      !is_binary(device_id) or device_id == "" ->
+        nil
+
+      !is_binary(server_id) or server_id == "" ->
+        nil
+
+      !is_binary(deployment_id) or deployment_id == "" ->
+        nil
+
+      true ->
+        %{
+          automata_id: automata_id,
+          device_id: device_id,
+          server_id: server_id,
+          deployment_id: deployment_id
+        }
+    end
+  end
+
+  defp normalize_target_deployment(_deployment), do: nil
+
+  defp deployment_field(deployment, key, default \\ nil)
+       when is_map(deployment) and is_atom(key) do
+    Map.get(deployment, key, Map.get(deployment, Atom.to_string(key), default))
+  end
+
+  defp normalize_source_context(source) when is_map(source) do
+    %{
+      automata_id: fetch_source_value(source, :automata_id),
+      deployment_id: fetch_source_value(source, :deployment_id),
+      device_id: fetch_source_value(source, :device_id),
+      server_id: fetch_source_value(source, :server_id)
+    }
+  end
+
+  defp fetch_source_value(source, key) when is_atom(key) do
+    Map.get(source, key) || Map.get(source, Atom.to_string(key))
+  end
+
+  defp default_deployment_id(automata_id, device_id)
+       when is_binary(automata_id) and is_binary(device_id) do
+    "#{automata_id}:#{device_id}"
+  end
+
+  defp default_deployment_id(_automata_id, _device_id), do: nil
+
+  defp system_envelope(command_type, payload, target) do
+    actor = %{"role" => "system", "source" => "connection_manager"}
+
+    {:ok, envelope} =
+      CommandEnvelope.from_payload(
+        command_type,
+        Map.put(payload, "target", %{
+          "server_id" => target.server_id,
+          "deployment_id" => target.deployment_id
+        }),
+        actor
+      )
+
+    envelope
+  end
+
+  defp maybe_put_payload(payload, _key, nil), do: payload
+  defp maybe_put_payload(payload, _key, false), do: payload
+  defp maybe_put_payload(payload, key, value), do: Map.put(payload, key, value)
 
   defp notify_event(automata_id, handler, data) do
     AetheriumGatewayWeb.Endpoint.broadcast(
@@ -781,7 +1033,8 @@ defmodule AetheriumGateway.ConnectionManager do
     |> Map.put(:by_target, %{})
     |> Map.put(:values, %{})
     |> Map.put(:topics, %{})
-    |> Map.put(:event_routes, %{})
+    |> Map.put(:delivered_inputs, %{})
+    |> Map.put_new(:event_routes, %{})
     |> rebuild_indexes()
     |> normalize_connection_runtime()
   end
@@ -809,7 +1062,7 @@ defmodule AetheriumGateway.ConnectionManager do
   defp persist_state(state) do
     Persistence.save_state(
       "connection_manager_state",
-      Map.take(state, [:connections, :values, :topics, :event_routes])
+      Map.take(state, [:connections, :event_routes])
     )
   end
 end

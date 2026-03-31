@@ -15,7 +15,6 @@ defmodule AetheriumGatewayWeb.Endpoint do
     websocket: [connect_info: [session: @session_options]],
     longpoll: [connect_info: [session: @session_options]]
 
-
   socket "/socket", AetheriumGatewayWeb.UserSocket,
     websocket: true,
     longpoll: false

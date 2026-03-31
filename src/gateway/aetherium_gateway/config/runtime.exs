@@ -66,7 +66,12 @@ config :aetherium_gateway, AetheriumGateway.CommandEnvelope,
   max_payload_bytes: String.to_integer(System.get_env("GATEWAY_MAX_PAYLOAD_BYTES") || "64000")
 
 config :aetherium_gateway, AetheriumGateway.Persistence,
-  enabled: String.downcase(System.get_env("GATEWAY_PERSISTENCE_ENABLED") || "true") in ["1", "true", "yes"],
+  enabled:
+    String.downcase(System.get_env("GATEWAY_PERSISTENCE_ENABLED") || "true") in [
+      "1",
+      "true",
+      "yes"
+    ],
   data_dir: System.get_env("GATEWAY_DATA_DIR") || "var/gateway",
   event_capacity: String.to_integer(System.get_env("GATEWAY_EVENT_CAPACITY") || "10000")
 

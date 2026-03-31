@@ -3,10 +3,37 @@ defmodule AetheriumGateway.ConnectionManagerTest do
 
   alias AetheriumGateway.ConnectionManager
   alias AetheriumGateway.AutomataRegistry
+  alias AetheriumGateway.CommandDispatcher
+  alias AetheriumGateway.ServerTracker
 
   # Use unique IDs for each test run to avoid conflicts
   # The registry and connection manager are already started by the application
   setup do
+    :sys.replace_state(AetheriumGateway.AutomataRegistry, fn _state ->
+      %{automata: %{}, deployments: %{}, transition_history: %{}, transition_counts: %{}}
+    end)
+
+    :sys.replace_state(AetheriumGateway.ConnectionManager, fn state ->
+      %{
+        state
+        | connections: %{},
+          by_source: %{},
+          by_target: %{},
+          values: %{},
+          topics: %{},
+          delivered_inputs: %{},
+          event_routes: %{}
+      }
+    end)
+
+    :sys.replace_state(AetheriumGateway.ServerTracker, fn _state ->
+      %{servers: %{}, recovered: %{}}
+    end)
+
+    :sys.replace_state(AetheriumGateway.CommandDispatcher, fn _state ->
+      %{outbox: %{}}
+    end)
+
     # Generate unique prefix for this test run
     prefix = :erlang.unique_integer([:positive]) |> Integer.to_string()
 
@@ -14,20 +41,33 @@ defmodule AetheriumGateway.ConnectionManagerTest do
     id_a = "#{prefix}-auto-a"
     id_b = "#{prefix}-auto-b"
     id_c = "#{prefix}-auto-c"
+    server_a = "#{prefix}-srv-a"
+    server_b = "#{prefix}-srv-b"
 
     # register_automata returns :ok, not {:ok, _}
     :ok = AutomataRegistry.register_automata(automata_with_io(id_a))
     :ok = AutomataRegistry.register_automata(automata_with_io(id_b))
     :ok = AutomataRegistry.register_automata(automata_with_io(id_c))
+    :ok = ServerTracker.register(server_a, self())
+    :ok = ServerTracker.register(server_b, self())
 
     on_exit(fn ->
+      stop_deployments_for_automata([id_a, id_b, id_c])
       # Cleanup automata
       AutomataRegistry.delete_automata(id_a)
       AutomataRegistry.delete_automata(id_b)
       AutomataRegistry.delete_automata(id_c)
+      ServerTracker.unregister(server_a)
+      ServerTracker.unregister(server_b)
     end)
 
-    {:ok, prefix: prefix, auto_a: id_a, auto_b: id_b, auto_c: id_c}
+    {:ok,
+     prefix: prefix,
+     auto_a: id_a,
+     auto_b: id_b,
+     auto_c: id_c,
+     server_a: server_a,
+     server_b: server_b}
   end
 
   describe "connection CRUD" do
@@ -184,8 +224,13 @@ defmodule AetheriumGateway.ConnectionManagerTest do
   describe "runtime propagation" do
     test "tracks runtime stats and dedupes repeated propagated values", %{
       auto_a: auto_a,
-      auto_b: auto_b
+      auto_b: auto_b,
+      prefix: prefix,
+      server_a: server_a
     } do
+      source = deploy_running(auto_a, "#{prefix}-source-device", server_a)
+      target = deploy_running(auto_b, "#{prefix}-target-device", server_a)
+
       {:ok, conn} =
         ConnectionManager.create_connection(%{
           source_automata: auto_a,
@@ -194,14 +239,24 @@ defmodule AetheriumGateway.ConnectionManagerTest do
           target_input: "input_val"
         })
 
-      ConnectionManager.propagate_output(auto_a, "result", 42)
-      :timer.sleep(10)
+      ConnectionManager.propagate_output(source, "result", 42)
+      sync_managers()
+
+      assert_receive {:dispatch_command, "set_input", %{"deployment_id" => deployment_id},
+                      envelope},
+                     500
+
+      assert deployment_id == target.deployment_id
+      assert get_in(envelope, [:target, "server_id"]) == server_a
+
       {:ok, updated_once} = ConnectionManager.get_connection(conn.id)
       assert updated_once.runtime.message_count == 1
       assert updated_once.runtime.last_value == 42
 
-      ConnectionManager.propagate_output(auto_a, "result", 42)
-      :timer.sleep(10)
+      ConnectionManager.propagate_output(source, "result", 42)
+      sync_managers()
+      refute_receive {:dispatch_command, "set_input", _, _}, 100
+
       {:ok, updated_twice} = ConnectionManager.get_connection(conn.id)
       assert updated_twice.runtime.message_count == 1
       assert updated_twice.runtime.dedupe_count >= 1
@@ -209,78 +264,136 @@ defmodule AetheriumGateway.ConnectionManagerTest do
       ConnectionManager.delete_connection(conn.id)
     end
 
-    test "propagates same-name topics without explicit connections", %{prefix: prefix, auto_a: auto_a} do
+    test "propagates same-name topics globally with targeted direct dispatch", %{
+      prefix: prefix,
+      auto_a: auto_a,
+      server_a: server_a,
+      server_b: server_b
+    } do
       target = "#{prefix}-topic-target"
       :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
-      {:ok, _deployment} =
-        AutomataRegistry.deploy_automata(target, "#{prefix}-topic-device", "srv_test", dispatch: false)
-
-      :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-topic-device", :running)
+      deployment_a = deploy_running(target, "#{prefix}-topic-device-a", server_a)
+      deployment_b = deploy_running(target, "#{prefix}-topic-device-b", server_b)
+      source = deploy_running(auto_a, "#{prefix}-source-topic-device", server_a)
 
       on_exit(fn ->
-        :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-topic-device", :stopped)
+        stop_deployments_for_automata([target])
         AutomataRegistry.delete_automata(target)
       end)
 
-      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
+      ConnectionManager.propagate_output(source, "result", 42)
+      sync_managers()
 
-      ConnectionManager.propagate_output(auto_a, "result", 42)
+      assert_receive {:dispatch_command, "set_input", payload_a, envelope_a}, 500
+      assert_receive {:dispatch_command, "set_input", payload_b, envelope_b}, 500
 
-      assert_receive %Phoenix.Socket.Broadcast{
-                       event: "set_input",
-                       payload: %{automata_id: ^target, input: "result", value: 42}
-                     },
-                     500
+      payloads = [payload_a, payload_b]
+      envelopes = [envelope_a, envelope_b]
+
+      assert Enum.any?(payloads, &(&1["deployment_id"] == deployment_a.deployment_id))
+      assert Enum.any?(payloads, &(&1["deployment_id"] == deployment_b.deployment_id))
+      assert Enum.all?(payloads, &(&1["topic"] == "result"))
+      assert Enum.all?(payloads, &(&1["topic_version"] == 1))
+      assert Enum.all?(payloads, &(&1["origin_deployment_id"] == source.deployment_id))
+      assert Enum.any?(envelopes, &(get_in(&1, [:target, "server_id"]) == server_a))
+      assert Enum.any?(envelopes, &(get_in(&1, [:target, "server_id"]) == server_b))
     end
 
-    test "replays latest topic value for matching input names", %{prefix: prefix, auto_a: auto_a} do
+    test "replays latest topic value for matching input names", %{
+      prefix: prefix,
+      auto_a: auto_a,
+      server_a: server_a
+    } do
       target = "#{prefix}-topic-replay"
       :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
-      {:ok, _deployment} =
-        AutomataRegistry.deploy_automata(target, "#{prefix}-replay-device", "srv_test", dispatch: false)
-
-      :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-replay-device", :running)
+      deployment = deploy_running(target, "#{prefix}-replay-device", server_a)
+      source = deploy_running(auto_a, "#{prefix}-replay-source", server_a)
 
       on_exit(fn ->
-        :ok = AutomataRegistry.update_deployment_status(target, "#{prefix}-replay-device", :stopped)
+        stop_deployments_for_automata([target])
         AutomataRegistry.delete_automata(target)
       end)
 
-      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
+      ConnectionManager.propagate_output(source, "result", 77)
+      sync_managers()
 
-      ConnectionManager.propagate_output(auto_a, "result", 77)
-      assert_receive %Phoenix.Socket.Broadcast{
-                       event: "set_input",
-                       payload: %{automata_id: ^target, input: "result", value: 77}
-                     },
+      assert_receive {:dispatch_command, "set_input",
+                      %{"deployment_id" => deployment_id, "topic_version" => 1}, _envelope},
                      500
+
+      assert deployment_id == deployment.deployment_id
 
       ConnectionManager.replay_for_automata(target)
+      sync_managers()
 
-      assert_receive %Phoenix.Socket.Broadcast{
-                       event: "set_input",
-                       payload: %{automata_id: ^target, input: "result", value: 77}
-                     },
-                     500
+      assert_receive {:dispatch_command, "set_input", replay_payload, _envelope}, 500
+      assert replay_payload["deployment_id"] == deployment.deployment_id
+      assert replay_payload["topic"] == "result"
+      assert replay_payload["topic_version"] == 1
+      assert replay_payload["force_replay"] == true
     end
 
-    test "does not propagate same-name topics to undeployed automata", %{prefix: prefix, auto_a: auto_a} do
+    test "suppresses redundant topic writes until the value changes", %{
+      prefix: prefix,
+      auto_a: auto_a,
+      server_a: server_a
+    } do
+      target = "#{prefix}-topic-dedupe"
+      :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
+      deployment = deploy_running(target, "#{prefix}-dedupe-device", server_a)
+      source = deploy_running(auto_a, "#{prefix}-dedupe-source", server_a)
+
+      on_exit(fn ->
+        stop_deployments_for_automata([target])
+        AutomataRegistry.delete_automata(target)
+      end)
+
+      ConnectionManager.propagate_output(source, "result", 13)
+      sync_managers()
+
+      assert_receive {:dispatch_command, "set_input",
+                      %{"deployment_id" => deployment_id, "topic_version" => 1}, _},
+                     500
+
+      assert deployment_id == deployment.deployment_id
+
+      ConnectionManager.propagate_output(source, "result", 13)
+      sync_managers()
+      refute_receive {:dispatch_command, "set_input", _, _}, 100
+
+      ConnectionManager.propagate_output(source, "result", 14)
+      sync_managers()
+
+      assert_receive {:dispatch_command, "set_input",
+                      %{"deployment_id" => deployment_id, "topic_version" => 2, "value" => 14},
+                      _},
+                     500
+
+      assert deployment_id == deployment.deployment_id
+    end
+
+    test "does not propagate same-name topics to undeployed automata", %{
+      prefix: prefix,
+      auto_a: auto_a
+    } do
       target = "#{prefix}-topic-idle"
       :ok = AutomataRegistry.register_automata(topic_automata(target, "result"))
 
+      source = %{
+        automata_id: auto_a,
+        deployment_id: "#{auto_a}:src",
+        device_id: "#{prefix}-src",
+        server_id: "#{prefix}-srv-a"
+      }
+
       on_exit(fn ->
+        stop_deployments_for_automata([target])
         AutomataRegistry.delete_automata(target)
       end)
 
-      Phoenix.PubSub.subscribe(AetheriumGateway.PubSub, "server:gateway")
-
-      ConnectionManager.propagate_output(auto_a, "result", 13)
-
-      refute_receive %Phoenix.Socket.Broadcast{
-                       event: "set_input",
-                       payload: %{automata_id: ^target}
-                     },
-                     200
+      ConnectionManager.propagate_output(source, "result", 13)
+      sync_managers()
+      refute_receive {:dispatch_command, "set_input", %{"automata_id" => ^target}, _}, 100
     end
   end
 
@@ -315,5 +428,38 @@ defmodule AetheriumGateway.ConnectionManagerTest do
         %{id: "v2", name: "status", type: "bool", direction: :output, default: false}
       ]
     }
+  end
+
+  defp deploy_running(automata_id, device_id, server_id) do
+    {:ok, deployment} =
+      AutomataRegistry.deploy_automata(automata_id, device_id, server_id, dispatch: false)
+
+    :ok = AutomataRegistry.update_deployment_status(automata_id, device_id, :running)
+    _ = :sys.get_state(AutomataRegistry)
+    deployment
+  end
+
+  defp sync_managers do
+    _ = :sys.get_state(ConnectionManager)
+    _ = :sys.get_state(CommandDispatcher)
+    :ok
+  end
+
+  defp stop_deployments_for_automata(automata_ids) do
+    active_ids = MapSet.new(List.wrap(automata_ids))
+
+    AutomataRegistry.list_deployments()
+    |> Enum.filter(fn deployment -> deployment.automata_id in active_ids end)
+    |> Enum.each(fn deployment ->
+      :ok =
+        AutomataRegistry.update_deployment_status(
+          deployment.automata_id,
+          deployment.device_id,
+          :stopped
+        )
+    end)
+
+    _ = :sys.get_state(AutomataRegistry)
+    :ok
   end
 end

@@ -651,7 +651,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       description: payload["description"],
       version: payload["version"] || "1.0.0",
       initial_state:
-        payload["initial_state"] || payload["initialState"] || get_in(payload, ["automata", "initial_state"]),
+        payload["initial_state"] || payload["initialState"] ||
+          get_in(payload, ["automata", "initial_state"]),
       states: normalize_states(payload["states"] || %{}),
       transitions: normalize_transitions(payload["transitions"] || %{}),
       variables: normalize_variables(payload["variables"] || []),
@@ -982,6 +983,7 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp serialize_deployment(deployment) do
     %{
+      deployment_id: field(deployment, :deployment_id, deployment_id_for(deployment)),
       automata_id: field(deployment, :automata_id),
       device_id: field(deployment, :device_id),
       server_id: field(deployment, :server_id),
@@ -995,7 +997,17 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp live_deployment?(deployment) when is_map(deployment) do
     status = field(deployment, :status)
-    status in [:pending, :deploying, :running, :paused, "pending", "deploying", "running", "paused"]
+
+    status in [
+      :pending,
+      :deploying,
+      :running,
+      :paused,
+      "pending",
+      "deploying",
+      "running",
+      "paused"
+    ]
   end
 
   defp live_deployment?(_), do: false

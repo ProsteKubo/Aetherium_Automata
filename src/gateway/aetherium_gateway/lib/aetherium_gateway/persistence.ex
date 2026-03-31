@@ -201,6 +201,7 @@ defmodule AetheriumGateway.Persistence do
 
   def handle_cast({:record_command, key, result}, state) do
     commands = Map.put(state.commands, key, stringify_keys(result))
+
     next =
       state
       |> Map.put(:commands, commands)
