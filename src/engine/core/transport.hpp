@@ -282,7 +282,7 @@ inline bool ConsoleTransport::sendRaw(const uint8_t* data, size_t len) {
 }
 
 inline std::unique_ptr<protocol::Message> ConsoleTransport::receive() {
-    compat::LockGuard lock(mutex_);
+    compat::LockGuard<compat::Mutex> lock(mutex_);
     
     if (inQueue_.empty()) return nullptr;
     
@@ -292,17 +292,17 @@ inline std::unique_ptr<protocol::Message> ConsoleTransport::receive() {
 }
 
 inline bool ConsoleTransport::hasMessage() const {
-    compat::LockGuard lock(mutex_);
+    compat::LockGuard<compat::Mutex> lock(mutex_);
     return !inQueue_.empty();
 }
 
 inline void ConsoleTransport::injectMessage(std::unique_ptr<protocol::Message> msg) {
-    compat::LockGuard lock(mutex_);
+    compat::LockGuard<compat::Mutex> lock(mutex_);
     inQueue_.push(std::move(msg));
 }
 
 inline void ConsoleTransport::injectInput(const std::string& line) {
-    compat::LockGuard lock(mutex_);
+    compat::LockGuard<compat::Mutex> lock(mutex_);
     inputLines_.push(line);
 }
 

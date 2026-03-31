@@ -6,6 +6,8 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+option(AETHERIUM_MCXN947_USE_NANO_SPECS "Link the MCXN947 firmware against newlib-nano" OFF)
+
 include(FetchContent)
 
 FetchContent_Declare(lua
@@ -17,6 +19,12 @@ FetchContent_Declare(lua
 FetchContent_Declare(mcux_sdk
   GIT_REPOSITORY https://github.com/nxp-mcuxpresso/mcux-sdk.git
   GIT_TAG 8a289764d763ad06e0c3a05c885644ed98b970af
+  GIT_SHALLOW TRUE
+)
+
+FetchContent_Declare(cmsis_5
+  GIT_REPOSITORY https://github.com/ARM-software/CMSIS_5.git
+  GIT_TAG 5.9.0
   GIT_SHALLOW TRUE
 )
 
@@ -40,8 +48,18 @@ endif()
 set(AETHERIUM_ROOT ${CMAKE_CURRENT_LIST_DIR}/../..)
 set(MCUX_DEVICE_DIR ${mcux_sdk_SOURCE_DIR}/devices/MCXN947)
 set(MCUX_DEVICE_DRIVERS_DIR ${MCUX_DEVICE_DIR}/drivers)
-set(MCUX_CMSIS_DIR ${mcux_sdk_SOURCE_DIR}/CMSIS/Core/Include)
 set(MCUX_BOARD_DIR ${mcux_sdk_SOURCE_DIR}/boards/frdmmcxn947/project_template)
+
+set(MCUX_CMSIS_DIR "")
+if(EXISTS "${mcux_sdk_SOURCE_DIR}/CMSIS/Core/Include/core_cm33.h")
+  set(MCUX_CMSIS_DIR ${mcux_sdk_SOURCE_DIR}/CMSIS/Core/Include)
+elseif(EXISTS "${mcux_sdk_SOURCE_DIR}/arch/arm/CMSIS/Core/Include/core_cm33.h")
+  set(MCUX_CMSIS_DIR ${mcux_sdk_SOURCE_DIR}/arch/arm/CMSIS/Core/Include)
+else()
+  FetchContent_MakeAvailable(cmsis_5)
+  set(MCUX_CMSIS_DIR ${cmsis_5_SOURCE_DIR}/CMSIS/Core/Include)
+endif()
+
 set(AETHERIUM_CMSIS_CORE_INCLUDE_DIRS ${MCUX_CMSIS_DIR})
 
 file(GLOB AETHERIUM_ARDUINO_CMSIS_CORE_DIRS
@@ -143,7 +161,6 @@ target_compile_options(aetherium_mcxn947_node PRIVATE
 target_link_libraries(aetherium_mcxn947_node PRIVATE aetherium_mcxn947_runtime)
 
 target_link_options(aetherium_mcxn947_node PRIVATE
-  --specs=nano.specs
   --specs=nosys.specs
   -T${MCUX_DEVICE_DIR}/gcc/MCXN947_cm33_core0_flash.ld
   -Wl,--defsym=__heap_size__=0x00030000
@@ -151,6 +168,10 @@ target_link_options(aetherium_mcxn947_node PRIVATE
   -Wl,--gc-sections
   -Wl,-Map=${CMAKE_CURRENT_BINARY_DIR}/aetherium_mcxn947_node.map
 )
+
+if(AETHERIUM_MCXN947_USE_NANO_SPECS)
+  target_link_options(aetherium_mcxn947_node PRIVATE --specs=nano.specs)
+endif()
 
 add_custom_command(TARGET aetherium_mcxn947_node POST_BUILD
   COMMAND ${CMAKE_OBJCOPY} -O binary $<TARGET_FILE:aetherium_mcxn947_node> ${CMAKE_CURRENT_BINARY_DIR}/aetherium_mcxn947_node.bin
