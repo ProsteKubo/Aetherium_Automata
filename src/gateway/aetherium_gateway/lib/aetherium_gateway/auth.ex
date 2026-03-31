@@ -9,7 +9,8 @@ defmodule AetheriumGateway.Auth do
 
   @type role :: :operator | :server | :device
 
-  @spec authorize(role(), binary() | nil) :: {:ok, map()} | {:error, :invalid_token | :missing_token | :expired}
+  @spec authorize(role(), binary() | nil) ::
+          {:ok, map()} | {:error, :invalid_token | :missing_token | :expired}
   def authorize(_role, nil), do: {:error, :missing_token}
   def authorize(_role, ""), do: {:error, :missing_token}
 

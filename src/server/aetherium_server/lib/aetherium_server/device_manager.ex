@@ -71,6 +71,7 @@ defmodule AetheriumServer.DeviceManager do
           automata_cache: %{automata_id() => map()},
           device_by_transport: %{pid() => device_id()},
           pending_chunk_deploys: %{String.t() => map()},
+          delivered_topic_versions: %{{String.t(), String.t()} => non_neg_integer()},
           heartbeat_timeout: integer()
         }
 
@@ -187,9 +188,12 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @doc "Set input value for deployment"
-  @spec set_input(String.t(), String.t(), any()) :: :ok | {:error, term()}
-  def set_input(deployment_id, input_name, value) do
-    GenServer.call(__MODULE__, {:set_input, deployment_id, input_name, value})
+  @spec set_input(String.t(), String.t(), any(), map()) :: :ok | {:error, term()}
+  def set_input(deployment_id, input_name, value, opts \\ %{}) do
+    GenServer.call(
+      __MODULE__,
+      {:set_input, deployment_id, input_name, value, normalize_set_input_opts(opts)}
+    )
   end
 
   @doc "Trigger event on deployment"
@@ -236,6 +240,7 @@ defmodule AetheriumServer.DeviceManager do
       automata_cache: %{},
       device_by_transport: %{},
       pending_chunk_deploys: %{},
+      delivered_topic_versions: %{},
       heartbeat_timeout: heartbeat_timeout
     }
 
@@ -637,48 +642,61 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @impl true
-  def handle_call({:set_input, deployment_id, input_name, value}, _from, state) do
+  def handle_call({:set_input, deployment_id, input_name, value}, from, state) do
+    handle_call({:set_input, deployment_id, input_name, value, %{}}, from, state)
+  end
+
+  @impl true
+  def handle_call({:set_input, deployment_id, input_name, value, opts}, _from, state) do
     case Map.get(state.deployments, deployment_id) do
       nil ->
         {:reply, {:error, :deployment_not_found}, state}
 
       deployment ->
-        device = Map.get(state.devices, deployment.device_id)
-
         cond do
-          runtime_registered?(deployment_id) ->
-            AetheriumServer.AutomataRuntime.set_input(deployment_id, input_name, value)
-
-            append_time_series_event(deployment_id, "set_input", %{
-              "automata_id" => deployment.automata_id,
-              "device_id" => deployment.device_id,
-              "name" => input_name,
-              "value" => value
-            })
-
-            {:reply, :ok, state}
-
-          match?(%{session_ref: %DeviceSessionRef{}, protocol_id: _}, device) ->
-            %{session_ref: session_ref, protocol_id: protocol_id} = device
-
-            send_message(session_ref, :set_input, %{
-              target_id: protocol_id,
-              run_id: deployment.run_id,
-              name: input_name,
-              value: value
-            })
-
-            append_time_series_event(deployment_id, "set_input", %{
-              "automata_id" => deployment.automata_id,
-              "device_id" => deployment.device_id,
-              "name" => input_name,
-              "value" => value
-            })
-
+          duplicate_topic_delivery?(state, deployment_id, opts) ->
             {:reply, :ok, state}
 
           true ->
-            {:reply, {:error, :device_not_connected}, state}
+            device = Map.get(state.devices, deployment.device_id)
+            started_at_ms = System.monotonic_time(:millisecond)
+
+            result =
+              cond do
+                runtime_registered?(deployment_id) ->
+                  AetheriumServer.AutomataRuntime.set_input(deployment_id, input_name, value)
+                  :ok
+
+                match?(%{session_ref: %DeviceSessionRef{}, protocol_id: _}, device) ->
+                  %{session_ref: session_ref, protocol_id: protocol_id} = device
+
+                  send_message(session_ref, :set_input, %{
+                    target_id: protocol_id,
+                    run_id: deployment.run_id,
+                    name: input_name,
+                    value: value
+                  })
+
+                  :ok
+
+                true ->
+                  {:error, :device_not_connected}
+              end
+
+            case result do
+              :ok ->
+                maybe_record_set_input_event(deployment, input_name, value, opts)
+
+                state =
+                  state
+                  |> remember_topic_delivery(deployment_id, opts)
+                  |> maybe_log_set_input_delay(deployment_id, opts, started_at_ms)
+
+                {:reply, :ok, state}
+
+              {:error, reason} ->
+                {:reply, {:error, reason}, state}
+            end
         end
     end
   end
@@ -1710,6 +1728,7 @@ defmodule AetheriumServer.DeviceManager do
 
   defp initial_state_name(automata) do
     states = automata[:states] || automata["states"] || %{}
+
     explicit =
       automata[:initial_state] ||
         automata["initial_state"] ||
@@ -1749,7 +1768,8 @@ defmodule AetheriumServer.DeviceManager do
        when is_map(state) and is_binary(device_id) and is_binary(keep_deployment_id) do
     state.deployments
     |> Enum.reduce(state, fn
-      {deployment_id, deployment}, acc when deployment_id != keep_deployment_id and deployment.device_id == device_id ->
+      {deployment_id, deployment}, acc
+      when deployment_id != keep_deployment_id and deployment.device_id == device_id ->
         put_in(acc, [:deployments, deployment_id, :status], :stopped)
 
       _entry, acc ->
@@ -2351,6 +2371,82 @@ defmodule AetheriumServer.DeviceManager do
   defp deployment_priority(status) when status in [:stopped, :pending], do: 1
   defp deployment_priority(:error), do: 0
   defp deployment_priority(_status), do: 0
+
+  defp normalize_set_input_opts(opts) when is_map(opts), do: opts
+  defp normalize_set_input_opts(_opts), do: %{}
+
+  defp duplicate_topic_delivery?(state, deployment_id, opts)
+       when is_map(state) and is_binary(deployment_id) and is_map(opts) do
+    topic = opts["topic"] || opts[:topic]
+    topic_version = opts["topic_version"] || opts[:topic_version]
+    force_replay = opts["force_replay"] || opts[:force_replay]
+
+    cond do
+      force_replay ->
+        false
+
+      !is_binary(topic) or topic == "" or !is_integer(topic_version) ->
+        false
+
+      true ->
+        Map.get(state.delivered_topic_versions, {deployment_id, topic}) == topic_version
+    end
+  end
+
+  defp duplicate_topic_delivery?(_state, _deployment_id, _opts), do: false
+
+  defp remember_topic_delivery(state, deployment_id, opts)
+       when is_map(state) and is_binary(deployment_id) and is_map(opts) do
+    topic = opts["topic"] || opts[:topic]
+    topic_version = opts["topic_version"] || opts[:topic_version]
+
+    if is_binary(topic) and topic != "" and is_integer(topic_version) do
+      put_in(state, [:delivered_topic_versions, {deployment_id, topic}], topic_version)
+    else
+      state
+    end
+  end
+
+  defp remember_topic_delivery(state, _deployment_id, _opts), do: state
+
+  defp maybe_record_set_input_event(deployment, input_name, value, opts)
+       when is_map(deployment) and is_binary(input_name) do
+    internal_propagation =
+      opts["internal_propagation"] || opts[:internal_propagation] || false
+
+    unless internal_propagation do
+      append_time_series_event(deployment.id, "set_input", %{
+        "automata_id" => deployment.automata_id,
+        "device_id" => deployment.device_id,
+        "name" => input_name,
+        "value" => value
+      })
+    end
+
+    :ok
+  end
+
+  defp maybe_log_set_input_delay(state, deployment_id, opts, started_at_ms)
+       when is_map(state) and is_binary(deployment_id) and is_map(opts) and
+              is_integer(started_at_ms) do
+    dispatched_at_ms = opts["topic_dispatched_at_ms"] || opts[:topic_dispatched_at_ms]
+    server_elapsed_ms = System.monotonic_time(:millisecond) - started_at_ms
+
+    if is_integer(dispatched_at_ms) do
+      total_lag_ms = System.system_time(:millisecond) - dispatched_at_ms
+
+      if total_lag_ms > 200 or server_elapsed_ms > 200 do
+        Logger.warning(
+          "set_input forwarding for #{deployment_id} took #{server_elapsed_ms}ms in DeviceManager " <>
+            "(end_to_end=#{total_lag_ms}ms)"
+        )
+      end
+    end
+
+    state
+  end
+
+  defp maybe_log_set_input_delay(state, _deployment_id, _opts, _started_at_ms), do: state
 
   defp telemetry_variable_count(payload) when is_map(payload) do
     case payload[:variables] || payload["variables"] do

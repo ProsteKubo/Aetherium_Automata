@@ -51,7 +51,11 @@ defmodule AetheriumGateway.ServerTracker do
   end
 
   @impl true
-  def handle_call({:register, server_id, pid}, _from, %{servers: servers, recovered: recovered} = state) do
+  def handle_call(
+        {:register, server_id, pid},
+        _from,
+        %{servers: servers, recovered: recovered} = state
+      ) do
     if Map.has_key?(servers, server_id) do
       {:reply, {:error, :already_connected}, state}
     else
@@ -78,7 +82,11 @@ defmodule AetheriumGateway.ServerTracker do
   end
 
   @impl true
-  def handle_call({:unregister, server_id}, _from, %{servers: servers, recovered: recovered} = state) do
+  def handle_call(
+        {:unregister, server_id},
+        _from,
+        %{servers: servers, recovered: recovered} = state
+      ) do
     case Map.pop(servers, server_id) do
       {nil, _new_servers} ->
         {:reply, :ok, state}
@@ -215,7 +223,10 @@ defmodule AetheriumGateway.ServerTracker do
 
   # Handle server process crashes
   @impl true
-  def handle_info({:DOWN, ref, :process, _pid, _reason}, %{servers: servers, recovered: recovered} = state) do
+  def handle_info(
+        {:DOWN, ref, :process, _pid, _reason},
+        %{servers: servers, recovered: recovered} = state
+      ) do
     # Find which server crashed
     case Enum.find(servers, fn {_id, info} -> info.ref == ref end) do
       {server_id, _info} ->

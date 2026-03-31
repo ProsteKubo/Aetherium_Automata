@@ -31,9 +31,7 @@ defmodule AetheriumGateway.CommandEnvelopeTest do
     actor = %{"role" => "operator"}
 
     assert {:ok, envelope} =
-             CommandEnvelope.from_payload("trigger_event", payload, actor,
-               deadline_ms: 10_000
-             )
+             CommandEnvelope.from_payload("trigger_event", payload, actor, deadline_ms: 10_000)
 
     outcome = CommandEnvelope.outcome(envelope, "ACK", %{"status" => "sent"})
 

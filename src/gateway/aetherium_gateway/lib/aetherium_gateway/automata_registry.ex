@@ -65,6 +65,7 @@ defmodule AetheriumGateway.AutomataRegistry do
         }
 
   @type deployment :: %{
+          deployment_id: String.t(),
           automata_id: automata_id(),
           device_id: device_id(),
           server_id: server_id(),
@@ -114,7 +115,8 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   @doc "Deploy automata to a device"
-  @spec deploy_automata(automata_id(), device_id(), server_id()) :: {:ok, deployment()} | {:error, term()}
+  @spec deploy_automata(automata_id(), device_id(), server_id()) ::
+          {:ok, deployment()} | {:error, term()}
   def deploy_automata(automata_id, device_id, server_id) do
     deploy_automata(automata_id, device_id, server_id, [])
   end
@@ -128,7 +130,10 @@ defmodule AetheriumGateway.AutomataRegistry do
   @doc "Update deployment status"
   @spec update_deployment_status(automata_id(), device_id(), atom(), map()) :: :ok
   def update_deployment_status(automata_id, device_id, status, extras \\ %{}) do
-    GenServer.cast(__MODULE__, {:update_deployment_status, automata_id, device_id, status, extras})
+    GenServer.cast(
+      __MODULE__,
+      {:update_deployment_status, automata_id, device_id, status, extras}
+    )
   end
 
   @doc "Get all deployments for an automata"
@@ -138,7 +143,8 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   @doc "Get deployment for a specific device"
-  @spec get_device_deployment(device_id(), keyword()) :: {:ok, deployment()} | {:error, :not_found}
+  @spec get_device_deployment(device_id(), keyword()) ::
+          {:ok, deployment()} | {:error, :not_found}
   def get_device_deployment(device_id, opts \\ []) when is_list(opts) do
     GenServer.call(__MODULE__, {:get_device_deployment, device_id, opts})
   end
@@ -164,7 +170,10 @@ defmodule AetheriumGateway.AutomataRegistry do
   @doc "Record a state transition event"
   @spec record_transition(device_id(), String.t(), String.t(), String.t(), map()) :: :ok
   def record_transition(device_id, from_state, to_state, transition_id, metadata \\ %{}) do
-    GenServer.cast(__MODULE__, {:record_transition, device_id, from_state, to_state, transition_id, metadata})
+    GenServer.cast(
+      __MODULE__,
+      {:record_transition, device_id, from_state, to_state, transition_id, metadata}
+    )
   end
 
   @doc "Get transition history for a device"
@@ -298,6 +307,7 @@ defmodule AetheriumGateway.AutomataRegistry do
 
       automata ->
         deployment = %{
+          deployment_id: deployment_id_for(automata_id, device_id),
           automata_id: automata_id,
           device_id: device_id,
           server_id: server_id,
@@ -313,10 +323,18 @@ defmodule AetheriumGateway.AutomataRegistry do
         key = {automata_id, device_id}
         new_state = put_in(state, [:deployments, key], deployment)
 
-        Logger.info("Deploying automata #{automata_id} to device #{device_id} via server #{server_id}")
+        Logger.info(
+          "Deploying automata #{automata_id} to device #{device_id} via server #{server_id}"
+        )
+
         broadcast_deployment_update(deployment)
         persist_state(new_state)
-        append_event("deployment_requested", %{automata_id: automata_id, device_id: device_id, server_id: server_id})
+
+        append_event("deployment_requested", %{
+          automata_id: automata_id,
+          device_id: device_id,
+          server_id: server_id
+        })
 
         if Keyword.get(opts, :dispatch, true) do
           # Trigger actual deployment via server
@@ -447,7 +465,14 @@ defmodule AetheriumGateway.AutomataRegistry do
           broadcast_deployment_update(updated)
           next = put_in(state, [:deployments, key], updated)
           persist_state(next)
-          append_event("deployment_status", %{automata_id: automata_id, device_id: device_id, status: status, extras: extras})
+
+          append_event("deployment_status", %{
+            automata_id: automata_id,
+            device_id: device_id,
+            status: status,
+            extras: extras
+          })
+
           next
       end
 
@@ -483,7 +508,10 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   @impl true
-  def handle_cast({:record_transition, device_id, from_state, to_state, transition_id, metadata}, state) do
+  def handle_cast(
+        {:record_transition, device_id, from_state, to_state, transition_id, metadata},
+        state
+      ) do
     # Record in history
     entry = %{
       timestamp: DateTime.utc_now(),
@@ -517,7 +545,14 @@ defmodule AetheriumGateway.AutomataRegistry do
     # Broadcast
     broadcast_transition_event(device_id, from_state, to_state, transition_id, metadata)
     persist_state(new_state)
-    append_event("transition_recorded", %{device_id: device_id, from: from_state, to: to_state, transition_id: transition_id, metadata: metadata})
+
+    append_event("transition_recorded", %{
+      device_id: device_id,
+      from: from_state,
+      to: to_state,
+      transition_id: transition_id,
+      metadata: metadata
+    })
 
     {:noreply, new_state}
   end
@@ -635,6 +670,7 @@ defmodule AetheriumGateway.AutomataRegistry do
 
       true ->
         %{
+          deployment_id: deployment_id_for(automata_id, device_id),
           automata_id: automata_id,
           device_id: device_id,
           server_id: server_id,
@@ -672,6 +708,7 @@ defmodule AetheriumGateway.AutomataRegistry do
     updated =
       state.deployments
       |> Map.get(key, %{
+        deployment_id: deployment_id_for(deployment.automata_id, deployment.device_id),
         automata_id: deployment.automata_id,
         device_id: deployment.device_id,
         server_id: deployment.server_id,
@@ -715,7 +752,10 @@ defmodule AetheriumGateway.AutomataRegistry do
   defp send_deployment_to_server(server_id, automata, device_id) do
     payload = %{"automata_id" => automata.id, "device_id" => device_id, "automata" => automata}
 
-    case CommandEnvelope.from_payload("deploy_automata", payload, %{"role" => "system", "source" => "automata_registry"}) do
+    case CommandEnvelope.from_payload("deploy_automata", payload, %{
+           "role" => "system",
+           "source" => "automata_registry"
+         }) do
       {:ok, envelope} ->
         CommandDispatcher.dispatch(server_id, "deploy_automata", payload, envelope)
 
@@ -770,6 +810,11 @@ defmodule AetheriumGateway.AutomataRegistry do
 
   defp persist_state(state) do
     Persistence.save_state("automata_registry_state", state)
+  end
+
+  defp deployment_id_for(automata_id, device_id)
+       when is_binary(automata_id) and is_binary(device_id) do
+    "#{automata_id}:#{device_id}"
   end
 
   defp append_event(kind, data) do

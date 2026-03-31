@@ -1,0 +1,35 @@
+Good point. Here is a manual-only QA checklist (no automated test commands).
+
+Manual QA Checklist
+
+ Flash ESP32 with current firmware and confirm it boots (no crash/reboot loop). - works
+ Verify onboard LED shows “waiting for server” pattern before connection. - works
+ Start server + gateway + IDE normally (your real user flow). - works
+ Confirm ESP32 appears in IDE device list with unique name (esp32-xxxxxx style). - works
+ Confirm device metadata is visible (connector type serial, link/port info, profile esp32_v1). - seems ok
+ Keep IDE open, restart only server, confirm ESP32 reappears automatically without reflashing. - works
+ Disconnect and reconnect USB; confirm device disappears and returns in IDE correctly. - works
+ Deploy a simple automata from IDE to ESP32; confirm deploy success shown in UI. - works
+ Start automata from IDE; confirm runtime status changes to running. - works
+ Confirm onboard LED changes to running pattern. - works
+ Stop automata from IDE; confirm status returns to stopped and LED behavior changes accordingly. - works
+ Pause automata (if exposed in UI); confirm status + LED paused behavior. - works
+ Resume automata; confirm status + LED return to running behavior. - works
+ Reset automata; confirm state/variables reset as expected. - works
+ Redeploy modified automata while running; confirm replace-and-restart behavior (state reset expected). - did not test
+ Confirm deployed automata appears under correct device in IDE (not another device). - works
+ If you have websocket device available too, connect it and ESP32 at same time; both must appear concurrently. - works
+ Send command to websocket device and ESP32 separately; verify no cross-routing mistakes. - works
+ Import showcase in IDE and deploy showcase_08; confirm it deploys and runs on ESP32. - works
+ Open Time Travel panel after running a scenario; confirm timeline contains events + snapshots. - 
+ Scrub timeline manually; confirm displayed state/variables change with selected timestamp.
+ Execute rewind to earlier timestamp from UI; confirm deployment state updates to historical state.
+ After rewind, continue running; confirm new events are appended after rewind marker.
+ Check that rewind action is visible in timeline (marker/event present).
+ Verify timeline still accessible after server restart (local persistence behavior).
+ Trigger invalid deploy (unsupported construct for ESP32 profile) from IDE; confirm user-facing validation error is clear. - works
+ Trigger large deploy (near practical size); confirm transfer completes and runtime stays responsive.
+ Confirm no visible serial-protocol corruption symptoms (random binary junk in logs/UI issues).
+ Leave system running 20–30 min; confirm no silent disconnects or stale status.
+
+

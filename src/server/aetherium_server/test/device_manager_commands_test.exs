@@ -113,6 +113,77 @@ defmodule AetheriumServer.DeviceManagerCommandsTest do
     assert snapshot.variables["enabled"] == true
   end
 
+  test "topic-versioned propagated inputs are deduped per deployment" do
+    suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    device_id = "topic-device-#{suffix}"
+    automata_id = "topic-automata-#{suffix}"
+    deployment_id = "#{automata_id}:#{device_id}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :desktop,
+          connector_type: :host_runtime,
+          transport: "host_runtime",
+          capabilities: 0xFFFF,
+          protocol_version: 1
+        },
+        self()
+      )
+
+    {:ok, _deployment} =
+      DeviceManager.deploy_automata(automata_id, device_id, sample_automata(automata_id))
+
+    assert :ok = DeviceManager.start_automata(deployment_id)
+
+    assert :ok =
+             DeviceManager.set_input(
+               deployment_id,
+               "enabled",
+               true,
+               %{
+                 "internal_propagation" => true,
+                 "topic" => "enabled",
+                 "topic_version" => 1
+               }
+             )
+
+    assert :ok =
+             DeviceManager.set_input(
+               deployment_id,
+               "enabled",
+               false,
+               %{
+                 "internal_propagation" => true,
+                 "topic" => "enabled",
+                 "topic_version" => 1
+               }
+             )
+
+    Process.sleep(200)
+
+    assert {:ok, snapshot} = DeviceManager.request_state(deployment_id)
+    assert snapshot.variables["enabled"] == true
+
+    assert :ok =
+             DeviceManager.set_input(
+               deployment_id,
+               "enabled",
+               false,
+               %{
+                 "internal_propagation" => true,
+                 "topic" => "enabled",
+                 "topic_version" => 2
+               }
+             )
+
+    Process.sleep(200)
+
+    assert {:ok, snapshot} = DeviceManager.request_state(deployment_id)
+    assert snapshot.variables["enabled"] == false
+  end
+
   defp sample_automata(id) do
     %{
       id: id,

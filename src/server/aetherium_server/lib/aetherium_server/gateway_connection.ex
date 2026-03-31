@@ -510,34 +510,48 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   defp handle_set_input(payload) do
+    command_opts = propagated_input_opts(payload)
+
     case payload do
       %{"deployment_id" => deployment_id, "input" => input, "value" => value}
       when is_binary(deployment_id) and deployment_id != "" ->
-        case AetheriumServer.DeviceManager.set_input(deployment_id, input, value) do
+        maybe_log_propagation_delay(payload)
+
+        case AetheriumServer.DeviceManager.set_input(deployment_id, input, value, command_opts) do
           :ok -> {:ack, :ok, %{"target_count" => 1}}
           {:error, reason} -> {:error, reason, %{"target_count" => 0}}
         end
 
       %{"device_id" => device_id, "input" => input, "value" => value}
       when is_binary(device_id) and device_id != "" ->
-        apply_to_deployments(resolve_deployments_for_device(device_id), input, value)
+        apply_to_deployments(
+          resolve_deployments_for_device(device_id),
+          input,
+          value,
+          command_opts
+        )
 
       %{"automata_id" => automata_id, "input" => input, "value" => value}
       when is_binary(automata_id) and automata_id != "" ->
-        apply_to_deployments(find_deployments_by_automata(automata_id), input, value)
+        apply_to_deployments(
+          find_deployments_by_automata(automata_id),
+          input,
+          value,
+          command_opts
+        )
 
       _ ->
         {:nak, :invalid_payload, %{}}
     end
   end
 
-  defp apply_to_deployments([], _input, _value),
+  defp apply_to_deployments([], _input, _value, _opts),
     do: {:nak, :deployment_not_found, %{"target_count" => 0}}
 
-  defp apply_to_deployments(deployments, input, value) do
+  defp apply_to_deployments(deployments, input, value, opts) do
     {ok_count, errors} =
       Enum.reduce(deployments, {0, []}, fn deployment, {oks, errs} ->
-        case AetheriumServer.DeviceManager.set_input(deployment.id, input, value) do
+        case AetheriumServer.DeviceManager.set_input(deployment.id, input, value, opts) do
           :ok -> {oks + 1, errs}
           {:error, reason} -> {oks, [{deployment.id, reason} | errs]}
         end
@@ -607,7 +621,7 @@ defmodule AetheriumServer.GatewayConnection do
 
     active_deployments = Enum.filter(deployments, &active_deployment?/1)
 
-    (if active_deployments == [], do: deployments, else: active_deployments)
+    if(active_deployments == [], do: deployments, else: active_deployments)
     |> maybe_filter_deployments_by_automata(automata_id)
     |> List.first()
     |> case do
@@ -658,6 +672,41 @@ defmodule AetheriumServer.GatewayConnection do
 
   defp normalize_envelope(envelope) when is_map(envelope), do: stringify_keys(envelope)
   defp normalize_envelope(_), do: %{}
+
+  defp propagated_input_opts(payload) when is_map(payload) do
+    payload
+    |> Map.take([
+      "internal_propagation",
+      "topic",
+      "topic_version",
+      "origin_deployment_id",
+      "topic_dispatched_at_ms",
+      "force_replay"
+    ])
+    |> stringify_keys()
+  end
+
+  defp propagated_input_opts(_payload), do: %{}
+
+  defp maybe_log_propagation_delay(payload) when is_map(payload) do
+    case parse_optional_non_negative_int(payload["topic_dispatched_at_ms"]) do
+      dispatched_at_ms ->
+        if is_integer(dispatched_at_ms) do
+          lag_ms = System.system_time(:millisecond) - dispatched_at_ms
+
+          if lag_ms > 200 do
+            target_id = payload["deployment_id"] || payload["automata_id"] || "unknown"
+
+            Logger.warning(
+              "Propagated set_input for #{target_id} " <>
+                "spent #{lag_ms}ms before server handling"
+            )
+          end
+        end
+    end
+  end
+
+  defp maybe_log_propagation_delay(_payload), do: :ok
 
   defp push_command_outcome(state, envelope, command_type, {:ack, _ok, data}) do
     push_to_gateway(
@@ -781,7 +830,9 @@ defmodule AetheriumServer.GatewayConnection do
         }
       end)
 
-    PhoenixClient.Channel.push_async(channel, "deployment_inventory", %{"deployments" => deployments})
+    PhoenixClient.Channel.push_async(channel, "deployment_inventory", %{
+      "deployments" => deployments
+    })
   end
 
   defp push_connector_statuses(channel) do

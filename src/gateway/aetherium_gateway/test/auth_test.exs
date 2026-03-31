@@ -27,7 +27,9 @@ defmodule AetheriumGateway.AuthTest do
 
     prior = Application.get_env(:aetherium_gateway, Auth, [])
 
-    Application.put_env(:aetherium_gateway, Auth,
+    Application.put_env(
+      :aetherium_gateway,
+      Auth,
       Keyword.merge(prior,
         hmac_secret: secret,
         tokens: %{

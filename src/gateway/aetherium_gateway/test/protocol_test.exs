@@ -1,13 +1,13 @@
 defmodule AetheriumGateway.ProtocolTest do
   use ExUnit.Case, async: true
-  
+
   alias AetheriumGateway.Protocol
 
   describe "encode/decode round-trip" do
     test "hello message" do
       {:ok, encoded} = Protocol.hello("device_001", :esp32, 0x0F)
       {:ok, :hello, decoded} = Protocol.decode(encoded)
-      
+
       assert decoded.device_id == "device_001"
       assert decoded.device_type == :esp32
       assert decoded.capabilities == 0x0F
@@ -27,7 +27,7 @@ defmodule AetheriumGateway.ProtocolTest do
     test "state_change message" do
       {:ok, encoded} = Protocol.state_change("idle", "running", "trans_001")
       {:ok, :state_change, decoded} = Protocol.decode(encoded)
-      
+
       assert decoded.from_state == "idle"
       assert decoded.to_state == "running"
       assert decoded.transition_id == "trans_001"
@@ -85,20 +85,20 @@ defmodule AetheriumGateway.ProtocolTest do
   describe "CRC validation" do
     test "detects corrupted message" do
       {:ok, encoded} = Protocol.hello("device_001", :esp32, 0x0F)
-      
+
       # Corrupt a byte in the middle
       <<head::binary-size(5), _byte::8, tail::binary>> = encoded
       corrupted = <<head::binary, 0xFF, tail::binary>>
-      
+
       assert {:error, :crc_mismatch} = Protocol.decode(corrupted)
     end
 
     test "detects incomplete message" do
       {:ok, encoded} = Protocol.hello("device_001", :esp32, 0x0F)
-      
+
       # Truncate the message
       truncated = binary_part(encoded, 0, byte_size(encoded) - 3)
-      
+
       assert {:error, :incomplete_message} = Protocol.decode(truncated)
     end
   end
@@ -113,7 +113,14 @@ defmodule AetheriumGateway.ProtocolTest do
           "s2" => %{id: "s2", name: "Running", type: :normal}
         },
         transitions: %{
-          "t1" => %{id: "t1", from: "s1", to: "s2", type: :classic, condition: "ready == true", weight: 100}
+          "t1" => %{
+            id: "t1",
+            from: "s1",
+            to: "s2",
+            type: :classic,
+            condition: "ready == true",
+            weight: 100
+          }
         },
         variables: [
           %{id: "v1", name: "ready", type: "bool", direction: :input, default: false},

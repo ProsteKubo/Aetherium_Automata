@@ -121,7 +121,12 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   def handle_in("variable_updated", payload, socket) do
     if payload["direction"] == "output" do
       AetheriumGateway.ConnectionManager.propagate_output(
-        payload["automata_id"],
+        %{
+          "automata_id" => payload["automata_id"],
+          "deployment_id" => payload["deployment_id"],
+          "device_id" => payload["device_id"],
+          "server_id" => socket.assigns.server_id
+        },
         payload["name"],
         payload["value"]
       )
@@ -291,7 +296,12 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   @impl true
   def handle_in("output_changed", payload, socket) do
     AetheriumGateway.ConnectionManager.propagate_output(
-      payload["automata_id"],
+      %{
+        "automata_id" => payload["automata_id"],
+        "deployment_id" => payload["deployment_id"],
+        "device_id" => payload["device_id"],
+        "server_id" => socket.assigns.server_id
+      },
       payload["output"],
       payload["value"]
     )

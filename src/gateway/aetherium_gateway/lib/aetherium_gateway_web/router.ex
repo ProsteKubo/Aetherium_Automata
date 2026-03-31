@@ -7,7 +7,5 @@ defmodule AetheriumGatewayWeb.Router do
 
   scope "/" do
     pipe_through :api
-
   end
-
 end

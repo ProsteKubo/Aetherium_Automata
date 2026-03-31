@@ -1,13 +1,13 @@
 defmodule AetheriumGateway.Protocol do
   @moduledoc """
   Binary protocol implementation for Aetherium device communication.
-  
+
   Message envelope format:
     [1 byte: message type]
     [2 bytes: payload length (big endian)]
     [N bytes: payload]
     [2 bytes: CRC16 checksum]
-  
+
   Supports efficient encoding for embedded devices (ESP32, Pico, etc.)
   """
 
@@ -82,7 +82,8 @@ defmodule AetheriumGateway.Protocol do
   @doc "Decode a binary message"
   @spec decode(binary()) :: {:ok, atom(), map()} | {:error, term()}
   def decode(<<type::8, length::16-big, rest::binary>>) do
-    expected_size = length + 2  # payload + CRC
+    # payload + CRC
+    expected_size = length + 2
 
     if byte_size(rest) >= expected_size do
       <<payload::binary-size(length), crc::16-big, _rest::binary>> = rest
@@ -202,7 +203,12 @@ defmodule AetheriumGateway.Protocol do
   # Payload Encoding
   # ============================================================================
 
-  defp encode_payload(:hello, %{device_id: device_id, device_type: device_type, capabilities: caps, protocol_version: version}) do
+  defp encode_payload(:hello, %{
+         device_id: device_id,
+         device_type: device_type,
+         capabilities: caps,
+         protocol_version: version
+       }) do
     device_type_byte = device_type_to_byte(device_type)
     device_id_bin = encode_string(device_id)
     {:ok, <<version::8, device_type_byte::8, caps::32-big, device_id_bin::binary>>}
@@ -222,7 +228,12 @@ defmodule AetheriumGateway.Protocol do
     {:ok, <<server_time::64-big>>}
   end
 
-  defp encode_payload(:state_change, %{from_state: from, to_state: to, transition_id: tid, timestamp: ts}) do
+  defp encode_payload(:state_change, %{
+         from_state: from,
+         to_state: to,
+         transition_id: tid,
+         timestamp: ts
+       }) do
     from_bin = encode_string(from)
     to_bin = encode_string(to)
     tid_bin = encode_string(tid)
@@ -235,7 +246,13 @@ defmodule AetheriumGateway.Protocol do
     {:ok, <<name_bin::binary, value_bin::binary>>}
   end
 
-  defp encode_payload(:transition_fired, %{from: from, to: to, transition_id: tid, weight_used: weight, timestamp: ts}) do
+  defp encode_payload(:transition_fired, %{
+         from: from,
+         to: to,
+         transition_id: tid,
+         weight_used: weight,
+         timestamp: ts
+       }) do
     from_bin = encode_string(from)
     to_bin = encode_string(to)
     tid_bin = encode_string(tid)
@@ -314,12 +331,13 @@ defmodule AetheriumGateway.Protocol do
 
   defp decode_payload(:hello, <<version::8, device_type::8, caps::32-big, rest::binary>>) do
     with {:ok, device_id, _rest} <- decode_string(rest) do
-      {:ok, %{
-        protocol_version: version,
-        device_type: byte_to_device_type(device_type),
-        capabilities: caps,
-        device_id: device_id
-      }}
+      {:ok,
+       %{
+         protocol_version: version,
+         device_type: byte_to_device_type(device_type),
+         capabilities: caps,
+         device_id: device_id
+       }}
     end
   end
 
@@ -331,12 +349,13 @@ defmodule AetheriumGateway.Protocol do
     with {:ok, from, rest1} <- decode_string(rest),
          {:ok, to, rest2} <- decode_string(rest1),
          {:ok, tid, _rest3} <- decode_string(rest2) do
-      {:ok, %{
-        timestamp: ts,
-        from_state: from,
-        to_state: to,
-        transition_id: tid
-      }}
+      {:ok,
+       %{
+         timestamp: ts,
+         from_state: from,
+         to_state: to,
+         transition_id: tid
+       }}
     end
   end
 
@@ -351,23 +370,25 @@ defmodule AetheriumGateway.Protocol do
     with {:ok, from, rest1} <- decode_string(rest),
          {:ok, to, rest2} <- decode_string(rest1),
          {:ok, tid, <<weight::16-big, _::binary>>} <- decode_string(rest2) do
-      {:ok, %{
-        timestamp: ts,
-        from: from,
-        to: to,
-        transition_id: tid,
-        weight_used: weight
-      }}
+      {:ok,
+       %{
+         timestamp: ts,
+         from: from,
+         to: to,
+         transition_id: tid,
+         weight_used: weight
+       }}
     end
   end
 
   defp decode_payload(:log, <<ts::64-big, level::8, rest::binary>>) do
     with {:ok, message, _rest} <- decode_string(rest) do
-      {:ok, %{
-        timestamp: ts,
-        level: byte_to_log_level(level),
-        message: message
-      }}
+      {:ok,
+       %{
+         timestamp: ts,
+         level: byte_to_log_level(level),
+         message: message
+       }}
     end
   end
 
@@ -389,7 +410,8 @@ defmodule AetheriumGateway.Protocol do
   defp encode_value(true), do: <<@type_bool::8, 1::8>>
   defp encode_value(false), do: <<@type_bool::8, 0::8>>
 
-  defp encode_value(value) when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647 do
+  defp encode_value(value)
+       when is_integer(value) and value >= -2_147_483_648 and value <= 2_147_483_647 do
     <<@type_int32::8, value::32-big-signed>>
   end
 
@@ -410,10 +432,18 @@ defmodule AetheriumGateway.Protocol do
   defp decode_value(<<@type_null::8, rest::binary>>), do: {:ok, nil, rest}
   defp decode_value(<<@type_bool::8, 0::8, rest::binary>>), do: {:ok, false, rest}
   defp decode_value(<<@type_bool::8, 1::8, rest::binary>>), do: {:ok, true, rest}
-  defp decode_value(<<@type_int32::8, value::32-big-signed, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_int64::8, value::64-big-signed, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_float32::8, value::32-float-big, rest::binary>>), do: {:ok, value, rest}
-  defp decode_value(<<@type_float64::8, value::64-float-big, rest::binary>>), do: {:ok, value, rest}
+
+  defp decode_value(<<@type_int32::8, value::32-big-signed, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_int64::8, value::64-big-signed, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_float32::8, value::32-float-big, rest::binary>>),
+    do: {:ok, value, rest}
+
+  defp decode_value(<<@type_float64::8, value::64-float-big, rest::binary>>),
+    do: {:ok, value, rest}
 
   defp decode_value(<<@type_string::8, rest::binary>>) do
     decode_string(rest)
@@ -490,9 +520,9 @@ defmodule AetheriumGateway.Protocol do
 
     # Flags: has_on_enter, has_on_exit, has_on_tick
     flags =
-      (if state[:on_enter], do: 0x01, else: 0) |||
-      (if state[:on_exit], do: 0x02, else: 0) |||
-      (if state[:on_tick], do: 0x04, else: 0)
+      if(state[:on_enter], do: 0x01, else: 0) |||
+        if(state[:on_exit], do: 0x02, else: 0) |||
+        if state[:on_tick], do: 0x04, else: 0
 
     on_enter_bin = encode_string(state[:on_enter] || "")
     on_exit_bin = encode_string(state[:on_exit] || "")
@@ -533,7 +563,9 @@ defmodule AetheriumGateway.Protocol do
     >>
   end
 
-  defp encode_timed_config(nil), do: <<0::8>>  # No timed config
+  # No timed config
+  defp encode_timed_config(nil), do: <<0::8>>
+
   defp encode_timed_config(config) do
     mode_byte = timed_mode_to_byte(config[:mode])
     delay_ms = config[:delay_ms] || 0
@@ -577,7 +609,8 @@ defmodule AetheriumGateway.Protocol do
 
   defp state_type_to_byte(:initial), do: 0x01
   defp state_type_to_byte(:final), do: 0x02
-  defp state_type_to_byte(_), do: 0x00  # normal
+  # normal
+  defp state_type_to_byte(_), do: 0x00
 
   defp transition_type_to_byte(:classic), do: 0x00
   defp transition_type_to_byte(:timed), do: 0x01
@@ -614,20 +647,19 @@ defmodule AetheriumGateway.Protocol do
   # CRC16 Calculation (CCITT)
   # ============================================================================
 
-  @crc_table (
-    for i <- 0..255 do
-      crc = bsl(i, 8)
-      Enum.reduce(0..7, crc, fn _, acc ->
-        if band(acc, 0x8000) != 0 do
-          bxor(bsl(acc, 1), 0x1021)
-        else
-          bsl(acc, 1)
-        end
-        |> band(0xFFFF)
-      end)
-    end
-    |> List.to_tuple()
-  )
+  @crc_table (for i <- 0..255 do
+                crc = bsl(i, 8)
+
+                Enum.reduce(0..7, crc, fn _, acc ->
+                  if band(acc, 0x8000) != 0 do
+                    bxor(bsl(acc, 1), 0x1021)
+                  else
+                    bsl(acc, 1)
+                  end
+                  |> band(0xFFFF)
+                end)
+              end)
+             |> List.to_tuple()
 
   defp crc16(data) when is_binary(data) do
     data
