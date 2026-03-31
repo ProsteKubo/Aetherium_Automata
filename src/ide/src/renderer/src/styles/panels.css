@@ -5237,3 +5237,201 @@
     max-height: 40vh;
   }
 }
+
+/* Black Box Workspace */
+.blackbox-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background:
+    radial-gradient(circle at top left, rgba(245, 158, 11, 0.08), transparent 35%),
+    linear-gradient(180deg, rgba(5, 10, 19, 0.98), rgba(8, 15, 28, 0.98));
+}
+
+.blackbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  border-bottom: 1px solid rgba(125, 211, 252, 0.12);
+  background: rgba(7, 12, 22, 0.8);
+}
+
+.blackbox-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+.blackbox-subtitle {
+  margin-top: 4px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.blackbox-body {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr) 340px;
+  min-height: 0;
+  flex: 1;
+}
+
+.blackbox-list,
+.blackbox-context {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(8, 13, 24, 0.94);
+}
+
+.blackbox-list {
+  border-right: 1px solid rgba(125, 211, 252, 0.08);
+}
+
+.blackbox-context {
+  border-left: 1px solid rgba(125, 211, 252, 0.08);
+}
+
+.blackbox-list-section {
+  padding: var(--spacing-3);
+  border-bottom: 1px solid rgba(125, 211, 252, 0.08);
+  overflow: auto;
+}
+
+.blackbox-list-header {
+  margin-bottom: var(--spacing-2);
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+}
+
+.blackbox-list-item {
+  width: 100%;
+  margin-bottom: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid rgba(125, 211, 252, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(13, 22, 39, 0.88);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+}
+
+.blackbox-list-item.selected {
+  border-color: rgba(245, 158, 11, 0.4);
+  background: rgba(46, 24, 6, 0.7);
+}
+
+.blackbox-list-item.muted {
+  opacity: 0.88;
+}
+
+.blackbox-list-item-title {
+  font-weight: var(--font-weight-medium);
+}
+
+.blackbox-list-item-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.blackbox-editor {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.blackbox-editor-scroll {
+  height: 100%;
+  overflow: auto;
+  padding: var(--spacing-4);
+}
+
+.blackbox-empty-card {
+  margin: var(--spacing-4);
+  padding: var(--spacing-4);
+  border: 1px solid rgba(125, 211, 252, 0.1);
+  border-radius: var(--radius-lg);
+  background: rgba(11, 18, 31, 0.92);
+}
+
+.blackbox-section {
+  margin: 0 var(--spacing-4) var(--spacing-4);
+  padding: var(--spacing-4);
+  border: 1px solid rgba(125, 211, 252, 0.1);
+  border-radius: var(--radius-lg);
+  background: rgba(11, 18, 31, 0.92);
+}
+
+.blackbox-section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-3);
+  margin-bottom: var(--spacing-3);
+}
+
+.blackbox-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.blackbox-edit-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) 130px 120px auto auto;
+  gap: var(--spacing-2);
+  align-items: center;
+}
+
+.blackbox-edit-row.resource {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 100px auto auto auto;
+}
+
+.blackbox-span-full {
+  grid-column: 1 / -1;
+}
+
+.blackbox-semantic-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+@media (max-width: 1380px) {
+  .blackbox-body {
+    grid-template-columns: 250px minmax(0, 1fr);
+  }
+
+  .blackbox-context {
+    display: none;
+  }
+}
+
+@media (max-width: 980px) {
+  .blackbox-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .blackbox-list {
+    display: none;
+  }
+
+  .blackbox-semantic-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .blackbox-edit-row,
+  .blackbox-edit-row.resource,
+  .blackbox-toolbar {
+    grid-template-columns: 1fr;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

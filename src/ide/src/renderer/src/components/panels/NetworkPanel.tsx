@@ -128,6 +128,12 @@ export const NetworkPanel: React.FC = () => {
     [activatePanel, automataMap, openTab, setActiveAutomata],
   );
 
+  const openBlackBoxes = useCallback(() => {
+    if (!layout.panels.blackboxes?.isVisible) {
+      togglePanel('blackboxes');
+    }
+  }, [layout.panels, togglePanel]);
+
   const servers = useMemo(
     () =>
       Array.from(serversMap.values())
@@ -152,6 +158,26 @@ export const NetworkPanel: React.FC = () => {
         .filter((device) => showOffline || device.status === 'online' || device.status === 'updating')
         .sort((left, right) => left.name.localeCompare(right.name)),
     [devicesMap, showOffline],
+  );
+
+  const blackBoxParticipants = useMemo(
+    () =>
+      Array.from(automataMap.values())
+        .filter((automata) => Boolean(automata.blackBox))
+        .map((automata) => {
+          const deployment = Array.from(deploymentsMap.values()).find(
+            (entry) => entry.automataId === automata.id,
+          );
+          const device = deployment ? devicesMap.get(deployment.deviceId) : undefined;
+
+          return {
+            automata,
+            deployment,
+            device,
+          };
+        })
+        .sort((left, right) => left.automata.config.name.localeCompare(right.automata.config.name)),
+    [automataMap, deploymentsMap, devicesMap],
   );
 
   const graph = useMemo(() => {
@@ -199,6 +225,10 @@ export const NetworkPanel: React.FC = () => {
       serverDevices.forEach((device, deviceIndex) => {
         const deploymentList = deploymentsByDevice.get(device.id) ?? [];
         const primaryDeployment = deploymentList[0];
+        const assignedAutomata =
+          (primaryDeployment ? automataMap.get(primaryDeployment.automataId) : undefined) ??
+          (device.assignedAutomataId ? automataMap.get(device.assignedAutomataId) : undefined);
+        const assignedBlackBox = assignedAutomata?.blackBox;
         const automataName = primaryDeployment
           ? automataMap.get(primaryDeployment.automataId)?.config.name ?? primaryDeployment.automataId
           : device.assignedAutomataId
@@ -211,7 +241,9 @@ export const NetworkPanel: React.FC = () => {
           kind: 'device',
           label: device.name,
           subtitle:
-            automataName ??
+            assignedBlackBox
+              ? `Black box · ${automataName ?? 'interface only'}`
+              : automataName ??
             device.connectorType ??
             device.transport ??
             device.address,
@@ -227,6 +259,10 @@ export const NetworkPanel: React.FC = () => {
             currentState: primaryDeployment?.currentState ?? device.currentState,
             supportedCommands: device.supportedCommands,
             lastSeen: device.lastSeen,
+            blackBoxParticipant: Boolean(assignedBlackBox),
+            ownership: assignedBlackBox ? 'external-interface-only' : 'gateway-managed',
+            blackBoxPortCount: assignedBlackBox?.ports.length,
+            blackBoxResourceCount: assignedBlackBox?.resources.length,
           },
         });
 
@@ -375,6 +411,76 @@ export const NetworkPanel: React.FC = () => {
                   </button>
                 </div>
               )}
+
+              {selectedNode.metadata?.blackBoxParticipant === true && (
+                <div className="petri-inspector-block">
+                  <div className="petri-block-title">Black Box Boundary</div>
+                  <div className="petri-inspector-subtitle">
+                    This device is hosting an external/interface-only black box. The network can route signals to the
+                    contract and observe public outputs, but it does not own or directly manage the internal logic.
+                  </div>
+                  <div className="petri-inspector-grid">
+                    <div>
+                      <span className="petri-kv-label">Ownership</span>
+                      <span>external interface only</span>
+                    </div>
+                    <div>
+                      <span className="petri-kv-label">Gateway Control</span>
+                      <span>contract interaction only</span>
+                    </div>
+                    <div>
+                      <span className="petri-kv-label">Ports</span>
+                      <span>{formatValue(selectedNode.metadata?.blackBoxPortCount)}</span>
+                    </div>
+                    <div>
+                      <span className="petri-kv-label">Resources</span>
+                      <span>{formatValue(selectedNode.metadata?.blackBoxResourceCount)}</span>
+                    </div>
+                  </div>
+                  <div className="petri-inspector-actions">
+                    <button type="button" className="btn btn-secondary btn-sm" onClick={openBlackBoxes}>
+                      Open Black Boxes
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {blackBoxParticipants.length > 0 && (
+            <div className="petri-inspector-section">
+              <div className="petri-block-title">Black Box Participants</div>
+              <div className="petri-inspector-subtitle">
+                Recognized external participants in the workspace network. Devices can talk to their contracts, but
+                the gateway does not own their internals.
+              </div>
+              <div className="petri-warning-list">
+                {blackBoxParticipants.map(({ automata, device, deployment }) => (
+                  <div key={automata.id} className="petri-merge-item">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+                      <button
+                        type="button"
+                        className="petri-inline-link"
+                        onClick={() => openAutomata(automata.id)}
+                        style={{ alignSelf: 'flex-start' }}
+                      >
+                        {automata.config.name}
+                      </button>
+                      <span>
+                        {deployment && device
+                          ? `Deployed on ${device.name}. Contract reachable through device protocol.`
+                          : 'Editor-visible contract only. Not currently deployed to a device.'}
+                      </span>
+                    </div>
+                    <span className="petri-chip accent">interface only</span>
+                  </div>
+                ))}
+              </div>
+              <div className="petri-inspector-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={openBlackBoxes}>
+                  Open Black Boxes
+                </button>
+              </div>
             </div>
           )}
         </aside>
@@ -392,6 +498,10 @@ export const NetworkPanel: React.FC = () => {
         <div className="petri-summary-stat">
           <span className="petri-summary-label">Deployments</span>
           <strong>{deploymentsMap.size}</strong>
+        </div>
+        <div className="petri-summary-stat">
+          <span className="petri-summary-label">Black Boxes</span>
+          <strong>{blackBoxParticipants.length}</strong>
         </div>
       </div>
     </div>

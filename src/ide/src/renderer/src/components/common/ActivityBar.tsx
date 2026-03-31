@@ -9,6 +9,7 @@ import { useUIStore } from '../../stores';
 import type { PanelId } from '../../types';
 import {
   IconAutomata,
+  IconBlackBox,
   IconConsole,
   IconDevice,
   IconExplorer,
@@ -75,6 +76,8 @@ export const ActivityBar: React.FC = () => {
     ? 'runtime'
     : layout.panels.network.isVisible
       ? 'network'
+    : layout.panels.blackboxes.isVisible
+      ? 'blackboxes'
     : layout.panels.petri.isVisible
       ? 'petri'
       : 'automata';
@@ -108,6 +111,12 @@ export const ActivityBar: React.FC = () => {
           label="Editor"
           active={modePanel === 'automata'}
           onClick={() => activatePanel('automata')}
+        />
+        <ToolbarButton
+          icon={<IconBlackBox size={20} />}
+          label="Black Boxes"
+          active={modePanel === 'blackboxes'}
+          onClick={() => activatePanel('blackboxes')}
         />
         <ToolbarButton
           icon={<IconNetwork size={20} />}

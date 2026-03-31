@@ -25,6 +25,7 @@ import {
   DevicesPanel,
   ExplorerPanel,
   GatewayPanel,
+  BlackBoxesPanel,
   NetworkPanel,
   OutputPanel,
   PetriNetPanel,
@@ -38,7 +39,7 @@ import { GatewayEventBridge } from './components/runtime/GatewayEventBridge';
 import './styles/index.css';
 
 type SidebarPanelId = 'explorer' | 'devices' | 'gateway';
-type CenterPanelId = 'automata' | 'petri' | 'network' | 'runtime';
+type CenterPanelId = 'automata' | 'blackboxes' | 'petri' | 'network' | 'runtime';
 type RightPanelId = 'properties' | 'transitions' | 'variables' | 'connections';
 
 const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
@@ -256,7 +257,7 @@ const App: React.FC = () => {
   }, [layout.panels]);
 
   const activeCenterPanel = useMemo<CenterPanelId | null>(() => {
-    const order: CenterPanelId[] = ['automata', 'petri', 'network', 'runtime'];
+    const order: CenterPanelId[] = ['automata', 'blackboxes', 'petri', 'network', 'runtime'];
     return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
   }, [layout.panels]);
 
@@ -296,7 +297,8 @@ const App: React.FC = () => {
 
   const showSidebarInline = Boolean(!sidebarCollapsed && activeSidebarPanel && !isCompactViewport);
   const showSidebarOverlay = Boolean(!sidebarCollapsed && activeSidebarPanel && isCompactViewport);
-  const centerOwnsInspector = activeCenterPanel === 'petri' || activeCenterPanel === 'network';
+  const centerOwnsInspector =
+    activeCenterPanel === 'petri' || activeCenterPanel === 'network' || activeCenterPanel === 'blackboxes';
   const showRightInline = Boolean(activeRightPanel && !isNarrowViewport && !centerOwnsInspector);
   const showRightOverlay = Boolean(
     activeRightPanel && isNarrowViewport && !showSidebarOverlay && !centerOwnsInspector,
@@ -322,6 +324,12 @@ const App: React.FC = () => {
 
   const renderMainView = (): React.ReactNode => {
     switch (activeCenterPanel) {
+      case 'blackboxes':
+        return (
+          <div className="runtime-view-container">
+            <BlackBoxesPanel />
+          </div>
+        );
       case 'network':
         return (
           <div className="runtime-view-container">

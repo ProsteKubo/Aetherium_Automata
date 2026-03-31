@@ -10,12 +10,14 @@ import { v4 as uuid } from 'uuid';
 import type {
   Automata,
   AutomataId,
+  BlackBoxContract,
   State,
   StateId,
   Transition,
   TransitionId,
   VariableSpec,
 } from '../types';
+import { getAutomataPorts } from '../utils/automataBindings';
 
 // Lazy getter to avoid circular dependency
 let projectStoreGetter: (() => any) | null = null;
@@ -69,6 +71,7 @@ interface AutomataActions {
     automataId: AutomataId,
     updates: Partial<Automata['config']> & { initialState?: StateId },
   ) => void;
+  updateBlackBoxContract: (automataId: AutomataId, contract?: BlackBoxContract) => void;
   
   // Automata-level I/O
   updateAutomataIO: (automataId: AutomataId, updates: { inputs?: string[]; outputs?: string[]; variables?: VariableSpec[] }) => void;
@@ -340,6 +343,28 @@ export const useAutomataStore = create<AutomataStore>()(
         automata.config = {
           ...automata.config,
           ...configUpdates,
+          modified: Date.now(),
+        };
+        automata.isDirty = true;
+      });
+
+      try {
+        projectStoreGetter?.()?.markDirty?.();
+      } catch {
+        // Project store might not be available
+      }
+    },
+
+    updateBlackBoxContract: (automataId, contract) => {
+      set((state) => {
+        const automata = state.automata.get(automataId);
+        if (!automata) return;
+
+        automata.blackBox = contract;
+        automata.inputs = getAutomataPorts(automata, 'input').map((port) => port.name);
+        automata.outputs = getAutomataPorts(automata, 'output').map((port) => port.name);
+        automata.config = {
+          ...automata.config,
           modified: Date.now(),
         };
         automata.isDirty = true;

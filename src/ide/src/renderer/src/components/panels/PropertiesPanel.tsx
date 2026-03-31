@@ -4,11 +4,16 @@
  * Implemented-only property editors for automata, state, and transition entities.
  */
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { useAutomataStore, useUIStore } from '../../stores';
 import { IconSettings, IconAutomata, IconState, IconTransition } from '../common/Icons';
 import { IOVariablesPanel } from './IOVariablesPanel';
-import type { EventTransitionRuntimeConfig, State, Transition } from '../../types';
+import type {
+  BlackBoxContract,
+  EventTransitionRuntimeConfig,
+  State,
+  Transition,
+} from '../../types';
 
 type TransitionType = NonNullable<Transition['type']>;
 
@@ -43,6 +48,75 @@ function parseValue(raw: string): string | number | boolean {
   const numeric = Number(trimmed);
   if (!Number.isNaN(numeric) && trimmed !== '') return numeric;
   return raw;
+}
+
+function BlackBoxContractSection({
+  blackBox,
+  onOpenWorkspace,
+}: {
+  blackBox: BlackBoxContract;
+  onOpenWorkspace: () => void;
+}) {
+  return (
+    <div style={{ marginTop: 'var(--spacing-4)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-3)' }}>
+      <div className="property-group">
+        <label className="property-label">Black Box Contract</label>
+        <div className="property-sublabel">
+          External-facing contract only. The gateway can interact with the interface, not own the internals.
+        </div>
+        <div style={{ marginTop: 'var(--spacing-2)' }}>
+          <button type="button" className="btn btn-secondary btn-sm" onClick={onOpenWorkspace}>
+            Open Black Boxes Workspace
+          </button>
+        </div>
+      </div>
+
+      <div className="property-info">
+        <div className="info-row">
+          <span className="info-label">Ports</span>
+          <span className="info-value">{blackBox.ports.length}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Resources</span>
+          <span className="info-value">{blackBox.resources.length}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Observable States</span>
+          <span className="info-value">{blackBox.observableStates.length}</span>
+        </div>
+        <div className="info-row">
+          <span className="info-label">Emitted Events</span>
+          <span className="info-value">{blackBox.emittedEvents.length}</span>
+        </div>
+      </div>
+
+      {blackBox.ports.length > 0 && (
+        <div className="property-group">
+          <label className="property-label">Ports</label>
+          <div className="metadata-list">
+            {blackBox.ports.map((port, index) => (
+              <span key={`${port.direction}:${port.name}:${index}`} className="tag-item">
+                {port.direction}: {port.name} ({port.type})
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {blackBox.resources.length > 0 && (
+        <div className="property-group">
+          <label className="property-label">Resources</label>
+          <div className="metadata-list">
+            {blackBox.resources.map((resource, index) => (
+              <span key={`${resource.name}:${resource.kind}:${index}`} className="tag-item">
+                {resource.name}: {resource.kind}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function TransitionTypeEditor({
@@ -518,6 +592,14 @@ export const PropertiesPanel: React.FC = () => {
   const updateTransition = useAutomataStore((state) => state.updateTransition);
   const normalizeProbabilities = useAutomataStore((state) => state.normalizeProbabilities);
   const openTab = useUIStore((state) => state.openTab);
+  const layout = useUIStore((state) => state.layout);
+  const togglePanel = useUIStore((state) => state.togglePanel);
+
+  const openBlackBoxesWorkspace = useCallback(() => {
+    if (!layout.panels.blackboxes?.isVisible) {
+      togglePanel('blackboxes');
+    }
+  }, [layout.panels, togglePanel]);
 
   const selectedState: State | undefined =
     activeAutomata && selectedStateIds.length === 1 ? activeAutomata.states[selectedStateIds[0]] : undefined;
@@ -827,6 +909,30 @@ export const PropertiesPanel: React.FC = () => {
           <div style={{ marginTop: 'var(--spacing-4)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-3)' }}>
             <IOVariablesPanel embedded />
           </div>
+
+          {activeAutomata.blackBox ? (
+            <BlackBoxContractSection
+              blackBox={activeAutomata.blackBox}
+              onOpenWorkspace={openBlackBoxesWorkspace}
+            />
+          ) : (
+            <div style={{ marginTop: 'var(--spacing-4)', borderTop: '1px solid var(--color-border)', paddingTop: 'var(--spacing-3)' }}>
+              <div className="property-group">
+                <label className="property-label">Black Box</label>
+                <div className="property-sublabel">
+                  Mark this automaton as an external/interface-only participant. The network can talk to the contract,
+                  but does not own the internals.
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={openBlackBoxesWorkspace}
+                >
+                  Open Black Boxes Workspace
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
