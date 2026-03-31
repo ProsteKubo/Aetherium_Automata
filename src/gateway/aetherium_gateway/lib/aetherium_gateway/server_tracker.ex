@@ -16,8 +16,8 @@ defmodule AetheriumGateway.ServerTracker do
     GenServer.call(__MODULE__, {:unregister, server_id})
   end
 
-  def heartbeat(server_id) do
-    GenServer.cast(__MODULE__, {:heartbeat, server_id})
+  def heartbeat(server_id, metadata \\ %{}) do
+    GenServer.cast(__MODULE__, {:heartbeat, server_id, metadata})
   end
 
   def get_server_pid(server_id) do
@@ -71,7 +71,8 @@ defmodule AetheriumGateway.ServerTracker do
           last_heartbeat: DateTime.utc_now(),
           connected_at: Map.get(prior, :connected_at, DateTime.utc_now()),
           devices: Map.get(prior, :devices, []),
-          devices_updated_at: Map.get(prior, :devices_updated_at, nil)
+          devices_updated_at: Map.get(prior, :devices_updated_at, nil),
+          gateway_link: Map.get(prior, :gateway_link, %{})
         })
 
       Logger.info("Server #{server_id} connected")
@@ -117,7 +118,8 @@ defmodule AetheriumGateway.ServerTracker do
           server_id: server_id,
           status: "online",
           connected_at: info.connected_at,
-          last_heartbeat: info.last_heartbeat
+          last_heartbeat: info.last_heartbeat,
+          gateway_link: info.gateway_link || %{}
         }
       end)
 
@@ -127,7 +129,8 @@ defmodule AetheriumGateway.ServerTracker do
           server_id: server_id,
           status: "offline",
           connected_at: info[:connected_at],
-          last_heartbeat: info[:last_heartbeat]
+          last_heartbeat: info[:last_heartbeat],
+          gateway_link: info[:gateway_link] || %{}
         }
       end)
 
@@ -194,10 +197,16 @@ defmodule AetheriumGateway.ServerTracker do
   end
 
   @impl true
-  def handle_cast({:heartbeat, server_id}, %{servers: servers} = state) do
+  def handle_cast({:heartbeat, server_id, metadata}, %{servers: servers} = state) do
+    metadata = normalize_heartbeat_metadata(metadata)
+
     new_servers =
       Map.update(servers, server_id, nil, fn info ->
-        %{info | last_heartbeat: DateTime.utc_now()}
+        %{
+          info
+          | last_heartbeat: DateTime.utc_now(),
+            gateway_link: Map.merge(info.gateway_link || %{}, metadata)
+        }
       end)
 
     next = %{state | servers: new_servers}
@@ -261,9 +270,18 @@ defmodule AetheriumGateway.ServerTracker do
       connected_at: info[:connected_at],
       last_heartbeat: info[:last_heartbeat],
       devices: info[:devices] || [],
-      devices_updated_at: info[:devices_updated_at]
+      devices_updated_at: info[:devices_updated_at],
+      gateway_link: info[:gateway_link] || %{}
     }
   end
+
+  defp normalize_heartbeat_metadata(metadata) when is_map(metadata) do
+    metadata
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.into(%{})
+  end
+
+  defp normalize_heartbeat_metadata(_metadata), do: %{}
 
   defp device_id_of(device) when is_map(device) do
     Map.get(device, "id") || Map.get(device, :id)

@@ -55,4 +55,23 @@ defmodule AetheriumServer.ShowcaseCatalogTest do
 
     assert String.contains?(automata["states"]["Dashboard"]["hooks"]["onEnter"], "display:init")
   end
+
+  test "load_automata preserves black-box contracts for docker probes" do
+    assert {:ok, %{automata: automata}} =
+             ShowcaseCatalog.load_automata(
+               "example/automata/showcase/12_black_box/docker_black_box_probe.yaml"
+             )
+
+    assert get_in(automata, ["black_box", "ports"]) |> is_list()
+    assert get_in(automata, ["black_box", "observable_states"]) == ["Idle", "Armed", "Faulted"]
+    assert get_in(automata, ["black_box", "resources"]) == [
+             %{
+               "name" => "battery_pack",
+               "kind" => "energy",
+               "capacity" => 1,
+               "shared" => false,
+               "latency_sensitive" => true
+             }
+           ]
+  end
 end

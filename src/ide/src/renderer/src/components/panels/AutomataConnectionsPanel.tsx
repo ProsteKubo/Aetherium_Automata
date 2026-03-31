@@ -9,6 +9,7 @@ import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { useAutomataStore, useUIStore, useGatewayStore } from '../../stores';
 import type { Automata } from '../../types';
 import type { AutomataBinding } from '../../types/connections';
+import { getAutomataPorts } from '../../utils/automataBindings';
 
 // ============================================================================
 // Icons
@@ -239,6 +240,8 @@ const AutomataNodeCard: React.FC<AutomataNodeCardProps> = ({
   onNavigate,
 }) => {
   const totalConnections = data.outgoingBindings.length + data.incomingBindings.length;
+  const inputPorts = getAutomataPorts(data.automata, 'input');
+  const outputPorts = getAutomataPorts(data.automata, 'output');
   
   return (
     <div
@@ -343,14 +346,14 @@ const AutomataNodeCard: React.FC<AutomataNodeCardProps> = ({
               letterSpacing: '0.05em',
               marginBottom: 4,
             }}>
-              Inputs ({data.automata.inputs?.length || 0})
+              Inputs ({inputPorts.length})
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {(data.automata.inputs || []).map((input) => {
-                const hasBinding = data.incomingBindings.some((b) => b.targetInputName === input);
+              {inputPorts.map((input) => {
+                const hasBinding = data.incomingBindings.some((b) => b.targetInputName === input.name);
                 return (
                   <span
-                    key={input}
+                    key={input.name}
                     style={{
                       padding: '2px 6px',
                       fontSize: 'var(--font-size-xs)',
@@ -366,11 +369,11 @@ const AutomataNodeCard: React.FC<AutomataNodeCardProps> = ({
                         : '1px solid var(--color-border)',
                     }}
                   >
-                    {input}
+                    {input.name}
                   </span>
                 );
               })}
-              {(!data.automata.inputs || data.automata.inputs.length === 0) && (
+              {inputPorts.length === 0 && (
                 <span style={{ 
                   fontSize: 'var(--font-size-xs)', 
                   color: 'var(--color-text-tertiary)',
@@ -391,14 +394,14 @@ const AutomataNodeCard: React.FC<AutomataNodeCardProps> = ({
               letterSpacing: '0.05em',
               marginBottom: 4,
             }}>
-              Outputs ({data.automata.outputs?.length || 0})
+              Outputs ({outputPorts.length})
             </div>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-              {(data.automata.outputs || []).map((output) => {
-                const hasBinding = data.outgoingBindings.some((b) => b.sourceOutputName === output);
+              {outputPorts.map((output) => {
+                const hasBinding = data.outgoingBindings.some((b) => b.sourceOutputName === output.name);
                 return (
                   <span
-                    key={output}
+                    key={output.name}
                     style={{
                       padding: '2px 6px',
                       fontSize: 'var(--font-size-xs)',
@@ -414,11 +417,11 @@ const AutomataNodeCard: React.FC<AutomataNodeCardProps> = ({
                         : '1px solid var(--color-border)',
                     }}
                   >
-                    {output}
+                    {output.name}
                   </span>
                 );
               })}
-              {(!data.automata.outputs || data.automata.outputs.length === 0) && (
+              {outputPorts.length === 0 && (
                 <span style={{ 
                   fontSize: 'var(--font-size-xs)', 
                   color: 'var(--color-text-tertiary)',
@@ -536,6 +539,8 @@ const AddBindingDialog: React.FC<AddBindingDialogProps> = ({ automataList, onAdd
   
   const sourceAutomata = automataList.find((a) => a.id === sourceId);
   const targetAutomata = automataList.find((a) => a.id === targetId);
+  const sourceOutputPorts = sourceAutomata ? getAutomataPorts(sourceAutomata, 'output') : [];
+  const targetInputPorts = targetAutomata ? getAutomataPorts(targetAutomata, 'input') : [];
   
   const handleAdd = () => {
     if (!sourceId || !sourceOutputName || !targetId || !targetInputName) return;
@@ -634,8 +639,8 @@ const AddBindingDialog: React.FC<AddBindingDialogProps> = ({ automataList, onAdd
               }}
             >
               <option value="">Select...</option>
-              {(sourceAutomata?.outputs || []).map((o) => (
-                <option key={o} value={o}>{o}</option>
+              {sourceOutputPorts.map((output) => (
+                <option key={output.name} value={output.name}>{output.name}</option>
               ))}
             </select>
           </div>
@@ -713,8 +718,8 @@ const AddBindingDialog: React.FC<AddBindingDialogProps> = ({ automataList, onAdd
               }}
             >
               <option value="">Select...</option>
-              {(targetAutomata?.inputs || []).map((i) => (
-                <option key={i} value={i}>{i}</option>
+              {targetInputPorts.map((input) => (
+                <option key={input.name} value={input.name}>{input.name}</option>
               ))}
             </select>
           </div>
@@ -903,6 +908,8 @@ export const AutomataConnectionsPanel: React.FC = () => {
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const openTab = useUIStore((state) => state.openTab);
   const addNotification = useUIStore((state) => state.addNotification);
+  const layout = useUIStore((state) => state.layout);
+  const togglePanel = useUIStore((state) => state.togglePanel);
   const gatewayService = useGatewayStore((state) => state.service);
   const gatewayStatus = useGatewayStore((state) => state.status);
   
@@ -986,7 +993,10 @@ export const AutomataConnectionsPanel: React.FC = () => {
       name: automataMap.get(automataId)?. config.name || automataId,
       isDirty: false,
     });
-  }, [setActiveAutomata, openTab, automataMap]);
+    if (!layout.panels.automata?.isVisible) {
+      togglePanel('automata');
+    }
+  }, [setActiveAutomata, openTab, automataMap, layout.panels, togglePanel]);
   
   const handleAddBinding = useCallback(async (binding: Omit<AutomataBinding, 'id'>) => {
     if (gatewayStatus !== 'connected') {

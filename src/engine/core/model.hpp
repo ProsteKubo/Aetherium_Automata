@@ -138,6 +138,35 @@ struct ProbabilisticConfig {
 };
 
 // ============================================================================
+// Black-Box Contract
+// ============================================================================
+
+struct BlackBoxPort {
+    std::string name;
+    VariableDirection direction = VariableDirection::Internal;
+    ValueType type = ValueType::Void;
+    bool observable = true;
+    bool faultInjectable = true;
+    bool latencyCritical = false;
+    std::string description;
+};
+
+struct BlackBoxResource {
+    std::string name;
+    std::string kind;
+    uint32_t capacity = 1;
+    bool shared = true;
+    bool latencySensitive = false;
+};
+
+struct BlackBoxContract {
+    std::vector<BlackBoxPort> ports;
+    std::vector<std::string> emittedEvents;
+    std::vector<std::string> observableStates;
+    std::vector<BlackBoxResource> resources;
+};
+
+// ============================================================================
 // Transition Definition
 // ============================================================================
 
@@ -236,6 +265,9 @@ public:
     // Variables (specifications, instances created at runtime)
     std::vector<VariableSpec> variables;
 
+    // Externalized interface contract for deployment/fault/trace reasoning
+    BlackBoxContract blackBox;
+
     // Parent/child relationships (for nested automata)
     std::optional<AutomataId> parentId;
     std::vector<AutomataId> nestedIds;
@@ -256,6 +288,8 @@ public:
 
     [[nodiscard]] const VariableSpec* getVariableSpec(VariableId id) const;
     [[nodiscard]] const VariableSpec* getVariableSpecByName(const std::string& name) const;
+    [[nodiscard]] const BlackBoxPort* getBlackBoxPort(const std::string& name) const;
+    [[nodiscard]] bool isObservableStateName(const std::string& stateName) const;
 
     // ========================================================================
     // ID generation
@@ -359,6 +393,21 @@ inline const VariableSpec* Automata::getVariableSpecByName(const std::string& na
     return nullptr;
 }
 
+inline const BlackBoxPort* Automata::getBlackBoxPort(const std::string& name) const {
+    for (const auto& port : blackBox.ports) {
+        if (port.name == name) {
+            return &port;
+        }
+    }
+    return nullptr;
+}
+
+inline bool Automata::isObservableStateName(const std::string& stateName) const {
+    return std::find(blackBox.observableStates.begin(),
+                     blackBox.observableStates.end(),
+                     stateName) != blackBox.observableStates.end();
+}
+
 inline StateId Automata::nextStateId() const {
     StateId maxId = 0;
     for (const auto& [id, _] : states) {
@@ -458,6 +507,33 @@ inline std::vector<std::string> Automata::validate() const {
         }
         if (states.find(t.to) == states.end()) {
             errors.push_back("Transition " + t.name + " references non-existent target state");
+        }
+    }
+
+    for (const auto& port : blackBox.ports) {
+        const auto* spec = getVariableSpecByName(port.name);
+        if (!spec) {
+            errors.push_back("Black-box port " + port.name + " references non-existent variable");
+            continue;
+        }
+        if (spec->direction != port.direction) {
+            errors.push_back("Black-box port " + port.name + " direction does not match variable");
+        }
+        if (port.type != ValueType::Void && spec->type != port.type) {
+            errors.push_back("Black-box port " + port.name + " type does not match variable");
+        }
+    }
+
+    for (const auto& stateName : blackBox.observableStates) {
+        bool found = false;
+        for (const auto& [id, state] : states) {
+            if (state.name == stateName) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            errors.push_back("Observable state " + stateName + " does not exist");
         }
     }
 

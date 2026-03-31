@@ -14,6 +14,9 @@
 #endif
 
 #include <chrono>
+#include <cmath>
+#include <limits>
+#include <random>
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
@@ -39,6 +42,13 @@ uint16_t toReasonCode(protocol::ErrorCode code) {
     return static_cast<uint16_t>(code);
 }
 
+double clampProbability(double value) {
+    if (std::isnan(value)) {
+        return 0.0;
+    }
+    return std::clamp(value, 0.0, 1.0);
+}
+
 std::string joinErrors(const std::vector<std::string>& errors) {
     std::ostringstream oss;
     for (size_t i = 0; i < errors.size(); ++i) {
@@ -48,6 +58,42 @@ std::string joinErrors(const std::vector<std::string>& errors) {
         oss << errors[i];
     }
     return oss.str();
+}
+
+std::string instanceLabelForDevice(DeviceId id) {
+    if (id == 0) {
+        return "broadcast";
+    }
+    return "device:" + std::to_string(id);
+}
+
+const char* directionName(VariableDirection direction) {
+    switch (direction) {
+        case VariableDirection::Input: return "input";
+        case VariableDirection::Output: return "output";
+        case VariableDirection::Internal: return "internal";
+        default: return "unknown";
+    }
+}
+
+void deriveBlackBoxPorts(Automata& automata) {
+    for (const auto& variable : automata.variables) {
+        if (variable.direction == VariableDirection::Internal) {
+            continue;
+        }
+        if (automata.getBlackBoxPort(variable.name) != nullptr) {
+            continue;
+        }
+
+        BlackBoxPort port;
+        port.name = variable.name;
+        port.direction = variable.direction;
+        port.type = variable.type;
+        port.observable = true;
+        port.faultInjectable = true;
+        port.description = variable.description;
+        automata.blackBox.ports.push_back(std::move(port));
+    }
 }
 
 Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineBytecodeProgram& program) {
@@ -190,6 +236,8 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
         return Result<std::unique_ptr<Automata>>::error("bytecode automata invalid: " + joinErrors(errors));
     }
 
+    deriveBlackBoxPorts(*automata);
+
     return Result<std::unique_ptr<Automata>>::ok(std::move(automata));
 }
 
@@ -230,6 +278,15 @@ Result<void> Engine::initialize(const EngineInitOptions& options) {
     logHub_.setCapacity(options.logCapacity);
     deviceId_ = options.deviceId;
     deviceName_ = options.deviceName;
+    deployment_ = options.deployment;
+    setFaultProfile(options.faultProfile);
+    traceOutputPath_ = options.traceOutputPath;
+    if (options.faultRandomSeed) {
+        faultRandom_.seed(*options.faultRandomSeed);
+    }
+    batteryPercent_ = std::clamp(options.deployment.battery.chargePercent, 0.0, 100.0);
+    traceStore_.clear();
+    traceLifecycleEvent("engine initialized", "engine");
     return Result<void>::ok();
 }
 
@@ -343,6 +400,7 @@ Result<RunId> Engine::applyLoadedAutomata(std::unique_ptr<Automata> automata,
     }
 
     loadedAutomata_ = std::move(automata);
+    deriveBlackBoxPorts(*loadedAutomata_);
     auto loadResult = runtime_.load(*loadedAutomata_);
     if (loadResult.isError()) {
         return Result<RunId>::error(loadResult.error());
@@ -372,13 +430,53 @@ Result<RunId> Engine::applyLoadedAutomata(std::unique_ptr<Automata> automata,
     }
 
     if (startAfterLoad) {
-        auto startResult = runtime_.start();
+        auto startResult = start();
         if (startResult.isError()) {
             return Result<RunId>::error(startResult.error());
         }
     }
 
     logHub_.event(EventKind::Lifecycle, LogLevel::Info, "engine", "automata loaded", runId);
+    traceLifecycleEvent("automata loaded", "engine", runId);
+    if (!loadedAutomata_->blackBox.ports.empty() ||
+        !loadedAutomata_->blackBox.observableStates.empty() ||
+        !loadedAutomata_->blackBox.resources.empty()) {
+        std::ostringstream summary;
+        summary << "black-box contract loaded: "
+                << loadedAutomata_->blackBox.ports.size() << " ports, "
+                << loadedAutomata_->blackBox.observableStates.size() << " observable states, "
+                << loadedAutomata_->blackBox.resources.size() << " resources";
+        traceRuntimeEvent("black_box_contract", "contract", summary.str(), runId);
+        for (const auto& port : loadedAutomata_->blackBox.ports) {
+            traceRuntimeEvent("black_box_port",
+                              "contract",
+                              "black-box port: " + port.name,
+                              runId,
+                              std::nullopt,
+                              std::nullopt,
+                              {},
+                              port.name,
+                              directionName(port.direction));
+        }
+        for (const auto& stateName : loadedAutomata_->blackBox.observableStates) {
+            traceRuntimeEvent("black_box_observable_state",
+                              "contract",
+                              "observable state: " + stateName,
+                              runId,
+                              std::nullopt,
+                              std::nullopt,
+                              {},
+                              std::nullopt,
+                              std::nullopt,
+                              stateName);
+        }
+        for (const auto& resource : loadedAutomata_->blackBox.resources) {
+            traceRuntimeEvent("black_box_resource",
+                              "contract",
+                              "black-box resource: " + resource.name + " (" + resource.kind + ")",
+                              runId);
+        }
+    }
     return Result<RunId>::ok(runId);
 }
 
@@ -469,23 +567,43 @@ Result<RunId> Engine::applyProtocolLoad(const protocol::LoadAutomataMessage& loa
 }
 
 Result<void> Engine::start(std::optional<StateId> from) {
-    return runtime_.start(from);
+    auto result = runtime_.start(from);
+    if (result.isOk()) {
+        traceLifecycleEvent("runtime started", "runtime", activeRunId_);
+    }
+    return result;
 }
 
 Result<void> Engine::stop() {
-    return runtime_.stop();
+    auto result = runtime_.stop();
+    if (result.isOk()) {
+        traceLifecycleEvent("runtime stopped", "runtime", activeRunId_);
+    }
+    return result;
 }
 
 Result<void> Engine::pause() {
-    return runtime_.pause();
+    auto result = runtime_.pause();
+    if (result.isOk()) {
+        traceLifecycleEvent("runtime paused", "runtime", activeRunId_);
+    }
+    return result;
 }
 
 Result<void> Engine::resume() {
-    return runtime_.resume();
+    auto result = runtime_.resume();
+    if (result.isOk()) {
+        traceLifecycleEvent("runtime resumed", "runtime", activeRunId_);
+    }
+    return result;
 }
 
 Result<void> Engine::reset() {
-    return runtime_.reset();
+    auto result = runtime_.reset();
+    if (result.isOk()) {
+        traceLifecycleEvent("runtime reset", "runtime", activeRunId_);
+    }
+    return result;
 }
 
 Result<void> Engine::setInput(const std::string& name, Value value) {
@@ -526,39 +644,123 @@ void Engine::streamLogs(EventStreamCallback callback) {
     logHub_.stream(std::move(callback));
 }
 
+void Engine::setDeploymentDescriptor(DeploymentDescriptor descriptor) {
+    deployment_ = std::move(descriptor);
+}
+
+void Engine::setFaultProfile(FaultProfile profile) {
+    profile.dropProbability = clampProbability(profile.dropProbability);
+    profile.duplicateProbability = clampProbability(profile.duplicateProbability);
+    profile.successProbability = clampProbability(profile.successProbability);
+    faultProfile_ = std::move(profile);
+}
+
+void Engine::setTraceOutputPath(std::optional<std::string> path) {
+    traceOutputPath_ = std::move(path);
+}
+
+Result<void> Engine::writeTrace() const {
+    if (!traceOutputPath_ || traceOutputPath_->empty()) {
+        return Result<void>::ok();
+    }
+    return traceStore_.writeJsonLines(*traceOutputPath_);
+}
+
 void Engine::tick() {
     runtime_.tick();
+    consumeBattery(deployment_.battery.drainPerTickPercent);
 }
 
 void Engine::enqueueCommand(std::unique_ptr<protocol::Message> message) {
     if (!message) {
         return;
     }
-    ingressQueue_.push_back(std::move(message));
+    const Timestamp receivedAt = wallClockMs();
+    traceMessageEvent(*message,
+                      "ingress_command",
+                      "ingress",
+                      "command received",
+                      receivedAt,
+                      std::nullopt,
+                      std::nullopt);
+
+    auto decision = decideFaultDelivery(true, receivedAt);
+    traceMessageEvent(*message,
+                      "ingress_command",
+                      "ingress",
+                      decision.dropped ? "command dropped before handle" : "command staged for handle",
+                      receivedAt,
+                      decision.dropped ? std::nullopt : std::optional<Timestamp>(decision.releaseTimestamp),
+                      std::nullopt,
+                      decision.actions);
+
+    if (decision.dropped) {
+        return;
+    }
+
+    const auto serialized = message->serialize();
+    for (uint32_t i = 0; i < decision.copies; ++i) {
+        std::unique_ptr<protocol::Message> staged;
+        if (i == 0) {
+            staged = std::move(message);
+        } else {
+            staged = protocol::MessageFactory::deserialize(serialized);
+        }
+
+        if (!staged) {
+            continue;
+        }
+
+        ingressQueue_.push_back(
+            ScheduledIngressMessage{
+                decision.releaseTimestamp,
+                std::move(staged),
+                receivedAt,
+                decision.actions
+            });
+    }
 }
 
 Engine::Replies Engine::processCommandQueue() {
     Replies replies;
 
-    while (!ingressQueue_.empty()) {
-        auto msg = std::move(ingressQueue_.front());
-        ingressQueue_.pop_front();
-        if (!msg) {
+    const Timestamp now = wallClockMs();
+    auto ingressIt = ingressQueue_.begin();
+    while (ingressIt != ingressQueue_.end()) {
+        if (ingressIt->releaseAt > now || !ingressIt->message) {
+            ++ingressIt;
             continue;
         }
 
+        auto msg = std::move(ingressIt->message);
+        const Timestamp handledAt = wallClockMs();
+        traceMessageEvent(*msg,
+                          "ingress_command",
+                          "ingress",
+                          "command handled",
+                          ingressIt->receiveTimestamp,
+                          handledAt,
+                          std::nullopt,
+                          ingressIt->faultActions);
         auto routed = dispatch(*msg);
         for (auto& reply : routed) {
-            if (reply) replies.push_back(std::move(reply));
+            if (reply) {
+                stageOutbound(std::move(reply), ingressIt->receiveTimestamp, handledAt);
+            }
         }
+
+        ingressIt = ingressQueue_.erase(ingressIt);
     }
 
     while (!eventQueue_.empty()) {
         auto evt = std::move(eventQueue_.front());
         eventQueue_.pop_front();
-        if (evt) replies.push_back(std::move(evt));
+        if (evt) {
+            stageOutbound(std::move(evt));
+        }
     }
 
+    releaseReadyOutbound(replies);
     return replies;
 }
 
@@ -570,37 +772,76 @@ void Engine::configureRuntimeCallbacks() {
     RuntimeCallbacks callbacks;
 
     callbacks.onStateChange = [this](StateId from, StateId to, TransitionId via) {
+        const Timestamp eventAt = wallClockMs();
         logHub_.stateChange(from, to, via, activeRunId_);
+        std::optional<std::string> observableState;
+        if (loadedAutomata_) {
+            if (const auto* state = loadedAutomata_->getState(to)) {
+                if (loadedAutomata_->isObservableStateName(state->name)) {
+                    observableState = state->name;
+                }
+            }
+        }
+        traceRuntimeEvent("runtime_state_change",
+                          "runtime",
+                          "state transition",
+                          activeRunId_,
+                          eventAt,
+                          std::nullopt,
+                          {},
+                          std::nullopt,
+                          std::nullopt,
+                          observableState);
 
         protocol::StateChangeMessage msg;
         msg.runId = activeRunId_;
         msg.previousState = from;
         msg.newState = to;
         msg.firedTransition = via;
-        msg.timestamp = wallClockMs();
+        msg.timestamp = eventAt;
         eventQueue_.push_back(std::make_unique<protocol::StateChangeMessage>(msg));
 
         protocol::TransitionFiredMessage tf;
         tf.runId = activeRunId_;
         tf.transitionId = via;
-        tf.timestamp = wallClockMs();
+        tf.timestamp = eventAt;
         eventQueue_.push_back(std::make_unique<protocol::TransitionFiredMessage>(tf));
     };
 
     callbacks.onOutputChange = [this](const Variable& var) {
+        const Timestamp eventAt = wallClockMs();
         logHub_.outputChange(var.name(), var.value(), activeRunId_);
+        std::optional<std::string> portName;
+        std::optional<std::string> portDirection;
+        if (loadedAutomata_) {
+            if (const auto* port = loadedAutomata_->getBlackBoxPort(var.name())) {
+                portName = port->name;
+                portDirection = directionName(port->direction);
+            }
+        }
+        traceRuntimeEvent("runtime_output_change",
+                          "output",
+                          "output changed: " + var.name(),
+                          activeRunId_,
+                          eventAt,
+                          std::nullopt,
+                          {},
+                          portName,
+                          portDirection);
 
         protocol::OutputMessage msg;
         msg.runId = activeRunId_;
         msg.variableId = var.id();
         msg.variableName = var.name();
         msg.value = var.value();
-        msg.timestamp = wallClockMs();
+        msg.timestamp = eventAt;
         eventQueue_.push_back(std::make_unique<protocol::OutputMessage>(msg));
     };
 
     callbacks.onError = [this](const std::string& error) {
+        const Timestamp eventAt = wallClockMs();
         logHub_.event(EventKind::Error, LogLevel::Error, "runtime", error, activeRunId_);
+        traceRuntimeEvent("runtime_error", "runtime", error, activeRunId_, eventAt, std::nullopt);
 
         protocol::ErrorMessage msg;
         msg.code = protocol::ErrorCode::Unknown;
@@ -610,17 +851,305 @@ void Engine::configureRuntimeCallbacks() {
     };
 
     callbacks.onDebug = [this](const std::string& debug) {
+        const Timestamp eventAt = wallClockMs();
         logHub_.log(LogLevel::Debug, "runtime", debug, activeRunId_);
+        traceRuntimeEvent("runtime_debug", "runtime", debug, activeRunId_, eventAt, std::nullopt);
 
         protocol::DebugMessage msg;
         msg.level = protocol::DebugLevel::Debug;
         msg.source = "runtime";
         msg.message = debug;
-        msg.timestamp = wallClockMs();
+        msg.timestamp = eventAt;
         eventQueue_.push_back(std::make_unique<protocol::DebugMessage>(msg));
     };
 
     runtime_.setCallbacks(std::move(callbacks));
+}
+
+void Engine::traceLifecycleEvent(const std::string& summary,
+                                 const std::string& category,
+                                 std::optional<RunId> runId) {
+    traceRuntimeEvent("lifecycle", category, summary, runId, wallClockMs(), std::nullopt);
+}
+
+void Engine::traceRuntimeEvent(const std::string& kind,
+                               const std::string& category,
+                               const std::string& summary,
+                               std::optional<RunId> runId,
+                               std::optional<Timestamp> handleTimestamp,
+                               std::optional<Timestamp> sendTimestamp,
+                               std::vector<std::string> faultActions,
+                               std::optional<std::string> portName,
+                               std::optional<std::string> portDirection,
+                               std::optional<std::string> observableState) {
+    TraceRecord record;
+    record.kind = kind;
+    record.boundary = "runtime";
+    record.category = category;
+    record.summary = summary;
+    record.messageType = "runtime";
+    record.sourceInstance = deployment_.instanceId;
+    record.targetInstance = deployment_.controlPlaneInstance;
+    record.transport = deployment_.transport;
+    record.placement = deployment_.placement;
+    record.runId = runId;
+    record.handleTimestamp = handleTimestamp;
+    record.sendTimestamp = sendTimestamp;
+    record.portName = std::move(portName);
+    record.portDirection = std::move(portDirection);
+    record.observableState = std::move(observableState);
+    record.faultActions = std::move(faultActions);
+    applyDeploymentMetrics(record);
+    traceStore_.push(std::move(record));
+}
+
+void Engine::traceMessageEvent(const protocol::Message& message,
+                               const std::string& kind,
+                               const std::string& boundary,
+                               const std::string& summary,
+                               std::optional<Timestamp> receiveTimestamp,
+                               std::optional<Timestamp> handleTimestamp,
+                               std::optional<Timestamp> sendTimestamp,
+                               std::vector<std::string> faultActions) {
+    TraceRecord record;
+    record.kind = kind;
+    record.boundary = boundary;
+    record.category = "protocol";
+    record.summary = summary;
+    record.messageType = LocalTraceStore::messageTypeName(message.type());
+    record.sourceInstance = boundary == "ingress"
+        ? instanceLabelForDevice(message.sourceId)
+        : deployment_.instanceId;
+    record.targetInstance = boundary == "ingress"
+        ? deployment_.instanceId
+        : (message.targetId != 0 ? instanceLabelForDevice(message.targetId) : deployment_.controlPlaneInstance);
+    record.transport = deployment_.transport;
+    record.placement = deployment_.placement;
+    record.messageId = message.messageId;
+    record.relatedMessageId = message.inReplyTo;
+    record.runId = extractRunId(message);
+    record.receiveTimestamp = receiveTimestamp;
+    record.handleTimestamp = handleTimestamp;
+    record.sendTimestamp = sendTimestamp;
+    if (loadedAutomata_) {
+        switch (message.type()) {
+            case protocol::MessageType::Input: {
+                const auto& input = static_cast<const protocol::InputMessage&>(message);
+                const std::string& variableName = input.variableName;
+                if (!variableName.empty()) {
+                    if (const auto* port = loadedAutomata_->getBlackBoxPort(variableName)) {
+                        record.portName = port->name;
+                        record.portDirection = directionName(port->direction);
+                    }
+                }
+                break;
+            }
+            case protocol::MessageType::Output:
+            case protocol::MessageType::Variable: {
+                const std::string* variableName = nullptr;
+                if (message.type() == protocol::MessageType::Output) {
+                    variableName = &static_cast<const protocol::OutputMessage&>(message).variableName;
+                } else {
+                    variableName = &static_cast<const protocol::VariableMessage&>(message).variableName;
+                }
+                if (variableName && !variableName->empty()) {
+                    if (const auto* port = loadedAutomata_->getBlackBoxPort(*variableName)) {
+                        record.portName = port->name;
+                        record.portDirection = directionName(port->direction);
+                    }
+                }
+                break;
+            }
+            case protocol::MessageType::StateChange: {
+                const auto& stateChange = static_cast<const protocol::StateChangeMessage&>(message);
+                if (const auto* state = loadedAutomata_->getState(stateChange.newState)) {
+                    if (loadedAutomata_->isObservableStateName(state->name)) {
+                        record.observableState = state->name;
+                    }
+                }
+                break;
+            }
+            default:
+                break;
+        }
+    }
+    record.faultActions = std::move(faultActions);
+    std::optional<uint32_t> observedLatencyMs;
+    if (receiveTimestamp && handleTimestamp && *handleTimestamp >= *receiveTimestamp) {
+        observedLatencyMs = static_cast<uint32_t>(*handleTimestamp - *receiveTimestamp);
+    } else if (handleTimestamp && sendTimestamp && *sendTimestamp >= *handleTimestamp) {
+        observedLatencyMs = static_cast<uint32_t>(*sendTimestamp - *handleTimestamp);
+    } else if (receiveTimestamp && sendTimestamp && *sendTimestamp >= *receiveTimestamp) {
+        observedLatencyMs = static_cast<uint32_t>(*sendTimestamp - *receiveTimestamp);
+    }
+    applyDeploymentMetrics(record, observedLatencyMs);
+    traceStore_.push(std::move(record));
+}
+
+void Engine::applyDeploymentMetrics(TraceRecord& record,
+                                    std::optional<uint32_t> observedLatencyMs) const {
+    if (deployment_.battery.present) {
+        record.batteryPercent = std::clamp(batteryPercent_, 0.0, 100.0);
+        record.batteryLow = batteryPercent_ <= deployment_.battery.lowThresholdPercent;
+    }
+    if (deployment_.latency.budgetMs > 0) {
+        record.latencyBudgetMs = deployment_.latency.budgetMs;
+    }
+    if (deployment_.latency.warningMs > 0) {
+        record.latencyWarningMs = deployment_.latency.warningMs;
+    }
+    if (observedLatencyMs) {
+        record.observedLatencyMs = observedLatencyMs;
+        if (deployment_.latency.budgetMs > 0) {
+            record.latencyBudgetExceeded = *observedLatencyMs > deployment_.latency.budgetMs;
+        }
+    }
+}
+
+void Engine::consumeBattery(double percent) {
+    if (!deployment_.battery.present || deployment_.battery.externalPower || percent <= 0.0) {
+        return;
+    }
+    batteryPercent_ = std::max(0.0, batteryPercent_ - percent);
+}
+
+FaultDecision Engine::decideFaultDelivery(bool forIngress, Timestamp now) {
+    FaultDecision decision;
+    decision.releaseTimestamp = now;
+
+    const bool enabled = forIngress ? faultProfile_.applyToIngress : faultProfile_.applyToEgress;
+    if (!faultProfile_.hasActiveEffects() || !enabled) {
+        return decision;
+    }
+
+    if (faultProfile_.disconnectPeriodMs > 0 &&
+        faultProfile_.disconnectDurationMs > 0 &&
+        (now % faultProfile_.disconnectPeriodMs) < faultProfile_.disconnectDurationMs) {
+        decision.dropped = true;
+        decision.actions.push_back("disconnect_window");
+        return decision;
+    }
+
+    std::uniform_real_distribution<double> dist(0.0, 1.0);
+
+    if (faultProfile_.fixedDelayMs > 0 || faultProfile_.jitterMs > 0) {
+        int32_t jitter = 0;
+        if (faultProfile_.jitterMs > 0) {
+            std::uniform_int_distribution<int32_t> jitterDist(
+                -static_cast<int32_t>(faultProfile_.jitterMs),
+                static_cast<int32_t>(faultProfile_.jitterMs));
+            jitter = jitterDist(faultRandom_);
+        }
+        const int64_t delayed = static_cast<int64_t>(faultProfile_.fixedDelayMs) + jitter;
+        decision.appliedDelayMs = static_cast<uint32_t>(std::max<int64_t>(0, delayed));
+        decision.releaseTimestamp = now + decision.appliedDelayMs;
+        if (decision.appliedDelayMs > 0) {
+            decision.actions.push_back("delay");
+        }
+    }
+
+    if (faultProfile_.successProbability < 1.0 && dist(faultRandom_) > faultProfile_.successProbability) {
+        decision.dropped = true;
+        decision.actions.push_back("degraded_success");
+        return decision;
+    }
+
+    if (faultProfile_.dropProbability > 0.0 && dist(faultRandom_) < faultProfile_.dropProbability) {
+        decision.dropped = true;
+        decision.actions.push_back("drop");
+        return decision;
+    }
+
+    if (faultProfile_.duplicateProbability > 0.0 && dist(faultRandom_) < faultProfile_.duplicateProbability) {
+        decision.copies = 2;
+        decision.actions.push_back("duplicate");
+    }
+
+    return decision;
+}
+
+void Engine::stageOutbound(std::unique_ptr<protocol::Message> message,
+                           std::optional<Timestamp> receiveTimestamp,
+                           std::optional<Timestamp> handleTimestamp) {
+    if (!message) {
+        return;
+    }
+
+    const Timestamp now = wallClockMs();
+    auto decision = decideFaultDelivery(false, now);
+
+    traceMessageEvent(*message,
+                      "egress_message",
+                      "egress",
+                      decision.dropped ? "message dropped before send" : "message staged for send",
+                      receiveTimestamp,
+                      handleTimestamp,
+                      decision.dropped ? std::nullopt : std::optional<Timestamp>(decision.releaseTimestamp),
+                      decision.actions);
+
+    if (decision.dropped) {
+        return;
+    }
+
+    const auto serialized = message->serialize();
+    for (uint32_t i = 0; i < decision.copies; ++i) {
+        std::unique_ptr<protocol::Message> outbound;
+        if (i == 0) {
+            outbound = std::move(message);
+        } else {
+            outbound = protocol::MessageFactory::deserialize(serialized);
+        }
+
+        if (!outbound) {
+            continue;
+        }
+
+        consumeBattery(deployment_.battery.drainPerMessagePercent);
+
+        delayedOutboundQueue_.push_back(
+            ScheduledOutboundMessage{
+                decision.releaseTimestamp,
+                std::move(outbound),
+                receiveTimestamp,
+                handleTimestamp,
+                decision.actions
+            });
+    }
+}
+
+void Engine::releaseReadyOutbound(Replies& replies) {
+    const Timestamp now = wallClockMs();
+    auto it = delayedOutboundQueue_.begin();
+    while (it != delayedOutboundQueue_.end()) {
+        if (it->releaseAt > now || !it->message) {
+            ++it;
+            continue;
+        }
+
+        traceMessageEvent(*it->message,
+                          "egress_message",
+                          "egress",
+                          "message sent",
+                          it->receiveTimestamp,
+                          it->handleTimestamp,
+                          now,
+                          it->faultActions);
+        lastSendTimestamp_ = now;
+        if (it->receiveTimestamp) {
+            lastReceiveTimestamp_ = *it->receiveTimestamp;
+            lastObservedLatencyMs_ = static_cast<uint32_t>(now - *it->receiveTimestamp);
+        }
+        if (it->handleTimestamp) {
+            lastHandleTimestamp_ = *it->handleTimestamp;
+            lastEgressLatencyMs_ = static_cast<uint32_t>(now - *it->handleTimestamp);
+            if (it->receiveTimestamp && *it->handleTimestamp >= *it->receiveTimestamp) {
+                lastIngressLatencyMs_ =
+                    static_cast<uint32_t>(*it->handleTimestamp - *it->receiveTimestamp);
+            }
+        }
+        replies.push_back(std::move(it->message));
+        it = delayedOutboundQueue_.erase(it);
+    }
 }
 
 Engine::Replies Engine::ackWithStatus(const protocol::Message& request, const std::string& info) {
@@ -662,7 +1191,64 @@ std::unique_ptr<protocol::StatusMessage> Engine::buildStatusMessage(DeviceId tar
     statusMsg->tickCount = runtime_.context().tickCount;
     statusMsg->errorCount = runtime_.context().errorCount;
     statusMsg->uptime = status().uptime;
+    statusMsg->variableSnapshot = collectNamedVariableSnapshot();
+    statusMsg->deployment = collectDeploymentMetadataExtension();
     return statusMsg;
+}
+
+std::unique_ptr<protocol::TelemetryMessage> Engine::buildTelemetryMessage(DeviceId target) const {
+    auto telemetry = std::make_unique<protocol::TelemetryMessage>();
+    telemetry->targetId = target;
+    telemetry->runId = activeRunId_;
+    telemetry->timestamp = wallClockMs();
+    telemetry->heapFree = 0;
+    telemetry->heapTotal = 0;
+    telemetry->cpuUsage = 0.0f;
+    telemetry->tickRate = 0;
+    telemetry->namedVariableSnapshot = collectNamedVariableSnapshot();
+    telemetry->deployment = collectDeploymentMetadataExtension();
+    return telemetry;
+}
+
+std::vector<protocol::NamedValueSnapshotEntry> Engine::collectNamedVariableSnapshot() const {
+    std::vector<protocol::NamedValueSnapshotEntry> snapshot;
+    if (!loadedAutomata_ || !runtime_.isLoaded()) {
+        return snapshot;
+    }
+
+    snapshot.reserve(loadedAutomata_->variables.size());
+    for (const auto& variable : loadedAutomata_->variables) {
+        if (const auto value = runtime_.context().variables.getValue(variable.name)) {
+            snapshot.push_back(protocol::NamedValueSnapshotEntry{variable.name, *value});
+        }
+    }
+
+    return snapshot;
+}
+
+protocol::DeploymentMetadataExtension Engine::collectDeploymentMetadataExtension() const {
+    protocol::DeploymentMetadataExtension deployment;
+    deployment.placement = deployment_.placement;
+    deployment.transport = deployment_.transport;
+    deployment.controlPlaneInstance = deployment_.controlPlaneInstance;
+    deployment.targetClass = deployment_.targetClass;
+    deployment.batteryPresent = deployment_.battery.present;
+    deployment.batteryLow =
+        deployment_.battery.present && batteryPercent_ <= deployment_.battery.lowThresholdPercent;
+    deployment.batteryExternalPower = deployment_.battery.externalPower;
+    deployment.batteryPercent = batteryPercent_;
+    deployment.latencyBudgetMs = deployment_.latency.budgetMs;
+    deployment.latencyWarningMs = deployment_.latency.warningMs;
+    deployment.observedLatencyMs = lastObservedLatencyMs_;
+    deployment.ingressLatencyMs = lastIngressLatencyMs_;
+    deployment.egressLatencyMs = lastEgressLatencyMs_;
+    deployment.sendTimestamp = lastSendTimestamp_;
+    deployment.receiveTimestamp = lastReceiveTimestamp_;
+    deployment.handleTimestamp = lastHandleTimestamp_;
+    deployment.traceFile = traceOutputPath_.value_or("");
+    deployment.faultProfile = faultProfile_.name;
+    deployment.traceEventCount = static_cast<uint32_t>(traceStore_.records().size());
+    return deployment;
 }
 
 bool Engine::runIdMatches(const protocol::Message& message) const {
@@ -756,7 +1342,7 @@ void Engine::registerCommandHandlers() {
 
     commandBus_.registerHandler(protocol::MessageType::Goodbye, [](Engine& engine, const protocol::Message& request) {
         if (engine.runtime_.state() == ExecutionState::Running || engine.runtime_.state() == ExecutionState::Paused) {
-            engine.runtime_.stop();
+            engine.stop();
         }
         return engine.ackWithStatus(request, "goodbye_ack");
     });

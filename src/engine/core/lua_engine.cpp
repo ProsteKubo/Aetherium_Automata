@@ -171,15 +171,16 @@ void LuaScriptEngine::setupBuiltins() {
         return toLuaValue(requireVar(name)->value());
     });
 
-    lua_->set_function("setVal", [requireVar](const std::string& name, sol::object obj) {
+    lua_->set_function("setVal", [this, requireVar](const std::string& name, sol::object obj) {
         auto* var = requireVar(name);
         if (var->direction() == VariableDirection::Input) {
             throw std::runtime_error("setVal cannot write input variable: " + name);
         }
         auto value = coerceToType(obj, var->type());
-        if (!var->set(std::move(value))) {
+        if (!variables_ || !variables_->setValue(name, std::move(value))) {
             throw std::runtime_error("setVal rejected write: " + name);
         }
+        setLuaGlobalValue(name, var->value());
     });
     lua_->set_function("emit", [this](const std::string& name, sol::object obj) {
         (*lua_)["setVal"](name, obj);
@@ -210,15 +211,16 @@ void LuaScriptEngine::setupBuiltins() {
         return toLuaValue(var->value());
     });
 
-    lua_->set_function("setOutput", [requireVar](const std::string& name, sol::object obj) {
+    lua_->set_function("setOutput", [this, requireVar](const std::string& name, sol::object obj) {
         auto* var = requireVar(name);
         if (var->direction() != VariableDirection::Output) {
             throw std::runtime_error("setOutput expects output variable: " + name);
         }
         auto value = coerceToType(obj, var->type());
-        if (!var->set(std::move(value))) {
+        if (!variables_ || !variables_->setValue(name, std::move(value))) {
             throw std::runtime_error("setOutput rejected write: " + name);
         }
+        setLuaGlobalValue(name, var->value());
     });
     
     // print override for debugging
@@ -387,31 +389,36 @@ void LuaScriptEngine::syncVariablesToLua() {
     if (!variables_) return;
     
     for (auto* var : variables_->all()) {
-        const auto& val = var->value();
-        const std::string& name = var->name();
-        
-        switch (val.type()) {
-            case ValueType::Bool:
-                (*lua_)[name] = val.get<bool>();
-                break;
-            case ValueType::Int32:
-                (*lua_)[name] = val.get<int32_t>();
-                break;
-            case ValueType::Int64:
-                (*lua_)[name] = val.get<int64_t>();
-                break;
-            case ValueType::Float32:
-                (*lua_)[name] = val.get<float>();
-                break;
-            case ValueType::Float64:
-                (*lua_)[name] = val.get<double>();
-                break;
-            case ValueType::String:
-                (*lua_)[name] = val.get<std::string>();
-                break;
-            default:
-                break;
-        }
+        setLuaGlobalValue(var->name(), var->value());
+    }
+}
+
+void LuaScriptEngine::setLuaGlobalValue(const std::string& name, const Value& value) {
+    if (!lua_) {
+        return;
+    }
+
+    switch (value.type()) {
+        case ValueType::Bool:
+            (*lua_)[name] = value.get<bool>();
+            break;
+        case ValueType::Int32:
+            (*lua_)[name] = value.get<int32_t>();
+            break;
+        case ValueType::Int64:
+            (*lua_)[name] = value.get<int64_t>();
+            break;
+        case ValueType::Float32:
+            (*lua_)[name] = value.get<float>();
+            break;
+        case ValueType::Float64:
+            (*lua_)[name] = value.get<double>();
+            break;
+        case ValueType::String:
+            (*lua_)[name] = value.get<std::string>();
+            break;
+        default:
+            break;
     }
 }
 
@@ -425,19 +432,10 @@ void LuaScriptEngine::syncVariablesFromLua() {
         sol::object obj = (*lua_)[name];
         
         if (obj.valid() && obj.get_type() != sol::type::lua_nil) {
-            Value v;
-            if (obj.is<bool>()) {
-                v = Value(obj.as<bool>());
-            } else if (obj.is<int>()) {
-                v = Value(obj.as<int32_t>());
-            } else if (obj.is<double>()) {
-                v = Value(obj.as<double>());
-            } else if (obj.is<std::string>()) {
-                v = Value(obj.as<std::string>());
-            } else {
-                continue;
+            auto value = coerceToType(obj, var->type());
+            if (!variables_->setValue(name, std::move(value))) {
+                throw std::runtime_error("syncVariablesFromLua rejected write: " + name);
             }
-            var->set(std::move(v));
         }
     }
 }

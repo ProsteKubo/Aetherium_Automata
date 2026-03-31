@@ -48,9 +48,50 @@ defmodule AetheriumGatewayWeb.ServerChannel do
   end
 
   @impl true
-  def handle_in("heartbeat", _payload, socket) do
-    :ok = ServerTracker.heartbeat(socket.assigns.server_id)
-    {:reply, {:ok, %{status: "ok"}}, socket}
+  def handle_in("heartbeat", payload, socket) do
+    gateway_received_at_ms = System.system_time(:millisecond)
+    gateway_sent_at_ms = System.system_time(:millisecond)
+
+    link_payload =
+      payload
+      |> stringify_keys()
+      |> Map.put("server_id", socket.assigns.server_id)
+      |> Map.put("gateway_received_at_ms", gateway_received_at_ms)
+      |> Map.put("gateway_sent_at_ms", gateway_sent_at_ms)
+
+    tracker_metadata =
+      link_payload
+      |> Map.take([
+        "server_sent_at_ms",
+        "gateway_received_at_ms",
+        "gateway_sent_at_ms",
+        "round_trip_latency_ms",
+        "heartbeat_interval_ms",
+        "clock_skew_ms"
+      ])
+      |> Map.put("measured_at", DateTime.utc_now())
+
+    :ok = ServerTracker.heartbeat(socket.assigns.server_id, tracker_metadata)
+
+    Persistence.append_event(%{
+      kind: "server_heartbeat",
+      source: "server_channel",
+      data: link_payload
+    })
+
+    AetheriumGatewayWeb.Endpoint.broadcast!(
+      "gateway:control",
+      "server_link_status",
+      link_payload
+    )
+
+    {:reply,
+     {:ok,
+      %{
+        status: "ok",
+        gateway_received_at_ms: gateway_received_at_ms,
+        gateway_sent_at_ms: gateway_sent_at_ms
+      }}, socket}
   end
 
   @impl true
@@ -119,6 +160,14 @@ defmodule AetheriumGatewayWeb.ServerChannel do
 
   @impl true
   def handle_in("variable_updated", payload, socket) do
+    if is_binary(payload["device_id"]) and is_binary(payload["name"]) do
+      AutomataRegistry.update_device_variable(
+        payload["device_id"],
+        payload["name"],
+        payload["value"]
+      )
+    end
+
     if payload["direction"] == "output" do
       AetheriumGateway.ConnectionManager.propagate_output(
         %{
@@ -159,7 +208,12 @@ defmodule AetheriumGatewayWeb.ServerChannel do
         payload["automata_id"],
         payload["device_id"],
         status,
-        %{current_state: payload["current_state"], error: payload["error"]}
+        %{
+          current_state: payload["current_state"],
+          variables: payload["variables"],
+          error: payload["error"],
+          deployment_metadata: payload["deployment_metadata"]
+        }
       )
     end
 
@@ -263,7 +317,8 @@ defmodule AetheriumGatewayWeb.ServerChannel do
           deployed_at: field(deployment, :deployed_at),
           current_state: field(deployment, :current_state),
           variables: field(deployment, :variables, %{}),
-          error: field(deployment, :error)
+          error: field(deployment, :error),
+          deployment_metadata: field(deployment, :deployment_metadata, %{})
         }
       end)
 

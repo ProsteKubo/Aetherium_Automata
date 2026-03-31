@@ -1,0 +1,106 @@
+version: 0.0.1
+
+config:
+  name: Petri Power Allocator
+  type: inline
+  description: Allocates shared bus access between charging and motion workloads.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - contention
+
+variables:
+  - name: demand_charge
+    type: bool
+    direction: input
+    default: false
+  - name: demand_motion
+    type: bool
+    direction: input
+    default: false
+  - name: charge_enable
+    type: bool
+    direction: output
+    default: false
+  - name: drive_enable
+    type: bool
+    direction: output
+    default: false
+  - name: allocator_state
+    type: string
+    direction: output
+    default: idle
+
+black_box:
+  resources:
+    - name: dc_bus
+      kind: energy
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+      code: |
+        local dc_bus = "idle"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "idle")
+
+    Charging:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+      code: |
+        local dc_bus = "charge"
+      on_enter: |
+        setVal("charge_enable", true)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "charging")
+
+    Driving:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+      code: |
+        local dc_bus = "drive"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", true)
+        setVal("allocator_state", "driving")
+
+  transitions:
+    idle_to_charging:
+      from: Idle
+      to: Charging
+      type: classic
+      condition: value("demand_charge") == true and value("demand_motion") == false
+
+    idle_to_driving:
+      from: Idle
+      to: Driving
+      type: classic
+      condition: value("demand_motion") == true
+
+    charging_to_idle:
+      from: Charging
+      to: Idle
+      type: classic
+      condition: value("demand_charge") == false
+
+    driving_to_idle:
+      from: Driving
+      to: Idle
+      type: classic
+      condition: value("demand_motion") == false

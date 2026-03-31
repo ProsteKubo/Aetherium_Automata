@@ -94,6 +94,7 @@ interface ProjectActions {
   syncAutomataToEditor: () => void;
   
   // Utility
+  ensureLocalProject: (name?: string) => void;
   reset: () => void;
 }
 
@@ -394,6 +395,27 @@ export const useProjectStore = create<ProjectStore>()(
         state.expandedNodeIds = new Set();
         state.error = null;
       });
+    },
+
+    ensureLocalProject: (name = 'Petri Demo Project') => {
+      const existing = get().project;
+      if (existing) {
+        return;
+      }
+
+      const project = createEmptyProject(name);
+      project.networks.push(createEmptyNetwork('Default Network'));
+
+      set((state) => {
+        state.project = project;
+        state.filePath = null;
+        state.isLoaded = true;
+        state.isDirty = true;
+        state.lastSavedAt = null;
+        state.error = null;
+      });
+
+      get().buildTreeFromProject();
     },
     
     // ========================================================================

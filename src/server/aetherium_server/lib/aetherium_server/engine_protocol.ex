@@ -197,17 +197,22 @@ defmodule AetheriumServer.EngineProtocol do
   defp decode_payload(
          @mt_hello,
          <<message_id::32, source_id::32, _target_id::32, device_type::8, vmaj::8, vmin::8,
-           vpatch::8, caps::16, name_len::16, name::binary-size(name_len)>>
+           vpatch::8, caps::16, name_len::16, name::binary-size(name_len), rest::binary>>
        ) do
-    {:ok, :hello,
-     %{
-       message_id: message_id,
-       source_id: source_id,
-       device_type: device_type,
-       version: {vmaj, vmin, vpatch},
-       capabilities: caps,
-       name: name
-     }}
+    with {:ok, deployment_metadata, _rest} <- decode_deployment_extension(rest) do
+      {:ok, :hello,
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         device_type: device_type,
+         version: {vmaj, vmin, vpatch},
+         capabilities: caps,
+         name: name,
+         deployment_metadata: deployment_metadata
+       }}
+    else
+      _ -> {:error, :invalid_hello}
+    end
   end
 
   defp decode_payload(
@@ -269,20 +274,28 @@ defmodule AetheriumServer.EngineProtocol do
   defp decode_payload(
          @mt_status,
          <<message_id::32, source_id::32, _target_id::32, run_id::32, execution_state::8,
-           current_state::16, uptime::64, transition_count::64, tick_count::64, error_count::32>>
+           current_state::16, uptime::64, transition_count::64, tick_count::64, error_count::32,
+           rest::binary>>
        ) do
-    {:ok, :status,
-     %{
-       message_id: message_id,
-       source_id: source_id,
-       run_id: run_id,
-       execution_state: execution_state,
-       current_state: current_state,
-       uptime: uptime,
-       transition_count: transition_count,
-       tick_count: tick_count,
-       error_count: error_count
-     }}
+    with {:ok, variables, rest2} <- decode_named_var_snapshot(rest),
+         {:ok, deployment_metadata, _rest3} <- decode_deployment_extension(rest2) do
+      {:ok, :status,
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         run_id: run_id,
+         execution_state: execution_state,
+         current_state: current_state,
+         uptime: uptime,
+         transition_count: transition_count,
+         tick_count: tick_count,
+         error_count: error_count,
+         variables: variables,
+         deployment_metadata: deployment_metadata
+       }}
+    else
+      _ -> {:error, :invalid_status}
+    end
   end
 
   defp decode_payload(
@@ -334,20 +347,26 @@ defmodule AetheriumServer.EngineProtocol do
          <<message_id::32, source_id::32, _target_id::32, run_id::32, ts::64, heap_free::32,
            heap_total::32, cpu_fixed::16, tick_rate::32, var_count::16, rest::binary>>
        ) do
-    {vars, _} = decode_var_snapshot(rest, var_count, [])
+    {legacy_vars, rest2} = decode_var_snapshot(rest, var_count, [])
 
-    {:ok, :telemetry,
-     %{
-       message_id: message_id,
-       source_id: source_id,
-       run_id: run_id,
-       timestamp: ts,
-       heap_free: heap_free,
-       heap_total: heap_total,
-       cpu_usage: cpu_fixed / 100.0,
-       tick_rate: tick_rate,
-       variables: vars
-     }}
+    with {:ok, named_vars, rest3} <- decode_named_var_snapshot(rest2),
+         {:ok, deployment_metadata, _rest4} <- decode_deployment_extension(rest3) do
+      {:ok, :telemetry,
+       %{
+         message_id: message_id,
+         source_id: source_id,
+         run_id: run_id,
+         timestamp: ts,
+         heap_free: heap_free,
+         heap_total: heap_total,
+         cpu_usage: cpu_fixed / 100.0,
+         tick_rate: tick_rate,
+         variables: if(map_size(named_vars) > 0, do: named_vars, else: legacy_vars),
+         deployment_metadata: deployment_metadata
+       }}
+    else
+      _ -> {:error, :invalid_telemetry}
+    end
   end
 
   defp decode_payload(
@@ -528,6 +547,104 @@ defmodule AetheriumServer.EngineProtocol do
       {:error, _} -> {Enum.reverse(acc), rest}
     end
   end
+
+  defp decode_named_var_snapshot(<<>>), do: {:ok, %{}, <<>>}
+
+  defp decode_named_var_snapshot(<<count::16, rest::binary>>) do
+    do_decode_named_var_snapshot(rest, count, %{})
+  end
+
+  defp decode_named_var_snapshot(_rest), do: {:error, :invalid_named_var_snapshot}
+
+  defp do_decode_named_var_snapshot(rest, 0, acc), do: {:ok, acc, rest}
+
+  defp do_decode_named_var_snapshot(
+         <<name_len::16, name::binary-size(name_len), rest::binary>>,
+         n,
+         acc
+       )
+       when n > 0 do
+    with {:ok, value, rest2} <- decode_value(rest) do
+      do_decode_named_var_snapshot(rest2, n - 1, Map.put(acc, name, value))
+    else
+      _ -> {:error, :invalid_named_var_snapshot}
+    end
+  end
+
+  defp do_decode_named_var_snapshot(_rest, _n, _acc), do: {:error, :invalid_named_var_snapshot}
+
+  defp decode_deployment_extension(<<>>), do: {:ok, %{}, <<>>}
+  defp decode_deployment_extension(<<0::8, rest::binary>>), do: {:ok, %{}, rest}
+
+  defp decode_deployment_extension(
+         <<1::8, placement_len::16, placement::binary-size(placement_len), transport_len::16,
+           transport::binary-size(transport_len), control_plane_len::16,
+           control_plane::binary-size(control_plane_len), target_class_len::16,
+           target_class::binary-size(target_class_len), battery_present::8, battery_low::8,
+           battery_external_power::8, battery_percent::16, latency_budget_ms::32,
+           latency_warning_ms::32, observed_latency_ms::32, ingress_latency_ms::32,
+           egress_latency_ms::32, send_timestamp::64, receive_timestamp::64, handle_timestamp::64,
+           trace_file_len::16, trace_file::binary-size(trace_file_len), fault_profile_len::16,
+           fault_profile::binary-size(fault_profile_len), trace_event_count::32, rest::binary>>
+       ) do
+    metadata =
+      compact_map(%{
+        "placement" => blank_to_nil(placement),
+        "transport" =>
+          compact_map(%{
+            "type" => blank_to_nil(transport)
+          }),
+        "runtime" =>
+          compact_map(%{
+            "control_plane_instance" => blank_to_nil(control_plane),
+            "target_profile" => blank_to_nil(target_class)
+          }),
+        "battery" =>
+          compact_map(%{
+            "present" => battery_present != 0,
+            "low" => battery_low != 0,
+            "external_power" => battery_external_power != 0,
+            "percent" => battery_percent / 100.0
+          }),
+        "latency" =>
+          compact_map(%{
+            "budget_ms" => latency_budget_ms,
+            "warning_ms" => latency_warning_ms,
+            "observed_ms" => observed_latency_ms,
+            "ingress_ms" => ingress_latency_ms,
+            "egress_ms" => egress_latency_ms,
+            "send_timestamp" => send_timestamp,
+            "receive_timestamp" => receive_timestamp,
+            "handle_timestamp" => handle_timestamp
+          }),
+        "trace" =>
+          compact_map(%{
+            "trace_file" => blank_to_nil(trace_file),
+            "fault_profile" => blank_to_nil(fault_profile),
+            "trace_event_count" => trace_event_count
+          })
+      })
+
+    {:ok, metadata, rest}
+  end
+
+  defp decode_deployment_extension(_rest), do: {:error, :invalid_deployment_extension}
+
+  defp compact_map(map) when is_map(map) do
+    map
+    |> Enum.reject(fn
+      {_key, nil} -> true
+      {_key, ""} -> true
+      {_key, 0} -> true
+      {_key, false} -> false
+      {_key, value} when is_map(value) -> map_size(value) == 0
+      _ -> false
+    end)
+    |> Enum.into(%{})
+  end
+
+  defp blank_to_nil(""), do: nil
+  defp blank_to_nil(value), do: value
 
   defp decode_optional_u32(rest, 0), do: {:ok, nil, rest}
   defp decode_optional_u32(<<value::32, rest::binary>>, 1), do: {:ok, value, rest}

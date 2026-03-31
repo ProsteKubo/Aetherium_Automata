@@ -15,7 +15,6 @@ import {
   IconGateway,
   IconNetwork,
   IconRuntime,
-  IconTimeTravel,
 } from './Icons';
 
 interface ToolbarButtonProps {
@@ -72,13 +71,13 @@ export const ActivityBar: React.FC = () => {
       ? 'devices'
       : 'gateway';
 
-  const modePanel: PanelId = layout.panels.network.isVisible
-    ? 'network'
-    : layout.panels.runtime.isVisible
-      ? 'runtime'
-      : layout.panels.timetravel.isVisible
-        ? 'timetravel'
-        : 'automata';
+  const modePanel: PanelId = layout.panels.runtime.isVisible
+    ? 'runtime'
+    : layout.panels.network.isVisible
+      ? 'network'
+    : layout.panels.petri.isVisible
+      ? 'petri'
+      : 'automata';
 
   return (
     <nav className="activity-bar" aria-label="Workspace Controls">
@@ -112,6 +111,12 @@ export const ActivityBar: React.FC = () => {
         />
         <ToolbarButton
           icon={<IconNetwork size={20} />}
+          label="Petri"
+          active={modePanel === 'petri'}
+          onClick={() => activatePanel('petri')}
+        />
+        <ToolbarButton
+          icon={<IconNetwork size={20} />}
           label="Network"
           active={modePanel === 'network'}
           onClick={() => activatePanel('network')}
@@ -121,12 +126,6 @@ export const ActivityBar: React.FC = () => {
           label="Runtime"
           active={modePanel === 'runtime'}
           onClick={() => activatePanel('runtime')}
-        />
-        <ToolbarButton
-          icon={<IconTimeTravel size={20} />}
-          label="Time Travel"
-          active={modePanel === 'timetravel'}
-          onClick={() => activatePanel('timetravel')}
         />
       </div>
 

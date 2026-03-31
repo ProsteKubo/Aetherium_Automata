@@ -91,6 +91,7 @@ add_library(aetherium_runtime_core STATIC
   src/engine/core/runtime.cpp
   src/engine/core/protocol.cpp
   src/engine/core/protocol_v2.cpp
+  src/engine/core/execution_trace.cpp
   src/engine/core/telemetry_log_hub.cpp
   src/engine/core/command_bus.cpp
   src/engine/core/engine.cpp
@@ -156,6 +157,7 @@ add_library(aetherium_core STATIC
   src/engine/core/runtime.cpp
   src/engine/core/protocol.cpp
   src/engine/core/protocol_v2.cpp
+  src/engine/core/execution_trace.cpp
   src/engine/core/telemetry_log_hub.cpp
   src/engine/core/automata_loader.cpp
   src/engine/core/command_bus.cpp

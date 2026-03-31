@@ -40,6 +40,9 @@ public:
     // WebSocket specific
     void setDeviceId(const std::string& deviceId) { deviceId_ = deviceId; }
     void setDeviceName(const std::string& name) { deviceName_ = name; }
+    void setHelloDeploymentMetadata(protocol::DeploymentMetadataExtension deployment) {
+        helloDeployment_ = std::move(deployment);
+    }
     void setAssignedId(uint32_t id) { assignedId_ = id; }
     [[nodiscard]] uint32_t assignedId() const { return assignedId_; }
 
@@ -52,6 +55,7 @@ private:
     std::string url_;
     std::string deviceId_;
     std::string deviceName_;
+    protocol::DeploymentMetadataExtension helloDeployment_;
     
     std::atomic<TransportState> state_{TransportState::Disconnected};
     

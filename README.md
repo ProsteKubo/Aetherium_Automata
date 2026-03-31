@@ -47,8 +47,8 @@ cd /Users/administratorik/dev/Aetherium_Automata/src
 ```
 
 Important naming note:
-- `docker compose` uses **service names** from compose file: `gateway`, `server3`, `device1`.
-- `docker ps` shows **container names**: `elixir-gateway`, `elixir-server-3`, `cpp-device-1`.
+- `docker compose` uses **service names** from compose file: `gateway`, `server3`, `device1`, `blackbox1`.
+- `docker ps` shows **container names**: `elixir-gateway`, `elixir-server-3`, `cpp-device-1`, `cpp-blackbox-1`.
 - For compose commands, use service names, not container names.
 
 ESP32 + Docker on macOS:
@@ -64,9 +64,11 @@ Use the helper Makefile:
 make help
 make u          # up
 make ug         # gateway only (hybrid mode)
+make ubb        # gateway + server3 + blackbox1
 make r          # restart gateway+server3+device1
 make l0         # fresh logs only
 make rb-device  # rebuild/recreate device only
+make rbb        # rebuild/recreate blackbox1 only
 make esp-flash  # compile + upload ESP32 sketch
 make esp-server # run host server with ESP32 serial connector
 make esp-demo   # run host ESP32 time-travel demo
@@ -84,6 +86,18 @@ First start:
 docker compose up -d gateway server3 device1
 docker compose logs -f --tail=100 gateway server3 device1
 ```
+
+Black-box sandbox stack:
+
+```bash
+docker compose up -d gateway server3 blackbox1
+docker compose logs -f --tail=100 gateway server3 blackbox1
+docker compose exec -T server3 sh -lc "cd /app && mix aetherium.black_box.smoke --gateway-url ws://172.20.0.10:4000/socket/websocket --device-id black_box_01 --server-id svr_03"
+```
+
+Sample deployable contract:
+
+`example/automata/showcase/12_black_box/docker_black_box_probe.yaml`
 
 Fast loop by component:
 

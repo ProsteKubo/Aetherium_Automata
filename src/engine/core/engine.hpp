@@ -3,6 +3,7 @@
 
 #include "artifact.hpp"
 #include "command_bus.hpp"
+#include "execution_trace.hpp"
 #include "protocol.hpp"
 #include "protocol_v2.hpp"
 #include "runtime.hpp"
@@ -10,6 +11,7 @@
 
 #include <atomic>
 #include <deque>
+#include <random>
 #include <memory>
 #include <optional>
 #include <string>
@@ -24,6 +26,10 @@ struct EngineInitOptions {
     size_t logCapacity = 2048;
     DeviceId deviceId = 1;
     std::string deviceName = "cpp-engine";
+    std::optional<uint64_t> faultRandomSeed = std::nullopt;
+    std::optional<std::string> traceOutputPath = std::nullopt;
+    DeploymentDescriptor deployment;
+    FaultProfile faultProfile;
 };
 
 struct EngineStatus {
@@ -83,6 +89,14 @@ public:
     [[nodiscard]] EngineStatus status() const;
     [[nodiscard]] std::vector<LogEvent> getLogs(const LogQuery& query = {}) const;
     void streamLogs(EventStreamCallback callback);
+    [[nodiscard]] const DeploymentDescriptor& deploymentDescriptor() const { return deployment_; }
+    [[nodiscard]] const FaultProfile& faultProfile() const { return faultProfile_; }
+    [[nodiscard]] const LocalTraceStore& traceStore() const { return traceStore_; }
+
+    void setDeploymentDescriptor(DeploymentDescriptor descriptor);
+    void setFaultProfile(FaultProfile profile);
+    void setTraceOutputPath(std::optional<std::string> path);
+    Result<void> writeTrace() const;
 
     void tick();
 
@@ -97,8 +111,24 @@ public:
 
     [[nodiscard]] DeviceId deviceId() const { return deviceId_; }
     [[nodiscard]] const std::string& deviceName() const { return deviceName_; }
+    [[nodiscard]] std::unique_ptr<protocol::TelemetryMessage> buildTelemetryMessage(DeviceId target = 0) const;
 
 private:
+    struct ScheduledIngressMessage {
+        Timestamp releaseAt = 0;
+        std::unique_ptr<protocol::Message> message;
+        Timestamp receiveTimestamp = 0;
+        std::vector<std::string> faultActions;
+    };
+
+    struct ScheduledOutboundMessage {
+        Timestamp releaseAt = 0;
+        std::unique_ptr<protocol::Message> message;
+        std::optional<Timestamp> receiveTimestamp;
+        std::optional<Timestamp> handleTimestamp;
+        std::vector<std::string> faultActions;
+    };
+
     struct PendingChunkedLoad {
         bool active = false;
         DeviceId sourceId = 0;
@@ -127,6 +157,37 @@ private:
                           uint16_t reasonCode,
                           const std::string& reason);
     std::unique_ptr<protocol::StatusMessage> buildStatusMessage(DeviceId target) const;
+    std::vector<protocol::NamedValueSnapshotEntry> collectNamedVariableSnapshot() const;
+    protocol::DeploymentMetadataExtension collectDeploymentMetadataExtension() const;
+    void traceLifecycleEvent(const std::string& summary,
+                             const std::string& category,
+                             std::optional<RunId> runId = std::nullopt);
+    void traceRuntimeEvent(const std::string& kind,
+                           const std::string& category,
+                           const std::string& summary,
+                           std::optional<RunId> runId = std::nullopt,
+                           std::optional<Timestamp> handleTimestamp = std::nullopt,
+                           std::optional<Timestamp> sendTimestamp = std::nullopt,
+                           std::vector<std::string> faultActions = {},
+                           std::optional<std::string> portName = std::nullopt,
+                           std::optional<std::string> portDirection = std::nullopt,
+                           std::optional<std::string> observableState = std::nullopt);
+    void traceMessageEvent(const protocol::Message& message,
+                           const std::string& kind,
+                           const std::string& boundary,
+                           const std::string& summary,
+                           std::optional<Timestamp> receiveTimestamp,
+                           std::optional<Timestamp> handleTimestamp,
+                           std::optional<Timestamp> sendTimestamp,
+                           std::vector<std::string> faultActions = {});
+    void applyDeploymentMetrics(TraceRecord& record,
+                                std::optional<uint32_t> observedLatencyMs = std::nullopt) const;
+    void consumeBattery(double percent);
+    FaultDecision decideFaultDelivery(bool forIngress, Timestamp now);
+    void stageOutbound(std::unique_ptr<protocol::Message> message,
+                       std::optional<Timestamp> receiveTimestamp = std::nullopt,
+                       std::optional<Timestamp> handleTimestamp = std::nullopt);
+    void releaseReadyOutbound(Replies& replies);
 
     Result<RunId> applyLoadedAutomata(std::unique_ptr<Automata> automata,
                                       protocolv2::LoadReplaceMode mode,
@@ -146,9 +207,22 @@ private:
     DeviceId deviceId_ = 1;
     std::string deviceName_ = "cpp-engine";
     std::atomic<RunId> activeRunId_{0};
+    DeploymentDescriptor deployment_;
+    FaultProfile faultProfile_;
+    LocalTraceStore traceStore_;
+    std::optional<std::string> traceOutputPath_;
+    std::mt19937_64 faultRandom_{std::random_device{}()};
+    double batteryPercent_ = 100.0;
+    uint32_t lastObservedLatencyMs_ = 0;
+    uint32_t lastIngressLatencyMs_ = 0;
+    uint32_t lastEgressLatencyMs_ = 0;
+    Timestamp lastSendTimestamp_ = 0;
+    Timestamp lastReceiveTimestamp_ = 0;
+    Timestamp lastHandleTimestamp_ = 0;
 
-    std::deque<std::unique_ptr<protocol::Message>> ingressQueue_;
+    std::deque<ScheduledIngressMessage> ingressQueue_;
     std::deque<std::unique_ptr<protocol::Message>> eventQueue_;
+    std::deque<ScheduledOutboundMessage> delayedOutboundQueue_;
     PendingChunkedLoad pendingChunkedLoad_;
 };
 

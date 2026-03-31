@@ -13,6 +13,9 @@ import type {
   ConnectorStatus,
   Automata,
   AutomataBinding,
+  BlackBoxContract,
+  BlackBoxDescription,
+  BlackBoxSnapshot,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -581,6 +584,93 @@ export class PhoenixGatewayService implements IGatewayService {
     return 'any';
   }
 
+  private normalizeBlackBoxContract(raw: any): BlackBoxContract {
+    const ports = Array.isArray(raw?.ports) ? raw.ports : [];
+    const observableStates = Array.isArray(raw?.observable_states)
+      ? raw.observable_states
+      : Array.isArray(raw?.observableStates)
+        ? raw.observableStates
+        : [];
+    const emittedEvents = Array.isArray(raw?.emitted_events)
+      ? raw.emitted_events
+      : Array.isArray(raw?.emittedEvents)
+        ? raw.emittedEvents
+        : [];
+    const resources = Array.isArray(raw?.resources) ? raw.resources : [];
+
+    return {
+      ports: ports.map((port: Record<string, any>) => ({
+        name: String(port?.name ?? ''),
+        direction: String(port?.direction ?? 'internal') as BlackBoxContract['ports'][number]['direction'],
+        type: String(port?.type ?? 'unknown'),
+        ...(typeof port?.observable === 'boolean' ? { observable: port.observable } : null),
+        ...(typeof port?.fault_injectable === 'boolean'
+          ? { faultInjectable: port.fault_injectable }
+          : typeof port?.faultInjectable === 'boolean'
+            ? { faultInjectable: port.faultInjectable }
+            : null),
+        ...(port?.description ? { description: String(port.description) } : null),
+      })),
+      observableStates: observableStates.map((state: unknown) => String(state)),
+      emittedEvents: emittedEvents.map((event: unknown) => String(event)),
+      resources: resources.map((resource: Record<string, any>) => ({
+        name: String(resource?.name ?? ''),
+        kind: String(resource?.kind ?? 'unknown'),
+        ...(typeof resource?.capacity === 'number' ? { capacity: resource.capacity } : null),
+        ...(typeof resource?.shared === 'boolean' ? { shared: resource.shared } : null),
+        ...(typeof resource?.latency_sensitive === 'boolean'
+          ? { latencySensitive: resource.latency_sensitive }
+          : typeof resource?.latencySensitive === 'boolean'
+            ? { latencySensitive: resource.latencySensitive }
+            : null),
+        ...(resource?.description ? { description: String(resource.description) } : null),
+      })),
+    };
+  }
+
+  private normalizeBlackBoxDescription(raw: any): BlackBoxDescription {
+    return {
+      deploymentId: raw?.deployment_id ?? raw?.deploymentId,
+      automataId: raw?.automata_id ?? raw?.automataId,
+      deviceId: raw?.device_id ?? raw?.deviceId,
+      serverId: raw?.server_id ?? raw?.serverId,
+      status: raw?.status ? String(raw.status) : undefined,
+      observableState: raw?.observable_state ?? raw?.observableState,
+      deploymentMetadata:
+        raw?.deployment_metadata && typeof raw.deployment_metadata === 'object'
+          ? raw.deployment_metadata
+          : raw?.deploymentMetadata && typeof raw.deploymentMetadata === 'object'
+            ? raw.deploymentMetadata
+            : undefined,
+      blackBox: this.normalizeBlackBoxContract(raw?.black_box ?? raw?.blackBox ?? {}),
+    };
+  }
+
+  private normalizeBlackBoxSnapshot(deviceId: DeviceId, raw: any): BlackBoxSnapshot {
+    const state = raw && typeof raw === 'object' ? raw : {};
+    const snapshot = this.buildSnapshot(deviceId, state);
+
+    return {
+      automataId: snapshot.automataId,
+      deviceId,
+      deploymentId: state.deployment_id ?? state.deploymentId,
+      currentState: snapshot.currentState,
+      variables: Object.fromEntries(
+        Object.entries(snapshot.variables ?? {}).map(([name, meta]) => [name, meta?.value]),
+      ),
+      outputs: Object.fromEntries(
+        Object.entries(snapshot.outputs ?? {}).map(([name, meta]) => [name, meta?.value]),
+      ),
+      running: typeof state.running === 'boolean' ? state.running : undefined,
+      deploymentMetadata: snapshot.deploymentMetadata,
+      blackBox: snapshot.blackBox,
+      observableState:
+        (state.observable_state as string | undefined) ??
+        (state.observableState as string | undefined) ??
+        snapshot.observableState,
+    };
+  }
+
   private buildSignalMap(
     signals: unknown,
     now: number,
@@ -641,6 +731,19 @@ export class PhoenixGatewayService implements IGatewayService {
       variables,
       inputs: this.buildSignalMap(runtimeState?.inputs, now),
       outputs: this.buildSignalMap(runtimeState?.outputs, now),
+      deploymentMetadata:
+        runtimeState?.deployment_metadata && typeof runtimeState.deployment_metadata === 'object'
+          ? runtimeState.deployment_metadata
+          : runtimeState?.deploymentMetadata && typeof runtimeState.deploymentMetadata === 'object'
+            ? runtimeState.deploymentMetadata
+            : undefined,
+      blackBox:
+        runtimeState?.black_box || runtimeState?.blackBox
+          ? this.normalizeBlackBoxContract(runtimeState?.black_box ?? runtimeState?.blackBox)
+          : undefined,
+      observableState:
+        (runtimeState?.observable_state as string | undefined) ??
+        (runtimeState?.observableState as string | undefined),
       executionCycle:
         Number(runtimeState?.execution_cycle ?? runtimeState?.executionCycle ?? runtimeState?.tick ?? 0) || 0,
     };
@@ -1883,6 +1986,100 @@ export class PhoenixGatewayService implements IGatewayService {
       'force_transition',
       { ...this.buildCommandTargetPayload(deviceId, target), to_state: toState },
       10_000
+    );
+    return { status: outcome.status };
+  }
+
+  async describeBlackBox(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+  ): Promise<BlackBoxDescription> {
+    const response = await this.sendAutomataCommand<{ black_box?: Record<string, any> }>(
+      'black_box_describe',
+      this.buildCommandTargetPayload(deviceId, target),
+      10_000,
+    );
+
+    return this.normalizeBlackBoxDescription(response?.black_box ?? {});
+  }
+
+  async getBlackBoxSnapshot(
+    deviceId: DeviceId,
+    target?: RuntimeCommandTarget,
+    options?: SnapshotRequestOptions,
+  ): Promise<BlackBoxSnapshot> {
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'black_box_snapshot',
+      this.buildCommandTargetPayload(deviceId, target),
+      10_000,
+    );
+
+    const stateData =
+      (outcome.data?.state as Record<string, any> | undefined) ??
+      (target?.automataId ? { automata_id: target.automataId } : {});
+
+    const normalized = this.normalizeBlackBoxSnapshot(deviceId, stateData);
+    this.setCachedSnapshot(
+      deviceId,
+      { snapshot: this.buildSnapshot(deviceId, stateData) },
+      target,
+    );
+
+    if (!options?.silent) {
+      this.emit('onExecutionSnapshot', {
+        deviceId,
+        automataId: normalized.automataId ?? ('unknown' as AutomataId),
+        snapshot: this.buildSnapshot(deviceId, stateData),
+      });
+    }
+
+    return normalized;
+  }
+
+  async setBlackBoxInput(
+    deviceId: DeviceId,
+    port: string,
+    value: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'black_box_set_input',
+      { ...this.buildCommandTargetPayload(deviceId, target), port, value },
+      10_000,
+    );
+    return { status: outcome.status };
+  }
+
+  async triggerBlackBoxEvent(
+    deviceId: DeviceId,
+    event: string,
+    data?: unknown,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
+    const payload: Record<string, any> = {
+      ...this.buildCommandTargetPayload(deviceId, target),
+      event,
+    };
+
+    if (data !== undefined) payload.data = data;
+
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'black_box_trigger_event',
+      payload,
+      10_000,
+    );
+    return { status: outcome.status };
+  }
+
+  async forceBlackBoxState(
+    deviceId: DeviceId,
+    state: string,
+    target?: RuntimeCommandTarget,
+  ): Promise<{ status: string }> {
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'black_box_force_state',
+      { ...this.buildCommandTargetPayload(deviceId, target), state },
+      10_000,
     );
     return { status: outcome.status };
   }

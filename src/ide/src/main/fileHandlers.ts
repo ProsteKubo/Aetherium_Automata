@@ -500,6 +500,7 @@ function automataToYaml(automata: unknown): string {
   const config = asRecord(obj.config);
   const states = asRecord(obj.states);
   const transitions = asRecord(obj.transitions);
+  const serializedBlackBox = serializeBlackBoxContract(obj.blackBox ?? obj.black_box);
 
   const serializedStates = Object.entries(states).reduce<Record<string, unknown>>((acc, [id, rawState]) => {
     const state = asRecord(rawState);
@@ -568,6 +569,7 @@ function automataToYaml(automata: unknown): string {
       transitions: serializedTransitions,
     },
     variables: Array.isArray(obj.variables) ? obj.variables : [],
+    ...(serializedBlackBox ? { black_box: serializedBlackBox } : {}),
   };
 
   return jsYaml.dump(payload, { noRefs: true, lineWidth: 120, sortKeys: false });
@@ -593,6 +595,7 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
   const config = asRecord(root.config);
   const automataSection = asRecord(root.automata);
   const source = Object.keys(automataSection).length > 0 ? automataSection : root;
+  const blackBox = normalizeBlackBoxContract(root.black_box ?? root.blackBox);
 
   const rawStates = asRecord(source.states);
   const stateRefToId = new Map<string, string>();
@@ -760,8 +763,103 @@ function normalizeAutomataDocument(input: unknown): Record<string, unknown> {
     variables: normalizeVariables(root.variables ?? source.variables),
     inputs: asStringArray(root.inputs ?? source.inputs),
     outputs: asStringArray(root.outputs ?? source.outputs),
+    ...(blackBox ? { blackBox } : {}),
     nestedAutomataIds: [],
     isDirty: true,
+  };
+}
+
+function normalizeBlackBoxContract(value: unknown): Record<string, unknown> | undefined {
+  const contract = asRecord(value);
+  if (Object.keys(contract).length === 0) return undefined;
+
+  const ports = Array.isArray(contract.ports)
+    ? contract.ports
+        .map((raw) => asRecord(raw))
+        .filter((port) => toStringSafe(port.name, '').length > 0)
+        .map((port) => ({
+          name: toStringSafe(port.name, ''),
+          direction: toStringSafe(port.direction, 'internal'),
+          type: toStringSafe(port.type, 'any'),
+          observable: port.observable === undefined ? undefined : Boolean(port.observable),
+          faultInjectable:
+            port.faultInjectable === undefined && port.fault_injectable === undefined
+              ? undefined
+              : Boolean(port.faultInjectable ?? port.fault_injectable),
+          description: toOptionalString(port.description),
+        }))
+    : [];
+
+  const resources = Array.isArray(contract.resources)
+    ? contract.resources
+        .map((raw) => asRecord(raw))
+        .filter((resource) => toStringSafe(resource.name, '').length > 0)
+        .map((resource) => ({
+          name: toStringSafe(resource.name, ''),
+          kind: toStringSafe(resource.kind, 'generic'),
+          capacity: toOptionalNumber(resource.capacity),
+          shared: resource.shared === undefined ? undefined : Boolean(resource.shared),
+          latencySensitive:
+            resource.latencySensitive === undefined && resource.latency_sensitive === undefined
+              ? undefined
+              : Boolean(resource.latencySensitive ?? resource.latency_sensitive),
+          description: toOptionalString(resource.description),
+        }))
+    : [];
+
+  return {
+    ports,
+    observableStates: asStringArray(contract.observableStates ?? contract.observable_states),
+    emittedEvents: asStringArray(contract.emittedEvents ?? contract.emitted_events),
+    resources,
+  };
+}
+
+function serializeBlackBoxContract(value: unknown): Record<string, unknown> | undefined {
+  const contract = normalizeBlackBoxContract(value);
+  if (!contract) return undefined;
+
+  const ports = Array.isArray(contract.ports)
+    ? contract.ports.map((raw) => {
+        const port = asRecord(raw);
+        return {
+          name: toStringSafe(port.name, ''),
+          direction: toStringSafe(port.direction, 'internal'),
+          type: toStringSafe(port.type, 'any'),
+          ...(port.observable === undefined ? {} : { observable: Boolean(port.observable) }),
+          ...(port.faultInjectable === undefined
+            ? {}
+            : { fault_injectable: Boolean(port.faultInjectable) }),
+          ...(toOptionalString(port.description) ? { description: toOptionalString(port.description) } : {}),
+        };
+      })
+    : [];
+
+  const resources = Array.isArray(contract.resources)
+    ? contract.resources.map((raw) => {
+        const resource = asRecord(raw);
+        return {
+          name: toStringSafe(resource.name, ''),
+          kind: toStringSafe(resource.kind, 'generic'),
+          ...(toOptionalNumber(resource.capacity) === undefined
+            ? {}
+            : { capacity: toOptionalNumber(resource.capacity) }),
+          ...(resource.shared === undefined ? {} : { shared: Boolean(resource.shared) }),
+          ...(resource.latencySensitive === undefined
+            ? {}
+            : { latency_sensitive: Boolean(resource.latencySensitive) }),
+          ...(toOptionalString(resource.description)
+            ? { description: toOptionalString(resource.description) }
+            : {}),
+        };
+      })
+    : [];
+
+  return {
+    ports,
+    observable_states: asStringArray(contract.observableStates),
+    emitted_events: asStringArray(contract.emittedEvents),
+    resources,
   };
 }
 

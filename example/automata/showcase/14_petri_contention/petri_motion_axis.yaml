@@ -1,0 +1,64 @@
+version: 0.0.1
+
+config:
+  name: Petri Motion Axis
+  type: inline
+  description: Motion consumer competing for the same dc_bus resource as the charger.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - petri
+    - contention
+
+variables:
+  - name: drive_enable
+    type: bool
+    direction: input
+    default: false
+  - name: axis_state
+    type: string
+    direction: output
+    default: parked
+
+black_box:
+  resources:
+    - name: dc_bus
+      kind: energy
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Parked
+
+  states:
+    Parked:
+      outputs:
+        - axis_state
+      code: |
+        local dc_bus = "parked"
+      on_enter: |
+        setVal("axis_state", "parked")
+
+    Moving:
+      inputs:
+        - drive_enable
+      outputs:
+        - axis_state
+      code: |
+        local dc_bus = "moving"
+      on_enter: |
+        setVal("axis_state", "moving")
+
+  transitions:
+    start_motion:
+      from: Parked
+      to: Moving
+      type: classic
+      condition: value("drive_enable") == true
+
+    stop_motion:
+      from: Moving
+      to: Parked
+      type: classic
+      condition: value("drive_enable") == false

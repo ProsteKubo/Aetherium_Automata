@@ -260,6 +260,41 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
+  def handle_in("black_box_describe", %{"device_id" => device_id} = payload, socket) do
+    case resolve_device_deployment(device_id, payload) do
+      {:ok, deployment} ->
+        {:reply, {:ok, %{black_box: describe_black_box(deployment)}}, socket}
+
+      {:error, :not_found} ->
+        {:reply, {:error, %{reason: "not_found"}}, socket}
+    end
+  end
+
+  @impl true
+  def handle_in("black_box_snapshot", %{"device_id" => device_id} = payload, socket) do
+    with_command("black_box_snapshot", payload, socket, fn envelope ->
+      case resolve_device_deployment(device_id, payload) do
+        {:ok, deployment} ->
+          command_payload = %{
+            "deployment_id" => deployment_id_for(deployment),
+            "device_id" => device_id,
+            "automata_id" => deployment.automata_id
+          }
+
+          dispatch_server_command(
+            deployment.server_id,
+            "request_state",
+            command_payload,
+            envelope
+          )
+
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
   def handle_in("time_travel_query", %{"device_id" => device_id} = payload, socket) do
     with_command("time_travel_query", payload, socket, fn envelope ->
       case resolve_device_deployment(device_id, payload) do
@@ -412,6 +447,34 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
+  def handle_in(
+        "black_box_set_input",
+        %{"device_id" => device_id, "port" => port, "value" => value} = payload,
+        socket
+      ) do
+    with_command("black_box_set_input", payload, socket, fn envelope ->
+      with {:ok, deployment} <- resolve_device_deployment(device_id, payload),
+           :ok <- validate_black_box_input(deployment, port, value) do
+        command_payload = %{
+          "deployment_id" => deployment_id_for(deployment),
+          "device_id" => device_id,
+          "automata_id" => deployment.automata_id,
+          "input" => port,
+          "value" => value
+        }
+
+        dispatch_server_command(deployment.server_id, "set_input", command_payload, envelope)
+      else
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+
+        {:error, reason} ->
+          {:nak, reason, %{"device_id" => device_id, "port" => port}}
+      end
+    end)
+  end
+
+  @impl true
   def handle_in("get_variables", %{"device_id" => device_id} = payload, socket) do
     case resolve_device_deployment(device_id, payload) do
       {:ok, deployment} ->
@@ -467,6 +530,34 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   @impl true
   def handle_in(
+        "black_box_trigger_event",
+        %{"device_id" => device_id, "event" => event} = payload,
+        socket
+      ) do
+    with_command("black_box_trigger_event", payload, socket, fn envelope ->
+      with {:ok, deployment} <- resolve_device_deployment(device_id, payload),
+           :ok <- validate_black_box_event(deployment, event) do
+        command_payload = %{
+          "deployment_id" => deployment_id_for(deployment),
+          "device_id" => device_id,
+          "automata_id" => deployment.automata_id,
+          "event" => event,
+          "data" => payload["data"]
+        }
+
+        dispatch_server_command(deployment.server_id, "trigger_event", command_payload, envelope)
+      else
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+
+        {:error, reason} ->
+          {:nak, reason, %{"device_id" => device_id, "event" => event}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in(
         "force_transition",
         %{"device_id" => device_id, "to_state" => to_state} = payload,
         socket
@@ -485,6 +576,35 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}
+      end
+    end)
+  end
+
+  @impl true
+  def handle_in(
+        "black_box_force_state",
+        %{"device_id" => device_id} = payload,
+        socket
+      ) do
+    to_state = payload["state"] || payload["state_id"] || payload["to_state"]
+
+    with_command("black_box_force_state", payload, socket, fn envelope ->
+      with {:ok, deployment} <- resolve_device_deployment(device_id, payload),
+           :ok <- validate_black_box_state(deployment, to_state) do
+        command_payload = %{
+          "deployment_id" => deployment_id_for(deployment),
+          "device_id" => device_id,
+          "automata_id" => deployment.automata_id,
+          "state_id" => to_state
+        }
+
+        dispatch_server_command(deployment.server_id, "force_state", command_payload, envelope)
+      else
+        {:error, :not_found} ->
+          {:nak, :no_deployment_found, %{"device_id" => device_id}}
+
+        {:error, reason} ->
+          {:nak, reason, %{"device_id" => device_id, "state" => to_state}}
       end
     end)
   end
@@ -657,7 +777,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       transitions: normalize_transitions(payload["transitions"] || %{}),
       variables: normalize_variables(payload["variables"] || []),
       inputs: payload["inputs"] || [],
-      outputs: payload["outputs"] || []
+      outputs: payload["outputs"] || [],
+      black_box: payload["black_box"] || payload["blackBox"] || %{}
     }
   end
 
@@ -736,9 +857,180 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       "transitions" => payload["transitions"] || nested["transitions"] || %{},
       "variables" => payload["variables"] || [],
       "inputs" => payload["inputs"] || [],
-      "outputs" => payload["outputs"] || []
+      "outputs" => payload["outputs"] || [],
+      "black_box" => payload["black_box"] || nested["black_box"] || %{}
     }
   end
+
+  defp describe_black_box(deployment) do
+    automata =
+      case AutomataRegistry.get_automata(field(deployment, :automata_id)) do
+        {:ok, automata} -> automata
+        _ -> %{}
+      end
+
+    deployment_metadata = field(deployment, :deployment_metadata, %{})
+    black_box = black_box_contract(automata, deployment_metadata)
+
+    %{
+      deployment_id: field(deployment, :deployment_id, deployment_id_for(deployment)),
+      automata_id: field(deployment, :automata_id),
+      device_id: field(deployment, :device_id),
+      server_id: field(deployment, :server_id),
+      status: field(deployment, :status),
+      observable_state: field(deployment, :current_state),
+      deployment_metadata: deployment_metadata,
+      black_box: black_box
+    }
+  end
+
+  defp validate_black_box_input(deployment, port_name, value)
+       when is_map(deployment) and is_binary(port_name) do
+    with {:ok, port} <- black_box_port(deployment, port_name),
+         :ok <- ensure_black_box_port_direction(port, "input"),
+         :ok <- ensure_black_box_value_type(port, value) do
+      :ok
+    end
+  end
+
+  defp validate_black_box_input(_deployment, _port_name, _value),
+    do: {:error, :invalid_black_box_port}
+
+  defp validate_black_box_event(deployment, event_name)
+       when is_map(deployment) and is_binary(event_name) and event_name != "" do
+    emitted_events =
+      describe_black_box(deployment)
+      |> get_in([:black_box, "emitted_events"])
+      |> List.wrap()
+
+    if event_name in emitted_events do
+      :ok
+    else
+      {:error, :invalid_black_box_event}
+    end
+  end
+
+  defp validate_black_box_event(_deployment, _event_name), do: {:error, :invalid_black_box_event}
+
+  defp validate_black_box_state(deployment, state_name)
+       when is_map(deployment) and is_binary(state_name) and state_name != "" do
+    observable_states =
+      describe_black_box(deployment)
+      |> get_in([:black_box, "observable_states"])
+      |> List.wrap()
+
+    if state_name in observable_states do
+      :ok
+    else
+      {:error, :invalid_black_box_state}
+    end
+  end
+
+  defp validate_black_box_state(_deployment, _state_name), do: {:error, :invalid_black_box_state}
+
+  defp black_box_port(deployment, port_name) when is_map(deployment) and is_binary(port_name) do
+    ports =
+      describe_black_box(deployment)
+      |> get_in([:black_box, "ports"])
+      |> List.wrap()
+
+    case Enum.find(ports, &(field(&1, :name) == port_name)) do
+      nil -> {:error, :invalid_black_box_port}
+      port -> {:ok, port}
+    end
+  end
+
+  defp ensure_black_box_port_direction(port, expected_direction) when is_map(port) do
+    case field(port, :direction) do
+      ^expected_direction -> :ok
+      _ -> {:error, :black_box_port_not_input}
+    end
+  end
+
+  defp ensure_black_box_value_type(port, value) when is_map(port) do
+    if black_box_value_matches_type?(value, field(port, :type)) do
+      :ok
+    else
+      {:error, :invalid_black_box_value}
+    end
+  end
+
+  defp black_box_value_matches_type?(_value, nil), do: true
+  defp black_box_value_matches_type?(_value, "any"), do: true
+
+  defp black_box_value_matches_type?(value, type) when type in ["bool", "boolean"],
+    do: is_boolean(value)
+
+  defp black_box_value_matches_type?(value, type) when type in ["int", "int32", "int64"],
+    do: is_integer(value)
+
+  defp black_box_value_matches_type?(value, type)
+       when type in ["float", "float32", "float64", "number"] do
+    is_integer(value) or is_float(value)
+  end
+
+  defp black_box_value_matches_type?(value, "string"), do: is_binary(value)
+  defp black_box_value_matches_type?(_value, _type), do: true
+
+  defp black_box_contract(automata, deployment_metadata) do
+    declared =
+      case field(automata, :black_box, %{}) do
+        %{} = black_box when map_size(black_box) > 0 -> black_box
+        _ -> get_in(deployment_metadata, ["black_box"]) || %{}
+      end
+
+    if map_size(declared) > 0 do
+      declared
+    else
+      derive_black_box_contract(automata)
+    end
+  end
+
+  defp derive_black_box_contract(automata) do
+    variables = field(automata, :variables, [])
+    states = field(automata, :states, %{})
+    transitions = field(automata, :transitions, %{})
+
+    ports =
+      Enum.map(variables, fn variable ->
+        %{
+          name: field(variable, :name),
+          direction: normalize_port_direction(field(variable, :direction)),
+          type: field(variable, :type, "unknown")
+        }
+      end)
+      |> Enum.reject(&is_nil(&1.name))
+
+    emitted_events =
+      transitions
+      |> Enum.map(fn {_id, transition} ->
+        event = field(transition, :event)
+
+        cond do
+          is_map(event) -> field(event, :name)
+          is_binary(event) -> event
+          true -> nil
+        end
+      end)
+      |> Enum.reject(&is_nil/1)
+      |> Enum.uniq()
+
+    %{
+      ports: ports,
+      observable_states: Map.keys(states),
+      emitted_events: emitted_events,
+      resources: []
+    }
+  end
+
+  defp normalize_port_direction(direction) when direction in [:input, :output, :internal],
+    do: Atom.to_string(direction)
+
+  defp normalize_port_direction(direction)
+       when direction in ["input", "output", "internal"],
+       do: direction
+
+  defp normalize_port_direction(_direction), do: "internal"
 
   defp normalize_states(states) when is_map(states) do
     states
@@ -976,6 +1268,7 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       variables: field(automata, :variables, []),
       inputs: field(automata, :inputs, []),
       outputs: field(automata, :outputs, []),
+      black_box: field(automata, :black_box, %{}),
       created_at: field(automata, :created_at),
       updated_at: field(automata, :updated_at)
     }
@@ -991,7 +1284,8 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
       deployed_at: field(deployment, :deployed_at),
       current_state: field(deployment, :current_state),
       variables: field(deployment, :variables, %{}),
-      error: field(deployment, :error)
+      error: field(deployment, :error),
+      deployment_metadata: field(deployment, :deployment_metadata, %{})
     }
   end
 

@@ -20,7 +20,9 @@ defmodule AetheriumServer.DeviceIngress do
              connector_id: session_ref.connector_id,
              connector_type: session_ref.connector_type,
              transport: connector_meta[:transport] || connector_meta["transport"],
-             link: connector_meta[:link] || connector_meta["link"]
+             link: connector_meta[:link] || connector_meta["link"],
+             deployment_metadata:
+               hello[:deployment_metadata] || hello["deployment_metadata"] || %{}
            },
            session_ref
          ) do

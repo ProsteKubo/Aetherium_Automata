@@ -72,7 +72,7 @@ export const GatewayPanel: React.FC = () => {
         const result = await (service as any).ping();
         setPingResult(`${result.response} (${result.timestamp})`);
       } else {
-        setPingResult('Ping not available with mock service');
+        setPingResult('Ping not available with current service');
       }
     } catch (error) {
       setCommandError(error instanceof Error ? error.message : 'Ping failed');

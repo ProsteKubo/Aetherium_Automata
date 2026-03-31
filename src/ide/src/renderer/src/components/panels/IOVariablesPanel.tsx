@@ -7,6 +7,7 @@
 
 import React, { useState, useCallback } from 'react';
 import { useAutomataStore } from '../../stores';
+import { getAutomataPorts } from '../../utils/automataBindings';
 import { IconPlus, IconMinus, IconRefresh } from '../common/Icons';
 
 // ============================================================================
@@ -399,16 +400,16 @@ export const IOVariablesPanel: React.FC<IOVariablesPanelProps> = ({ embedded = f
   }, []);
   
   // Convert to IOItem format - from automata level
-  const inputs: IOItem[] = (activeAutomata?.inputs || []).map((name) => ({
-    name: String(name),
+  const inputs: IOItem[] = (activeAutomata ? getAutomataPorts(activeAutomata, 'input') : []).map((port) => ({
+    name: String(port.name),
     type: 'input' as const,
-    dataType: 'signal',
+    dataType: port.type,
   })) || [];
   
-  const outputs: IOItem[] = (activeAutomata?.outputs || []).map((name) => ({
-    name: String(name),
+  const outputs: IOItem[] = (activeAutomata ? getAutomataPorts(activeAutomata, 'output') : []).map((port) => ({
+    name: String(port.name),
     type: 'output' as const,
-    dataType: 'signal',
+    dataType: port.type,
   })) || [];
   
   // Variables are currently not stored at automata level - this is a placeholder

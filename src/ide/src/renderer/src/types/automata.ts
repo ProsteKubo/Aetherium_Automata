@@ -24,6 +24,55 @@ export type ServerId = string;
 
 export type VariableType = 'number' | 'string' | 'bool' | 'any' | 'table';
 
+export interface BlackBoxPort {
+  name: string;
+  direction: 'input' | 'output' | 'internal';
+  type: string;
+  observable?: boolean;
+  faultInjectable?: boolean;
+  description?: string;
+}
+
+export interface BlackBoxResource {
+  name: string;
+  kind: string;
+  capacity?: number;
+  shared?: boolean;
+  latencySensitive?: boolean;
+  description?: string;
+}
+
+export interface BlackBoxContract {
+  ports: BlackBoxPort[];
+  observableStates: string[];
+  emittedEvents: string[];
+  resources: BlackBoxResource[];
+}
+
+export interface BlackBoxDescription {
+  deploymentId?: string;
+  automataId?: AutomataId;
+  deviceId?: DeviceId;
+  serverId?: ServerId;
+  status?: string;
+  observableState?: string;
+  deploymentMetadata?: Record<string, unknown>;
+  blackBox: BlackBoxContract;
+}
+
+export interface BlackBoxSnapshot {
+  automataId?: AutomataId;
+  deviceId?: DeviceId;
+  deploymentId?: string;
+  currentState: string;
+  variables: Record<string, unknown>;
+  outputs: Record<string, unknown>;
+  running?: boolean;
+  deploymentMetadata?: Record<string, unknown>;
+  blackBox?: BlackBoxContract;
+  observableState?: string;
+}
+
 export interface VariableDefinition {
   id?: string;
   name: VariableId;
@@ -210,6 +259,7 @@ export interface Automata {
   id: AutomataId;
   version: string;          // Spec version
   config: AutomataConfig;
+  blackBox?: BlackBoxContract;
   
   initialState: StateId;
   states: Record<StateId, State>;
@@ -260,6 +310,9 @@ export interface ExecutionSnapshot {
   variables: Record<VariableId, VariableValue>;
   inputs: Record<InputId, SignalValue>;
   outputs: Record<OutputId, SignalValue>;
+  deploymentMetadata?: Record<string, unknown>;
+  blackBox?: BlackBoxContract;
+  observableState?: string;
   
   executionCycle: number;
   errorState?: string;
@@ -439,8 +492,8 @@ export type PanelId =
   | 'automata'
   | 'devices'
   | 'network'
+  | 'petri'
   | 'runtime'
-  | 'timetravel'
   | 'properties'
   | 'console'
   | 'explorer'

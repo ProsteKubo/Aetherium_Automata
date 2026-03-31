@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import argparse
+import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -41,11 +43,66 @@ def case_validate_invalid(binary: Path, file: Path):
     )
 
 
+def case_trace_export(binary: Path, file: Path):
+    assert file.exists(), f"trace YAML not found: {file}"
+    with tempfile.TemporaryDirectory() as tmpdir:
+        trace_path = Path(tmpdir) / "engine-trace.jsonl"
+        code, out, err = run([
+            str(binary),
+            "--run", str(file),
+            "--trace-file", str(trace_path),
+            "--instance-id", "cli-trace-smoke",
+            "--placement", "host-lab",
+            "--transport", "local",
+            "--fault-profile", "validation",
+            "--fault-duplicate-probability", "1",
+            "--battery-percent", "63.5",
+            "--battery-low-threshold-percent", "30",
+            "--battery-drain-per-message-percent", "0.5",
+            "--latency-budget-ms", "5",
+            "--latency-warning-ms", "2",
+            "--seed", "7",
+            "--max-ticks", "16",
+        ])
+        assert code == 0, f"Expected trace export run to succeed. code={code} stderr={err} stdout={out}"
+        assert trace_path.exists(), f"trace file was not created: {trace_path}"
+
+        records = [
+            json.loads(line)
+            for line in trace_path.read_text().splitlines()
+            if line.strip()
+        ]
+        assert records, "trace file is empty"
+        assert any(record.get("kind") == "lifecycle" for record in records), "expected lifecycle records in trace"
+        assert any(record.get("kind") == "egress_message" for record in records), "expected egress records in trace"
+        assert any("duplicate" in record.get("fault_actions", []) for record in records), (
+            "expected duplicate fault action in trace"
+        )
+        assert any(record.get("source_instance") == "cli-trace-smoke" for record in records), (
+            "expected deployment instance id in trace"
+        )
+        assert any(record.get("kind") == "black_box_contract" for record in records), (
+            "expected black-box contract record in trace"
+        )
+        assert any(record.get("port_name") == "flag" for record in records), (
+            "expected black-box port annotation in trace"
+        )
+        assert any(record.get("observable_state") == "Done" for record in records), (
+            "expected observable state annotation in trace"
+        )
+        assert any(record.get("battery_percent") is not None for record in records), (
+            "expected battery metadata in trace"
+        )
+        assert any(record.get("latency_budget_ms") == 5 for record in records), (
+            "expected latency budget metadata in trace"
+        )
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--binary", required=True)
     parser.add_argument("--case", required=True, choices=[
-        "help", "version", "validate_valid", "validate_invalid"
+        "help", "version", "validate_valid", "validate_invalid", "trace_export"
     ])
     parser.add_argument("--file")
     args = parser.parse_args()
@@ -61,6 +118,9 @@ def main():
     elif args.case == "validate_invalid":
         assert args.file, "--file is required for validate_invalid"
         case_validate_invalid(binary, Path(args.file))
+    elif args.case == "trace_export":
+        assert args.file, "--file is required for trace_export"
+        case_trace_export(binary, Path(args.file))
     else:
         raise SystemExit(f"Unknown case {args.case}")
 
@@ -71,4 +131,3 @@ if __name__ == "__main__":
     except AssertionError as e:
         print(str(e), file=sys.stderr)
         sys.exit(1)
-

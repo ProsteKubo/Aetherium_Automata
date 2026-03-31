@@ -2,7 +2,7 @@ import type { Automata, VariableDefinition, VariableType } from '../types';
 import type { AutomataBinding } from '../types/connections';
 import type { ConnectionDraft } from '../services/gateway';
 
-interface AutomataPort {
+export interface AutomataPort {
   id: string;
   name: string;
   type: VariableType;
@@ -33,6 +33,14 @@ export function getAutomataPorts(
   direction: 'input' | 'output',
 ): AutomataPort[] {
   const variables = getVariableDefinitions(automata);
+  const fromBlackBox = (automata.blackBox?.ports ?? [])
+    .filter((entry) => entry.direction === direction)
+    .map((entry) => ({
+      id: entry.name,
+      name: entry.name,
+      type: (entry.type ?? 'any') as VariableType,
+    }));
+
   const fromVariables = variables
     .filter((entry) => entry.direction === direction)
     .map((entry) => ({
@@ -62,7 +70,7 @@ export function getAutomataPorts(
     };
   });
 
-  return dedupePorts([...fromVariables, ...fromSurface]);
+  return dedupePorts([...fromBlackBox, ...fromVariables, ...fromSurface]);
 }
 
 export function bindingIdentity(

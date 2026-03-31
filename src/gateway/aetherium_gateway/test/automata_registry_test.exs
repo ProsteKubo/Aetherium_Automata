@@ -7,7 +7,9 @@ defmodule AetheriumGateway.AutomataRegistryTest do
   # The registry is already started by the application
   setup do
     # Generate unique prefix for this test run
-    prefix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    prefix =
+      "#{System.system_time(:microsecond)}-#{:erlang.unique_integer([:positive, :monotonic])}"
+
     {:ok, prefix: prefix}
   end
 
@@ -129,15 +131,46 @@ defmodule AetheriumGateway.AutomataRegistryTest do
       {:ok, deployment} = AutomataRegistry.deploy_automata(auto_id, device_id, "#{prefix}-srv-1")
 
       # Use cast (returns :ok immediately)
-      :ok = AutomataRegistry.update_deployment_status(deployment.automata_id, device_id, :running)
+      :ok =
+        AutomataRegistry.update_deployment_status(deployment.automata_id, device_id, :running, %{
+          deployment_metadata: %{
+            "battery" => %{"percent" => 91.5},
+            "latency" => %{"observed_ms" => 14}
+          }
+        })
 
       # Small delay to allow cast to process
       Process.sleep(10)
 
       {:ok, updated} = AutomataRegistry.get_device_deployment(device_id)
       assert updated.status == :running
+      assert updated.deployment_metadata["battery"]["percent"] == 91.5
+      assert updated.deployment_metadata["latency"]["observed_ms"] == 14
 
       # Cleanup
+      AutomataRegistry.delete_automata(auto_id)
+    end
+
+    test "updates deployment status when deployment_metadata is nil", %{prefix: prefix} do
+      auto_id = "#{prefix}-auto-3b"
+      device_id = "#{prefix}-dev-3b"
+
+      :ok = AutomataRegistry.register_automata(sample_automata(auto_id))
+      {:ok, deployment} = AutomataRegistry.deploy_automata(auto_id, device_id, "#{prefix}-srv-1")
+
+      :ok =
+        AutomataRegistry.update_deployment_status(deployment.automata_id, device_id, :running, %{
+          current_state: "s2",
+          deployment_metadata: nil
+        })
+
+      Process.sleep(10)
+
+      {:ok, updated} = AutomataRegistry.get_device_deployment(device_id)
+      assert updated.status == :running
+      assert updated.current_state == "s2"
+      assert updated.deployment_metadata == %{}
+
       AutomataRegistry.delete_automata(auto_id)
     end
 
@@ -163,7 +196,12 @@ defmodule AetheriumGateway.AutomataRegistryTest do
             "device_id" => device_a,
             "status" => "running",
             "current_state" => "s2",
-            "variables" => %{"result" => 42}
+            "variables" => %{"result" => 42},
+            "deployment_metadata" => %{
+              "placement" => "device",
+              "latency" => %{"observed_ms" => 27},
+              "battery" => %{"percent" => 77.0}
+            }
           }
         ])
 
@@ -173,6 +211,9 @@ defmodule AetheriumGateway.AutomataRegistryTest do
       assert dep_a.status == :running
       assert dep_a.current_state == "s2"
       assert dep_a.variables["result"] == 42
+      assert dep_a.deployment_metadata["placement"] == "device"
+      assert dep_a.deployment_metadata["latency"]["observed_ms"] == 27
+      assert dep_a.deployment_metadata["battery"]["percent"] == 77.0
       assert dep_b.status == :stopped
       assert dep_b.current_state == nil
 

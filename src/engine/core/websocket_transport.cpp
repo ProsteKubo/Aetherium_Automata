@@ -158,6 +158,7 @@ void WebSocketTransport::sendHello() {
     hello.capabilities.setLua(true);
     hello.capabilities.setTimed(true);
     hello.capabilities.setProbabilistic(true);
+    hello.deployment = helloDeployment_;
     
     send(std::make_unique<protocol::HelloMessage>(hello));
 }
