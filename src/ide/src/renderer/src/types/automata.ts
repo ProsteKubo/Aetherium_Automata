@@ -490,6 +490,7 @@ export interface GatewayConnection {
 export type EditorMode = 'visual' | 'code' | 'split';
 export type PanelId =
   | 'automata'
+  | 'blackboxes'
   | 'devices'
   | 'network'
   | 'petri'

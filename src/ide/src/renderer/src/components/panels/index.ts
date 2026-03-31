@@ -10,6 +10,7 @@ export { DevicesPanel } from './DevicesPanel';
 export { RuntimeMonitorPanel } from './RuntimeMonitorPanel';
 export { GatewayPanel } from './GatewayPanel';
 export { NetworkPanel } from './NetworkPanel';
+export { BlackBoxesPanel } from './BlackBoxesPanel';
 export { PetriNetPanel } from './PetriNetPanel';
 
 // New visual improvement panels
