@@ -14,6 +14,8 @@ import type {
   AutomataBinding,
   BlackBoxDescription,
   BlackBoxSnapshot,
+  AnalyzerBundle,
+  AnalyzerQuery,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -218,6 +220,8 @@ export interface IGatewayService {
     target?: RuntimeCommandTarget,
     options?: SnapshotRequestOptions,
   ): Promise<ExecutionSnapshotResponse>;
+
+  queryAnalyzer(input: AnalyzerQuery): Promise<AnalyzerBundle>;
   
   // Time Travel
   startTimeTravel(deviceId: DeviceId, options?: {

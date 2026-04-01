@@ -8,6 +8,7 @@ export * from './uiStore';
 export * from './executionStore';
 export * from './projectStore';
 export * from './runtimeViewStore';
+export * from './analyzerStore';
 export { useLogStore } from './logStore';
 
 // Set up cross-store references to avoid circular dependencies

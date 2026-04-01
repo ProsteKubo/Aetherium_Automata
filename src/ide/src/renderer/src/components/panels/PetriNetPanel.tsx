@@ -14,6 +14,7 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import {
+  useAnalyzerStore,
   useAutomataStore,
   useExecutionStore,
   useGatewayStore,
@@ -284,6 +285,8 @@ export const PetriNetPanel: React.FC = () => {
   const automataMap = useAutomataStore((state) => state.automata);
   const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
+  const updateAnalyzerQuery = useAnalyzerStore((state) => state.updateQuery);
+  const refreshAnalyzer = useAnalyzerStore((state) => state.refresh);
   const deviceExecutions = useExecutionStore((state) => state.deviceExecutions);
   const devices = useGatewayStore((state) => state.devices);
   const gatewayStatus = useGatewayStore((state) => state.status);
@@ -348,6 +351,27 @@ export const PetriNetPanel: React.FC = () => {
     activatePanel('automata');
     activatePanel('connections');
   }, [activatePanel]);
+
+  const openAnalyzer = useCallback(
+    async (automataIds: string[]) => {
+      const scopedAutomataIds = Array.from(new Set(automataIds.filter(Boolean)));
+      if (scopedAutomataIds.length === 0) {
+        return;
+      }
+
+      const ui = useUIStore.getState();
+      if (!ui.layout.panels.analyzer?.isVisible) {
+        ui.togglePanel('analyzer');
+      }
+      updateAnalyzerQuery({
+        scope: 'group',
+        automataIds: scopedAutomataIds,
+        deploymentIds: undefined,
+      });
+      await refreshAnalyzer();
+    },
+    [refreshAnalyzer, updateAnalyzerQuery],
+  );
 
   const executionSnapshots = useMemo(() => {
     const snapshots = new Map<string, ExecutionSnapshot | null>();
@@ -1150,6 +1174,15 @@ export const PetriNetPanel: React.FC = () => {
                       </button>
                     ))}
                   </div>
+                  <div className="petri-inspector-actions">
+                    <button
+                      type="button"
+                      className="btn btn-secondary btn-sm"
+                      onClick={() => void openAnalyzer(mergeGroup.automataIds)}
+                    >
+                      Open In Analyzer
+                    </button>
+                  </div>
 
                   <div className="petri-inspector-block">
                     <div className="petri-block-title">Bindings</div>
@@ -1208,6 +1241,17 @@ export const PetriNetPanel: React.FC = () => {
                     This scope contains one automaton only. Import a demo set or switch to a multi-automata
                     group to see an actual merged net.
                   </div>
+                  {scopedGroups[0]?.automataIds[0] && (
+                    <div className="petri-inspector-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void openAnalyzer(scopedGroups[0].automataIds)}
+                      >
+                        Analyze This Automata
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -1254,6 +1298,15 @@ export const PetriNetPanel: React.FC = () => {
                     >
                       Open Connections
                     </button>
+                    {selectedNode.source.automataId && (
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void openAnalyzer([selectedNode.source.automataId!])}
+                      >
+                        Open In Analyzer
+                      </button>
+                    )}
                   </div>
                   {selectedNode.source.automataId && (
                     <button
@@ -1324,6 +1377,17 @@ export const PetriNetPanel: React.FC = () => {
                     <span>{selectedEdge.label || selectedEdge.id}</span>
                     <span className="petri-chip">arc</span>
                   </div>
+                  {selectedGroupAutomata.length > 0 && (
+                    <div className="petri-inspector-actions">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void openAnalyzer(selectedGroupAutomata)}
+                      >
+                        Open In Analyzer
+                      </button>
+                    </div>
+                  )}
                   <div className="petri-inspector-grid">
                     <div>
                       <span className="petri-kv-label">From</span>

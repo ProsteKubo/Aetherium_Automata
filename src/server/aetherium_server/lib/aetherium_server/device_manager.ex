@@ -13,6 +13,8 @@ defmodule AetheriumServer.DeviceManager do
   require Logger
 
   alias AetheriumServer.AutomataDeployCompiler
+  alias AetheriumServer.AnalyzerBundle
+  alias AetheriumServer.AnalyzerProjection
   alias AetheriumServer.DeviceConnector
   alias AetheriumServer.DeviceSessionRef
   alias AetheriumServer.EngineProtocol
@@ -234,6 +236,12 @@ defmodule AetheriumServer.DeviceManager do
   @spec rewind_deployment(String.t(), non_neg_integer()) :: {:ok, map()} | {:error, term()}
   def rewind_deployment(deployment_id, timestamp_ms) do
     GenServer.call(__MODULE__, {:rewind_deployment, deployment_id, timestamp_ms})
+  end
+
+  @doc "Query a deployment-aware analyzer bundle"
+  @spec query_analyzer(map()) :: {:ok, map()} | {:error, term()}
+  def query_analyzer(query) when is_map(query) do
+    GenServer.call(__MODULE__, {:query_analyzer, query}, 30_000)
   end
 
   # ============================================================================
@@ -906,6 +914,16 @@ defmodule AetheriumServer.DeviceManager do
             {:reply, {:error, reason}, state}
         end
     end
+  end
+
+  @impl true
+  def handle_call({:query_analyzer, query}, _from, state) do
+    reply =
+      with {:ok, bundle} <- AnalyzerBundle.build(query, state) do
+        {:ok, AnalyzerProjection.project(bundle)}
+      end
+
+    {:reply, reply, state}
   end
 
   defp do_deploy_compiled_automata(compiled, automata_id, device_id, automata, device, state) do
