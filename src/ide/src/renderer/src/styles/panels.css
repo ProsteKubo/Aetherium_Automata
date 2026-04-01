@@ -5435,3 +5435,279 @@
     align-items: stretch;
   }
 }
+
+.analyzer-shell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+  height: 100%;
+  min-height: 0;
+  padding: var(--spacing-4);
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.12), transparent 32%),
+    radial-gradient(circle at bottom left, rgba(245, 158, 11, 0.08), transparent 24%),
+    rgba(7, 12, 22, 0.96);
+}
+
+.analyzer-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-xl);
+  background: rgba(15, 23, 42, 0.82);
+}
+
+.analyzer-toolbar-group {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--spacing-3);
+  flex-wrap: wrap;
+}
+
+.analyzer-toolbar-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  min-width: 120px;
+}
+
+.analyzer-toolbar-field span,
+.analyzer-toolbar-toggle span,
+.analyzer-summary-card span,
+.analyzer-inspector-grid span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.analyzer-toolbar-field select,
+.analyzer-toolbar-field input {
+  min-height: 40px;
+  padding: 0 var(--spacing-3);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: var(--radius-lg);
+  background: rgba(8, 15, 28, 0.92);
+  color: var(--color-text-primary);
+}
+
+.analyzer-search {
+  min-width: 280px;
+}
+
+.analyzer-toolbar-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  min-height: 40px;
+}
+
+.analyzer-demo-strip {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.analyzer-demo-strip.compact {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 320px));
+}
+
+.analyzer-demo-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-xl);
+  background:
+    radial-gradient(circle at top right, rgba(96, 165, 250, 0.12), transparent 36%),
+    rgba(15, 23, 42, 0.82);
+}
+
+.analyzer-demo-card p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.analyzer-demo-meta,
+.analyzer-pane-subtitle {
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--color-text-tertiary);
+}
+
+.analyzer-workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr) 340px;
+  gap: var(--spacing-4);
+  min-height: 0;
+  flex: 1;
+}
+
+.analyzer-findings,
+.analyzer-inspector,
+.analyzer-canvas {
+  min-height: 0;
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-xl);
+  background: rgba(10, 16, 28, 0.9);
+  overflow: hidden;
+}
+
+.analyzer-pane-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+}
+
+.analyzer-pane-header h3 {
+  margin: 0;
+}
+
+.analyzer-warning-list,
+.analyzer-finding-list,
+.analyzer-inspector-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  padding: var(--spacing-4);
+}
+
+.analyzer-warning-chip {
+  padding: var(--spacing-3);
+  border: 1px solid rgba(245, 158, 11, 0.18);
+  border-radius: var(--radius-lg);
+  background: rgba(120, 53, 15, 0.25);
+  color: #fcd34d;
+}
+
+.analyzer-finding-list {
+  overflow: auto;
+}
+
+.analyzer-finding-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+  padding: var(--spacing-4);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-lg);
+  background: rgba(15, 23, 42, 0.86);
+  color: var(--color-text-primary);
+  text-align: left;
+}
+
+.analyzer-finding-card.active {
+  border-color: rgba(96, 165, 250, 0.55);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.analyzer-finding-card.severity-critical {
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+.analyzer-finding-card.severity-warning {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.analyzer-finding-card p {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.analyzer-finding-meta,
+.analyzer-inspector-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+
+.analyzer-chip {
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.95);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+  text-transform: uppercase;
+}
+
+.analyzer-canvas .react-flow {
+  background:
+    linear-gradient(rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(148, 163, 184, 0.04) 1px, transparent 1px),
+    rgba(7, 12, 22, 0.98);
+  background-size: 24px 24px;
+}
+
+.analyzer-inspector-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.analyzer-inspector-grid strong,
+.analyzer-summary-card strong {
+  display: block;
+  margin-top: var(--spacing-1);
+  font-size: var(--font-size-lg);
+}
+
+.analyzer-inspector-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.analyzer-list-row,
+.analyzer-empty-state,
+.analyzer-error-banner {
+  padding: var(--spacing-3);
+  border-radius: var(--radius-lg);
+  background: rgba(15, 23, 42, 0.85);
+}
+
+.analyzer-error-banner {
+  margin: 0 var(--spacing-4);
+  border: 1px solid rgba(239, 68, 68, 0.24);
+  color: #fecaca;
+}
+
+.analyzer-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--spacing-3);
+}
+
+.analyzer-summary-card {
+  padding: var(--spacing-4);
+  border: 1px solid rgba(148, 163, 184, 0.12);
+  border-radius: var(--radius-xl);
+  background: rgba(15, 23, 42, 0.82);
+}
+
+@media (max-width: 1580px) {
+  .analyzer-workspace {
+    grid-template-columns: 280px minmax(0, 1fr) 300px;
+  }
+}
+
+@media (max-width: 1220px) {
+  .analyzer-demo-strip {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analyzer-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .analyzer-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

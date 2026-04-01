@@ -505,6 +505,23 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
+  def handle_info(%PhoenixClient.Message{event: "analyzer_query", payload: payload}, state) do
+    {payload, envelope} = split_envelope(payload)
+
+    result =
+      case AetheriumServer.DeviceManager.query_analyzer(payload) do
+        {:ok, bundle} ->
+          {:ack, :ok, stringify_keys(bundle)}
+
+        {:error, reason} ->
+          {:error, reason, %{}}
+      end
+
+    push_command_outcome(state, envelope, "analyzer_query", result)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(%PhoenixClient.Message{event: "phx_error"} = message, state) do
     Logger.warning("Gateway channel error: #{inspect(message.payload)}")
     Process.send_after(self(), :try_join, state.join_retry_interval)

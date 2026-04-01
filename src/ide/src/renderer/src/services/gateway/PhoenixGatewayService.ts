@@ -16,6 +16,9 @@ import type {
   BlackBoxContract,
   BlackBoxDescription,
   BlackBoxSnapshot,
+  AnalyzerBundle,
+  AnalyzerFinding,
+  AnalyzerQuery,
   ExecutionSnapshot,
   TimeTravelSession,
   DeviceId,
@@ -746,6 +749,415 @@ export class PhoenixGatewayService implements IGatewayService {
         (runtimeState?.observableState as string | undefined),
       executionCycle:
         Number(runtimeState?.execution_cycle ?? runtimeState?.executionCycle ?? runtimeState?.tick ?? 0) || 0,
+    };
+  }
+
+  private normalizeAnalyzerBundle(bundle: Record<string, any>): AnalyzerBundle {
+    const findingsRaw = Array.isArray(bundle.findings) ? bundle.findings : [];
+    const graphRaw = bundle.graph && typeof bundle.graph === 'object' ? bundle.graph : {};
+    const summaryRaw = bundle.summary && typeof bundle.summary === 'object' ? bundle.summary : {};
+    const queryRaw = bundle.query && typeof bundle.query === 'object' ? bundle.query : {};
+    const timelinesRaw = bundle.timelines && typeof bundle.timelines === 'object' ? bundle.timelines : {};
+
+    const findings: AnalyzerFinding[] = findingsRaw.map((finding: any) => ({
+      id: String(finding?.id ?? this.makeId('an_finding')),
+      kind: String(finding?.kind ?? 'unknown_evidence') as AnalyzerFinding['kind'],
+      severity: String(finding?.severity ?? 'info') as AnalyzerFinding['severity'],
+      confidence: String(finding?.confidence ?? 'inferred') as AnalyzerFinding['confidence'],
+      title: String(finding?.title ?? 'Analyzer finding'),
+      summary: String(finding?.summary ?? ''),
+      resource: finding?.resource
+        ? {
+            name: String(finding.resource.name ?? 'resource'),
+            kind: finding.resource.kind ? String(finding.resource.kind) : undefined,
+            capacity:
+              typeof finding.resource.capacity === 'number' ? finding.resource.capacity : undefined,
+            shared:
+              typeof finding.resource.shared === 'boolean' ? finding.resource.shared : undefined,
+            latencySensitive:
+              typeof finding.resource.latency_sensitive === 'boolean'
+                ? finding.resource.latency_sensitive
+                : typeof finding.resource.latencySensitive === 'boolean'
+                  ? finding.resource.latencySensitive
+                  : undefined,
+            description: finding.resource.description ? String(finding.resource.description) : undefined,
+            participants: {
+              automataIds: Array.isArray(finding.resource.participants?.automata_ids)
+                ? finding.resource.participants.automata_ids.map(String) as AutomataId[]
+                : Array.isArray(finding.resource.participants?.automataIds)
+                  ? finding.resource.participants.automataIds.map(String) as AutomataId[]
+                  : [],
+              deploymentIds: Array.isArray(finding.resource.participants?.deployment_ids)
+                ? finding.resource.participants.deployment_ids.map(String)
+                : Array.isArray(finding.resource.participants?.deploymentIds)
+                  ? finding.resource.participants.deploymentIds.map(String)
+                  : [],
+            },
+          }
+        : undefined,
+      connection: finding?.connection
+        ? {
+            id: String(finding.connection.id ?? ''),
+            sourceAutomata: String(
+              finding.connection.source_automata ?? finding.connection.sourceAutomata ?? '',
+            ) as AutomataId,
+            sourceOutput: String(
+              finding.connection.source_output ?? finding.connection.sourceOutput ?? '',
+            ),
+            targetAutomata: String(
+              finding.connection.target_automata ?? finding.connection.targetAutomata ?? '',
+            ) as AutomataId,
+            targetInput: String(
+              finding.connection.target_input ?? finding.connection.targetInput ?? '',
+            ),
+            enabled:
+              typeof finding.connection.enabled === 'boolean' ? finding.connection.enabled : undefined,
+            bindingType: finding.connection.binding_type
+              ? String(finding.connection.binding_type)
+              : finding.connection.bindingType
+                ? String(finding.connection.bindingType)
+                : undefined,
+          }
+        : undefined,
+      sourceRefs: {
+        automataIds: Array.isArray(finding?.source_refs?.automata_ids)
+          ? finding.source_refs.automata_ids.map(String) as AutomataId[]
+          : Array.isArray(finding?.sourceRefs?.automataIds)
+            ? finding.sourceRefs.automataIds.map(String) as AutomataId[]
+            : [],
+        deploymentIds: Array.isArray(finding?.source_refs?.deployment_ids)
+          ? finding.source_refs.deployment_ids.map(String)
+          : Array.isArray(finding?.sourceRefs?.deploymentIds)
+            ? finding.sourceRefs.deploymentIds.map(String)
+            : [],
+        connectionIds: Array.isArray(finding?.source_refs?.connection_ids)
+          ? finding.source_refs.connection_ids.map(String)
+          : Array.isArray(finding?.sourceRefs?.connectionIds)
+            ? finding.sourceRefs.connectionIds.map(String)
+            : [],
+        resourceNames: Array.isArray(finding?.source_refs?.resource_names)
+          ? finding.source_refs.resource_names.map(String)
+          : Array.isArray(finding?.sourceRefs?.resourceNames)
+            ? finding.sourceRefs.resourceNames.map(String)
+            : [],
+      },
+      metrics:
+        finding?.metrics && typeof finding.metrics === 'object'
+          ? (finding.metrics as Record<string, number | string | boolean>)
+          : undefined,
+      evidence: Array.isArray(finding?.evidence)
+        ? finding.evidence.map((entry: any) => ({
+            type: String(entry?.type ?? 'unknown'),
+            deploymentId:
+              entry?.deployment_id !== undefined
+                ? String(entry.deployment_id)
+                : entry?.deploymentId !== undefined
+                  ? String(entry.deploymentId)
+                  : undefined,
+            eventCount:
+              typeof entry?.event_count === 'number'
+                ? entry.event_count
+                : typeof entry?.eventCount === 'number'
+                  ? entry.eventCount
+                  : undefined,
+          }))
+        : [],
+    }));
+
+    return {
+      query: {
+        scope: String(queryRaw.scope ?? 'project') as AnalyzerBundle['query']['scope'],
+        deploymentIds: Array.isArray(queryRaw.deployment_ids)
+          ? queryRaw.deployment_ids.map(String)
+          : Array.isArray(queryRaw.deploymentIds)
+            ? queryRaw.deploymentIds.map(String)
+            : [],
+        automataIds: Array.isArray(queryRaw.automata_ids)
+          ? queryRaw.automata_ids.map(String) as AutomataId[]
+          : Array.isArray(queryRaw.automataIds)
+            ? queryRaw.automataIds.map(String) as AutomataId[]
+            : [],
+        afterTs:
+          typeof queryRaw.after_ts === 'number'
+            ? queryRaw.after_ts
+            : typeof queryRaw.afterTs === 'number'
+              ? queryRaw.afterTs
+              : undefined,
+        beforeTs:
+          typeof queryRaw.before_ts === 'number'
+            ? queryRaw.before_ts
+            : typeof queryRaw.beforeTs === 'number'
+              ? queryRaw.beforeTs
+              : undefined,
+        includeStructural:
+          typeof queryRaw.include_structural === 'boolean'
+            ? queryRaw.include_structural
+            : typeof queryRaw.includeStructural === 'boolean'
+              ? queryRaw.includeStructural
+              : true,
+        includeTimeline:
+          typeof queryRaw.include_timeline === 'boolean'
+            ? queryRaw.include_timeline
+            : typeof queryRaw.includeTimeline === 'boolean'
+              ? queryRaw.includeTimeline
+              : true,
+        limit:
+          typeof queryRaw.limit === 'number' && Number.isFinite(queryRaw.limit)
+            ? queryRaw.limit
+            : 5000,
+      },
+      generatedAt:
+        typeof bundle.generated_at === 'number'
+          ? bundle.generated_at
+          : typeof bundle.generatedAt === 'number'
+            ? bundle.generatedAt
+            : Date.now(),
+      evidenceMode: String(bundle.evidence_mode ?? bundle.evidenceMode ?? 'structural_only') as AnalyzerBundle['evidenceMode'],
+      warnings: Array.isArray(bundle.warnings) ? bundle.warnings.map(String) : [],
+      automata: Array.isArray(bundle.automata) ? bundle.automata : [],
+      deployments: Array.isArray(bundle.deployments)
+        ? bundle.deployments.map((deployment: any) => ({
+            deploymentId: String(deployment.deployment_id ?? deployment.deploymentId ?? ''),
+            automataId: String(deployment.automata_id ?? deployment.automataId ?? 'unknown') as AutomataId,
+            deviceId:
+              deployment.device_id !== undefined
+                ? (String(deployment.device_id) as DeviceId)
+                : deployment.deviceId !== undefined
+                  ? (String(deployment.deviceId) as DeviceId)
+                  : undefined,
+            serverId:
+              deployment.server_id !== undefined
+                ? (String(deployment.server_id) as ServerId)
+                : deployment.serverId !== undefined
+                  ? (String(deployment.serverId) as ServerId)
+                  : undefined,
+            status: deployment.status ? String(deployment.status) : undefined,
+            currentState:
+              deployment.current_state !== undefined
+                ? String(deployment.current_state)
+                : deployment.currentState !== undefined
+                  ? String(deployment.currentState)
+                  : undefined,
+            variables:
+              deployment.variables && typeof deployment.variables === 'object'
+                ? deployment.variables
+                : undefined,
+            deploymentMetadata:
+              deployment.deployment_metadata && typeof deployment.deployment_metadata === 'object'
+                ? deployment.deployment_metadata
+                : deployment.deploymentMetadata && typeof deployment.deploymentMetadata === 'object'
+                  ? deployment.deploymentMetadata
+                  : undefined,
+          }))
+        : [],
+      connections: Array.isArray(bundle.connections)
+        ? bundle.connections.map((connection: any) => ({
+            id: String(connection.id ?? ''),
+            sourceAutomata: String(connection.source_automata ?? connection.sourceAutomata ?? '') as AutomataId,
+            sourceOutput: String(connection.source_output ?? connection.sourceOutput ?? ''),
+            targetAutomata: String(connection.target_automata ?? connection.targetAutomata ?? '') as AutomataId,
+            targetInput: String(connection.target_input ?? connection.targetInput ?? ''),
+            enabled: typeof connection.enabled === 'boolean' ? connection.enabled : undefined,
+            bindingType:
+              connection.binding_type !== undefined
+                ? String(connection.binding_type)
+                : connection.bindingType !== undefined
+                  ? String(connection.bindingType)
+                  : undefined,
+          }))
+        : [],
+      resources: Array.isArray(bundle.resources)
+        ? bundle.resources.map((resource: any) => ({
+            name: String(resource.name ?? 'resource'),
+            kind: resource.kind ? String(resource.kind) : undefined,
+            capacity: typeof resource.capacity === 'number' ? resource.capacity : undefined,
+            shared: typeof resource.shared === 'boolean' ? resource.shared : undefined,
+            latencySensitive:
+              typeof resource.latency_sensitive === 'boolean'
+                ? resource.latency_sensitive
+                : typeof resource.latencySensitive === 'boolean'
+                  ? resource.latencySensitive
+                  : undefined,
+            description: resource.description ? String(resource.description) : undefined,
+            participants: {
+              automataIds: Array.isArray(resource.participants?.automata_ids)
+                ? resource.participants.automata_ids.map(String) as AutomataId[]
+                : Array.isArray(resource.participants?.automataIds)
+                  ? resource.participants.automataIds.map(String) as AutomataId[]
+                  : [],
+              deploymentIds: Array.isArray(resource.participants?.deployment_ids)
+                ? resource.participants.deployment_ids.map(String)
+                : Array.isArray(resource.participants?.deploymentIds)
+                  ? resource.participants.deploymentIds.map(String)
+                  : [],
+            },
+          }))
+        : [],
+      timelines: Object.fromEntries(
+        Object.entries(timelinesRaw).map(([deploymentId, timeline]: [string, any]) => [
+          deploymentId,
+          {
+            deploymentId,
+            automataId:
+              timeline?.automata_id !== undefined
+                ? (String(timeline.automata_id) as AutomataId)
+                : timeline?.automataId !== undefined
+                  ? (String(timeline.automataId) as AutomataId)
+                  : undefined,
+            deviceId:
+              timeline?.device_id !== undefined
+                ? (String(timeline.device_id) as DeviceId)
+                : timeline?.deviceId !== undefined
+                  ? (String(timeline.deviceId) as DeviceId)
+                  : undefined,
+            source: timeline?.source ? String(timeline.source) : undefined,
+            backendError:
+              timeline?.backend_error !== undefined
+                ? String(timeline.backend_error)
+                : timeline?.backendError !== undefined
+                  ? String(timeline.backendError)
+                  : undefined,
+            events: Array.isArray(timeline?.events)
+              ? timeline.events.map((event: any) => ({
+                  id: String(event?.id ?? `${deploymentId}:${event?.timestamp ?? 0}`),
+                  deploymentId: String(event?.deployment_id ?? event?.deploymentId ?? deploymentId),
+                  automataId:
+                    event?.automata_id !== undefined
+                      ? (String(event.automata_id) as AutomataId)
+                      : event?.automataId !== undefined
+                        ? (String(event.automataId) as AutomataId)
+                        : undefined,
+                  deviceId:
+                    event?.device_id !== undefined
+                      ? (String(event.device_id) as DeviceId)
+                      : event?.deviceId !== undefined
+                        ? (String(event.deviceId) as DeviceId)
+                        : undefined,
+                  timestamp:
+                    typeof event?.timestamp === 'number' ? event.timestamp : Date.now(),
+                  kind: String(event?.kind ?? 'unknown'),
+                  name: event?.name !== undefined ? String(event.name) : undefined,
+                  direction:
+                    event?.direction !== undefined ? String(event.direction) : undefined,
+                  value: event?.value,
+                  fromState:
+                    event?.from_state !== undefined
+                      ? String(event.from_state)
+                      : event?.fromState !== undefined
+                        ? String(event.fromState)
+                        : undefined,
+                  toState:
+                    event?.to_state !== undefined
+                      ? String(event.to_state)
+                      : event?.toState !== undefined
+                        ? String(event.toState)
+                        : undefined,
+                  transitionId:
+                    event?.transition_id !== undefined
+                      ? String(event.transition_id)
+                      : event?.transitionId !== undefined
+                        ? String(event.transitionId)
+                        : undefined,
+                  metadata:
+                    event?.metadata && typeof event.metadata === 'object'
+                      ? event.metadata
+                      : undefined,
+                }))
+              : [],
+            snapshots: Array.isArray(timeline?.snapshots) ? timeline.snapshots : [],
+          },
+        ]),
+      ),
+      findings,
+      graph: {
+        nodes: Array.isArray(graphRaw.nodes)
+          ? graphRaw.nodes.map((node: any) => ({
+              id: String(node?.id ?? ''),
+              kind: String(node?.kind ?? 'automata') as AnalyzerBundle['graph']['nodes'][number]['kind'],
+              label: String(node?.label ?? 'node'),
+              subtitle: node?.subtitle !== undefined ? String(node.subtitle) : undefined,
+              sourceRef:
+                node?.source_ref && typeof node.source_ref === 'object'
+                  ? {
+                      deploymentId:
+                        node.source_ref.deployment_id !== undefined
+                          ? String(node.source_ref.deployment_id)
+                          : undefined,
+                      automataId:
+                        node.source_ref.automata_id !== undefined
+                          ? (String(node.source_ref.automata_id) as AutomataId)
+                          : undefined,
+                      connectionId:
+                        node.source_ref.connection_id !== undefined
+                          ? String(node.source_ref.connection_id)
+                          : undefined,
+                      resourceName:
+                        node.source_ref.resource_name !== undefined
+                          ? String(node.source_ref.resource_name)
+                          : undefined,
+                    }
+                  : undefined,
+              metadata:
+                node?.metadata && typeof node.metadata === 'object' ? node.metadata : undefined,
+            }))
+          : [],
+        edges: Array.isArray(graphRaw.edges)
+          ? graphRaw.edges.map((edge: any) => ({
+              id: String(edge?.id ?? ''),
+              source: String(edge?.source ?? ''),
+              target: String(edge?.target ?? ''),
+              kind: String(edge?.kind ?? 'binding_out') as AnalyzerBundle['graph']['edges'][number]['kind'],
+              severity: String(edge?.severity ?? 'info') as AnalyzerBundle['graph']['edges'][number]['severity'],
+              metadata:
+                edge?.metadata && typeof edge.metadata === 'object' ? edge.metadata : undefined,
+            }))
+          : [],
+      },
+      summary: {
+        findingCount:
+          typeof summaryRaw.finding_count === 'number'
+            ? summaryRaw.finding_count
+            : typeof summaryRaw.findingCount === 'number'
+              ? summaryRaw.findingCount
+              : findings.length,
+        criticalCount:
+          typeof summaryRaw.critical_count === 'number'
+            ? summaryRaw.critical_count
+            : typeof summaryRaw.criticalCount === 'number'
+              ? summaryRaw.criticalCount
+              : findings.filter((finding) => finding.severity === 'critical').length,
+        sharedResourceCount:
+          typeof summaryRaw.shared_resource_count === 'number'
+            ? summaryRaw.shared_resource_count
+            : typeof summaryRaw.sharedResourceCount === 'number'
+              ? summaryRaw.sharedResourceCount
+              : 0,
+        observedFindingCount:
+          typeof summaryRaw.observed_finding_count === 'number'
+            ? summaryRaw.observed_finding_count
+            : typeof summaryRaw.observedFindingCount === 'number'
+              ? summaryRaw.observedFindingCount
+              : findings.filter((finding) => finding.confidence === 'observed' || finding.confidence === 'mixed').length,
+        structuralFindingCount:
+          typeof summaryRaw.structural_finding_count === 'number'
+            ? summaryRaw.structural_finding_count
+            : typeof summaryRaw.structuralFindingCount === 'number'
+              ? summaryRaw.structuralFindingCount
+              : findings.filter((finding) => finding.confidence === 'declared' || finding.confidence === 'inferred').length,
+        unknownEvidenceCount:
+          typeof summaryRaw.unknown_evidence_count === 'number'
+            ? summaryRaw.unknown_evidence_count
+            : typeof summaryRaw.unknownEvidenceCount === 'number'
+              ? summaryRaw.unknownEvidenceCount
+              : findings.filter((finding) => finding.kind === 'unknown_evidence').length,
+      },
+      source: bundle.source ? String(bundle.source) : undefined,
+      backendError:
+        bundle.backend_error !== undefined
+          ? String(bundle.backend_error)
+          : bundle.backendError !== undefined
+            ? String(bundle.backendError)
+            : undefined,
     };
   }
 
@@ -2219,6 +2631,50 @@ export class PhoenixGatewayService implements IGatewayService {
     } finally {
       this.snapshotInFlight.delete(cacheKey);
     }
+  }
+
+  async queryAnalyzer(input: AnalyzerQuery): Promise<AnalyzerBundle> {
+    const { response, outcome } = await this.sendAutomataCommandWithOutcome(
+      'analyzer_query',
+      {
+        scope: input.scope,
+        deployment_ids: input.deploymentIds,
+        automata_ids: input.automataIds,
+        server_id: input.serverId,
+        after_ts: input.afterTs,
+        before_ts: input.beforeTs,
+        include_structural: input.includeStructural ?? true,
+        include_timeline: input.includeTimeline ?? true,
+        limit: input.limit ?? 5000,
+      },
+      30_000,
+    );
+
+    const rawBundle =
+      (outcome.data?.bundle as Record<string, any> | undefined) ??
+      ((response as any)?.result?.bundle as Record<string, any> | undefined) ??
+      ((response as any)?.bundle as Record<string, any> | undefined) ??
+      {};
+
+    const normalized = this.normalizeAnalyzerBundle(rawBundle);
+    normalized.source =
+      typeof outcome.data?.source === 'string'
+        ? outcome.data.source
+        : typeof (response as any)?.result?.source === 'string'
+          ? (response as any).result.source
+          : typeof (response as any)?.source === 'string'
+            ? (response as any).source
+            : normalized.source;
+    normalized.backendError =
+      typeof outcome.data?.backend_error === 'string'
+        ? outcome.data.backend_error
+        : typeof (response as any)?.result?.backend_error === 'string'
+          ? (response as any).result.backend_error
+          : normalized.backendError;
+    if (Array.isArray(outcome.data?.warnings)) {
+      normalized.warnings = outcome.data.warnings.map(String);
+    }
+    return normalized;
   }
   
   async startTimeTravel(deviceId: DeviceId, options?: any): Promise<TimeTravelStartResponse> {

@@ -12,6 +12,7 @@ export { GatewayPanel } from './GatewayPanel';
 export { NetworkPanel } from './NetworkPanel';
 export { BlackBoxesPanel } from './BlackBoxesPanel';
 export { PetriNetPanel } from './PetriNetPanel';
+export { AnalyzerPanel } from './AnalyzerPanel';
 
 // New visual improvement panels
 export { TransitionGroupPanel } from './TransitionGroupPanel';

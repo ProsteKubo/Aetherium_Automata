@@ -9,3 +9,4 @@ export * from './transitions';
 export * from './connections';
 export * from './runtimeView';
 export * from './petri';
+export * from './analyzer';

@@ -355,6 +355,36 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
+  def handle_in("analyzer_query", payload, socket) do
+    with_command("analyzer_query", payload, socket, fn envelope ->
+      deployments = AutomataRegistry.list_deployments()
+      server_id = resolve_analyzer_server(payload, deployments)
+
+      case server_id do
+        nil ->
+          {:nak, :server_not_found, %{"reason" => "no_server_available_for_analyzer"}}
+
+        resolved_server_id ->
+          command_payload =
+            %{
+              "scope" => payload["scope"] || "project",
+              "deployment_ids" => normalize_string_list(payload["deployment_ids"]),
+              "automata_ids" => normalize_string_list(payload["automata_ids"]),
+              "after_ts" => payload["after_ts"] || payload["from_ts"],
+              "before_ts" => payload["before_ts"] || payload["to_ts"],
+              "include_structural" => Map.get(payload, "include_structural", true),
+              "include_timeline" => Map.get(payload, "include_timeline", true),
+              "limit" => payload["limit"],
+              "topology" => analyzer_topology(deployments)
+            }
+            |> drop_nil_values()
+
+          dispatch_server_command(resolved_server_id, "analyzer_query", command_payload, envelope)
+      end
+    end)
+  end
+
+  @impl true
   def handle_in("step_execution", payload, socket) do
     with_command("step_execution", payload, socket, fn _envelope ->
       {:nak, :unsupported_by_engine_protocol, %{}}
@@ -713,6 +743,56 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp dispatch_server_command(_server_id, _event, _payload, _envelope) do
     {:nak, :server_not_found, %{}}
+  end
+
+  defp analyzer_topology(deployments) when is_list(deployments) do
+    %{
+      "automata" => AutomataRegistry.list_automata() |> Enum.map(&serialize_automata/1),
+      "deployments" => Enum.map(deployments, &serialize_deployment/1),
+      "connections" => ConnectionManager.list_connections()
+    }
+  end
+
+  defp resolve_analyzer_server(payload, deployments) do
+    explicit_server_id = payload["server_id"]
+    deployment_ids = normalize_string_list(payload["deployment_ids"])
+
+    cond do
+      is_binary(explicit_server_id) and explicit_server_id != "" ->
+        explicit_server_id
+
+      deployment_ids != [] ->
+        deployments
+        |> Enum.filter(&(deployment_id_for(&1) in deployment_ids))
+        |> Enum.map(&field(&1, :server_id))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> List.first()
+
+      true ->
+        deployments
+        |> Enum.map(&field(&1, :server_id))
+        |> Enum.reject(&is_nil/1)
+        |> Enum.uniq()
+        |> List.first()
+    end
+  end
+
+  defp normalize_string_list(value) when is_list(value) do
+    value
+    |> Enum.map(&to_string/1)
+    |> Enum.reject(&(&1 == ""))
+    |> Enum.uniq()
+  end
+
+  defp normalize_string_list(value) when is_binary(value), do: [value]
+  defp normalize_string_list(_value), do: []
+
+  defp drop_nil_values(map) when is_map(map) do
+    Enum.reduce(map, %{}, fn
+      {_key, nil}, acc -> acc
+      {key, value}, acc -> Map.put(acc, key, value)
+    end)
   end
 
   defp resolve_device_deployment(device_id, payload) do
