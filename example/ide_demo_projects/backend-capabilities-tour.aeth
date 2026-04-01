@@ -1,0 +1,2002 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Backend Capabilities Tour",
+    "version": "0.1.0",
+    "description": "All-in-one presentation project with one network each for Petri conversion, analyzer contention, and black-box contract inspection.",
+    "author": "Aetherium Team",
+    "tags": [
+      "demo",
+      "petri",
+      "analyzer",
+      "black-box",
+      "presentation"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_tour_signal_chain",
+      "name": "Petri Signal Chain",
+      "description": "Operator-to-drive signal chain with derived bindings and one sealed drive automaton.",
+      "rootAutomataIds": [
+        "network_tour_signal_chain_01_petri_command_router",
+        "network_tour_signal_chain_02_petri_safety_gate",
+        "network_tour_signal_chain_03_petri_drive_unit_black_box",
+        "network_tour_signal_chain_04_petri_telemetry_observer"
+      ],
+      "automataIds": [
+        "network_tour_signal_chain_01_petri_command_router",
+        "network_tour_signal_chain_02_petri_safety_gate",
+        "network_tour_signal_chain_03_petri_drive_unit_black_box",
+        "network_tour_signal_chain_04_petri_telemetry_observer"
+      ],
+      "inputs": [
+        "operator_enable",
+        "watchdog_ok",
+        "arm_request",
+        "permit_ok",
+        "heartbeat",
+        "module_status",
+        "alarm_latched"
+      ],
+      "outputs": [
+        "arm_request",
+        "heartbeat",
+        "route_state",
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state",
+        "module_status",
+        "torque_ready",
+        "dashboard_ready",
+        "telemetry_state"
+      ],
+      "relativePath": "networks/tour-petri-signal-chain",
+      "color": "#1f6f78",
+      "icon": "network",
+      "isExpanded": true
+    },
+    {
+      "id": "network_tour_contention",
+      "name": "Analyzer Contention",
+      "description": "Allocator plus two consumers sharing one latency-sensitive dc_bus resource.",
+      "rootAutomataIds": [
+        "network_tour_contention_01_petri_power_allocator",
+        "network_tour_contention_02_petri_charger_node",
+        "network_tour_contention_03_petri_motion_axis"
+      ],
+      "automataIds": [
+        "network_tour_contention_01_petri_power_allocator",
+        "network_tour_contention_02_petri_charger_node",
+        "network_tour_contention_03_petri_motion_axis"
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion",
+        "charge_enable",
+        "drive_enable"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state",
+        "charger_state",
+        "axis_state"
+      ],
+      "relativePath": "networks/tour-analyzer-contention",
+      "color": "#c84c09",
+      "icon": "analysis",
+      "isExpanded": true
+    },
+    {
+      "id": "network_tour_black_boxes",
+      "name": "Black Box Contracts",
+      "description": "A compact contract set with observable ports, emitted events, and fault-injectable outputs.",
+      "rootAutomataIds": [
+        "network_tour_black_boxes_01_docker_black_box_probe",
+        "network_tour_black_boxes_02_petri_drive_unit_black_box",
+        "network_tour_black_boxes_03_petri_safety_gate"
+      ],
+      "automataIds": [
+        "network_tour_black_boxes_01_docker_black_box_probe",
+        "network_tour_black_boxes_02_petri_drive_unit_black_box",
+        "network_tour_black_boxes_03_petri_safety_gate"
+      ],
+      "inputs": [
+        "arm",
+        "fault",
+        "permit_ok",
+        "arm_request"
+      ],
+      "outputs": [
+        "armed",
+        "status_code",
+        "module_status",
+        "torque_ready",
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "relativePath": "networks/tour-black-box-contracts",
+      "color": "#6b7a18",
+      "icon": "shield",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_tour_signal_chain_01_petri_command_router": {
+      "id": "network_tour_signal_chain_01_petri_command_router",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Command Router",
+        "type": "inline",
+        "language": "lua",
+        "description": "Emits operator command topics that drive the Petri signal-chain demo.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [
+            "operator_enable"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"standby\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [
+            "watchdog_ok"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", true)\nsetVal(\"heartbeat\", true)\nsetVal(\"route_state\", \"armed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Fault": {
+          "id": "Fault",
+          "name": "Fault",
+          "inputs": [],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"fault\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "operator_enable_to_armed": {
+          "id": "operator_enable_to_armed",
+          "name": "operator_enable_to_armed",
+          "from": "Standby",
+          "to": "Armed",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "watchdog_drop_to_fault": {
+          "id": "watchdog_drop_to_fault",
+          "name": "watchdog_drop_to_fault",
+          "from": "Armed",
+          "to": "Fault",
+          "type": "classic",
+          "condition": "value(\"watchdog_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "operator_release_to_standby": {
+          "id": "operator_release_to_standby",
+          "name": "operator_release_to_standby",
+          "from": "Armed",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false and value(\"watchdog_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "fault_reset": {
+          "id": "fault_reset",
+          "name": "fault_reset",
+          "from": "Fault",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false and value(\"watchdog_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "operator_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "watchdog_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        }
+      ],
+      "inputs": [
+        "operator_enable",
+        "watchdog_ok"
+      ],
+      "outputs": [
+        "arm_request",
+        "heartbeat",
+        "route_state"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_signal_chain_02_petri_safety_gate": {
+      "id": "network_tour_signal_chain_02_petri_safety_gate",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Safety Gate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Turns arm requests into permits while sharing the same field bus as downstream nodes.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "safety"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Inhibit",
+      "states": {
+        "Inhibit": {
+          "id": "Inhibit",
+          "name": "Inhibit",
+          "inputs": [
+            "arm_request"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"reserved\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"inhibit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Permit": {
+          "id": "Permit",
+          "name": "Permit",
+          "inputs": [
+            "arm_request"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"passing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", true)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"tripped\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", true)\nsetVal(\"supervisor_state\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "request_to_permit": {
+          "id": "request_to_permit",
+          "name": "request_to_permit",
+          "from": "Inhibit",
+          "to": "Permit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_to_inhibit": {
+          "id": "release_to_inhibit",
+          "name": "release_to_inhibit",
+          "from": "Permit",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarm_trip": {
+          "id": "alarm_trip",
+          "name": "alarm_trip",
+          "from": "Permit",
+          "to": "Alarm",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 3,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "alarm_reset": {
+          "id": "alarm_reset",
+          "name": "alarm_reset",
+          "from": "Alarm",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "inhibit"
+        }
+      ],
+      "inputs": [
+        "arm_request"
+      ],
+      "outputs": [
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm_request",
+            "direction": "input",
+            "type": "bool",
+            "description": "Routed arm request from the operator side"
+          },
+          {
+            "name": "permit_ok",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Safety permission for the drive unit"
+          },
+          {
+            "name": "alarm_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Alarm path consumed by telemetry"
+          }
+        ],
+        "observableStates": [
+          "Inhibit",
+          "Permit",
+          "Alarm"
+        ],
+        "emittedEvents": [
+          "supervisor_alarm"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_signal_chain_03_petri_drive_unit_black_box": {
+      "id": "network_tour_signal_chain_03_petri_drive_unit_black_box",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Drive Unit Black Box",
+        "type": "inline",
+        "language": "lua",
+        "description": "Black-box drive node that consumes permit signals and shares bus/battery resources.",
+        "tags": [
+          "showcase",
+          "petri",
+          "black-box",
+          "signal-chain"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [
+            "permit_ok"
+          ],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"idle\"\nlocal battery_pack = \"float\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"idle\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Ready": {
+          "id": "Ready",
+          "name": "Ready",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"active\"\nlocal battery_pack = \"load\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"ready\")\nsetVal(\"torque_ready\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local battery_pack = \"recover\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"cooldown\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "permit_to_ready": {
+          "id": "permit_to_ready",
+          "name": "permit_to_ready",
+          "from": "Idle",
+          "to": "Ready",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_to_cooldown": {
+          "id": "release_to_cooldown",
+          "name": "release_to_cooldown",
+          "from": "Ready",
+          "to": "Cooldown",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_idle": {
+          "id": "cooldown_to_idle",
+          "name": "cooldown_to_idle",
+          "from": "Cooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "torque_ready",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "permit_ok"
+      ],
+      "outputs": [
+        "module_status",
+        "torque_ready"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "permit_ok",
+            "direction": "input",
+            "type": "bool",
+            "description": "Safety permit entering the sealed drive unit"
+          },
+          {
+            "name": "module_status",
+            "direction": "output",
+            "type": "string",
+            "observable": true,
+            "description": "Public black-box state channel"
+          },
+          {
+            "name": "torque_ready",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Public actuator readiness"
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "Ready",
+          "Cooldown"
+        ],
+        "emittedEvents": [
+          "torque_lost"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          },
+          {
+            "name": "battery_pack",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": false,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_signal_chain_04_petri_telemetry_observer": {
+      "id": "network_tour_signal_chain_04_petri_telemetry_observer",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Telemetry Observer",
+        "type": "inline",
+        "language": "lua",
+        "description": "Observes heartbeat, drive status, and alarm flow for the Petri signal-chain demo.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "telemetry"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Quiet",
+      "states": {
+        "Quiet": {
+          "id": "Quiet",
+          "name": "Quiet",
+          "inputs": [
+            "heartbeat",
+            "module_status",
+            "alarm_latched"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"listening\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", false)\nsetVal(\"telemetry_state\", \"quiet\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Streaming": {
+          "id": "Streaming",
+          "name": "Streaming",
+          "inputs": [
+            "heartbeat",
+            "module_status"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"streaming\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", value(\"module_status\"))\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Alarmed": {
+          "id": "Alarmed",
+          "name": "Alarmed",
+          "inputs": [
+            "alarm_latched"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "quiet_to_streaming": {
+          "id": "quiet_to_streaming",
+          "name": "quiet_to_streaming",
+          "from": "Quiet",
+          "to": "Streaming",
+          "type": "classic",
+          "condition": "value(\"heartbeat\") == true and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "streaming_to_quiet": {
+          "id": "streaming_to_quiet",
+          "name": "streaming_to_quiet",
+          "from": "Streaming",
+          "to": "Quiet",
+          "type": "classic",
+          "condition": "value(\"heartbeat\") == false and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "any_to_alarmed": {
+          "id": "any_to_alarmed",
+          "name": "any_to_alarmed",
+          "from": "Streaming",
+          "to": "Alarmed",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarmed_to_quiet": {
+          "id": "alarmed_to_quiet",
+          "name": "alarmed_to_quiet",
+          "from": "Alarmed",
+          "to": "Quiet",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == false and value(\"heartbeat\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "dashboard_ready",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "telemetry_state",
+          "type": "string",
+          "direction": "output",
+          "default": "quiet"
+        }
+      ],
+      "inputs": [
+        "heartbeat",
+        "module_status",
+        "alarm_latched"
+      ],
+      "outputs": [
+        "dashboard_ready",
+        "telemetry_state"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_contention_01_petri_power_allocator": {
+      "id": "network_tour_contention_01_petri_power_allocator",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Power Allocator",
+        "type": "inline",
+        "language": "lua",
+        "description": "Allocates shared bus access between charging and motion workloads.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"idle\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Charging": {
+          "id": "Charging",
+          "name": "Charging",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charge\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", true)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"charging\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Driving": {
+          "id": "Driving",
+          "name": "Driving",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"drive\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", true)\nsetVal(\"allocator_state\", \"driving\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_charging": {
+          "id": "idle_to_charging",
+          "name": "idle_to_charging",
+          "from": "Idle",
+          "to": "Charging",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_driving": {
+          "id": "idle_to_driving",
+          "name": "idle_to_driving",
+          "from": "Idle",
+          "to": "Driving",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "charging_to_idle": {
+          "id": "charging_to_idle",
+          "name": "charging_to_idle",
+          "from": "Charging",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "driving_to_idle": {
+          "id": "driving_to_idle",
+          "name": "driving_to_idle",
+          "from": "Driving",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "demand_charge",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "demand_motion",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "charge_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "drive_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "allocator_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        }
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_contention_02_petri_charger_node": {
+      "id": "network_tour_contention_02_petri_charger_node",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Charger Node",
+        "type": "inline",
+        "language": "lua",
+        "description": "Charging consumer competing for the shared dc_bus resource.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [],
+          "outputs": [
+            "charger_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"open\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"standby\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Charging": {
+          "id": "Charging",
+          "name": "Charging",
+          "inputs": [
+            "charge_enable"
+          ],
+          "outputs": [
+            "charger_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charging\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"charging\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_charging": {
+          "id": "start_charging",
+          "name": "start_charging",
+          "from": "Standby",
+          "to": "Charging",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_charging": {
+          "id": "stop_charging",
+          "name": "stop_charging",
+          "from": "Charging",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "charge_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "charger_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        }
+      ],
+      "inputs": [
+        "charge_enable"
+      ],
+      "outputs": [
+        "charger_state"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_contention_03_petri_motion_axis": {
+      "id": "network_tour_contention_03_petri_motion_axis",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Motion Axis",
+        "type": "inline",
+        "language": "lua",
+        "description": "Motion consumer competing for the same dc_bus resource as the charger.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Parked",
+      "states": {
+        "Parked": {
+          "id": "Parked",
+          "name": "Parked",
+          "inputs": [],
+          "outputs": [
+            "axis_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"parked\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"parked\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Moving": {
+          "id": "Moving",
+          "name": "Moving",
+          "inputs": [
+            "drive_enable"
+          ],
+          "outputs": [
+            "axis_state"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"moving\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"moving\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_motion": {
+          "id": "start_motion",
+          "name": "start_motion",
+          "from": "Parked",
+          "to": "Moving",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_motion": {
+          "id": "stop_motion",
+          "name": "stop_motion",
+          "from": "Moving",
+          "to": "Parked",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "drive_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "axis_state",
+          "type": "string",
+          "direction": "output",
+          "default": "parked"
+        }
+      ],
+      "inputs": [
+        "drive_enable"
+      ],
+      "outputs": [
+        "axis_state"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_black_boxes_01_docker_black_box_probe": {
+      "id": "network_tour_black_boxes_01_docker_black_box_probe",
+      "version": "0.0.1",
+      "config": {
+        "name": "Docker Black Box Probe",
+        "type": "inline",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", false)\nsetVal(\"status_code\", 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", true)\nsetVal(\"status_code\", 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Faulted": {
+          "id": "Faulted",
+          "name": "Faulted",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", false)\nsetVal(\"status_code\", 2)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "arm_box": {
+          "id": "arm_box",
+          "name": "arm_box",
+          "from": "Idle",
+          "to": "Armed",
+          "type": "classic",
+          "condition": "arm == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "trip_fault": {
+          "id": "trip_fault",
+          "name": "trip_fault",
+          "from": "Armed",
+          "to": "Faulted",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "reset_fault": {
+          "id": "reset_fault",
+          "name": "reset_fault",
+          "from": "Faulted",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "fault == false and arm == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "armed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "status_code",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "arm",
+        "fault"
+      ],
+      "outputs": [
+        "armed",
+        "status_code"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm",
+            "direction": "input",
+            "type": "bool",
+            "description": "External arming command"
+          },
+          {
+            "name": "fault",
+            "direction": "input",
+            "type": "bool",
+            "description": "External injected fault signal"
+          },
+          {
+            "name": "armed",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true,
+            "description": "Public arming indicator"
+          },
+          {
+            "name": "status_code",
+            "direction": "output",
+            "type": "int",
+            "observable": true,
+            "description": "Coarse external status register"
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "Armed",
+          "Faulted"
+        ],
+        "emittedEvents": [
+          "black_box_fault"
+        ],
+        "resources": [
+          {
+            "name": "battery_pack",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": false,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_black_boxes_02_petri_drive_unit_black_box": {
+      "id": "network_tour_black_boxes_02_petri_drive_unit_black_box",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Drive Unit Black Box",
+        "type": "inline",
+        "language": "lua",
+        "description": "Black-box drive node that consumes permit signals and shares bus/battery resources.",
+        "tags": [
+          "showcase",
+          "petri",
+          "black-box",
+          "signal-chain"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [
+            "permit_ok"
+          ],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"idle\"\nlocal battery_pack = \"float\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"idle\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Ready": {
+          "id": "Ready",
+          "name": "Ready",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"active\"\nlocal battery_pack = \"load\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"ready\")\nsetVal(\"torque_ready\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local battery_pack = \"recover\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"cooldown\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "permit_to_ready": {
+          "id": "permit_to_ready",
+          "name": "permit_to_ready",
+          "from": "Idle",
+          "to": "Ready",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_to_cooldown": {
+          "id": "release_to_cooldown",
+          "name": "release_to_cooldown",
+          "from": "Ready",
+          "to": "Cooldown",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_idle": {
+          "id": "cooldown_to_idle",
+          "name": "cooldown_to_idle",
+          "from": "Cooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "torque_ready",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "permit_ok"
+      ],
+      "outputs": [
+        "module_status",
+        "torque_ready"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "permit_ok",
+            "direction": "input",
+            "type": "bool",
+            "description": "Safety permit entering the sealed drive unit"
+          },
+          {
+            "name": "module_status",
+            "direction": "output",
+            "type": "string",
+            "observable": true,
+            "description": "Public black-box state channel"
+          },
+          {
+            "name": "torque_ready",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Public actuator readiness"
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "Ready",
+          "Cooldown"
+        ],
+        "emittedEvents": [
+          "torque_lost"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          },
+          {
+            "name": "battery_pack",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": false,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_tour_black_boxes_03_petri_safety_gate": {
+      "id": "network_tour_black_boxes_03_petri_safety_gate",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Safety Gate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Turns arm requests into permits while sharing the same field bus as downstream nodes.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "safety"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Inhibit",
+      "states": {
+        "Inhibit": {
+          "id": "Inhibit",
+          "name": "Inhibit",
+          "inputs": [
+            "arm_request"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"reserved\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"inhibit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Permit": {
+          "id": "Permit",
+          "name": "Permit",
+          "inputs": [
+            "arm_request"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"passing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", true)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"tripped\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", true)\nsetVal(\"supervisor_state\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "request_to_permit": {
+          "id": "request_to_permit",
+          "name": "request_to_permit",
+          "from": "Inhibit",
+          "to": "Permit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_to_inhibit": {
+          "id": "release_to_inhibit",
+          "name": "release_to_inhibit",
+          "from": "Permit",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarm_trip": {
+          "id": "alarm_trip",
+          "name": "alarm_trip",
+          "from": "Permit",
+          "to": "Alarm",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 3,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "alarm_reset": {
+          "id": "alarm_reset",
+          "name": "alarm_reset",
+          "from": "Alarm",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "inhibit"
+        }
+      ],
+      "inputs": [
+        "arm_request"
+      ],
+      "outputs": [
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm_request",
+            "direction": "input",
+            "type": "bool",
+            "description": "Routed arm request from the operator side"
+          },
+          {
+            "name": "permit_ok",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Safety permission for the drive unit"
+          },
+          {
+            "name": "alarm_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Alarm path consumed by telemetry"
+          }
+        ],
+        "observableStates": [
+          "Inhibit",
+          "Permit",
+          "Alarm"
+        ],
+        "emittedEvents": [
+          "supervisor_alarm"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

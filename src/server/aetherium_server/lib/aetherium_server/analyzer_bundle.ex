@@ -62,12 +62,15 @@ defmodule AetheriumServer.AnalyzerBundle do
 
     %{
       "scope" => scope,
-      "deployment_ids" => normalize_string_list(query["deployment_ids"] || query[:deployment_ids]),
+      "deployment_ids" =>
+        normalize_string_list(query["deployment_ids"] || query[:deployment_ids]),
       "automata_ids" => normalize_string_list(query["automata_ids"] || query[:automata_ids]),
       "after_ts" => normalize_non_negative_int(query["after_ts"] || query[:after_ts]),
       "before_ts" => normalize_non_negative_int(query["before_ts"] || query[:before_ts]),
-      "include_structural" => truthy?(Map.get(query, "include_structural", query[:include_structural]), true),
-      "include_timeline" => truthy?(Map.get(query, "include_timeline", query[:include_timeline]), true),
+      "include_structural" =>
+        truthy?(Map.get(query, "include_structural", query[:include_structural]), true),
+      "include_timeline" =>
+        truthy?(Map.get(query, "include_timeline", query[:include_timeline]), true),
       "limit" => normalize_limit(query["limit"] || query[:limit]),
       "topology" => query["topology"] || query[:topology] || %{}
     }
@@ -76,8 +79,10 @@ defmodule AetheriumServer.AnalyzerBundle do
   defp normalize_topology(topology) when is_map(topology) do
     %{
       "automata" => normalize_automata_list(topology["automata"] || topology[:automata]),
-      "deployments" => normalize_deployment_list(topology["deployments"] || topology[:deployments]),
-      "connections" => normalize_connection_list(topology["connections"] || topology[:connections])
+      "deployments" =>
+        normalize_deployment_list(topology["deployments"] || topology[:deployments]),
+      "connections" =>
+        normalize_connection_list(topology["connections"] || topology[:connections])
     }
   end
 
@@ -132,7 +137,8 @@ defmodule AetheriumServer.AnalyzerBundle do
       }
     end)
     |> Enum.reject(
-      &(blank?(&1["source_automata"]) or blank?(&1["source_output"]) or blank?(&1["target_automata"]) or
+      &(blank?(&1["source_automata"]) or blank?(&1["source_output"]) or
+          blank?(&1["target_automata"]) or
           blank?(&1["target_input"]))
     )
   end
@@ -200,8 +206,14 @@ defmodule AetheriumServer.AnalyzerBundle do
         ),
       "deployment_metadata" =>
         deep_merge(
-          if(is_map(existing["deployment_metadata"]), do: existing["deployment_metadata"], else: %{}),
-          if(is_map(incoming["deployment_metadata"]), do: incoming["deployment_metadata"], else: %{})
+          if(is_map(existing["deployment_metadata"]),
+            do: existing["deployment_metadata"],
+            else: %{}
+          ),
+          if(is_map(incoming["deployment_metadata"]),
+            do: incoming["deployment_metadata"],
+            else: %{}
+          )
         )
     }
   end
@@ -242,11 +254,16 @@ defmodule AetheriumServer.AnalyzerBundle do
         else
           key = {name, field(resource, :kind), field(resource, :shared, false)}
           entry = Map.get(resource_acc, key, initial_resource_entry(resource))
-          participant_deployment_ids = Enum.map(participants, fn participant -> participant["deployment_id"] end)
+
+          participant_deployment_ids =
+            Enum.map(participants, fn participant -> participant["deployment_id"] end)
 
           updated =
             entry
-            |> update_in(["participants", "automata_ids"], &Enum.uniq([automata_id | List.wrap(&1)]))
+            |> update_in(
+              ["participants", "automata_ids"],
+              &Enum.uniq([automata_id | List.wrap(&1)])
+            )
             |> update_in(
               ["participants", "deployment_ids"],
               fn existing ->
@@ -275,7 +292,10 @@ defmodule AetheriumServer.AnalyzerBundle do
         timeline = TimeSeriesQuery.list_timeline(deployment["deployment_id"], opts)
         source = timeline[:source] || timeline["source"] || "unknown"
         backend_error = timeline[:backend_error] || timeline["backend_error"]
-        events = normalize_timeline_events(timeline[:events] || timeline["events"] || [], deployment)
+
+        events =
+          normalize_timeline_events(timeline[:events] || timeline["events"] || [], deployment)
+
         snapshots = List.wrap(timeline[:snapshots] || timeline["snapshots"] || [])
 
         Map.put(acc, deployment["deployment_id"], %{
@@ -298,6 +318,11 @@ defmodule AetheriumServer.AnalyzerBundle do
       payload = event["payload"] || event[:payload] || event["data"] || event[:data] || %{}
       timestamp = event["timestamp"] || event[:timestamp] || System.system_time(:millisecond)
       kind = event["event"] || event[:event] || event["kind"] || event[:kind] || "unknown"
+      deployment_metadata = normalize_event_deployment_metadata(payload)
+      observed_latency_ms = latency_value(payload, deployment_metadata, "observed_ms")
+      latency_budget_ms = latency_value(payload, deployment_metadata, "budget_ms")
+      latency_warning_ms = latency_value(payload, deployment_metadata, "warning_ms")
+      fault_actions = normalize_string_list(field(payload, :fault_actions, []))
 
       %{
         "id" => "#{deployment["deployment_id"]}:#{timestamp}:#{kind}",
@@ -312,9 +337,94 @@ defmodule AetheriumServer.AnalyzerBundle do
         "from_state" => payload["from_state"],
         "to_state" => payload["to_state"],
         "transition_id" => payload["transition_id"],
+        "deployment_metadata" => deployment_metadata,
+        "latency_budget_ms" => latency_budget_ms,
+        "latency_warning_ms" => latency_warning_ms,
+        "observed_latency_ms" => observed_latency_ms,
+        "latency_budget_exceeded" =>
+          latency_budget_exceeded?(payload, latency_budget_ms, observed_latency_ms),
+        "fault_profile" => trace_value(payload, deployment_metadata, "fault_profile"),
+        "trace_event_count" => trace_value(payload, deployment_metadata, "trace_event_count"),
+        "fault_actions" => fault_actions,
         "metadata" => payload
       }
     end)
+  end
+
+  defp normalize_event_deployment_metadata(payload) when is_map(payload) do
+    embedded =
+      case field(payload, :deployment_metadata, %{}) do
+        %{} = metadata -> metadata
+        _ -> %{}
+      end
+
+    flattened =
+      compact_map(%{
+        "placement" => field(payload, :placement),
+        "transport" =>
+          compact_map(%{
+            "type" => field(payload, :transport),
+            "link" => field(payload, :link),
+            "connector_id" => field(payload, :connector_id),
+            "connector_type" => field(payload, :connector_type)
+          }),
+        "runtime" =>
+          compact_map(%{
+            "target_profile" => field(payload, :target_profile),
+            "run_id" => field(payload, :run_id)
+          }),
+        "latency" =>
+          compact_map(%{
+            "budget_ms" => field(payload, :latency_budget_ms),
+            "warning_ms" => field(payload, :latency_warning_ms),
+            "observed_ms" => field(payload, :observed_latency_ms),
+            "ingress_ms" => field(payload, :ingress_latency_ms),
+            "egress_ms" => field(payload, :egress_latency_ms),
+            "send_timestamp" => field(payload, :send_timestamp),
+            "receive_timestamp" => field(payload, :receive_timestamp),
+            "handle_timestamp" => field(payload, :handle_timestamp)
+          }),
+        "trace" =>
+          compact_map(%{
+            "fault_profile" => field(payload, :fault_profile),
+            "trace_file" => field(payload, :trace_file),
+            "trace_event_count" => field(payload, :trace_event_count)
+          })
+      })
+
+    deep_merge(embedded, flattened)
+  end
+
+  defp normalize_event_deployment_metadata(_payload), do: %{}
+
+  defp latency_value(payload, deployment_metadata, key)
+       when is_map(payload) and is_map(deployment_metadata) do
+    Map.get(payload, "latency_#{key}") ||
+      get_in(deployment_metadata, ["latency", key])
+  end
+
+  defp latency_value(_payload, _deployment_metadata, _key), do: nil
+
+  defp trace_value(payload, deployment_metadata, key)
+       when is_map(payload) and is_map(deployment_metadata) do
+    Map.get(payload, key) ||
+      get_in(deployment_metadata, ["trace", key])
+  end
+
+  defp trace_value(_payload, _deployment_metadata, _key), do: nil
+
+  defp latency_budget_exceeded?(payload, latency_budget_ms, observed_latency_ms)
+       when is_map(payload) and is_integer(latency_budget_ms) and is_integer(observed_latency_ms) do
+    case field(payload, :latency_budget_exceeded) do
+      value when value in [true, "true", 1, "1"] -> true
+      value when value in [false, "false", 0, "0"] -> false
+      _ -> observed_latency_ms > latency_budget_ms
+    end
+  end
+
+  defp latency_budget_exceeded?(payload, _latency_budget_ms, _observed_latency_ms)
+       when is_map(payload) do
+    field(payload, :latency_budget_exceeded) in [true, "true", 1, "1"]
   end
 
   defp build_warnings(query, deployments, timelines) do
@@ -348,7 +458,8 @@ defmodule AetheriumServer.AnalyzerBundle do
       "kind" => field(resource, :kind, "unknown"),
       "capacity" => field(resource, :capacity),
       "shared" => field(resource, :shared, false),
-      "latency_sensitive" => field(resource, :latency_sensitive, field(resource, :latencySensitive, false)),
+      "latency_sensitive" =>
+        field(resource, :latency_sensitive, field(resource, :latencySensitive, false)),
       "description" => field(resource, :description),
       "participants" => %{
         "automata_ids" => [],
@@ -375,9 +486,15 @@ defmodule AetheriumServer.AnalyzerBundle do
     %{
       "ports" => List.wrap(black_box["ports"] || black_box[:ports]),
       "observable_states" =>
-        List.wrap(black_box["observable_states"] || black_box[:observable_states] || black_box["observableStates"] || black_box[:observableStates]),
+        List.wrap(
+          black_box["observable_states"] || black_box[:observable_states] ||
+            black_box["observableStates"] || black_box[:observableStates]
+        ),
       "emitted_events" =>
-        List.wrap(black_box["emitted_events"] || black_box[:emitted_events] || black_box["emittedEvents"] || black_box[:emittedEvents]),
+        List.wrap(
+          black_box["emitted_events"] || black_box[:emitted_events] || black_box["emittedEvents"] ||
+            black_box[:emittedEvents]
+        ),
       "resources" => List.wrap(black_box["resources"] || black_box[:resources])
     }
     |> compact_map()
@@ -456,6 +573,7 @@ defmodule AetheriumServer.AnalyzerBundle do
   defp normalize_string_list(_), do: []
 
   defp normalize_non_negative_int(value) when is_integer(value) and value >= 0, do: value
+
   defp normalize_non_negative_int(value) when is_binary(value) do
     case Integer.parse(value) do
       {parsed, ""} when parsed >= 0 -> parsed

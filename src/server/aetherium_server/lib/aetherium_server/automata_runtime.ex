@@ -606,6 +606,7 @@ defmodule AetheriumServer.AutomataRuntime do
     case Regex.run(~r/output\s+(\w+)\s*=\s*(.+)/, action) do
       [_, output_name, value_str] ->
         value = parse_value(value_str, state)
+
         new_state =
           state
           |> put_in([:outputs, output_name], value)
@@ -683,7 +684,8 @@ defmodule AetheriumServer.AutomataRuntime do
         case stack do
           [top | rest] ->
             branch_active =
-              top.parent_active and not top.matched and truthy?(evaluate_script_expression(expr, env))
+              top.parent_active and not top.matched and
+                truthy?(evaluate_script_expression(expr, env))
 
             next = %{top | active: branch_active, matched: top.matched or branch_active}
             {state, env, [next | rest], false}
@@ -818,7 +820,13 @@ defmodule AetheriumServer.AutomataRuntime do
                 _ -> {:identifier, identifier}
               end
 
-            rest = binary_part(binary, byte_size(identifier), byte_size(binary) - byte_size(identifier))
+            rest =
+              binary_part(
+                binary,
+                byte_size(identifier),
+                byte_size(binary) - byte_size(identifier)
+              )
+
             do_tokenize_script_expression(rest, [token | acc])
 
           nil ->
@@ -828,7 +836,10 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp take_script_string(<<"\"", rest::binary>>, acc), do: {acc, rest}
-  defp take_script_string(<<char::utf8, rest::binary>>, acc), do: take_script_string(rest, acc <> <<char::utf8>>)
+
+  defp take_script_string(<<char::utf8, rest::binary>>, acc),
+    do: take_script_string(rest, acc <> <<char::utf8>>)
+
   defp take_script_string(<<>>, acc), do: {acc, ""}
 
   defp parse_script_or(tokens, env) do
@@ -1042,6 +1053,7 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp get_state_def(state_id, state) do
     states = state.automata[:states] || state.automata["states"] || %{}
+
     Map.get(states, state_id) ||
       Enum.find_value(states, fn {key, value} ->
         id = value[:id] || value["id"] || key
@@ -1221,7 +1233,7 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp broadcast_transition(from, to, transition_id, context, state) do
-    AetheriumServer.GatewayConnection.push("transition_fired", %{
+    DeviceManager.runtime_event(state.deployment_id, "transition_fired", %{
       "deployment_id" => state.deployment_id,
       "automata_id" => state.automata[:id],
       "from" => from,
@@ -1244,8 +1256,7 @@ defmodule AetheriumServer.AutomataRuntime do
       "timestamp" => System.system_time(:millisecond)
     }
 
-    AetheriumServer.GatewayConnection.push("output_changed", payload)
-
-    AetheriumServer.GatewayConnection.push("variable_updated", payload)
+    DeviceManager.runtime_event(state.deployment_id, "output_changed", payload)
+    DeviceManager.runtime_event(state.deployment_id, "variable_updated", payload)
   end
 end
