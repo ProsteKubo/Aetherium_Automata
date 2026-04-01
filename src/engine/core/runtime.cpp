@@ -562,13 +562,6 @@ bool Runtime::tick() {
     }
 
     const Timestamp now = clock_->now();
-    if (maxTickRate_ > 0 && ctx_.lastTickTime > 0) {
-        const uint32_t targetMs = std::max<uint32_t>(1, 1000 / maxTickRate_);
-        if (now - ctx_.lastTickTime < targetMs) {
-            return false;
-        }
-    }
-
     ctx_.tickCount++;
     ctx_.lastTickTime = now;
     

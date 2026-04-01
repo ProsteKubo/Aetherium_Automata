@@ -160,6 +160,46 @@ defmodule AetheriumServer.DeviceManagerCommandsTest do
     assert reset_snapshot.current_state == "idle"
   end
 
+  test "host runtime transition events are recorded with deployment metadata" do
+    suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    device_id = "host-runtime-timeline-device-#{suffix}"
+    automata_id = "host-runtime-timeline-automata-#{suffix}"
+    deployment_id = "#{automata_id}:#{device_id}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :desktop,
+          connector_type: :host_runtime,
+          transport: "host_runtime",
+          capabilities: 0xFFFF,
+          protocol_version: 1
+        },
+        self()
+      )
+
+    {:ok, _deployment} =
+      DeviceManager.deploy_automata(automata_id, device_id, sample_event_automata(automata_id))
+
+    assert :ok = DeviceManager.start_automata(deployment_id)
+    Process.sleep(100)
+    assert :ok = DeviceManager.trigger_event(deployment_id, "external_event", %{"value" => 1})
+    Process.sleep(200)
+
+    timeline = DeviceManager.list_time_series(deployment_id, limit: 100)
+
+    transition_event =
+      Enum.find(timeline.events, fn event ->
+        (event["event"] || event[:event] || event["kind"]) == "transition_fired"
+      end)
+
+    assert is_map(transition_event)
+
+    assert transition_event["payload"]["deployment_metadata"]["runtime"]["target_profile"] ==
+             "desktop_v1"
+  end
+
   test "black-box event and state validation returns deterministic errors" do
     suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
     device_id = "host-runtime-validate-device-#{suffix}"
@@ -311,6 +351,77 @@ defmodule AetheriumServer.DeviceManagerCommandsTest do
     assert snapshot.deployment_metadata["placement"] == "docker_black_box"
     assert snapshot.deployment_metadata["battery"]["percent"] == 88.0
     assert snapshot.deployment_metadata["latency"]["observed_ms"] == 12
+  end
+
+  test "remote deployment errors retain fault and latency metadata in stored timeline events" do
+    suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    device_id = "remote-fault-device-#{suffix}"
+    automata_id = "remote-fault-automata-#{suffix}"
+    deployment_id = "#{automata_id}:#{device_id}"
+    trace_path = Path.expand("../../../build/trace-smoke.jsonl", File.cwd!())
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :desktop,
+          capabilities: 0xFFFF,
+          protocol_version: 1,
+          deployment_metadata: %{"placement" => "docker_black_box"}
+        },
+        self()
+      )
+
+    {:ok, _deployment} =
+      DeviceManager.deploy_automata(automata_id, device_id, sample_automata(automata_id))
+
+    flush_send_binary_messages()
+
+    :sys.replace_state(DeviceManager, fn state ->
+      put_in(state, [:deployments, deployment_id, :status], :running)
+    end)
+
+    DeviceManager.handle_device_message(device_id, :status, %{
+      run_id: 1,
+      execution_state: 2,
+      current_state: 2,
+      variables: %{"enabled" => true},
+      deployment_metadata: %{
+        "placement" => "docker_black_box",
+        "latency" => %{"budget_ms" => 10, "warning_ms" => 5, "observed_ms" => 17},
+        "trace" => %{
+          "fault_profile" => "lab_profile",
+          "trace_event_count" => 9,
+          "trace_file" => trace_path
+        }
+      }
+    })
+
+    DeviceManager.handle_device_message(device_id, :error, %{code: 13, message: "faulted"})
+    Process.sleep(100)
+
+    timeline = DeviceManager.list_time_series(deployment_id, limit: 100)
+
+    deployment_error =
+      Enum.find(timeline.events, fn event ->
+        (event["event"] || event[:event] || event["kind"]) == "deployment_error"
+      end)
+
+    assert is_map(deployment_error)
+    assert deployment_error["payload"]["fault_profile"] == "lab_profile"
+    assert deployment_error["payload"]["fault_actions"] == ["duplicate"]
+    assert deployment_error["payload"]["latency_budget_exceeded"] == true
+
+    assert get_in(deployment_error, ["payload", "deployment_metadata", "trace", "fault_profile"]) ==
+             "lab_profile"
+
+    assert get_in(
+             deployment_error,
+             ["payload", "deployment_metadata", "trace", "recent_fault_actions"]
+           ) == ["duplicate"]
+
+    assert get_in(deployment_error, ["payload", "deployment_metadata", "latency", "observed_ms"]) ==
+             17
   end
 
   defp sample_automata(id) do

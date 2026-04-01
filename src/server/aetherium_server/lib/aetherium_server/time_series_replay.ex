@@ -77,6 +77,7 @@ defmodule AetheriumServer.TimeSeriesReplay do
         |> maybe_put_if_present("status", payload["status"])
         |> maybe_put_if_present("current_state", payload["current_state"])
         |> maybe_put_if_present("error", payload["error"])
+        |> maybe_merge_deployment_metadata(payload["deployment_metadata"])
         |> maybe_merge_variables(payload["variables"])
 
       "state_changed" ->
@@ -100,6 +101,7 @@ defmodule AetheriumServer.TimeSeriesReplay do
         state
         |> Map.put("status", "error")
         |> Map.put("error", payload["message"] || payload["error"])
+        |> maybe_merge_deployment_metadata(payload["deployment_metadata"])
 
       "time_travel_rewind_marker" ->
         payload["state"] || state
@@ -116,6 +118,21 @@ defmodule AetheriumServer.TimeSeriesReplay do
   end
 
   defp maybe_merge_variables(state, _), do: state
+
+  defp maybe_merge_deployment_metadata(state, value) when is_map(value) do
+    merged =
+      Map.merge(state["deployment_metadata"] || %{}, value, fn _key, left, right ->
+        if is_map(left) and is_map(right) do
+          Map.merge(left, right)
+        else
+          right
+        end
+      end)
+
+    Map.put(state, "deployment_metadata", merged)
+  end
+
+  defp maybe_merge_deployment_metadata(state, _), do: state
 
   defp maybe_put_if_present(state, _key, nil), do: state
   defp maybe_put_if_present(state, key, value), do: Map.put(state, key, value)

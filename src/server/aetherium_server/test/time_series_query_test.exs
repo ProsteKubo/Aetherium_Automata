@@ -87,7 +87,14 @@ defmodule AetheriumServer.TimeSeriesQueryTest do
              "event" => "deployment_status",
              "timestamp" => 1_100,
              "cursor" => 201,
-             "payload" => %{"status" => "running", "current_state" => "idle"}
+             "payload" => %{
+               "status" => "running",
+               "current_state" => "idle",
+               "deployment_metadata" => %{
+                 "trace" => %{"fault_profile" => "staging"},
+                 "latency" => %{"observed_ms" => 18, "budget_ms" => 30}
+               }
+             }
            },
            %{
              "deployment_id" => "dep",
@@ -198,6 +205,8 @@ defmodule AetheriumServer.TimeSeriesQueryTest do
     assert replay["state"]["status"] == "running"
     assert replay["state"]["current_state"] == "running"
     assert replay["state"]["variables"]["enabled"] == true
+    assert get_in(replay["state"], ["deployment_metadata", "trace", "fault_profile"]) == "staging"
+    assert get_in(replay["state"], ["deployment_metadata", "latency", "observed_ms"]) == 18
     assert replay["events_replayed"] == 3
     assert is_binary(replay["state_fingerprint"])
     assert String.length(replay["state_fingerprint"]) == 64

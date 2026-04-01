@@ -3,14 +3,13 @@ A Visual Automata Framework for building and managing self-adaptive IoT networks
 
 # Aetherium Automata: Visual Automata Framework for Self-Adaptive Networks
 <p align="center">
-  <img src="https://your-logo-url-here.com/logo.svg" alt="Aetherium Automata Logo" width="150"/>
+  <img src="https://img.shields.io/badge/status-in%20development-blue" alt="Project Status">
 </p>
 
-<p align="center">
-  <a href="https://github.com/your-username/Aetherium-Automata/blob/main/LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
-  <a href="#"><img src="https://img.shields.io/badge/status-in%20development-blue" alt="Project Status"></a>
-  <a href="#"><img src="https://img.shields.io/github/actions/workflow/status/your-username/Aetherium-Automata/ci.yml?branch=main" alt="Build Status"></a>
-</p>
+Current focus:
+- keep the current `gateway + server + engine + IDE` architecture
+- tighten the canonical runtime/deploy/replay workflow
+- prioritize host runtime and ESP32 over breadth-first platform expansion
 
 
 # Autonomous IoT Engine: Visual Automata Framework for Self-Adaptive Networks
