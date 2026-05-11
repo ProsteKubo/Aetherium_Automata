@@ -3,7 +3,7 @@ version: 0.0.1
 config:
   name: Guarded Cell Safety Supervisor
   type: inline
-  description: Host automata that inhibits the guarded cell until permit is present and escalates to alarm if requests continue while inhibited.
+  description: Flagship guarded-cell supervisor that stages the cell through cold start, permit review, live operation, violation hold, and recovery audit states.
   author: Aetherium Team
   tags:
     - showcase
@@ -11,6 +11,7 @@ config:
     - ide
     - guarded-cell
     - supervisor
+    - flagship
 
 variables:
   - name: request_ok
@@ -32,62 +33,126 @@ variables:
   - name: supervisor_state
     type: string
     direction: output
-    default: inhibit
+    default: cold_start
   - name: fault_count
     type: int
     direction: output
     default: 0
 
 automata:
-  initial_state: Inhibit
+  initial_state: ColdStart
 
   states:
-    Healthy:
+    ColdStart:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "cold_start")
+
+    AwaitPermit:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "await_permit")
+
+    ArmingReview:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "arming_review")
+
+    LivePermit:
       on_enter: |
         setVal("inhibit", false)
         setVal("supervisor_alarm", false)
-        setVal("supervisor_state", "healthy")
+        setVal("supervisor_state", "live_permit")
 
-    Inhibit:
+    ViolationHold:
       on_enter: |
         setVal("inhibit", true)
         setVal("supervisor_alarm", false)
-        setVal("supervisor_state", "inhibit")
+        setVal("supervisor_state", "violation_hold")
 
-    Fault:
+    AlarmLatched:
       on_enter: |
         setVal("inhibit", true)
         setVal("supervisor_alarm", true)
-        setVal("supervisor_state", "fault")
+        setVal("supervisor_state", "alarm_latched")
         setVal("fault_count", value("fault_count") + 1)
 
+    RecoveryAudit:
+      on_enter: |
+        setVal("inhibit", true)
+        setVal("supervisor_alarm", false)
+        setVal("supervisor_state", "recovery_audit")
+
   transitions:
-    inhibit_to_healthy:
-      from: Inhibit
-      to: Healthy
+    cold_start_to_await:
+      from: ColdStart
+      to: AwaitPermit
+      type: timed
+      after: 150
+
+    await_to_arming:
+      from: AwaitPermit
+      to: ArmingReview
       type: classic
       condition: value("permit_ok") == true and value("request_ok") == false
 
-    inhibit_to_fault:
-      from: Inhibit
-      to: Fault
+    await_to_alarm:
+      from: AwaitPermit
+      to: AlarmLatched
       type: classic
+      priority: 0
       condition: value("permit_ok") == false and value("request_ok") == true
 
-    healthy_to_inhibit:
-      from: Healthy
-      to: Inhibit
+    arming_to_live:
+      from: ArmingReview
+      to: LivePermit
       type: classic
-      condition: value("permit_ok") == false
+      condition: value("permit_ok") == true and value("request_ok") == true
 
-    fault_to_inhibit:
-      from: Fault
-      to: Inhibit
+    arming_to_await:
+      from: ArmingReview
+      to: AwaitPermit
       type: classic
+      priority: 1
+      condition: value("request_ok") == false
+
+    live_to_violation:
+      from: LivePermit
+      to: ViolationHold
+      type: classic
+      condition: value("permit_ok") == false or value("request_ok") == false
+
+    violation_to_alarm:
+      from: ViolationHold
+      to: AlarmLatched
+      type: timed
+      after: 400
+
+    violation_to_recovery:
+      from: ViolationHold
+      to: RecoveryAudit
+      type: classic
+      priority: 0
       condition: value("permit_ok") == false and value("request_ok") == false
 
-    fault_to_healthy:
-      from: Fault
-      to: Healthy
+    alarm_to_recovery:
+      from: AlarmLatched
+      to: RecoveryAudit
       type: classic
-      condition: value("permit_ok") == true and value("request_ok") == false
+      condition: value("request_ok") == false and value("permit_ok") == true
+
+    recovery_to_await:
+      from: RecoveryAudit
+      to: AwaitPermit
+      type: timed
+      after: 300
+
+    recovery_to_live:
+      from: RecoveryAudit
+      to: LivePermit
+      type: classic
+      priority: 0
+      condition: value("request_ok") == true and value("permit_ok") == true

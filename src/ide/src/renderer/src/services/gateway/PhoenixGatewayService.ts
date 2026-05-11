@@ -560,25 +560,6 @@ export class PhoenixGatewayService implements IGatewayService {
     });
   }
 
-  private buildBestEffortSnapshot(
-    deviceId: DeviceId,
-    target?: RuntimeCommandTarget,
-    runtimeState?: Record<string, any>,
-  ): ExecutionSnapshotResponse['snapshot'] {
-    const cached = this.getCachedSnapshot(deviceId, target);
-    if (cached) {
-      return cached.snapshot;
-    }
-
-    const snapshot = this.buildSnapshot(deviceId, {
-      ...(runtimeState ?? {}),
-      ...(target?.automataId ? { automata_id: target.automataId } : null),
-    });
-
-    this.setCachedSnapshot(deviceId, { snapshot }, target);
-    return snapshot;
-  }
-
   private inferVariableType(value: unknown): 'number' | 'string' | 'bool' | 'any' | 'table' {
     if (typeof value === 'number') return 'number';
     if (typeof value === 'string') return 'string';
@@ -1164,13 +1145,15 @@ export class PhoenixGatewayService implements IGatewayService {
   private async sendAutomataCommandWithOutcome<T = any>(
     command: string,
     payload: Record<string, any> = {},
-    timeout: number = 5000
+    timeout: number = 5000,
+    options?: { awaitDeferredOutcome?: boolean },
   ): Promise<{ response: T; outcome: CommandOutcomeEvent }> {
     const envelope = this.buildEnvelope(command, timeout);
     const commandPayload = { ...payload, ...envelope };
     const targetDeviceId = (commandPayload.device_id ?? commandPayload.deviceId) as DeviceId | undefined;
     const targetAutomataId = commandPayload.automata_id ?? commandPayload.automataId;
     const targetDeploymentId = commandPayload.deployment_id ?? commandPayload.deploymentId;
+    const awaitDeferredOutcome = options?.awaitDeferredOutcome === true;
     if (command !== 'request_state' && targetDeviceId) {
       this.invalidateSnapshotCache(targetDeviceId, {
         automataId: typeof targetAutomataId === 'string' ? targetAutomataId : undefined,
@@ -1186,19 +1169,30 @@ export class PhoenixGatewayService implements IGatewayService {
 
       if ((response as any)?.outcome) {
         const immediateOutcome = this.normalizeCommandOutcome((response as any).outcome);
-        this.emit('onCommandOutcome', immediateOutcome);
-
-        const pending = this.pendingCommandOutcomes.get(commandId);
-        if (pending) {
-          clearTimeout(pending.timer);
-          this.pendingCommandOutcomes.delete(commandId);
-        }
 
         if (immediateOutcome.status !== 'ACK') {
+          this.emit('onCommandOutcome', immediateOutcome);
+
+          const pending = this.pendingCommandOutcomes.get(commandId);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingCommandOutcomes.delete(commandId);
+          }
+
           throw this.parseCommandFailure(command, immediateOutcome as any);
         }
 
-        return { response: response as T, outcome: immediateOutcome };
+        if (!awaitDeferredOutcome) {
+          this.emit('onCommandOutcome', immediateOutcome);
+
+          const pending = this.pendingCommandOutcomes.get(commandId);
+          if (pending) {
+            clearTimeout(pending.timer);
+            this.pendingCommandOutcomes.delete(commandId);
+          }
+
+          return { response: response as T, outcome: immediateOutcome };
+        }
       }
 
       if (responseStatus === 'NAK' || responseStatus === 'ERROR') {
@@ -2076,17 +2070,6 @@ export class PhoenixGatewayService implements IGatewayService {
     return { devices: normalized };
   }
   
-  /**
-   * Restart device command
-   */
-  async restartDevice(deviceId: string): Promise<{ status: string }> {
-    const result = await this.sendCommand<{ status: string }>('restart_device', {
-      device_id: deviceId,
-    });
-    
-    return result;
-  }
-
   async listServersCommand(): Promise<{ servers: Server[] }> {
     const result = await this.sendCommand<{ servers: any[] }>('list_servers', {});
 
@@ -2345,20 +2328,30 @@ export class PhoenixGatewayService implements IGatewayService {
       payload.automata = _options.automata;
     }
 
-    await this.sendAutomataCommandWithOutcome('deploy', payload, 15_000);
+    const { response, outcome } = await this.sendAutomataCommandWithOutcome('deploy', payload, 20_000, {
+      awaitDeferredOutcome: true,
+    });
+
+    const deploymentId =
+      typeof (outcome.data?.deployment_id) === 'string'
+        ? String(outcome.data?.deployment_id)
+        : typeof (response as any)?.result?.deployment_id === 'string'
+          ? String((response as any).result.deployment_id)
+          : undefined;
 
     return {
-      deploymentId: `${_automataId}:${_deviceId}`,
-      status: 'deployed',
-      startedAt: Date.now(),
-    } as any;
+      success: true,
+      deviceId: _deviceId,
+      ...(deploymentId ? { deploymentId } : null),
+    };
   }
   
   async undeployAutomata(_deviceId: DeviceId): Promise<ExecutionSnapshot | null> {
     await this.sendAutomataCommandWithOutcome(
       'stop_execution',
       { device_id: _deviceId },
-      10_000
+      10_000,
+      { awaitDeferredOutcome: true },
     );
     return null;
   }
@@ -2372,7 +2365,8 @@ export class PhoenixGatewayService implements IGatewayService {
     const { outcome } = await this.sendAutomataCommandWithOutcome(
       'set_variable',
       { ...this.buildCommandTargetPayload(deviceId, target), name, value },
-      10_000
+      10_000,
+      { awaitDeferredOutcome: true },
     );
     return { status: outcome.status };
   }
@@ -2385,7 +2379,12 @@ export class PhoenixGatewayService implements IGatewayService {
   ): Promise<{ status: string }> {
     const payload: Record<string, any> = { ...this.buildCommandTargetPayload(deviceId, target), event };
     if (data !== undefined) payload.data = data;
-    const { outcome } = await this.sendAutomataCommandWithOutcome('trigger_event', payload, 10_000);
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
+      'trigger_event',
+      payload,
+      10_000,
+      { awaitDeferredOutcome: true },
+    );
     return { status: outcome.status };
   }
 
@@ -2397,7 +2396,8 @@ export class PhoenixGatewayService implements IGatewayService {
     const { outcome } = await this.sendAutomataCommandWithOutcome(
       'force_transition',
       { ...this.buildCommandTargetPayload(deviceId, target), to_state: toState },
-      10_000
+      10_000,
+      { awaitDeferredOutcome: true },
     );
     return { status: outcome.status };
   }
@@ -2424,6 +2424,7 @@ export class PhoenixGatewayService implements IGatewayService {
       'black_box_snapshot',
       this.buildCommandTargetPayload(deviceId, target),
       10_000,
+      { awaitDeferredOutcome: true },
     );
 
     const stateData =
@@ -2458,6 +2459,7 @@ export class PhoenixGatewayService implements IGatewayService {
       'black_box_set_input',
       { ...this.buildCommandTargetPayload(deviceId, target), port, value },
       10_000,
+      { awaitDeferredOutcome: true },
     );
     return { status: outcome.status };
   }
@@ -2479,6 +2481,7 @@ export class PhoenixGatewayService implements IGatewayService {
       'black_box_trigger_event',
       payload,
       10_000,
+      { awaitDeferredOutcome: true },
     );
     return { status: outcome.status };
   }
@@ -2492,59 +2495,60 @@ export class PhoenixGatewayService implements IGatewayService {
       'black_box_force_state',
       { ...this.buildCommandTargetPayload(deviceId, target), state },
       10_000,
+      { awaitDeferredOutcome: true },
     );
     return { status: outcome.status };
   }
   
   async startExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStartResponse> {
-    await this.sendAutomataCommandWithOutcome(
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
       'start_execution',
       this.buildCommandTargetPayload(_deviceId, target),
-      10_000
+      15_000,
+      { awaitDeferredOutcome: true },
     );
-    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
-    this.emitDeploymentStatusHint(_deviceId, 'running', target, snapshot);
-    return { started: true, snapshot };
+    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    return { started: outcome.status === 'ACK', snapshot };
   }
   
   async stopExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionStopResponse> {
-    await this.sendAutomataCommandWithOutcome(
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
       'stop_execution',
       this.buildCommandTargetPayload(_deviceId, target),
-      10_000
+      15_000,
+      { awaitDeferredOutcome: true },
     );
-    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
-    this.emitDeploymentStatusHint(_deviceId, 'stopped', target, snapshot);
-    return { stopped: true, finalSnapshot: snapshot };
+    const finalSnapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    return { stopped: outcome.status === 'ACK', finalSnapshot };
   }
   
   async pauseExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void> {
     await this.sendAutomataCommandWithOutcome(
       'pause_execution',
       this.buildCommandTargetPayload(_deviceId, target),
-      10_000
+      15_000,
+      { awaitDeferredOutcome: true },
     );
-    this.emitDeploymentStatusHint(_deviceId, 'paused', target);
   }
   
   async resumeExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<void> {
     await this.sendAutomataCommandWithOutcome(
       'resume_execution',
       this.buildCommandTargetPayload(_deviceId, target),
-      10_000
+      15_000,
+      { awaitDeferredOutcome: true },
     );
-    this.emitDeploymentStatusHint(_deviceId, 'running', target);
   }
 
   async resetExecution(_deviceId: DeviceId, target?: RuntimeCommandTarget): Promise<ExecutionResetResponse> {
-    await this.sendAutomataCommandWithOutcome(
+    const { outcome } = await this.sendAutomataCommandWithOutcome(
       'reset_execution',
       this.buildCommandTargetPayload(_deviceId, target),
-      10_000
+      15_000,
+      { awaitDeferredOutcome: true },
     );
-    const snapshot = this.buildBestEffortSnapshot(_deviceId, target);
-    this.emitDeploymentStatusHint(_deviceId, 'stopped', target, snapshot);
-    return { reset: true, snapshot };
+    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    return { reset: outcome.status === 'ACK', snapshot };
   }
   
   async stepExecution(
@@ -2587,7 +2591,8 @@ export class PhoenixGatewayService implements IGatewayService {
       const { response, outcome } = await this.sendAutomataCommandWithOutcome(
         'request_state',
         this.buildCommandTargetPayload(_deviceId, target),
-        10_000
+        10_000,
+        { awaitDeferredOutcome: true },
       );
 
       const stateData =

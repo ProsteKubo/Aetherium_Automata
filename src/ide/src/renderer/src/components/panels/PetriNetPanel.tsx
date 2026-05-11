@@ -49,29 +49,71 @@ type PetriCanvasNodeData = {
 
 type GroupFilter = 'all' | string;
 
+type ShowcaseNetworkDefinition = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  relativePaths: string[];
+};
+
 const PETRI_DEMO_SETS = [
   {
-    id: 'signal_chain',
-    title: 'Signal Chain Demo',
+    id: 'flagship_showcase',
+    title: 'Flagship Showcase',
     description:
-      'Four connected automata with derived bindings, a shared field bus, and one black-box drive unit.',
-    relativePaths: [
-      'example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml',
-    ],
-  },
-  {
-    id: 'contention',
-    title: 'Contention Demo',
-    description:
-      'Three automata linked by a shared dc_bus resource so you can show contention hotspots without transport.',
-    relativePaths: [
-      'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
-      'example/automata/showcase/14_petri_contention/petri_charger_node.yaml',
-      'example/automata/showcase/14_petri_contention/petri_motion_axis.yaml',
-    ],
+      'Four cooperating networks: a signal-chain backbone, guarded-cell cluster, contention ring, and resilience watchdog linked by shared channel names and black-box contracts.',
+    networks: [
+      {
+        id: 'signal_chain_backbone',
+        name: 'Signal Chain Backbone',
+        description: 'Operator-to-drive backbone that emits heartbeat, permit, state, and module-status channels.',
+        color: '#1f6f78',
+        icon: 'network',
+        relativePaths: [
+          'example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml',
+        ],
+      },
+      {
+        id: 'guarded_cell_cluster',
+        name: 'Guarded Cell Cluster',
+        description: 'State-heavy host and embedded actors sharing permit, supervisor, and alarm channels.',
+        color: '#7c3aed',
+        icon: 'shield',
+        relativePaths: [
+          'example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml',
+          'example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml',
+        ],
+      },
+      {
+        id: 'power_contention_ring',
+        name: 'Power Contention Ring',
+        description: 'Shared dc_bus contention scenario that feeds Petri bottleneck and analyzer findings.',
+        color: '#c84c09',
+        icon: 'analysis',
+        relativePaths: [
+          'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
+          'example/automata/showcase/14_petri_contention/petri_charger_node.yaml',
+          'example/automata/showcase/14_petri_contention/petri_motion_axis.yaml',
+        ],
+      },
+      {
+        id: 'resilience_watchdog',
+        name: 'Resilience Watchdog',
+        description: 'Heartbeat consumer that makes liveness loss explicit for rewind and replay workflows.',
+        color: '#0f766e',
+        icon: 'pulse',
+        relativePaths: ['example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml'],
+      },
+    ] satisfies readonly ShowcaseNetworkDefinition[],
   },
 ] as const;
 
@@ -292,6 +334,7 @@ export const PetriNetPanel: React.FC = () => {
   const gatewayStatus = useGatewayStore((state) => state.status);
   const gatewayService = useGatewayStore((state) => state.service);
   const createNetwork = useProjectStore((state) => state.createNetwork);
+  const updateNetwork = useProjectStore((state) => state.updateNetwork);
   const addAutomataToNetwork = useProjectStore((state) => state.addAutomataToNetwork);
   const ensureLocalProject = useProjectStore((state) => state.ensureLocalProject);
   const markProjectDirty = useProjectStore((state) => state.markDirty);
@@ -392,7 +435,8 @@ export const PetriNetPanel: React.FC = () => {
   const attachImportedAutomata = useCallback(
     (
       importedData: Partial<Automata> | Record<string, unknown>,
-      filePath?: string,
+      filePath: string | undefined,
+      targetNetwork: ShowcaseNetworkDefinition,
     ): { id: string; name: string; skipped: boolean } | null => {
       const normalizedPath = String(filePath || '').replace(/\\/g, '/');
       const currentAutomataMap = useAutomataStore.getState().automata;
@@ -402,7 +446,37 @@ export const PetriNetPanel: React.FC = () => {
           )
         : undefined;
 
+      let activeProject = useProjectStore.getState().project;
+      if (!activeProject) {
+        ensureLocalProject('Flagship Showcase Workspace');
+        activeProject = useProjectStore.getState().project;
+      }
+
+      if (!activeProject) {
+        return null;
+      }
+
+      let network = activeProject.networks.find((entry) => entry.relativePath === `showcase/${targetNetwork.id}`);
+      let networkId = network?.id;
+
+      if (!networkId) {
+        networkId = createNetwork(targetNetwork.name);
+        updateNetwork(networkId, {
+          name: targetNetwork.name,
+          description: targetNetwork.description,
+          relativePath: `showcase/${targetNetwork.id}`,
+          color: targetNetwork.color,
+          icon: targetNetwork.icon,
+          isExpanded: true,
+        });
+        activeProject = useProjectStore.getState().project;
+        network = activeProject?.networks.find((entry) => entry.id === networkId);
+      }
+
       if (existing) {
+        if (networkId) {
+          addAutomataToNetwork(networkId, existing);
+        }
         return { id: existing.id, name: existing.config.name, skipped: true };
       }
 
@@ -415,17 +489,7 @@ export const PetriNetPanel: React.FC = () => {
       nextMap.set(normalizedAutomata.id, normalizedAutomata);
       setAutomataMap(nextMap);
 
-      let activeProject = useProjectStore.getState().project;
-      if (!activeProject) {
-        ensureLocalProject('Petri Demo Project');
-        activeProject = useProjectStore.getState().project;
-      }
-
-      if (activeProject) {
-        let networkId = activeProject.networks[0]?.id;
-        if (!networkId) {
-          networkId = createNetwork('Default Network');
-        }
+      if (networkId) {
         addAutomataToNetwork(networkId, normalizedAutomata);
         markProjectDirty();
       }
@@ -438,18 +502,22 @@ export const PetriNetPanel: React.FC = () => {
       ensureLocalProject,
       markProjectDirty,
       setAutomataMap,
+      updateNetwork,
     ],
   );
 
   const importShowcaseAutomata = useCallback(
-    async (target: string): Promise<{ id: string; name: string; skipped: boolean } | null> => {
+    async (
+      target: string,
+      network: ShowcaseNetworkDefinition,
+    ): Promise<{ id: string; name: string; skipped: boolean } | null> => {
       const result = await window.api.automata.loadShowcase(target);
       if (!result.success || !result.data) {
         addNotification('error', 'Petri Demo', result.error || `Failed to load ${target}`);
         return null;
       }
 
-      return attachImportedAutomata(result.data as Record<string, unknown>, result.filePath);
+      return attachImportedAutomata(result.data as Record<string, unknown>, result.filePath, network);
     },
     [addNotification, attachImportedAutomata],
   );
@@ -462,10 +530,12 @@ export const PetriNetPanel: React.FC = () => {
       setImportingDemoId(demoId);
       try {
         const loaded: Array<{ id: string; name: string; skipped: boolean }> = [];
-        for (const relativePath of demo.relativePaths) {
-          const imported = await importShowcaseAutomata(relativePath);
-          if (imported) {
-            loaded.push(imported);
+        for (const network of demo.networks) {
+          for (const relativePath of network.relativePaths) {
+            const imported = await importShowcaseAutomata(relativePath, network);
+            if (imported) {
+              loaded.push(imported);
+            }
           }
         }
 
@@ -496,14 +566,14 @@ export const PetriNetPanel: React.FC = () => {
         const skippedCount = loaded.filter((entry) => entry.skipped).length;
         const summary =
           skippedCount > 0
-            ? `Loaded ${importedCount} new automata and reused ${skippedCount} existing automata.`
-            : `Loaded ${importedCount} automata into the editor.`;
+            ? `Loaded ${importedCount} new automata across ${demo.networks.length} showcase networks and reused ${skippedCount} existing automata.`
+            : `Loaded ${importedCount} automata across ${demo.networks.length} showcase networks.`;
         addNotification('success', demo.title, summary);
       } finally {
         setImportingDemoId(null);
       }
     },
-    [addNotification, flowInstance, importShowcaseAutomata, openTab, setActiveAutomata],
+    [addNotification, importShowcaseAutomata, openTab, setActiveAutomata],
   );
 
   const refreshBindings = useCallback(async () => {
@@ -1052,12 +1122,14 @@ export const PetriNetPanel: React.FC = () => {
         </div>
       ) : (
         <div className="petri-demo-strip">
-          {PETRI_DEMO_SETS.map((demo) => (
+          {PETRI_DEMO_SETS.map((demo) => {
+            const demoRelativePaths = demo.networks.flatMap((network) => network.relativePaths);
+            return (
             <div key={demo.id} className="petri-demo-card">
               <div className="petri-demo-card-header">
                 <div>
                   <div className="petri-demo-title">{demo.title}</div>
-                  <div className="petri-demo-count">{demo.relativePaths.length} automata</div>
+                  <div className="petri-demo-count">{demoRelativePaths.length} automata</div>
                 </div>
                 <button
                   type="button"
@@ -1070,14 +1142,15 @@ export const PetriNetPanel: React.FC = () => {
               </div>
               <div className="petri-demo-description">{demo.description}</div>
               <div className="petri-inline-list">
-                {demo.relativePaths.map((relativePath) => (
-                  <span key={relativePath} className="petri-chip">
-                    {relativePath.split('/').pop()?.replace(/\.ya?ml$/, '')}
+                {demo.networks.map((network) => (
+                  <span key={network.id} className="petri-chip">
+                    {network.name}
                   </span>
                 ))}
               </div>
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

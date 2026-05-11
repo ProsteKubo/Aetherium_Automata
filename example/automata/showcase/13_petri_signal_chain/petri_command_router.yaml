@@ -3,12 +3,13 @@ version: 0.0.1
 config:
   name: Petri Command Router
   type: inline
-  description: Emits operator command topics that drive the Petri signal-chain demo.
+  description: Flagship backbone orchestrator that stages operator intent into reviewed, synchronized, streaming, shed-load, and isolated runtime phases.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - signal-chain
+    - flagship
 
 variables:
   - name: operator_enable
@@ -18,7 +19,19 @@ variables:
   - name: watchdog_ok
     type: bool
     direction: input
-    default: true
+    default: false
+  - name: permit_ok
+    type: bool
+    direction: input
+    default: false
+  - name: alarm_latched
+    type: bool
+    direction: input
+    default: false
+  - name: module_status
+    type: string
+    direction: input
+    default: idle
   - name: arm_request
     type: bool
     direction: output
@@ -31,6 +44,14 @@ variables:
     type: string
     direction: output
     default: standby
+  - name: demand_charge
+    type: bool
+    direction: output
+    default: false
+  - name: demand_motion
+    type: bool
+    direction: output
+    default: false
 
 automata:
   initial_state: Standby
@@ -43,54 +64,202 @@ automata:
         - arm_request
         - heartbeat
         - route_state
+        - demand_charge
+        - demand_motion
       on_enter: |
         setVal("arm_request", false)
         setVal("heartbeat", false)
         setVal("route_state", "standby")
+        setVal("demand_charge", false)
+        setVal("demand_motion", false)
 
-    Armed:
+    CommandReview:
       inputs:
+        - operator_enable
+        - watchdog_ok
+        - alarm_latched
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+        - demand_charge
+        - demand_motion
+      on_enter: |
+        setVal("arm_request", false)
+        setVal("heartbeat", false)
+        setVal("route_state", "command_review")
+        setVal("demand_charge", false)
+        setVal("demand_motion", false)
+
+    BackboneSync:
+      inputs:
+        - permit_ok
         - watchdog_ok
       outputs:
         - arm_request
         - heartbeat
         - route_state
+        - demand_charge
+        - demand_motion
       on_enter: |
         setVal("arm_request", true)
-        setVal("heartbeat", true)
-        setVal("route_state", "armed")
+        setVal("heartbeat", false)
+        setVal("route_state", "backbone_sync")
+        setVal("demand_charge", true)
+        setVal("demand_motion", false)
 
-    Fault:
+    PermitStreaming:
+      inputs:
+        - permit_ok
+        - module_status
       outputs:
         - arm_request
         - heartbeat
         - route_state
+        - demand_charge
+        - demand_motion
+      on_enter: |
+        setVal("arm_request", true)
+        setVal("heartbeat", true)
+        setVal("route_state", "permit_streaming")
+        setVal("demand_charge", false)
+        setVal("demand_motion", true)
+
+    LoadShedding:
+      inputs:
+        - permit_ok
+        - operator_enable
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+        - demand_charge
+        - demand_motion
+      on_enter: |
+        setVal("arm_request", true)
+        setVal("heartbeat", true)
+        setVal("route_state", "load_shedding")
+        setVal("demand_charge", false)
+        setVal("demand_motion", false)
+
+    DegradedWatch:
+      inputs:
+        - watchdog_ok
+        - alarm_latched
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+        - demand_charge
+        - demand_motion
+      on_enter: |
+        setVal("arm_request", false)
+        setVal("heartbeat", true)
+        setVal("route_state", "degraded_watch")
+        setVal("demand_charge", false)
+        setVal("demand_motion", false)
+
+    FaultIsolated:
+      outputs:
+        - arm_request
+        - heartbeat
+        - route_state
+        - demand_charge
+        - demand_motion
       on_enter: |
         setVal("arm_request", false)
         setVal("heartbeat", false)
-        setVal("route_state", "fault")
+        setVal("route_state", "fault_isolated")
+        setVal("demand_charge", false)
+        setVal("demand_motion", false)
 
   transitions:
-    operator_enable_to_armed:
+    standby_to_review:
       from: Standby
-      to: Armed
+      to: CommandReview
       type: classic
       condition: value("operator_enable") == true
 
-    watchdog_drop_to_fault:
-      from: Armed
-      to: Fault
+    review_to_sync:
+      from: CommandReview
+      to: BackboneSync
       type: classic
-      condition: value("watchdog_ok") == false
+      condition: value("operator_enable") == true and value("watchdog_ok") == true and value("alarm_latched") == false
 
-    operator_release_to_standby:
-      from: Armed
+    review_to_fault:
+      from: CommandReview
+      to: FaultIsolated
+      type: classic
+      priority: 0
+      condition: value("alarm_latched") == true
+
+    review_timeout_to_fault:
+      from: CommandReview
+      to: FaultIsolated
+      type: timed
+      priority: 1
+      after: 2000
+
+    sync_to_streaming:
+      from: BackboneSync
+      to: PermitStreaming
+      type: classic
+      condition: value("permit_ok") == true and value("module_status") != "cooldown"
+
+    sync_to_load_shedding:
+      from: BackboneSync
+      to: LoadShedding
+      type: classic
+      priority: 1
+      condition: value("permit_ok") == false and value("operator_enable") == true
+
+    sync_to_fault:
+      from: BackboneSync
+      to: FaultIsolated
+      type: classic
+      priority: 0
+      condition: value("watchdog_ok") == false or value("alarm_latched") == true
+
+    streaming_to_load_shedding:
+      from: PermitStreaming
+      to: LoadShedding
+      type: classic
+      condition: value("permit_ok") == false or value("module_status") == "cooldown"
+
+    streaming_to_degraded:
+      from: PermitStreaming
+      to: DegradedWatch
+      type: classic
+      priority: 0
+      condition: value("watchdog_ok") == false and value("alarm_latched") == false
+
+    load_shedding_to_sync:
+      from: LoadShedding
+      to: BackboneSync
+      type: classic
+      condition: value("operator_enable") == true and value("permit_ok") == true and value("watchdog_ok") == true and value("alarm_latched") == false
+
+    load_shedding_to_standby:
+      from: LoadShedding
       to: Standby
       type: classic
-      condition: value("operator_enable") == false and value("watchdog_ok") == true
+      condition: value("operator_enable") == false
 
-    fault_reset:
-      from: Fault
+    degraded_to_review:
+      from: DegradedWatch
+      to: CommandReview
+      type: classic
+      condition: value("watchdog_ok") == true and value("alarm_latched") == false and value("operator_enable") == true
+
+    degraded_to_fault:
+      from: DegradedWatch
+      to: FaultIsolated
+      type: classic
+      priority: 0
+      condition: value("alarm_latched") == true
+
+    fault_to_standby:
+      from: FaultIsolated
       to: Standby
       type: classic
-      condition: value("operator_enable") == false and value("watchdog_ok") == true
+      condition: value("operator_enable") == false and value("watchdog_ok") == true and value("alarm_latched") == false

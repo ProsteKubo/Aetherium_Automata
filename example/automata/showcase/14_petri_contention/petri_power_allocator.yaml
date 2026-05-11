@@ -3,12 +3,13 @@ version: 0.0.1
 config:
   name: Petri Power Allocator
   type: inline
-  description: Allocates shared bus access between charging and motion workloads.
+  description: Flagship contention allocator that stages the shared dc_bus through queueing, grant, handoff, and contention alarm phases.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - contention
+    - flagship
 
 variables:
   - name: demand_charge
@@ -19,6 +20,10 @@ variables:
     type: bool
     direction: input
     default: false
+  - name: route_state
+    type: string
+    direction: input
+    default: standby
   - name: charge_enable
     type: bool
     direction: output
@@ -31,6 +36,10 @@ variables:
     type: string
     direction: output
     default: idle
+  - name: bus_owner
+    type: string
+    direction: output
+    default: none
 
 black_box:
   resources:
@@ -49,58 +58,210 @@ automata:
         - charge_enable
         - drive_enable
         - allocator_state
+        - bus_owner
       code: |
         local dc_bus = "idle"
       on_enter: |
         setVal("charge_enable", false)
         setVal("drive_enable", false)
         setVal("allocator_state", "idle")
+        setVal("bus_owner", "none")
 
-    Charging:
+    ChargeQueue:
       outputs:
         - charge_enable
         - drive_enable
         - allocator_state
+        - bus_owner
+      code: |
+        local dc_bus = "charge_queue"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "charge_queue")
+        setVal("bus_owner", "pending_charge")
+
+    MotionQueue:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+        - bus_owner
+      code: |
+        local dc_bus = "motion_queue"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "motion_queue")
+        setVal("bus_owner", "pending_motion")
+
+    ChargeGranted:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+        - bus_owner
       code: |
         local dc_bus = "charge"
       on_enter: |
         setVal("charge_enable", true)
         setVal("drive_enable", false)
-        setVal("allocator_state", "charging")
+        setVal("allocator_state", "charge_granted")
+        setVal("bus_owner", "charger")
 
-    Driving:
+    MotionGranted:
       outputs:
         - charge_enable
         - drive_enable
         - allocator_state
+        - bus_owner
       code: |
-        local dc_bus = "drive"
+        local dc_bus = "motion"
       on_enter: |
         setVal("charge_enable", false)
         setVal("drive_enable", true)
-        setVal("allocator_state", "driving")
+        setVal("allocator_state", "motion_granted")
+        setVal("bus_owner", "motion_axis")
+
+    HandoffCooldown:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+        - bus_owner
+      code: |
+        local dc_bus = "handoff"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "handoff_cooldown")
+        setVal("bus_owner", "handoff")
+
+    ContentionAlarm:
+      outputs:
+        - charge_enable
+        - drive_enable
+        - allocator_state
+        - bus_owner
+      code: |
+        local dc_bus = "alarm"
+      on_enter: |
+        setVal("charge_enable", false)
+        setVal("drive_enable", false)
+        setVal("allocator_state", "contention_alarm")
+        setVal("bus_owner", "alarm")
 
   transitions:
-    idle_to_charging:
+    idle_to_charge_queue:
       from: Idle
-      to: Charging
+      to: ChargeQueue
       type: classic
       condition: value("demand_charge") == true and value("demand_motion") == false
 
-    idle_to_driving:
+    idle_to_motion_queue:
       from: Idle
-      to: Driving
+      to: MotionQueue
       type: classic
-      condition: value("demand_motion") == true
+      priority: 0
+      condition: value("demand_motion") == true and value("route_state") != "load_shedding"
 
-    charging_to_idle:
-      from: Charging
+    idle_to_contention:
+      from: Idle
+      to: ContentionAlarm
+      type: classic
+      priority: 1
+      condition: value("demand_charge") == true and value("demand_motion") == true and value("route_state") == "permit_streaming"
+
+    charge_queue_to_granted:
+      from: ChargeQueue
+      to: ChargeGranted
+      type: timed
+      after: 250
+
+    charge_queue_to_motion_queue:
+      from: ChargeQueue
+      to: MotionQueue
+      type: classic
+      priority: 0
+      condition: value("demand_motion") == true and value("route_state") != "load_shedding"
+
+    motion_queue_to_granted:
+      from: MotionQueue
+      to: MotionGranted
+      type: timed
+      after: 120
+
+    motion_queue_to_contention:
+      from: MotionQueue
+      to: ContentionAlarm
+      type: classic
+      priority: 0
+      condition: value("demand_charge") == true and value("demand_motion") == true
+
+    charge_granted_to_handoff:
+      from: ChargeGranted
+      to: HandoffCooldown
+      type: classic
+      priority: 0
+      condition: value("demand_motion") == true or value("route_state") == "permit_streaming"
+
+    charge_granted_to_idle:
+      from: ChargeGranted
       to: Idle
       type: classic
+      priority: 1
       condition: value("demand_charge") == false
 
-    driving_to_idle:
-      from: Driving
+    motion_granted_to_handoff:
+      from: MotionGranted
+      to: HandoffCooldown
+      type: classic
+      condition: value("demand_motion") == false or value("route_state") == "load_shedding"
+
+    motion_granted_to_contention:
+      from: MotionGranted
+      to: ContentionAlarm
+      type: timed
+      priority: 1
+      after: 1500
+
+    handoff_to_charge_queue:
+      from: HandoffCooldown
+      to: ChargeQueue
+      type: classic
+      condition: value("demand_charge") == true and value("demand_motion") == false
+
+    handoff_to_motion_queue:
+      from: HandoffCooldown
+      to: MotionQueue
+      type: classic
+      priority: 0
+      condition: value("demand_motion") == true
+
+    handoff_to_idle:
+      from: HandoffCooldown
+      to: Idle
+      type: timed
+      priority: 1
+      after: 300
+
+    contention_to_motion_queue:
+      from: ContentionAlarm
+      to: MotionQueue
+      type: classic
+      priority: 0
+      condition: value("demand_motion") == true and value("route_state") != "load_shedding"
+
+    contention_to_charge_queue:
+      from: ContentionAlarm
+      to: ChargeQueue
+      type: classic
+      priority: 1
+      condition: value("demand_motion") == false and value("demand_charge") == true
+
+    contention_to_idle:
+      from: ContentionAlarm
       to: Idle
       type: classic
-      condition: value("demand_motion") == false
+      priority: 2
+      condition: value("demand_motion") == false and value("demand_charge") == false

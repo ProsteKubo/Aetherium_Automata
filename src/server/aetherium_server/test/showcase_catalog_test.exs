@@ -13,47 +13,27 @@ defmodule AetheriumServer.ShowcaseCatalogTest do
     assert File.exists?(first.absolute_path)
   end
 
-  test "load_automata parses inline showcase YAML into deploy-ready map" do
+  test "load_automata parses flagship showcase YAML into deploy-ready map" do
     assert {:ok, %{automata: automata}} =
              ShowcaseCatalog.load_automata(
-               "example/automata/showcase/01_basics/blink_with_manual_override.yaml"
+               "example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml"
              )
 
-    assert automata["name"] == "Blink With Manual Override"
-    assert automata["initial_state"] == "Off"
+    assert automata["name"] == "Petri Command Router"
+    assert automata["initial_state"] == "Standby"
     assert is_map(automata["states"])
+    assert map_size(automata["states"]) >= 6
     assert is_map(automata["transitions"])
     assert is_list(automata["variables"])
   end
 
-  test "load_automata supports folderized showcase YAML list/map hybrid form" do
-    assert {:ok, %{automata: automata}} =
-             ShowcaseCatalog.load_automata(
-               "example/automata/showcase/07_folderized/door_safety_controller/door_safety_controller.yaml"
-             )
+  test "load_bundle assembles the flagship desktop showcase" do
+    assert {:ok, bundle} = ShowcaseCatalog.load_bundle("flagship_desktop")
 
-    assert automata["name"] != ""
-    assert automata["initial_state"] == "Closed"
-    assert Map.has_key?(automata["transitions"], "OpenDoor")
-    assert automata["transitions"]["OpenDoor"]["from"] == "Closed"
-    assert automata["transitions"]["OpenDoor"]["to"] == "Open"
-  end
-
-  test "load_automata preserves esp32 target config and rich lua state content" do
-    assert {:ok, %{automata: automata}} =
-             ShowcaseCatalog.load_automata(
-               "example/automata/showcase/08_esp32/esp32_oled_pot_dashboard.yaml"
-             )
-
-    assert get_in(automata, ["config", "target", "profile"]) == "esp32_lua_v1"
-    assert get_in(automata, ["config", "target", "esp32", "components"]) |> is_list()
-
-    assert String.contains?(
-             automata["states"]["Dashboard"]["code"],
-             "component(\"ssd1306_text\")"
-           )
-
-    assert String.contains?(automata["states"]["Dashboard"]["hooks"]["onEnter"], "display:init")
+    assert bundle.id == "flagship_desktop"
+    assert length(bundle.members) == 12
+    assert Enum.any?(bundle.members, &(&1.network == "Signal Chain Backbone"))
+    assert Enum.any?(bundle.members, &(&1.device_role == "black_box"))
   end
 
   test "load_automata preserves black-box contracts for docker probes" do

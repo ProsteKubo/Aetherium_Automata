@@ -1,12 +1,16 @@
 defmodule Mix.Tasks.Aetherium.E2e do
   use Mix.Task
 
-  @shortdoc "E2E smoke test: gateway -> server -> device and back"
+  @shortdoc "Flagship E2E smoke test: gateway -> server -> flagship runtime path"
 
   require Logger
 
+  alias AetheriumServer.ShowcaseCatalog
+
   @default_gateway_ws_url "ws://localhost:8080/socket/websocket"
   @default_ui_token "dev_secret_token"
+  @default_bundle "flagship_desktop"
+  @default_flagship_target "example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml"
 
   @impl true
   def run(args) do
@@ -22,6 +26,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
     ui_token = Keyword.fetch!(opts, :token)
     device_id_opt = Keyword.get(opts, :device_id)
     server_id_opt = Keyword.get(opts, :server_id)
+    target = load_target!(opts)
 
     Logger.info("Connecting to gateway at #{gateway_url}")
 
@@ -54,47 +59,37 @@ defmodule Mix.Tasks.Aetherium.E2e do
 
     Logger.info("Target selected server_id=#{server_id} device_id=#{device_id}")
 
-    automata = build_minimal_automata()
+    Logger.info(
+      "Flagship E2E target #{target.bundle_id || "single_showcase"} :: #{target.network || "single_network"} :: #{target.entry.name}"
+    )
 
-    {:ok, create_reply} =
-      push_sync!(auto_chan, "create_automata", automata, Keyword.fetch!(opts, :timeout_ms))
+    automata_id = "e2e-#{target.entry.id}-#{System.system_time(:millisecond)}"
 
-    automata_id = create_reply["automata_id"] || create_reply[:automata_id]
-
-    if is_nil(automata_id) or automata_id == "" do
-      raise "create_automata returned unexpected payload: #{inspect(create_reply)}"
-    end
-
-    Logger.info("Created automata #{automata_id}; deploying")
+    automata =
+      target.automata
+      |> Map.put("id", automata_id)
+      |> Map.put("name", "#{target.automata["name"] || target.entry.name} E2E")
 
     {:ok, _reply} =
       push_sync!(
         auto_chan,
         "deploy",
-        %{"automata_id" => automata_id, "device_id" => device_id, "server_id" => server_id},
+        %{
+          "automata_id" => automata_id,
+          "device_id" => device_id,
+          "server_id" => server_id,
+          "automata" => automata
+        },
         Keyword.fetch!(opts, :timeout_ms)
       )
 
-    wait_for_events(auto_chan, gw_chan, automata_id, device_id, Keyword.fetch!(opts, :timeout_ms))
+    wait_for_running(auto_chan, gw_chan, automata_id, device_id, Keyword.fetch!(opts, :timeout_ms))
 
-    # Optional: poke input path (maps to set_input via gateway bridge)
-    case Keyword.get(opts, :set_input) do
-      nil ->
-        :ok
+    default_stimulus_sequence(target)
+    |> maybe_append_manual_input(Keyword.get(opts, :set_input))
+    |> send_stimulus_sequence(auto_chan, device_id, automata_id, Keyword.fetch!(opts, :timeout_ms))
 
-      {name, value} ->
-        Logger.info("Sending set_variable #{name}=#{inspect(value)}")
-
-        _ =
-          push_sync!(
-            auto_chan,
-            "set_variable",
-            %{"device_id" => device_id, "name" => name, "value" => value},
-            Keyword.fetch!(opts, :timeout_ms)
-          )
-
-        :ok
-    end
+    wait_for_state_change(auto_chan, gw_chan, device_id, Keyword.fetch!(opts, :timeout_ms))
 
     Logger.info("E2E OK")
   end
@@ -123,6 +118,8 @@ defmodule Mix.Tasks.Aetherium.E2e do
           token: :string,
           server_id: :string,
           device_id: :string,
+          bundle: :string,
+          showcase: :string,
           timeout_ms: :integer,
           wait_ms: :integer,
           set_input: :string
@@ -152,6 +149,8 @@ defmodule Mix.Tasks.Aetherium.E2e do
       token: token,
       server_id: Keyword.get(opts, :server_id),
       device_id: Keyword.get(opts, :device_id),
+      bundle: Keyword.get(opts, :bundle, @default_bundle),
+      showcase: Keyword.get(opts, :showcase),
       timeout_ms: timeout_ms,
       wait_ms: wait_ms,
       set_input: set_input
@@ -214,8 +213,86 @@ defmodule Mix.Tasks.Aetherium.E2e do
     end
   end
 
+  defp load_target!(opts) do
+    if present?(opts[:showcase]) do
+      case ShowcaseCatalog.load_automata(opts[:showcase]) do
+        {:ok, %{entry: entry, automata: automata}} ->
+          %{bundle_id: nil, network: nil, entry: entry, automata: automata}
+
+        {:error, reason} ->
+          raise "Failed to load showcase target #{opts[:showcase]}: #{inspect(reason)}"
+      end
+    else
+      bundle_id = opts[:bundle] || @default_bundle
+
+      case ShowcaseCatalog.load_bundle(bundle_id) do
+        {:ok, bundle} ->
+          member =
+            Enum.find(bundle.members, &(&1.entry.relative_path == @default_flagship_target)) ||
+              Enum.find(bundle.members, &(&1.device_role == "host")) ||
+              raise("Bundle #{bundle_id} does not contain a host-run E2E target")
+
+          %{
+            bundle_id: bundle.id,
+            network: member.network,
+            entry: member.entry,
+            automata: member.automata
+          }
+
+        {:error, reason} ->
+          raise "Failed to load flagship bundle #{bundle_id}: #{inspect(reason)}"
+      end
+    end
+  end
+
+  defp default_stimulus_sequence(target) do
+    case target.entry.relative_path do
+      @default_flagship_target ->
+        [
+          {"operator_enable", true},
+          {"watchdog_ok", true},
+          {"permit_ok", true},
+          {"module_status", "ready"}
+        ]
+
+      "example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml" ->
+        [{"heartbeat", true}, {"heartbeat", false}]
+
+      _ ->
+        []
+    end
+  end
+
+  defp maybe_append_manual_input(sequence, nil), do: sequence
+  defp maybe_append_manual_input(sequence, input), do: sequence ++ [input]
+
+  defp send_stimulus_sequence(sequence, auto_chan, device_id, automata_id, timeout_ms) do
+    Enum.each(sequence, fn {name, value} ->
+      Logger.info("Sending set_variable #{name}=#{inspect(value)}")
+
+      _ =
+        push_sync!(
+          auto_chan,
+          "set_variable",
+          %{
+            "device_id" => device_id,
+            "automata_id" => automata_id,
+            "name" => name,
+            "value" => value
+          },
+          timeout_ms
+        )
+
+      Process.sleep(80)
+    end)
+
+    :ok
+  end
+
+  defp present?(value) when is_binary(value), do: String.trim(value) != ""
+  defp present?(_value), do: false
+
   defp resolve_target(gw_chan, server_id_opt, device_id_opt, wait_ms) do
-    # Trigger refresh; then wait for a server_list + device_list push.
     PhoenixClient.Channel.push_async(gw_chan, "list_servers", %{})
     PhoenixClient.Channel.push_async(gw_chan, "list_devices", %{})
 
@@ -350,79 +427,59 @@ defmodule Mix.Tasks.Aetherium.E2e do
     end
   end
 
-  defp wait_for_events(auto_chan, gw_chan, automata_id, device_id, timeout_ms) do
+  defp wait_for_running(auto_chan, gw_chan, automata_id, device_id, timeout_ms) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms
-
-    want = %{deployment_running?: false, state_changed?: false}
-
-    loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want)
+    loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
   end
 
-  defp loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want) do
+  defp loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline) do
     if System.monotonic_time(:millisecond) > deadline do
-      raise "Timed out waiting for events; got=#{inspect(want)}"
+      raise "Timed out waiting for deployment to reach running for #{automata_id} on #{device_id}"
     end
 
-    if want.deployment_running? and want.state_changed? do
-      :ok
-    else
-      receive do
-        %PhoenixClient.Message{event: "deployment_status", payload: payload} ->
-          want =
-            if payload["automata_id"] == automata_id and payload["device_id"] == device_id and
-                 payload["status"] in ["running", "loading"] do
-              %{
-                want
-                | deployment_running?: payload["status"] == "running" or want.deployment_running?
-              }
-            else
-              want
-            end
+    receive do
+      %PhoenixClient.Message{event: "deployment_status", payload: payload} ->
+        if payload["automata_id"] == automata_id and payload["device_id"] == device_id and
+             payload["status"] == "running" do
+          :ok
+        else
+          loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+        end
 
-          loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want)
-
-        %PhoenixClient.Message{event: "state_changed", payload: payload} ->
-          want =
-            if payload["device_id"] == device_id do
-              %{want | state_changed?: true}
-            else
-              want
-            end
-
-          loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want)
-
-        # Ignore other messages (initial state, logs, etc)
-        _other ->
-          loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want)
-      after
-        500 ->
-          # keep the socket alive / prompt updates
-          PhoenixClient.Channel.push_async(gw_chan, "ping", %{})
-          PhoenixClient.Channel.push_async(auto_chan, "list_deployments", %{})
-          loop_wait(auto_chan, gw_chan, automata_id, device_id, deadline, want)
-      end
+      _other ->
+        loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+    after
+      500 ->
+        PhoenixClient.Channel.push_async(gw_chan, "ping", %{})
+        PhoenixClient.Channel.push_async(auto_chan, "list_deployments", %{})
+        loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
     end
   end
 
-  defp build_minimal_automata do
-    %{
-      "name" => "e2e_minimal",
-      "description" => "generated by mix aetherium.e2e",
-      "version" => "1.0.0",
-      "states" => %{
-        "s0" => %{"name" => "S0", "type" => "initial"},
-        "s1" => %{"name" => "S1", "type" => "normal"}
-      },
-      "transitions" => %{
-        # Timed transition should fire quickly and produce a state_changed event.
-        "t0" => %{
-          "from" => "S0",
-          "to" => "S1",
-          "type" => "timed",
-          "timed" => %{"mode" => "after", "delay_ms" => 200}
-        }
-      },
-      "variables" => []
-    }
+  defp wait_for_state_change(auto_chan, gw_chan, device_id, timeout_ms) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    loop_wait_for_state_change(auto_chan, gw_chan, device_id, deadline)
+  end
+
+  defp loop_wait_for_state_change(auto_chan, gw_chan, device_id, deadline) do
+    if System.monotonic_time(:millisecond) > deadline do
+      raise "Timed out waiting for state_changed event on #{device_id}"
+    end
+
+    receive do
+      %PhoenixClient.Message{event: "state_changed", payload: payload} ->
+        if payload["device_id"] == device_id do
+          :ok
+        else
+          loop_wait_for_state_change(auto_chan, gw_chan, device_id, deadline)
+        end
+
+      _other ->
+        loop_wait_for_state_change(auto_chan, gw_chan, device_id, deadline)
+    after
+      500 ->
+        PhoenixClient.Channel.push_async(gw_chan, "ping", %{})
+        loop_wait_for_state_change(auto_chan, gw_chan, device_id, deadline)
+    end
   end
 end

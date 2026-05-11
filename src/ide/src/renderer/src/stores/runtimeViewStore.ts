@@ -52,7 +52,7 @@ type RuntimeSeedDevice = {
 
 function createInitialState(): RuntimeViewState {
   return {
-    scope: 'running',
+    scope: 'networks',
     deployments: new Map(),
     transfers: new Map(),
     selectedDeploymentIds: [],

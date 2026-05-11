@@ -1,6 +1,6 @@
 import type { AutomataId, DeviceId } from './automata';
 
-export type RuntimeViewScope = 'running' | 'project';
+export type RuntimeViewScope = 'running' | 'networks' | 'project';
 
 export type RuntimeDeploymentStatus =
   | 'loading'

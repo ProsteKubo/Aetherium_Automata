@@ -3,13 +3,14 @@ version: 0.0.1
 config:
   name: Petri Telemetry Observer
   type: inline
-  description: Observes heartbeat, drive status, and alarm flow for the Petri signal-chain demo.
+  description: Flagship telemetry node that turns the live backbone into quiet, syncing, streaming, replay, and alarm-centric observation phases.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - signal-chain
     - telemetry
+    - flagship
 
 variables:
   - name: heartbeat
@@ -24,6 +25,10 @@ variables:
     type: bool
     direction: input
     default: false
+  - name: route_state
+    type: string
+    direction: input
+    default: standby
   - name: dashboard_ready
     type: bool
     direction: output
@@ -50,6 +55,7 @@ automata:
         - heartbeat
         - module_status
         - alarm_latched
+        - route_state
       outputs:
         - dashboard_ready
         - telemetry_state
@@ -59,10 +65,24 @@ automata:
         setVal("dashboard_ready", false)
         setVal("telemetry_state", "quiet")
 
+    Syncing:
+      inputs:
+        - heartbeat
+        - route_state
+      outputs:
+        - dashboard_ready
+        - telemetry_state
+      code: |
+        local field_bus = "syncing"
+      on_enter: |
+        setVal("dashboard_ready", true)
+        setVal("telemetry_state", "syncing")
+
     Streaming:
       inputs:
         - heartbeat
         - module_status
+        - route_state
       outputs:
         - dashboard_ready
         - telemetry_state
@@ -72,7 +92,19 @@ automata:
         setVal("dashboard_ready", true)
         setVal("telemetry_state", value("module_status"))
 
-    Alarmed:
+    ReplayPinned:
+      inputs:
+        - heartbeat
+        - module_status
+        - route_state
+      outputs:
+        - dashboard_ready
+        - telemetry_state
+      on_enter: |
+        setVal("dashboard_ready", true)
+        setVal("telemetry_state", "replay_pinned")
+
+    AlarmDigest:
       inputs:
         - alarm_latched
       outputs:
@@ -80,29 +112,63 @@ automata:
         - telemetry_state
       on_enter: |
         setVal("dashboard_ready", true)
-        setVal("telemetry_state", "alarm")
+        setVal("telemetry_state", "alarm_digest")
 
   transitions:
-    quiet_to_streaming:
+    quiet_to_syncing:
       from: Quiet
-      to: Streaming
+      to: Syncing
       type: classic
       condition: value("heartbeat") == true and value("alarm_latched") == false
 
-    streaming_to_quiet:
-      from: Streaming
-      to: Quiet
+    syncing_to_streaming:
+      from: Syncing
+      to: Streaming
       type: classic
-      condition: value("heartbeat") == false and value("alarm_latched") == false
+      condition: value("route_state") == "permit_streaming" or value("module_status") != "idle"
 
-    any_to_alarmed:
-      from: Streaming
-      to: Alarmed
+    syncing_to_replay:
+      from: Syncing
+      to: ReplayPinned
       type: classic
+      priority: 1
+      condition: value("route_state") == "load_shedding"
+
+    streaming_to_alarm:
+      from: Streaming
+      to: AlarmDigest
+      type: classic
+      priority: 0
       condition: value("alarm_latched") == true
 
-    alarmed_to_quiet:
-      from: Alarmed
+    streaming_to_replay:
+      from: Streaming
+      to: ReplayPinned
+      type: classic
+      condition: value("route_state") == "load_shedding" or value("module_status") == "cooldown"
+
+    replay_to_streaming:
+      from: ReplayPinned
+      to: Streaming
+      type: classic
+      condition: value("alarm_latched") == false and value("heartbeat") == true and value("route_state") == "permit_streaming"
+
+    replay_to_quiet:
+      from: ReplayPinned
       to: Quiet
       type: classic
+      priority: 1
+      condition: value("heartbeat") == false and value("alarm_latched") == false
+
+    alarm_to_replay:
+      from: AlarmDigest
+      to: ReplayPinned
+      type: classic
+      condition: value("alarm_latched") == false and value("heartbeat") == true
+
+    alarm_to_quiet:
+      from: AlarmDigest
+      to: Quiet
+      type: classic
+      priority: 1
       condition: value("alarm_latched") == false and value("heartbeat") == false

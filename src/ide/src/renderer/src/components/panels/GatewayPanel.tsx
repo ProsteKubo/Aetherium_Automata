@@ -5,7 +5,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useGatewayStore, useUIStore } from '../../stores';
+import { useGatewayStore } from '../../stores';
 import './GatewayPanel.css';
 
 export const GatewayPanel: React.FC = () => {
@@ -30,7 +30,6 @@ export const GatewayPanel: React.FC = () => {
   const disconnect = useGatewayStore((state) => state.disconnect);
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const service = useGatewayStore((state) => state.service);
-  const addNotification = useUIStore((state) => state.addNotification);
   
   // Load saved config on mount
   useEffect(() => {
@@ -86,23 +85,6 @@ export const GatewayPanel: React.FC = () => {
       await fetchDevices();
     } catch (error) {
       setCommandError(error instanceof Error ? error.message : 'List devices failed');
-    }
-  };
-  
-  const handleRestartDevice = async (deviceId: string) => {
-    try {
-      setCommandError(null);
-      
-      // Use the service directly to call restart
-      if ('restartDevice' in service) {
-        const result = await (service as any).restartDevice(deviceId);
-        console.log('Restart queued:', result);
-        addNotification('success', 'Device Restart', `Device restart queued: ${result.status}`);
-      } else {
-        addNotification('warning', 'Device Restart', 'Restart not available with current service');
-      }
-    } catch (error) {
-      setCommandError(error instanceof Error ? error.message : 'Restart failed');
     }
   };
 
@@ -288,12 +270,6 @@ export const GatewayPanel: React.FC = () => {
                               {device.status}
                             </div>
                           </div>
-                          <button
-                            className="btn btn-sm btn-secondary"
-                            onClick={() => handleRestartDevice(device.id)}
-                          >
-                            Restart
-                          </button>
                         </div>
                         
                         {/* Device metadata - these fields might not be available in basic response */}

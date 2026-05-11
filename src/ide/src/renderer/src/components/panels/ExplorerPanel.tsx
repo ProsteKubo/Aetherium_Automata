@@ -17,6 +17,7 @@ import {
   IconDevice,
   IconPlus,
   IconRefresh,
+  IconNetwork,
 } from '../common/Icons';
 
 // ============================================================================
@@ -166,7 +167,7 @@ const CreateAutomataDialog: React.FC<CreateAutomataDialogProps> = ({
 // ============================================================================
 
 interface TreeItemProps {
-  label: string;
+  label: React.ReactNode;
   icon: React.ReactNode;
   isExpanded?: boolean;
   isSelected?: boolean;
@@ -250,11 +251,60 @@ export const ExplorerPanel: React.FC = () => {
   const devices = useMemo(() => Array.from(devicesMap.values()), [devicesMap]);
   const automataList = useMemo(() => Array.from(automataMap.values()), [automataMap]);
   
+  const projectAutomataMap = useMemo(() => project?.automata ?? {}, [project]);
+
   // Get root automata (those without a parent)
   const rootAutomata = useMemo(() => 
     automataList.filter((a) => !a.parentAutomataId),
     [automataList]
   );
+
+  const workspaceNetworks = useMemo(() => {
+    if (!project) {
+      return [] as Array<{
+        id: string;
+        name: string;
+        description?: string;
+        color?: string;
+        roots: Automata[];
+        automataCount: number;
+      }>;
+    }
+
+    return project.networks.map((network) => {
+      const networkAutomata = network.automataIds
+        .map((automataId) => automataMap.get(automataId) ?? projectAutomataMap[automataId])
+        .filter((automata): automata is Automata => Boolean(automata));
+
+      const derivedRootIds = network.rootAutomataIds.length > 0
+        ? network.rootAutomataIds
+        : networkAutomata
+            .filter((automata) => !automata.parentAutomataId)
+            .map((automata) => automata.id);
+
+      const roots = derivedRootIds
+        .map((automataId) => networkAutomata.find((automata) => automata.id === automataId))
+        .filter((automata): automata is Automata => Boolean(automata));
+
+      return {
+        id: network.id,
+        name: network.name,
+        description: network.description,
+        color: network.color,
+        roots,
+        automataCount: networkAutomata.length,
+      };
+    });
+  }, [automataMap, project, projectAutomataMap]);
+
+  const unassignedRootAutomata = useMemo(() => {
+    if (!project) {
+      return rootAutomata;
+    }
+
+    const assignedIds = new Set(project.networks.flatMap((network) => network.automataIds));
+    return rootAutomata.filter((automata) => !assignedIds.has(automata.id));
+  }, [project, rootAutomata]);
   
   // Get nested automata for a parent
   const getNestedAutomata = useCallback((parentId: string) => 
@@ -268,6 +318,22 @@ export const ExplorerPanel: React.FC = () => {
       void Promise.all([fetchServers(), fetchDevices(), fetchAutomata()]);
     }
   }, [isConnected, fetchServers, fetchDevices, fetchAutomata]);
+
+  useEffect(() => {
+    if (!project || project.networks.length === 0) {
+      return;
+    }
+
+    setExpandedItems((prev) => {
+      const next = new Set(prev);
+      for (const network of project.networks) {
+        if (network.isExpanded !== false) {
+          next.add(`network:${network.id}`);
+        }
+      }
+      return next;
+    });
+  }, [project]);
   
   const toggleSection = (section: string) => {
     setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));
@@ -307,10 +373,10 @@ export const ExplorerPanel: React.FC = () => {
       
       // Add automata to project
       if (project) {
-        // Ensure there's at least one network
+        // Ensure there's at least one flagship workspace network
         let networkId = project.networks[0]?.id;
         if (!networkId) {
-          networkId = createNetwork('Default Network');
+          networkId = createNetwork('Signal Chain Backbone');
         }
         
         // Add automata to network
@@ -365,7 +431,7 @@ export const ExplorerPanel: React.FC = () => {
     if (project) {
       let networkId = project.networks[0]?.id;
       if (!networkId) {
-        networkId = createNetwork('Default Network');
+        networkId = createNetwork('Signal Chain Backbone');
       }
       addAutomataToNetwork(networkId, normalizedAutomata);
       markDirty();
@@ -468,14 +534,14 @@ export const ExplorerPanel: React.FC = () => {
         onSubmit={handleCreateAutomata}
       />
       
-      {/* Automata Section */}
+      {/* Workspace Section */}
       <div className="explorer-section">
         <div
           className="explorer-section-header"
           onClick={() => toggleSection('automata')}
         >
           {expandedSections.automata ? <IconChevronDown size={12} /> : <IconChevronRight size={12} />}
-          <span>AUTOMATA</span>
+          <span>WORKSPACE</span>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 'var(--spacing-1)' }}>
             <button
               className="btn btn-ghost btn-icon"
@@ -516,14 +582,75 @@ export const ExplorerPanel: React.FC = () => {
         
         {expandedSections.automata && (
           <div className="explorer-section-content">
-            {rootAutomata.length === 0 ? (
+            {workspaceNetworks.length === 0 && unassignedRootAutomata.length === 0 ? (
               <div style={{ padding: 'var(--spacing-3)', color: 'var(--color-text-tertiary)', fontSize: 'var(--font-size-sm)' }}>
-                No automata yet. Click + to create one.
+                No workspace automata loaded. Create or import automata to start building the flagship workspace.
               </div>
             ) : (
-              rootAutomata.map((automata) => (
-                <AutomataTreeItem key={automata.id} automata={automata} depth={0} />
-              ))
+              <>
+                {workspaceNetworks.map((network) => {
+                  const networkItemId = `network:${network.id}`;
+                  const isExpanded = expandedItems.has(networkItemId);
+                  const automataLabel = `${network.automataCount} automata`;
+
+                  return (
+                    <React.Fragment key={network.id}>
+                      <TreeItem
+                        label={(
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            <span>{network.name}</span>
+                            <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                              {network.description || automataLabel}
+                            </span>
+                          </div>
+                        )}
+                        icon={(
+                          <span
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              color: network.color || 'var(--color-accent-primary)',
+                            }}
+                          >
+                            <IconNetwork size={14} />
+                          </span>
+                        )}
+                        hasChildren={network.roots.length > 0}
+                        isExpanded={isExpanded}
+                        onToggle={() => toggleItem(networkItemId)}
+                      />
+
+                      {isExpanded && network.roots.map((automata) => (
+                        <AutomataTreeItem key={automata.id} automata={automata} depth={1} />
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
+
+                {unassignedRootAutomata.length > 0 && (
+                  <>
+                    <TreeItem
+                      label={(
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <span>Unassigned Imports</span>
+                          <span style={{ fontSize: '10px', color: 'var(--color-text-tertiary)' }}>
+                            Automata waiting to be organized into a flagship network.
+                          </span>
+                        </div>
+                      )}
+                      icon={<IconAutomata size={14} />}
+                      hasChildren={true}
+                      isExpanded={expandedItems.has('network:unassigned')}
+                      onToggle={() => toggleItem('network:unassigned')}
+                    />
+
+                    {expandedItems.has('network:unassigned') && unassignedRootAutomata.map((automata) => (
+                      <AutomataTreeItem key={automata.id} automata={automata} depth={1} />
+                    ))}
+                  </>
+                )}
+              </>
             )}
           </div>
         )}

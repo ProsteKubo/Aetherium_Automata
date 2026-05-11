@@ -47,9 +47,6 @@ interface LoadResult<T> {
 }
 
 interface ShowcaseAutomataEntry {
-  id: string;
-  name: string;
-  category: string;
   relativePath: string;
 }
 
@@ -69,6 +66,7 @@ const AUTOMATA_FILTERS = [
 ];
 
 const SHOWCASE_CATALOG_PATH = path.join('example', 'automata', 'showcase', 'CATALOG.txt');
+const FLAGSHIP_PROJECT_TEMPLATE_PATH = 'NewProject.aeth';
 
 // ============================================================================
 // Project Operations
@@ -82,7 +80,7 @@ ipcMain.handle('project:create', async (_event, defaultName?: string): Promise<S
   
   const result = await dialog.showSaveDialog(window!, {
     title: 'Create New Project',
-    defaultPath: defaultName || 'NewProject.aeth',
+    defaultPath: defaultName || 'AetheriumFlagshipShowcase.aeth',
     filters: PROJECT_FILTERS,
     properties: ['createDirectory', 'showOverwriteConfirmation'],
   });
@@ -94,41 +92,7 @@ ipcMain.handle('project:create', async (_event, defaultName?: string): Promise<S
   const projectPath = result.filePath;
   const projectDir = path.dirname(projectPath);
   const projectName = path.basename(projectPath, '.aeth');
-  
-  // Create project structure
-  const project: Project = {
-    schemaVersion: '1.0.0',
-    metadata: {
-      name: projectName,
-      version: '0.1.0',
-      description: '',
-      author: '',
-      created: Date.now(),
-      modified: Date.now(),
-      tags: [],
-    },
-    networks: [],
-    automata: {},
-    settings: {
-      defaultLanguage: 'lua',
-      autoSaveInterval: 30000,
-      defaultLayoutType: 'inline',
-      codeFolderPath: 'src',
-      editor: {
-        snapToGrid: true,
-        gridSize: 20,
-        autoLayout: true,
-        showMinimap: true,
-        transitionStyle: 'bezier',
-        animationSpeed: 300,
-      },
-      build: {
-        outputFormat: 'yaml',
-        includeDebugInfo: true,
-        targetPlatforms: ['linux'],
-      },
-    },
-  };
+  const project = await loadFlagshipProjectTemplate(projectName);
   
   try {
     // Create project directory structure
@@ -180,17 +144,9 @@ ipcMain.handle('project:openPath', async (_event, filePath: string): Promise<Loa
  * Save project
  */
 ipcMain.handle('project:save', async (_event, project: Project, filePath?: string): Promise<SaveResult> => {
-  console.log('[Main] project:save IPC called');
-  console.log('[Main] project:', project);
-  console.log('[Main] filePath:', filePath);
-  console.log('[Main] project.automata:', project.automata);
-  console.log('[Main] project.networks:', project.networks);
-  
   let savePath = filePath || project.filePath;
   
   if (!savePath) {
-    console.log('[Main] No savePath, showing dialog...');
-    // Show save dialog
     const window = BrowserWindow.getFocusedWindow();
     const result = await dialog.showSaveDialog(window!, {
       title: 'Save Project',
@@ -199,24 +155,17 @@ ipcMain.handle('project:save', async (_event, project: Project, filePath?: strin
     });
     
     if (result.canceled || !result.filePath) {
-      console.log('[Main] Save dialog cancelled');
       return { success: false, error: 'Cancelled' };
     }
     savePath = result.filePath;
   }
   
   try {
-    console.log('[Main] Saving to:', savePath);
     project.metadata.modified = Date.now();
     const jsonString = JSON.stringify(project, null, 2);
-    console.log('[Main] JSON string length:', jsonString.length);
-    console.log('[Main] First 500 chars:', jsonString.substring(0, 500));
     
     await fs.writeFile(savePath, jsonString, 'utf-8');
-    console.log('[Main] File written successfully');
-    
     await addToRecentProjects(savePath, project.metadata.name);
-    console.log('[Main] Added to recent projects');
     
     return { success: true, filePath: savePath };
   } catch (err) {
@@ -298,23 +247,6 @@ ipcMain.handle('automata:import', async (_event, filePath: string): Promise<Load
 });
 
 /**
- * List curated showcase automata entries from repository catalog.
- */
-ipcMain.handle('automata:listShowcase', async (): Promise<LoadResult<ShowcaseAutomataEntry[]>> => {
-  try {
-    const repoRoot = resolveRepositoryRoot();
-    if (!repoRoot) {
-      return { success: false, error: `Cannot locate ${SHOWCASE_CATALOG_PATH}` };
-    }
-
-    const entries = await loadShowcaseEntries(repoRoot);
-    return { success: true, data: entries, filePath: path.join(repoRoot, SHOWCASE_CATALOG_PATH) };
-  } catch (err) {
-    return { success: false, error: String(err) };
-  }
-});
-
-/**
  * Load one showcase automata by relative path or showcase id.
  */
 ipcMain.handle('automata:loadShowcase', async (_event, target: string): Promise<LoadResult<unknown>> => {
@@ -325,7 +257,7 @@ ipcMain.handle('automata:loadShowcase', async (_event, target: string): Promise<
     }
 
     const entries = await loadShowcaseEntries(repoRoot);
-    const resolved = entries.find((entry) => entry.id === target || entry.relativePath === target);
+    const resolved = entries.find((entry) => entry.relativePath === target.replace(/\\/g, '/'));
     if (!resolved) {
       return { success: false, error: `Showcase automata not found: ${target}` };
     }
@@ -446,32 +378,14 @@ function findCatalogInAncestors(startDir: string): string | null {
 async function loadShowcaseEntries(repoRoot: string): Promise<ShowcaseAutomataEntry[]> {
   const catalogPath = path.join(repoRoot, SHOWCASE_CATALOG_PATH);
   const raw = await fs.readFile(catalogPath, 'utf-8');
-  const lines = raw
+
+  return raw
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .filter((line) => line.length > 0 && !line.startsWith('#'));
-
-  return lines.map((relativePath, index) => {
-    const normalizedPath = relativePath.replace(/\\/g, '/');
-    const segments = normalizedPath.split('/');
-    const categoryRaw = segments[3] || 'showcase';
-    const baseName = path.basename(normalizedPath, path.extname(normalizedPath));
-
-    return {
-      id: `showcase_${String(index + 1).padStart(2, '0')}`,
-      name: humanizeLabel(baseName),
-      category: humanizeLabel(categoryRaw.replace(/^\d+_/, '')),
-      relativePath: normalizedPath,
-    };
-  });
-}
-
-function humanizeLabel(input: string): string {
-  return input
-    .split(/[_-]+/)
-    .map((part) => (part.length > 0 ? part[0].toUpperCase() + part.slice(1) : ''))
-    .join(' ')
-    .trim();
+    .filter((line) => line.length > 0 && !line.startsWith('#'))
+    .map((relativePath) => ({
+      relativePath: relativePath.replace(/\\/g, '/'),
+    }));
 }
 
 async function loadProject(filePath: string): Promise<LoadResult<Project>> {
@@ -490,6 +404,69 @@ async function loadProject(filePath: string): Promise<LoadResult<Project>> {
   } catch (err) {
     return { success: false, error: String(err) };
   }
+}
+
+async function loadFlagshipProjectTemplate(projectName: string): Promise<Project> {
+  const repoRoot = resolveRepositoryRoot();
+  const templatePath = repoRoot ? path.join(repoRoot, FLAGSHIP_PROJECT_TEMPLATE_PATH) : null;
+
+  if (templatePath && existsSync(templatePath)) {
+    try {
+      const content = await fs.readFile(templatePath, 'utf-8');
+      const template = JSON.parse(content) as Project;
+      const now = Date.now();
+
+      return {
+        ...template,
+        metadata: {
+          ...template.metadata,
+          name: projectName,
+          created: now,
+          modified: now,
+        },
+        filePath: undefined,
+      };
+    } catch (err) {
+      console.warn(`[Main] Failed to load flagship project template from ${templatePath}:`, err);
+    }
+  }
+
+  const now = Date.now();
+
+  return {
+    schemaVersion: '1.0.0',
+    metadata: {
+      name: projectName,
+      version: '0.1.0',
+      description:
+        'Distributed EFSM orchestration workspace centered on named channels, observability, replay, and analyzer insight.',
+      author: '',
+      created: now,
+      modified: now,
+      tags: ['efsm', 'orchestration', 'runtime', 'replay'],
+    },
+    networks: [],
+    automata: {},
+    settings: {
+      defaultLanguage: 'lua',
+      autoSaveInterval: 30000,
+      defaultLayoutType: 'inline',
+      codeFolderPath: 'src',
+      editor: {
+        snapToGrid: true,
+        gridSize: 20,
+        autoLayout: true,
+        showMinimap: true,
+        transitionStyle: 'bezier',
+        animationSpeed: 300,
+      },
+      build: {
+        outputFormat: 'yaml',
+        includeDebugInfo: true,
+        targetPlatforms: ['linux'],
+      },
+    },
+  };
 }
 
 /**

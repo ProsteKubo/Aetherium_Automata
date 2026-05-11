@@ -19,7 +19,6 @@ const api = {
       ipcRenderer.invoke('automata:saveYaml', automata, suggestedPath),
     loadYaml: () => ipcRenderer.invoke('automata:loadYaml'),
     import: (filePath: string) => ipcRenderer.invoke('automata:import', filePath),
-    listShowcase: () => ipcRenderer.invoke('automata:listShowcase'),
     loadShowcase: (target: string) => ipcRenderer.invoke('automata:loadShowcase', target),
   },
   

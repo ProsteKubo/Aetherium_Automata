@@ -1,0 +1,104 @@
+% Appendices -- Aetherium Automata
+
+\chapter{Contents of the Included Storage Media}
+\label{app:media}
+
+% TODO: fill in final directory listing once all deliverables are collected.
+
+The included storage medium contains the following items:
+
+\begin{description}
+  \item[\texttt{src/}] Full source code of the Aetherium Automata platform:
+    \begin{itemize}
+      \item \texttt{src/engine/} --- C++17 runtime engine and platform targets
+      \item \texttt{src/ide/} --- Electron IDE (TypeScript/React)
+      \item \texttt{src/gateway/} --- Elixir/Phoenix gateway
+      \item \texttt{src/server/} --- Elixir server
+    \end{itemize}
+  \item[\texttt{example/}] Showcase automata catalog:
+    \begin{itemize}
+      \item \texttt{example/automata/showcase/} --- 18 YAML automata definitions
+      \item \texttt{example/ide\_demo\_projects/} --- IDE demo project files (\texttt{.aeth})
+    \end{itemize}
+  \item[\texttt{thesis/}] \LaTeX{} source of this technical report and compiled PDF.
+\end{description}
+
+\chapter{YAML DSL Schema Reference}
+\label{app:schema}
+
+% TODO: consider generating a formal JSON Schema or RelaxNG schema from the parser
+%       and including it here, or provide a compact BNF grammar.
+
+The complete field reference for the YAML domain-specific language is given below.
+Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional.
+
+\begin{table}[H]
+  \centering
+  \caption{Top-level YAML fields.}
+  \vskip6pt
+  \begin{tabular}{lll}
+    \toprule
+    Field & Required & Description \\
+    \midrule
+    \texttt{version} & R & Schema version (currently \texttt{0.0.1}) \\
+    \texttt{config} & R & Automaton metadata block \\
+    \texttt{variables} & O & List of variable definitions \\
+    \texttt{automata} & R & EFSM body \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{\texttt{config} block fields.}
+  \vskip6pt
+  \begin{tabular}{lll}
+    \toprule
+    Field & Required & Description \\
+    \midrule
+    \texttt{name} & R & Human-readable automaton name \\
+    \texttt{type} & R & \texttt{inline} or \texttt{folder} \\
+    \texttt{location} & R if \texttt{folder} & Path to folder containing code files \\
+    \texttt{language} & O & Scripting language; default \texttt{lua} \\
+    \texttt{description} & O & Free-text description \\
+    \texttt{author} & O & Author name \\
+    \texttt{tags} & O & List of string tags for discovery \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\begin{table}[H]
+  \centering
+  \caption{Transition type-specific fields.}
+  \vskip6pt
+  \begin{tabular}{lll}
+    \toprule
+    Type & Required fields & Optional fields \\
+    \midrule
+    \texttt{classic}       & \texttt{condition}                    & \texttt{priority}, \texttt{weight} \\
+    \texttt{timed}         & \texttt{timed.mode}, \texttt{timed.after} (mode-dependent) & \texttt{timed.jitter}, \texttt{priority} \\
+    \texttt{event}         & \texttt{event.triggers}               & \texttt{event.require\_all}, \texttt{priority} \\
+    \texttt{probabilistic} & \texttt{weight}                       & \texttt{priority} \\
+    \texttt{immediate}     & ---                                   & \texttt{priority} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\chapter{Supported Platform Targets}
+\label{app:targets}
+
+\begin{table}[H]
+  \centering
+  \caption{Engine platform targets and their capability profiles.}
+  \vskip6pt
+  \begin{tabular}{lllll}
+    \toprule
+    Target & Architecture & Script engine & Transport & Build system \\
+    \midrule
+    Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 (Sol2) & IXWebSocket & CMake \\
+    ESP32 & Xtensa LX6 & Lightweight / no-op & Serial / MQTT & Arduino/CMake \\
+    Raspberry Pi Pico & ARM Cortex-M0+ & No-op stub & Serial & CMake \\
+    MCXN947 & ARM Cortex-M7 & Lightweight & Serial & CMake \\
+    \bottomrule
+  \end{tabular}
+\end{table}

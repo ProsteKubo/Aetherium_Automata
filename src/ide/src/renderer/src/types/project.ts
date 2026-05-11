@@ -211,16 +211,16 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
 };
 
 export const DEFAULT_PROJECT_METADATA: ProjectMetadata = {
-  name: 'New Project',
+  name: 'Aetherium Flagship Workspace',
   version: '0.1.0',
-  description: '',
+  description: 'Distributed EFSM orchestration workspace centered on named channels, observability, replay, and analyzer insight.',
   author: '',
   created: Date.now(),
   modified: Date.now(),
-  tags: [],
+  tags: ['efsm', 'orchestration', 'runtime', 'replay'],
 };
 
-export function createEmptyProject(name: string = 'New Project'): Project {
+export function createEmptyProject(name: string = 'Aetherium Flagship Workspace'): Project {
   return {
     schemaVersion: '1.0.0',
     metadata: {
@@ -236,14 +236,20 @@ export function createEmptyProject(name: string = 'New Project'): Project {
   };
 }
 
-export function createEmptyNetwork(name: string = 'New Network'): AutomataNetwork {
+export function createEmptyNetwork(name: string = 'Control Network'): AutomataNetwork {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'network';
+
   return {
-    id: `network_${Date.now()}`,
+    id: `network_${slug}_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
     name,
     description: '',
     rootAutomataIds: [],
     automataIds: [],
-    relativePath: name.toLowerCase().replace(/\s+/g, '-'),
+    relativePath: slug,
     isExpanded: true,
   };
 }

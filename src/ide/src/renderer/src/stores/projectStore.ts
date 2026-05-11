@@ -11,6 +11,7 @@ import type {
   RecentProject,
   TreeNode,
   ProjectSettings,
+  AutomataNetwork,
 } from '../types/project';
 import type { Automata, AutomataId } from '../types/automata';
 import { createEmptyProject, createEmptyNetwork } from '../types/project';
@@ -20,6 +21,51 @@ let automataStoreGetter: (() => any) | null = null;
 export const setAutomataStoreGetter = (getter: () => any) => {
   automataStoreGetter = getter;
 };
+
+const FLAGSHIP_NETWORK_BLUEPRINTS: Array<Pick<AutomataNetwork, 'name' | 'description' | 'relativePath' | 'color' | 'icon'>> = [
+  {
+    name: 'Signal Chain Backbone',
+    description: 'Gateway-to-device backbone for command, permit, heartbeat, and telemetry channels.',
+    relativePath: 'networks/signal-chain-backbone',
+    color: '#1f6f78',
+    icon: 'network',
+  },
+  {
+    name: 'Guarded Cell Cluster',
+    description: 'State-heavy supervisory network for coordinated actuation, safety, and recovery.',
+    relativePath: 'networks/guarded-cell-cluster',
+    color: '#7c3aed',
+    icon: 'shield',
+  },
+  {
+    name: 'Power Contention Ring',
+    description: 'Shared-resource network reserved for bottleneck, latency, and contention analysis.',
+    relativePath: 'networks/power-contention-ring',
+    color: '#c84c09',
+    icon: 'analysis',
+  },
+  {
+    name: 'Resilience Watchdog',
+    description: 'Fault and liveness monitoring network that supports rewind and replay workflows.',
+    relativePath: 'networks/resilience-watchdog',
+    color: '#0f766e',
+    icon: 'pulse',
+  },
+];
+
+function seedFlagshipNetworks(project: Project): Project {
+  if (project.networks.length > 0) {
+    return project;
+  }
+
+  project.networks = FLAGSHIP_NETWORK_BLUEPRINTS.map((blueprint) => ({
+    ...createEmptyNetwork(blueprint.name),
+    ...blueprint,
+    isExpanded: true,
+  }));
+
+  return project;
+}
 
 // ============================================================================
 // State Types
@@ -69,6 +115,7 @@ interface ProjectActions {
   createNetwork: (name: string) => string;
   deleteNetwork: (networkId: string) => void;
   renameNetwork: (networkId: string, newName: string) => void;
+  updateNetwork: (networkId: string, patch: Partial<AutomataNetwork>) => void;
   
   // Automata in network
   addAutomataToNetwork: (networkId: string, automata: Automata) => void;
@@ -142,7 +189,29 @@ export const useProjectStore = create<ProjectStore>()(
         const result = await window.api.project.create(name);
         
         if (result.success && result.filePath) {
-          const project = createEmptyProject(name || 'New Project');
+          const opened = await window.api.project.openPath(result.filePath);
+
+          if (opened.success && opened.data) {
+            const project = opened.data as Project;
+            project.filePath = opened.filePath || result.filePath;
+
+            set((state) => {
+              state.project = project;
+              state.filePath = project.filePath || null;
+              state.isLoaded = true;
+              state.isDirty = false;
+              state.lastSavedAt = project.metadata.modified;
+              state.isCreating = false;
+            });
+
+            get().buildTreeFromProject();
+            get().syncAutomataToEditor();
+            get().loadRecentProjects();
+
+            return true;
+          }
+
+          const project = seedFlagshipNetworks(createEmptyProject(name || 'Aetherium Flagship Workspace'));
           project.filePath = result.filePath;
           
           set((state) => {
@@ -152,6 +221,7 @@ export const useProjectStore = create<ProjectStore>()(
             state.isDirty = false;
             state.lastSavedAt = Date.now();
             state.isCreating = false;
+            state.error = opened.error || null;
           });
           
           get().buildTreeFromProject();
@@ -266,37 +336,24 @@ export const useProjectStore = create<ProjectStore>()(
     saveProject: async () => {
       const { project, filePath } = get();
       
-      console.log('[ProjectStore] saveProject called', { project, filePath });
-      
       if (!project) {
-        console.log('[ProjectStore] No project to save');
         return false;
       }
       
       // Sync automata from automataStore before saving
-      console.log('[ProjectStore] Syncing automata from editor...');
       try {
         get().syncAutomataFromEditor();
-        console.log('[ProjectStore] Sync completed');
       } catch (err) {
-        console.error('[ProjectStore] Sync failed:', err);
+        console.error('[ProjectStore] Failed to sync automata before save:', err);
       }
-      console.log('[ProjectStore] After sync, project.automata:', project.automata);
-      console.log('[ProjectStore] After sync, project.networks:', project.networks);
       
       set((state) => {
         state.isSaving = true;
         state.error = null;
       });
       
-      console.log('[ProjectStore] About to call window.api.project.save...');
-      console.log('[ProjectStore] window.api:', window.api);
-      console.log('[ProjectStore] window.api.project:', window.api?.project);
-      
       try {
-        console.log('[ProjectStore] Calling window.api.project.save...');
         const result = await window.api.project.save(project, filePath || undefined);
-        console.log('[ProjectStore] Save result:', result);
         
         if (result.success) {
           set((state) => {
@@ -315,7 +372,6 @@ export const useProjectStore = create<ProjectStore>()(
           
           return true;
         } else {
-          console.log('[ProjectStore] Save failed:', result.error);
           set((state) => {
             state.isSaving = false;
             if (result.error !== 'Cancelled') {
@@ -325,7 +381,7 @@ export const useProjectStore = create<ProjectStore>()(
           return false;
         }
       } catch (err) {
-        console.error('[ProjectStore] Save error:', err);
+        console.error('[ProjectStore] Save failed:', err);
         set((state) => {
           state.isSaving = false;
           state.error = String(err);
@@ -397,14 +453,13 @@ export const useProjectStore = create<ProjectStore>()(
       });
     },
 
-    ensureLocalProject: (name = 'Petri Demo Project') => {
+    ensureLocalProject: (name = 'Aetherium Flagship Workspace') => {
       const existing = get().project;
       if (existing) {
         return;
       }
 
-      const project = createEmptyProject(name);
-      project.networks.push(createEmptyNetwork('Default Network'));
+      const project = seedFlagshipNetworks(createEmptyProject(name));
 
       set((state) => {
         state.project = project;
@@ -496,6 +551,20 @@ export const useProjectStore = create<ProjectStore>()(
         }
       });
       
+      get().buildTreeFromProject();
+    },
+
+    updateNetwork: (networkId: string, patch: Partial<AutomataNetwork>) => {
+      set((state) => {
+        if (state.project) {
+          const network = state.project.networks.find((n) => n.id === networkId);
+          if (network) {
+            Object.assign(network, patch);
+            state.isDirty = true;
+          }
+        }
+      });
+
       get().buildTreeFromProject();
     },
     

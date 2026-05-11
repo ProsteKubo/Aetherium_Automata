@@ -14,6 +14,7 @@ import type {
   BlackBoxDescription,
   BlackBoxSnapshot,
   ExecutionSnapshot,
+  TimeTravelSession,
 } from '../../types';
 import type { RuntimeDeploymentTransfer, RuntimeRenderFrame } from '../../types/runtimeView';
 import { normalizeImportedAutomata } from '../../utils/importedAutomata';
@@ -21,7 +22,6 @@ import { StateNode } from '../editor/StateNode';
 import {
   IconCheck,
   IconDevice,
-  IconPlay,
   IconRefresh,
   IconUpload,
   IconX,
@@ -33,7 +33,6 @@ import {
   isDeviceReachable,
   isRunningLike,
   runtimeStatusToLabel,
-  ShowcaseAutomataEntry,
   supportsMultipleDeployments,
   transferForDevice,
 } from './devicePanelShared';
@@ -46,6 +45,18 @@ type DisplayItem = {
   status: string;
   currentState?: string;
   label: string;
+};
+
+type LogicalRuntimeGroup = {
+  id: string;
+  name: string;
+  color?: string;
+  automataIds: string[];
+  deploymentIds: string[];
+  deviceIds: string[];
+  runningCount: number;
+  totalCount: number;
+  serverNames: string[];
 };
 
 const runtimeNodeTypes = {
@@ -240,10 +251,6 @@ function RuntimeGraphCard({
 }
 
 export const RuntimeMonitorPanel: React.FC = () => {
-  const [showcaseEntries, setShowcaseEntries] = useState<ShowcaseAutomataEntry[]>([]);
-  const [selectedShowcasePath, setSelectedShowcasePath] = useState('');
-  const [showcaseFilterText, setShowcaseFilterText] = useState('');
-  const [showcaseBusy, setShowcaseBusy] = useState(false);
   const [varName, setVarName] = useState('');
   const [varValue, setVarValue] = useState('');
   const [eventName, setEventName] = useState('');
@@ -257,6 +264,10 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const [blackBoxEvent, setBlackBoxEvent] = useState('');
   const [blackBoxEventData, setBlackBoxEventData] = useState('');
   const [blackBoxForceState, setBlackBoxForceState] = useState('');
+  const [timeTravelSession, setTimeTravelSession] = useState<TimeTravelSession | null>(null);
+  const [timeTravelLoading, setTimeTravelLoading] = useState(false);
+  const [timeTravelMaxSnapshots, setTimeTravelMaxSnapshots] = useState('500');
+  const [timeTravelBookmarkName, setTimeTravelBookmarkName] = useState('');
   const [manualSnapshot, setManualSnapshot] = useState<ExecutionSnapshot | null>(null);
   const [lastSnapshotAt, setLastSnapshotAt] = useState<number | null>(null);
   const [now, setNow] = useState(Date.now());
@@ -293,37 +304,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const focusedExecution = useExecutionStore((state) =>
     focusedDeviceId ? state.deviceExecutions.get(focusedDeviceId as any) : undefined,
   );
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const loadShowcaseCatalog = async () => {
-      const result = await window.api.automata.listShowcase();
-      if (cancelled) return;
-
-      if (!result.success || !result.data) {
-        if (result.error) {
-          addNotification('warning', 'Showcase', `Showcase catalog unavailable: ${result.error}`);
-        }
-        return;
-      }
-
-      const entries = result.data ?? [];
-      setShowcaseEntries(entries);
-      setSelectedShowcasePath((prev) => {
-        if (prev && entries.some((entry) => entry.relativePath === prev)) {
-          return prev;
-        }
-        return entries[0]?.relativePath || '';
-      });
-    };
-
-    void loadShowcaseCatalog();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [addNotification]);
 
   useEffect(() => {
     const animator = setInterval(() => {
@@ -395,6 +375,52 @@ export const RuntimeMonitorPanel: React.FC = () => {
   );
   const focusedTransfer = focusedDevice ? transferForDevice(focusedDevice, transfersMap, focusDeployments[0]) : undefined;
 
+  const networkByAutomataId = useMemo(() => {
+    const mapped = new Map<string, { id: string; name: string; color?: string }>();
+    project?.networks.forEach((network) => {
+      network.automataIds.forEach((automataId) => {
+        mapped.set(automataId, {
+          id: network.id,
+          name: network.name,
+          color: network.color,
+        });
+      });
+    });
+    return mapped;
+  }, [project]);
+
+  const logicalNetworkGroups = useMemo<LogicalRuntimeGroup[]>(() => {
+    if (!project) {
+      return [];
+    }
+
+    return project.networks.map((network) => {
+      const automataIds = network.automataIds.filter((automataId) => automataMap.has(automataId));
+      const deploymentsForNetwork = deployments.filter((deployment) => automataIds.includes(deployment.automataId));
+      const deviceIds = Array.from(new Set(deploymentsForNetwork.map((deployment) => String(deployment.deviceId))));
+      const serverNames = Array.from(
+        new Set(
+          deviceIds
+            .map((deviceId) => devicesMap.get(deviceId)?.serverId)
+            .map((serverId) => (serverId ? serversMap.get(serverId)?.name ?? serverId : null))
+            .filter((value): value is string => Boolean(value)),
+        ),
+      );
+
+      return {
+        id: network.id,
+        name: network.name,
+        color: network.color,
+        automataIds,
+        deploymentIds: deploymentsForNetwork.map((deployment) => deployment.deploymentId),
+        deviceIds,
+        runningCount: deploymentsForNetwork.filter((deployment) => isRunningLike(deployment.status)).length,
+        totalCount: automataIds.length,
+        serverNames,
+      };
+    });
+  }, [automataMap, deployments, devicesMap, project, serversMap]);
+
   const displayItems = useMemo<DisplayItem[]>(() => {
     let items: DisplayItem[];
 
@@ -413,6 +439,23 @@ export const RuntimeMonitorPanel: React.FC = () => {
             label: `${device?.name || deployment.deviceId} · ${deployment.automataId}`,
           };
         });
+    } else if (scope === 'networks') {
+      items = logicalNetworkGroups.flatMap((group) =>
+        group.automataIds.map((automataId) => {
+          const automata = automataMap.get(automataId);
+          const attached = deployments.find((deployment) => deployment.automataId === automataId);
+          const device = attached ? devicesMap.get(attached.deviceId as any) : undefined;
+          return {
+            id: attached?.deploymentId ?? `project:${automataId}`,
+            deploymentId: attached?.deploymentId,
+            automataId,
+            deviceId: attached?.deviceId,
+            status: attached?.status || 'unknown',
+            currentState: attached?.currentState,
+            label: `${group.name} · ${automata?.config.name || automataId}${device ? ` · ${device.name}` : ''}`,
+          };
+        }),
+      );
     } else {
       items = Array.from(automataMap.values()).map((automata) => {
         const attached = deployments.find((deployment) => deployment.automataId === automata.id);
@@ -434,7 +477,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
     }
 
     return items.filter((item) => item.deviceId === focusedDeviceId);
-  }, [automataMap, deployments, devicesMap, focusedDeviceId, scope]);
+  }, [automataMap, deployments, devicesMap, focusedDeviceId, logicalNetworkGroups, scope]);
 
   useEffect(() => {
     const validIds = new Set(displayItems.map((item) => item.id));
@@ -482,11 +525,32 @@ export const RuntimeMonitorPanel: React.FC = () => {
     );
   }, [focusDeployments, focusedDevice, selectedIds]);
 
+  const selectedLogicalNetworkLabel = useMemo(() => {
+    if (selectedFocusDeployment) {
+      return networkByAutomataId.get(selectedFocusDeployment.automataId)?.name ?? 'Unscoped deployment';
+    }
+
+    const names = Array.from(
+      new Set(
+        displayItems
+          .filter((item) => selectedIds.includes(item.id))
+          .map((item) => networkByAutomataId.get(item.automataId)?.name)
+          .filter((value): value is string => Boolean(value)),
+      ),
+    );
+
+    if (names.length === 0) return 'Unscoped selection';
+    if (names.length === 1) return names[0];
+    return `${names.length} logical networks`;
+  }, [displayItems, networkByAutomataId, selectedFocusDeployment, selectedIds]);
+
   useEffect(() => {
     setManualSnapshot(null);
     setLastSnapshotAt(null);
     setBlackBoxDescription(null);
     setBlackBoxSnapshot(null);
+    setTimeTravelSession(null);
+    setTimeTravelBookmarkName('');
   }, [focusedDeviceId, selectedFocusDeployment?.deploymentId]);
 
   const selectedCommandTarget = useMemo(
@@ -563,15 +627,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
       return left.config.name.localeCompare(right.config.name) || leftPath.localeCompare(rightPath);
     });
   }, [activeAutomataId, automataMap]);
-
-  const filteredShowcaseEntries = useMemo(() => {
-    const query = showcaseFilterText.trim().toLowerCase();
-    const filtered = showcaseEntries.filter((entry) => {
-      if (!query) return true;
-      return `${entry.category} ${entry.name} ${entry.relativePath}`.toLowerCase().includes(query);
-    });
-    return filtered.slice(0, 10);
-  }, [showcaseEntries, showcaseFilterText]);
 
   useEffect(() => {
     if (!blackBoxContract) {
@@ -699,16 +754,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
     return { id: imported.id, automata: imported };
   };
 
-  const importShowcaseAutomata = async (target: string): Promise<{ id: string; automata: Automata } | null> => {
-    const result = await window.api.automata.loadShowcase(target);
-    if (!result.success || !result.data) {
-      addNotification('error', 'Showcase', result.error || `Failed to load showcase automata: ${target}`);
-      return null;
-    }
-
-    return attachImportedAutomata(result.data as Partial<Automata>, result.filePath, 'Showcase');
-  };
-
   const handleImportYamlAutomata = async (): Promise<{ id: string; automata: Automata } | null> => {
     const result = await window.api.automata.loadYaml();
     if (!result.success || !result.data) {
@@ -724,51 +769,13 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const handleDeployAutomataCandidate = async (candidate: { id: string; automata: Automata }) => {
     if (!focusedDevice) return;
     try {
-      await gatewayService.deployAutomata(candidate.id, focusedDevice.id, { automata: candidate.automata });
-      const deploymentId = `${candidate.id}:${focusedDevice.id}`;
-      upsertRuntimeDeployment({
-        deploymentId,
-        automataId: candidate.id as any,
-        deviceId: focusedDevice.id as any,
-        status: isDeviceReachable(focusedDevice.status) ? 'loading' : 'offline',
-        currentState: focusedDevice.currentState,
-        updatedAt: Date.now(),
-      });
+      const response = await gatewayService.deployAutomata(candidate.id, focusedDevice.id, { automata: candidate.automata });
+      const deploymentId = response.deploymentId ?? `${candidate.id}:${focusedDevice.id}`;
       setSelected([deploymentId]);
       setActiveAutomata(candidate.id);
       addNotification('success', 'Deploy', `Deployed ${candidate.automata.config.name} to ${focusedDevice.name}`);
     } catch (err) {
       addNotification('error', 'Deploy', err instanceof Error ? err.message : 'Failed to deploy automata');
-    }
-  };
-
-  const handleLoadShowcase = async () => {
-    if (!selectedShowcasePath) {
-      addNotification('warning', 'Showcase', 'No showcase automata selected.');
-      return;
-    }
-
-    setShowcaseBusy(true);
-    try {
-      await importShowcaseAutomata(selectedShowcasePath);
-    } finally {
-      setShowcaseBusy(false);
-    }
-  };
-
-  const handleDeployShowcase = async () => {
-    if (!focusedDevice || !selectedShowcasePath) {
-      addNotification('warning', 'Showcase Deploy', 'Select a device and showcase first.');
-      return;
-    }
-
-    setShowcaseBusy(true);
-    try {
-      const candidate = await importShowcaseAutomata(selectedShowcasePath);
-      if (!candidate) return;
-      await handleDeployAutomataCandidate(candidate);
-    } finally {
-      setShowcaseBusy(false);
     }
   };
 
@@ -835,24 +842,168 @@ export const RuntimeMonitorPanel: React.FC = () => {
     return { description: nextDescription, snapshot: nextSnapshot };
   };
 
+  const syncFocusedSnapshot = async (
+    snapshot: ExecutionSnapshot,
+    options?: { refreshBlackBox?: boolean },
+  ) => {
+    setManualSnapshot(snapshot);
+    setLastSnapshotAt(snapshot.timestamp ?? Date.now());
+
+    if (focusedDevice && selectedFocusDeployment) {
+      upsertRuntimeDeployment({
+        deploymentId: selectedFocusDeployment.deploymentId,
+        automataId: snapshot.automataId as any,
+        deviceId: focusedDevice.id as any,
+        status: selectedFocusDeployment.status,
+        currentState: snapshot.currentState,
+        variables: Object.fromEntries(
+          Object.entries(snapshot.variables ?? {}).map(([name, meta]) => [name, meta?.value]),
+        ),
+        updatedAt: Date.now(),
+      });
+    }
+
+    if (options?.refreshBlackBox) {
+      await refreshBlackBoxContext({ silentError: true });
+    }
+  };
+
+  const handleStartTimeTravel = async () => {
+    if (!focusedDevice || !selectedFocusDeployment) return;
+
+    try {
+      setTimeTravelLoading(true);
+      const parsed = Number.parseInt(timeTravelMaxSnapshots, 10);
+      const maxSnapshots = Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
+      const { session } = await gatewayService.startTimeTravel(focusedDevice.id, { maxSnapshots });
+      setTimeTravelSession(session);
+
+      const initialSnapshot =
+        session.history.snapshots[session.history.currentIndex] ??
+        session.history.snapshots[session.history.snapshots.length - 1];
+
+      if (initialSnapshot) {
+        await syncFocusedSnapshot(initialSnapshot, { refreshBlackBox: true });
+      }
+
+      addNotification(
+        'success',
+        'Time Travel',
+        `Loaded ${session.history.snapshots.length} timeline snapshots for ${focusedDevice.name}`,
+      );
+    } catch (err) {
+      addNotification(
+        'error',
+        'Time Travel',
+        err instanceof Error ? err.message : 'Failed to load deployment timeline',
+      );
+    } finally {
+      setTimeTravelLoading(false);
+    }
+  };
+
+  const handleStopTimeTravel = async () => {
+    if (!timeTravelSession) return;
+
+    try {
+      setTimeTravelLoading(true);
+      const session = await gatewayService.stopTimeTravel(timeTravelSession.id);
+      setTimeTravelSession(session);
+      addNotification('info', 'Time Travel', 'Closed the active replay session');
+    } catch (err) {
+      addNotification(
+        'error',
+        'Time Travel',
+        err instanceof Error ? err.message : 'Failed to stop replay session',
+      );
+    } finally {
+      setTimeTravelLoading(false);
+    }
+  };
+
+  const handleNavigateTimeTravel = async (direction: 'forward' | 'backward') => {
+    if (!timeTravelSession) return;
+
+    try {
+      setTimeTravelLoading(true);
+      const response = await gatewayService.navigateTimeTravel(timeTravelSession.id, {
+        direction,
+        steps: 1,
+      });
+
+      setTimeTravelSession((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          isReplaying: true,
+          currentReplayIndex: response.currentIndex,
+          lastRewindEventsReplayed: response.eventsReplayed,
+          lastRewindRequestedTimestamp: response.requestedTimestamp,
+          lastRewindStateFingerprint: response.stateFingerprint,
+          lastRewindEventCursorStart: response.eventCursorStart,
+          lastRewindEventCursorEnd: response.eventCursorEnd,
+          history: {
+            ...current.history,
+            currentIndex: response.currentIndex,
+          },
+        };
+      });
+
+      await syncFocusedSnapshot(response.snapshot, { refreshBlackBox: true });
+    } catch (err) {
+      addNotification(
+        'error',
+        'Time Travel',
+        err instanceof Error ? err.message : 'Failed to move through the deployment timeline',
+      );
+    } finally {
+      setTimeTravelLoading(false);
+    }
+  };
+
+  const handleCreateTimeTravelBookmark = async () => {
+    if (!timeTravelSession) return;
+
+    const name = timeTravelBookmarkName.trim();
+    if (!name) {
+      addNotification('warning', 'Time Travel Bookmark', 'Bookmark name is required');
+      return;
+    }
+
+    try {
+      await gatewayService.createBookmark(timeTravelSession.id, name);
+      setTimeTravelSession((current) => {
+        if (!current) return current;
+        return {
+          ...current,
+          bookmarks: [
+            ...current.bookmarks,
+            {
+              id: `bookmark:${Date.now()}`,
+              name,
+              snapshotIndex: current.currentReplayIndex,
+              timestamp: Date.now(),
+              tags: [],
+            },
+          ],
+        };
+      });
+      setTimeTravelBookmarkName('');
+      addNotification('success', 'Time Travel Bookmark', `Saved bookmark ${name}`);
+    } catch (err) {
+      addNotification(
+        'error',
+        'Time Travel Bookmark',
+        err instanceof Error ? err.message : 'Failed to save bookmark',
+      );
+    }
+  };
+
   const handleSnapshot = async () => {
     if (!focusedDevice || !selectedFocusDeployment || !selectedCommandTarget) return;
     try {
       const snapshot = await gatewayService.getSnapshot(focusedDevice.id, selectedCommandTarget);
-      setManualSnapshot(snapshot.snapshot);
-      setLastSnapshotAt(Date.now());
-      upsertRuntimeDeployment({
-        deploymentId: selectedFocusDeployment.deploymentId,
-        automataId: snapshot.snapshot.automataId as any,
-        deviceId: focusedDevice.id as any,
-        status: selectedFocusDeployment.status,
-        currentState: snapshot.snapshot.currentState,
-        variables: Object.fromEntries(
-          Object.entries(snapshot.snapshot.variables ?? {}).map(([name, meta]) => [name, meta?.value]),
-        ),
-        updatedAt: Date.now(),
-      });
-      await refreshBlackBoxContext({ silentError: true });
+      await syncFocusedSnapshot(snapshot.snapshot, { refreshBlackBox: true });
       addNotification('info', 'Snapshot', `${focusedDevice.name} is in state ${snapshot.snapshot.currentState}`);
     } catch (err) {
       addNotification('error', 'Snapshot', err instanceof Error ? err.message : 'Failed to fetch snapshot');
@@ -989,8 +1140,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
     }
   };
 
-  const selectedShowcaseEntry =
-    showcaseEntries.find((entry) => entry.relativePath === selectedShowcasePath) ?? null;
   const selectedVariableEntries = useMemo(
     () =>
       Object.entries(selectedSnapshot?.variables ?? {})
@@ -1033,6 +1182,15 @@ export const RuntimeMonitorPanel: React.FC = () => {
     Boolean(focusedDevice && selectedFocusDeployment) &&
     isDeviceReachable(focusedDevice?.status ?? 'unknown') &&
     supportsRuntimeCommand(focusedDevice?.supportedCommands, 'request_state');
+  const timeTravelCanRun =
+    Boolean(focusedDevice && selectedFocusDeployment) &&
+    isDeviceReachable(focusedDevice?.status ?? 'unknown');
+  const timeTravelCurrentSnapshot =
+    timeTravelSession?.history.snapshots[timeTravelSession.currentReplayIndex] ?? null;
+  const timeTravelCanGoBackward = Boolean(timeTravelSession && timeTravelSession.currentReplayIndex > 0);
+  const timeTravelCanGoForward = Boolean(
+    timeTravelSession && timeTravelSession.currentReplayIndex < timeTravelSession.history.snapshots.length - 1,
+  );
 
   return (
     <div className="runtime-monitor-panel">
@@ -1044,6 +1202,12 @@ export const RuntimeMonitorPanel: React.FC = () => {
             onClick={() => setScope('running')}
           >
             Running
+          </button>
+          <button
+            className={`btn btn-secondary btn-sm ${scope === 'networks' ? 'active' : ''}`}
+            onClick={() => setScope('networks')}
+          >
+            Networks
           </button>
           <button
             className={`btn btn-secondary btn-sm ${scope === 'project' ? 'active' : ''}`}
@@ -1077,6 +1241,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
           </div>
           <div className="runtime-focus-meta">
             <span>{focusedServer?.name || 'Unknown server'}</span>
+            <span>{selectedLogicalNetworkLabel}</span>
             <span>{selectedFocusDeployment?.automataId || 'No deployment selected'}</span>
           </div>
           <button
@@ -1095,6 +1260,35 @@ export const RuntimeMonitorPanel: React.FC = () => {
 
       <div className={`runtime-monitor-body ${focusedDevice ? 'focused' : ''}`}>
         <aside className="runtime-sidebar">
+          {logicalNetworkGroups.length > 0 && (
+            <div className="petri-inspector-section" style={{ marginBottom: 12 }}>
+              <div className="petri-block-title">Logical Networks</div>
+              <div className="petri-inspector-subtitle">
+                Runtime selection is framed around the flagship network-of-networks package. Use the Networks scope to
+                follow deployment pressure across cooperating EFSM groups.
+              </div>
+              <div className="petri-warning-list">
+                {logicalNetworkGroups.map((group) => (
+                  <div key={group.id} className="petri-merge-item">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+                      <strong>{group.name}</strong>
+                      <span>
+                        {group.runningCount}/{group.totalCount} active · {group.deviceIds.length} devices
+                        {group.serverNames.length > 0 ? ` · ${group.serverNames.join(', ')}` : ''}
+                      </span>
+                    </div>
+                    <span
+                      className="petri-chip accent"
+                      style={group.color ? { borderColor: group.color, color: group.color } : undefined}
+                    >
+                      network scope
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {displayItems.length === 0 ? (
             <div className="runtime-empty">
               {focusedDevice
@@ -1284,23 +1478,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
                 <button type="button" className="btn btn-secondary btn-sm" onClick={() => void handleImportYamlAutomata()}>
                   Import YAML
                 </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={handleLoadShowcase}
-                  disabled={showcaseBusy || !selectedShowcasePath}
-                >
-                  Load Showcase
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-primary btn-sm"
-                  onClick={handleDeployShowcase}
-                  disabled={showcaseBusy || !selectedShowcasePath || !isDeviceReachable(focusedDevice.status)}
-                >
-                  <IconPlay size={12} />
-                  <span>Deploy Showcase</span>
-                </button>
               </div>
 
               <div className="runtime-focus-section">
@@ -1345,36 +1522,200 @@ export const RuntimeMonitorPanel: React.FC = () => {
 
               <div className="runtime-focus-section">
                 <div className="runtime-focus-section-header">
-                  <span>Showcase Browser</span>
-                  {selectedShowcaseEntry && <span>{selectedShowcaseEntry.category}</span>}
+                  <span>Flagship Source</span>
                 </div>
-                <input
-                  className="input devices-search"
-                  placeholder="Filter showcase examples"
-                  value={showcaseFilterText}
-                  onChange={(event) => setShowcaseFilterText(event.target.value)}
-                />
-                <div className="runtime-card-list">
-                  {filteredShowcaseEntries.length === 0 ? (
-                    <div className="runtime-inline-empty">No showcase automata match this filter.</div>
-                  ) : (
-                    filteredShowcaseEntries.map((entry) => (
-                      <button
-                        key={entry.id}
-                        type="button"
-                        className={`showcase-card ${selectedShowcasePath === entry.relativePath ? 'selected' : ''}`}
-                        onClick={() => setSelectedShowcasePath(entry.relativePath)}
-                      >
-                        <span className="showcase-card-category">{entry.category}</span>
-                        <span className="showcase-card-name">{entry.name}</span>
-                        <span className="showcase-card-path">
-                          {entry.relativePath.split('/').slice(-2).join('/')}
-                        </span>
-                      </button>
-                    ))
+                <div className="runtime-inline-empty">
+                  The flagship workspace is now the primary deploy source. Use the loaded project automata above or
+                  import a focused YAML when you intentionally want to stage something outside the default package.
+                </div>
+              </div>
+            </section>
+
+            <section className="runtime-focus-card">
+              <div className="runtime-focus-card-header">
+                <div>
+                  <div className="runtime-focus-card-title">Time Travel</div>
+                  <div className="runtime-focus-card-subtitle">
+                    Capture the deployment timeline, rewind it, and bookmark interesting failure points
+                  </div>
+                </div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    onClick={handleStartTimeTravel}
+                    disabled={!timeTravelCanRun || timeTravelLoading}
+                  >
+                    <IconRefresh size={12} />
+                    <span>{timeTravelSession ? 'Reload Timeline' : 'Load Timeline'}</span>
+                  </button>
+                  {timeTravelSession && (
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-sm"
+                      onClick={handleStopTimeTravel}
+                      disabled={timeTravelLoading}
+                    >
+                      <span>Close</span>
+                    </button>
                   )}
                 </div>
               </div>
+
+              {!timeTravelSession ? (
+                <div className="runtime-inline-empty">
+                  Load the focused device timeline to make replay, rewind, and bookmark workflows part of the default
+                  runtime story.
+                </div>
+              ) : (
+                <>
+                  <div className="runtime-overview-grid">
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Timeline Source</span>
+                      <span className="runtime-overview-value">{timeTravelSession.timelineSource || 'unknown'}</span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Snapshots</span>
+                      <span className="runtime-overview-value">{timeTravelSession.history.snapshots.length}</span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Replay Cursor</span>
+                      <span className="runtime-overview-value">
+                        {timeTravelSession.currentReplayIndex + 1}/{timeTravelSession.history.snapshots.length}
+                      </span>
+                    </div>
+                    <div className="runtime-overview-stat">
+                      <span className="runtime-overview-label">Bookmarks</span>
+                      <span className="runtime-overview-value">{timeTravelSession.bookmarks.length}</span>
+                    </div>
+                  </div>
+
+                  <div className="runtime-focus-section">
+                    <div className="runtime-focus-section-header">
+                      <span>Replay Controls</span>
+                      <span>{timeTravelCurrentSnapshot?.currentState || 'No snapshot selected'}</span>
+                    </div>
+                    <div className="runtime-deploy-toolbar">
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void handleNavigateTimeTravel('backward')}
+                        disabled={!timeTravelCanGoBackward || timeTravelLoading}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => void handleNavigateTimeTravel('forward')}
+                        disabled={!timeTravelCanGoForward || timeTravelLoading}
+                      >
+                        Next
+                      </button>
+                      <input
+                        className="input"
+                        style={{ maxWidth: 140 }}
+                        value={timeTravelBookmarkName}
+                        onChange={(event) => setTimeTravelBookmarkName(event.target.value)}
+                        placeholder="bookmark name"
+                      />
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={handleCreateTimeTravelBookmark}
+                        disabled={timeTravelLoading}
+                      >
+                        Bookmark
+                      </button>
+                    </div>
+                    <div className="runtime-meta-list">
+                      <div className="runtime-meta-row">
+                        <span>Replay State</span>
+                        <span>{timeTravelCurrentSnapshot?.currentState || 'unknown'}</span>
+                      </div>
+                      <div className="runtime-meta-row">
+                        <span>Replay Timestamp</span>
+                        <span>
+                          {timeTravelCurrentSnapshot
+                            ? new Date(timeTravelCurrentSnapshot.timestamp).toLocaleString()
+                            : 'n/a'}
+                        </span>
+                      </div>
+                      <div className="runtime-meta-row">
+                        <span>Events Replayed</span>
+                        <span>{timeTravelSession.lastRewindEventsReplayed ?? 'n/a'}</span>
+                      </div>
+                      <div className="runtime-meta-row">
+                        <span>Requested Timestamp</span>
+                        <span>
+                          {typeof timeTravelSession.lastRewindRequestedTimestamp === 'number'
+                            ? new Date(timeTravelSession.lastRewindRequestedTimestamp).toLocaleString()
+                            : 'n/a'}
+                        </span>
+                      </div>
+                      <div className="runtime-meta-row">
+                        <span>Replay Fingerprint</span>
+                        <span>{timeTravelSession.lastRewindStateFingerprint || 'n/a'}</span>
+                      </div>
+                      <div className="runtime-meta-row">
+                        <span>Replay Cursor Window</span>
+                        <span>
+                          {typeof timeTravelSession.lastRewindEventCursorStart === 'number' &&
+                          typeof timeTravelSession.lastRewindEventCursorEnd === 'number'
+                            ? `${timeTravelSession.lastRewindEventCursorStart} → ${timeTravelSession.lastRewindEventCursorEnd}`
+                            : 'n/a'}
+                        </span>
+                      </div>
+                      {timeTravelSession.timelineBackendError && (
+                        <div className="runtime-meta-row">
+                          <span>Timeline Warning</span>
+                          <span>{timeTravelSession.timelineBackendError}</span>
+                        </div>
+                      )}
+                      {timeTravelSession.lastRewindBackendError && (
+                        <div className="runtime-meta-row">
+                          <span>Replay Warning</span>
+                          <span>{timeTravelSession.lastRewindBackendError}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="runtime-focus-section">
+                    <div className="runtime-focus-section-header">
+                      <span>Capture Window</span>
+                    </div>
+                    <div className="runtime-deploy-toolbar">
+                      <input
+                        className="input"
+                        style={{ maxWidth: 140 }}
+                        value={timeTravelMaxSnapshots}
+                        onChange={(event) => setTimeTravelMaxSnapshots(event.target.value)}
+                        placeholder="max snapshots"
+                      />
+                      <span className="runtime-inline-empty" style={{ padding: 0 }}>
+                        Device-level timeline capture powers rewind and replay for the focused flagship deployment.
+                      </span>
+                    </div>
+                  </div>
+
+                  {timeTravelSession.bookmarks.length > 0 && (
+                    <div className="runtime-focus-section">
+                      <div className="runtime-focus-section-header">
+                        <span>Bookmarks</span>
+                        <span>{timeTravelSession.bookmarks.length}</span>
+                      </div>
+                      <div className="metadata-list">
+                        {timeTravelSession.bookmarks.map((bookmark) => (
+                          <span key={bookmark.id} className="tag-item">
+                            {bookmark.name} @ {bookmark.snapshotIndex + 1}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
             </section>
 
             <section className="runtime-focus-card">

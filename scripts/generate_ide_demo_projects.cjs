@@ -6,6 +6,7 @@ const jsYaml = require('../src/ide/node_modules/js-yaml');
 
 const REPO_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_DIR = path.join(REPO_ROOT, 'example', 'ide_demo_projects');
+const NEW_PROJECT_PATH = path.join(REPO_ROOT, 'NewProject.aeth');
 const GENERATED_TS = Date.parse('2026-04-01T12:00:00Z');
 
 const DEFAULT_PROJECT_SETTINGS = {
@@ -28,107 +29,24 @@ const DEFAULT_PROJECT_SETTINGS = {
   },
 };
 
-const DEMO_PROJECTS = [
+const FLAGSHIP_PROJECTS = [
   {
-    fileName: 'petri-signal-chain-demo.aeth',
+    fileName: 'backend-capabilities-tour.aeth',
     metadata: {
-      name: 'Petri Signal Chain Demo',
+      name: 'Aetherium Flagship Showcase',
       version: '0.1.0',
       description:
-        'Signal-chain showcase project for Petri conversion with derived bindings, shared resources, and one sealed drive black box.',
+        'Canonical multi-network showcase for the converged package: state-heavy EFSM orchestration, named channels, black boxes, contention, fault paths, and replay/analyzer value in one desktop-runnable project.',
       author: 'Aetherium Team',
-      tags: ['demo', 'petri', 'signal-chain', 'presentation'],
+      tags: ['flagship', 'efsm', 'orchestration', 'petri', 'analyzer', 'black-box', 'runtime'],
     },
     networks: [
       {
         id: 'network_signal_chain',
-        name: 'Signal Chain',
+        name: 'Signal Chain Backbone',
         description:
-          'Four automata laid out to highlight Petri grouping, shared field-bus resources, and a sealed drive node.',
-        relativePath: 'networks/signal-chain',
-        color: '#1f6f78',
-        icon: 'network',
-        automataPaths: [
-          'example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml',
-        ],
-      },
-    ],
-  },
-  {
-    fileName: 'analyzer-contention-demo.aeth',
-    metadata: {
-      name: 'Analyzer Contention Demo',
-      version: '0.1.0',
-      description:
-        'Shared-resource contention showcase for the analyzer using one allocator and two competing consumers on the dc_bus.',
-      author: 'Aetherium Team',
-      tags: ['demo', 'analyzer', 'contention', 'presentation'],
-    },
-    networks: [
-      {
-        id: 'network_contention',
-        name: 'Shared Bus Contention',
-        description:
-          'Three automata competing for one latency-sensitive dc_bus resource to surface analyzer findings quickly.',
-        relativePath: 'networks/shared-bus-contention',
-        color: '#c84c09',
-        icon: 'analysis',
-        automataPaths: [
-          'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
-          'example/automata/showcase/14_petri_contention/petri_charger_node.yaml',
-          'example/automata/showcase/14_petri_contention/petri_motion_axis.yaml',
-        ],
-      },
-    ],
-  },
-  {
-    fileName: 'black-box-contract-tour.aeth',
-    metadata: {
-      name: 'Black Box Contract Tour',
-      version: '0.1.0',
-      description:
-        'Contract-focused showcase project for observable ports, emitted events, latency-sensitive resources, and sealed-unit inspection.',
-      author: 'Aetherium Team',
-      tags: ['demo', 'black-box', 'contracts', 'presentation'],
-    },
-    networks: [
-      {
-        id: 'network_black_box_contracts',
-        name: 'Black Box Contracts',
-        description:
-          'Observable interfaces and resource contracts across a sealed drive unit, safety gate, and a standalone probe.',
-        relativePath: 'networks/black-box-contracts',
-        color: '#6b7a18',
-        icon: 'shield',
-        automataPaths: [
-          'example/automata/showcase/12_black_box/docker_black_box_probe.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
-          'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
-        ],
-      },
-    ],
-  },
-  {
-    fileName: 'backend-capabilities-tour.aeth',
-    metadata: {
-      name: 'Backend Capabilities Tour',
-      version: '0.1.0',
-      description:
-        'All-in-one presentation project with one network each for Petri conversion, analyzer contention, and black-box contract inspection.',
-      author: 'Aetherium Team',
-      tags: ['demo', 'petri', 'analyzer', 'black-box', 'presentation'],
-    },
-    networks: [
-      {
-        id: 'network_tour_signal_chain',
-        name: 'Petri Signal Chain',
-        description:
-          'Operator-to-drive signal chain with derived bindings and one sealed drive automaton.',
-        relativePath: 'networks/tour-petri-signal-chain',
+          'Operator-to-drive backbone. Produces heartbeat, permit, state, and module-status channels that feed other networks.',
+        relativePath: 'networks/signal-chain-backbone',
         color: '#1f6f78',
         icon: 'network',
         automataPaths: [
@@ -139,11 +57,28 @@ const DEMO_PROJECTS = [
         ],
       },
       {
-        id: 'network_tour_contention',
-        name: 'Analyzer Contention',
+        id: 'network_guarded_cell',
+        name: 'Guarded Cell Cluster',
         description:
-          'Allocator plus two consumers sharing one latency-sensitive dc_bus resource.',
-        relativePath: 'networks/tour-analyzer-contention',
+          'State-heavy cell supervision network spanning host and embedded actors. Shares permit and supervisor channels with the backbone.',
+        relativePath: 'networks/guarded-cell-cluster',
+        color: '#7c3aed',
+        icon: 'shield',
+        automataPaths: [
+          'example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml',
+          'example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml',
+        ],
+      },
+      {
+        id: 'network_power_contention',
+        name: 'Power Contention Ring',
+        description:
+          'Three cooperating automata competing for a latency-sensitive dc_bus so the analyzer and Petri views have real bottlenecks to surface.',
+        relativePath: 'networks/power-contention-ring',
         color: '#c84c09',
         icon: 'analysis',
         automataPaths: [
@@ -153,17 +88,15 @@ const DEMO_PROJECTS = [
         ],
       },
       {
-        id: 'network_tour_black_boxes',
-        name: 'Black Box Contracts',
+        id: 'network_resilience_watchdog',
+        name: 'Resilience Watchdog',
         description:
-          'A compact contract set with observable ports, emitted events, and fault-injectable outputs.',
-        relativePath: 'networks/tour-black-box-contracts',
-        color: '#6b7a18',
-        icon: 'shield',
+          'Consumes heartbeat traffic from the backbone and turns missing liveness into explicit recovery and fault states for replay workflows.',
+        relativePath: 'networks/resilience-watchdog',
+        color: '#0f766e',
+        icon: 'pulse',
         automataPaths: [
-          'example/automata/showcase/12_black_box/docker_black_box_probe.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
-          'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
+          'example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml',
         ],
       },
     ],
@@ -172,13 +105,38 @@ const DEMO_PROJECTS = [
 
 function main() {
   fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  purgeLegacyProjects();
 
-  DEMO_PROJECTS.forEach((demo) => {
-    const project = buildProject(demo);
-    const targetPath = path.join(OUTPUT_DIR, demo.fileName);
-    fs.writeFileSync(targetPath, `${JSON.stringify(project, null, 2)}\n`, 'utf8');
-    console.log(`wrote ${path.relative(REPO_ROOT, targetPath)}`);
+  const flagshipProjects = [];
+
+  FLAGSHIP_PROJECTS.forEach((projectDefinition) => {
+    const project = buildProject(projectDefinition);
+    flagshipProjects.push(project);
+    const targetPath = path.join(OUTPUT_DIR, projectDefinition.fileName);
+    writeProjectFile(targetPath, project);
   });
+
+  if (flagshipProjects[0]) {
+    writeProjectFile(NEW_PROJECT_PATH, flagshipProjects[0]);
+  }
+}
+
+function purgeLegacyProjects() {
+  const canonicalFiles = new Set(FLAGSHIP_PROJECTS.map((projectDefinition) => projectDefinition.fileName));
+
+  fs.readdirSync(OUTPUT_DIR, { withFileTypes: true }).forEach((entry) => {
+    if (!entry.isFile() || path.extname(entry.name) !== '.aeth' || canonicalFiles.has(entry.name)) {
+      return;
+    }
+
+    fs.rmSync(path.join(OUTPUT_DIR, entry.name));
+    console.log(`removed ${path.relative(REPO_ROOT, path.join(OUTPUT_DIR, entry.name))}`);
+  });
+}
+
+function writeProjectFile(targetPath, project) {
+  fs.writeFileSync(targetPath, `${JSON.stringify(project, null, 2)}\n`, 'utf8');
+  console.log(`wrote ${path.relative(REPO_ROOT, targetPath)}`);
 }
 
 function buildProject(demo) {

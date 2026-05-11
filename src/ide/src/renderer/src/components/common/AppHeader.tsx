@@ -223,13 +223,13 @@ export const AppHeader: React.FC = () => {
           {fileMenuOpen && (
             <div className="header-menu-dropdown" role="menu">
               <MenuItem
-                label="New Project"
+                label="New Flagship Workspace"
                 icon={<IconFile size={14} />}
                 shortcut={`${modKey}+N`}
                 onClick={() => void handleNew()}
               />
               <MenuItem
-                label="Open Project..."
+                label="Open Workspace..."
                 icon={<IconFolder size={14} />}
                 shortcut={`${modKey}+O`}
                 onClick={() => void handleOpen()}

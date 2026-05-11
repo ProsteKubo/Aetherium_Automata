@@ -3,13 +3,14 @@ version: 0.0.1
 config:
   name: Sensor Watchdog Recovery
   type: inline
-  description: Timeout watchdog with retry and explicit reset path.
+  description: Flagship heartbeat watchdog with priming, missed-beat detection, retry windows, backoff, failure, and reset-audit phases.
   author: Aetherium Team
   tags:
     - showcase
     - resilience
     - watchdog
     - timeout
+    - flagship
 
 variables:
   - name: heartbeat
@@ -32,7 +33,7 @@ variables:
     direction: output
     default: 0
 
-  - name: healthy
+  - name: watchdog_ok
     type: bool
     direction: output
     default: false
@@ -42,51 +43,105 @@ variables:
     direction: output
     default: false
 
+  - name: watchdog_state
+    type: string
+    direction: output
+    default: boot
+
 automata:
   initial_state: Boot
 
   states:
     Boot:
       on_enter: |
-        setVal("healthy", false)
+        setVal("watchdog_ok", false)
         setVal("fault", false)
         setVal("retry_count", 0)
+        setVal("watchdog_state", "boot")
+
+    PrimeSensors:
+      on_enter: |
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "prime_sensors")
 
     Healthy:
       on_enter: |
-        setVal("healthy", true)
+        setVal("watchdog_ok", true)
         setVal("fault", false)
+        setVal("watchdog_state", "healthy")
 
-    Stale:
+    MissedBeat:
       on_enter: |
-        setVal("healthy", false)
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "missed_beat")
+
+    RetryWindow:
+      on_enter: |
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "retry_window")
 
     Recovering:
       on_enter: |
         setVal("retry_count", value("retry_count") + 1)
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "recovering")
+
+    Backoff:
+      on_enter: |
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "backoff")
 
     Failed:
       on_enter: |
+        setVal("watchdog_ok", false)
         setVal("fault", true)
-        setVal("healthy", false)
+        setVal("watchdog_state", "failed")
+
+    ResetAudit:
+      on_enter: |
+        setVal("watchdog_ok", false)
+        setVal("fault", false)
+        setVal("watchdog_state", "reset_audit")
 
   transitions:
-    boot_to_healthy:
+    boot_to_prime:
       from: Boot
-      to: Healthy
+      to: PrimeSensors
       type: timed
-      after: 10
+      after: 150
+
+    prime_to_healthy:
+      from: PrimeSensors
+      to: Healthy
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: heartbeat
+            trigger: on_rise
+
+    prime_to_missed:
+      from: PrimeSensors
+      to: MissedBeat
+      type: timed
+      priority: 1
+      after: 600
 
     healthy_timeout:
       from: Healthy
-      to: Stale
+      to: MissedBeat
       type: timed
       timed:
         mode: timeout
         delay_ms: 5s
 
-    stale_on_heartbeat:
-      from: Stale
+    missed_on_heartbeat:
+      from: MissedBeat
       to: Healthy
       type: event
       priority: 0
@@ -95,15 +150,15 @@ automata:
           - signal: heartbeat
             trigger: on_rise
 
-    stale_to_recovering:
-      from: Stale
-      to: Recovering
+    missed_to_retry_window:
+      from: MissedBeat
+      to: RetryWindow
       type: timed
       priority: 1
-      after: 200
+      after: 300
 
-    recovering_on_heartbeat:
-      from: Recovering
+    retry_on_heartbeat:
+      from: RetryWindow
       to: Healthy
       type: event
       priority: 0
@@ -112,25 +167,54 @@ automata:
           - signal: heartbeat
             trigger: on_rise
 
-    recovering_retry:
-      from: Recovering
-      to: Stale
+    retry_to_recovering:
+      from: RetryWindow
+      to: Recovering
       type: classic
       priority: 1
       condition: value("retry_count") < value("max_retries")
 
-    recovering_fail:
-      from: Recovering
+    retry_to_failed:
+      from: RetryWindow
       to: Failed
       type: classic
       priority: 2
       condition: value("retry_count") >= value("max_retries")
 
-    failed_reset:
+    recovering_to_backoff:
+      from: Recovering
+      to: Backoff
+      type: timed
+      after: 250
+
+    backoff_on_heartbeat:
+      from: Backoff
+      to: Healthy
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: heartbeat
+            trigger: on_rise
+
+    backoff_to_retry_window:
+      from: Backoff
+      to: RetryWindow
+      type: timed
+      priority: 1
+      after: 800
+
+    failed_to_reset_audit:
       from: Failed
-      to: Boot
+      to: ResetAudit
       type: event
       event:
         triggers:
           - signal: manual_reset
             trigger: on_rise
+
+    reset_audit_to_boot:
+      from: ResetAudit
+      to: Boot
+      type: timed
+      after: 150

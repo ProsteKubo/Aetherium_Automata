@@ -26,17 +26,6 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
     end
   end
 
-  # UI sends command: {"event": "restart_device", "payload": {"device_id": "dev_123"}}
-  def handle_in("restart_device", %{"device_id" => device_id}, socket) do
-    # Log the command
-    log(:info, "UI issued restart for #{device_id}", socket)
-
-    # Simulate async device restart
-    Process.send_after(self(), {:device_restarted, device_id}, 2000)
-
-    {:reply, {:ok, %{status: "restart_queued"}}, socket}
-  end
-
   def handle_in("ping", _payload, socket) do
     {:reply, {:ok, %{response: "pong", timestamp: DateTime.utc_now()}}, socket}
   end
@@ -110,21 +99,6 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
     {:noreply, socket}
   end
 
-  def handle_info({:device_restarted, device_id}, socket) do
-    log(:info, "Device #{device_id} successfully restarted", socket)
-
-    push(socket, "alert", %{
-      type: "device_restarted",
-      severity: "info",
-      device_id: device_id,
-      message: "Device restarted and reconnected",
-      timestamp: DateTime.utc_now()
-    })
-
-    send(self(), :send_device_list)
-    {:noreply, socket}
-  end
-
   def handle_info(:send_device_list, socket) do
     devices = AetheriumGateway.ServerTracker.list_devices_flat()
     push(socket, "device_list", %{devices: devices})
@@ -134,16 +108,6 @@ defmodule AetheriumGatewayWeb.GatewayChannel do
   def handle_info(:send_server_list, socket) do
     push(socket, "server_list", %{servers: AetheriumGateway.ServerTracker.list_servers()})
     {:noreply, socket}
-  end
-
-  # Helper to send logs to UI
-  defp log(level, message, socket) do
-    push(socket, "log", %{
-      level: level,
-      message: message,
-      timestamp: DateTime.utc_now(),
-      ui_session: socket.assigns.ui_session_id
-    })
   end
 
   defp generate_session_id do

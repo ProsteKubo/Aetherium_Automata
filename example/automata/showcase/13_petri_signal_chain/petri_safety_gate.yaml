@@ -3,19 +3,24 @@ version: 0.0.1
 config:
   name: Petri Safety Gate
   type: inline
-  description: Turns arm requests into permits while sharing the same field bus as downstream nodes.
+  description: Flagship signal-chain safety gate that reviews route phases before granting permit to the downstream drive unit.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - signal-chain
     - safety
+    - flagship
 
 variables:
   - name: arm_request
     type: bool
     direction: input
     default: false
+  - name: route_state
+    type: string
+    direction: input
+    default: standby
   - name: permit_ok
     type: bool
     direction: output
@@ -35,6 +40,10 @@ black_box:
       direction: input
       type: bool
       description: Routed arm request from the operator side
+    - name: route_state
+      direction: input
+      type: string
+      description: Backbone route phase used during safety voting
     - name: permit_ok
       direction: output
       type: bool
@@ -47,7 +56,9 @@ black_box:
       description: Alarm path consumed by telemetry
   observable_states:
     - Inhibit
+    - VotePending
     - Permit
+    - InterlockHold
     - Alarm
   emitted_events:
     - supervisor_alarm
@@ -65,6 +76,7 @@ automata:
     Inhibit:
       inputs:
         - arm_request
+        - route_state
       outputs:
         - permit_ok
         - alarm_latched
@@ -76,9 +88,25 @@ automata:
         setVal("alarm_latched", false)
         setVal("supervisor_state", "inhibit")
 
+    VotePending:
+      inputs:
+        - arm_request
+        - route_state
+      outputs:
+        - permit_ok
+        - alarm_latched
+        - supervisor_state
+      code: |
+        local field_bus = "voting"
+      on_enter: |
+        setVal("permit_ok", false)
+        setVal("alarm_latched", false)
+        setVal("supervisor_state", "vote_pending")
+
     Permit:
       inputs:
         - arm_request
+        - route_state
       outputs:
         - permit_ok
         - alarm_latched
@@ -89,6 +117,21 @@ automata:
         setVal("permit_ok", true)
         setVal("alarm_latched", false)
         setVal("supervisor_state", "permit")
+
+    InterlockHold:
+      inputs:
+        - arm_request
+        - route_state
+      outputs:
+        - permit_ok
+        - alarm_latched
+        - supervisor_state
+      code: |
+        local field_bus = "holding"
+      on_enter: |
+        setVal("permit_ok", false)
+        setVal("alarm_latched", false)
+        setVal("supervisor_state", "interlock_hold")
 
     Alarm:
       outputs:
@@ -103,26 +146,53 @@ automata:
         setVal("supervisor_state", "alarm")
 
   transitions:
-    request_to_permit:
+    inhibit_to_vote_pending:
       from: Inhibit
+      to: VotePending
+      type: classic
+      condition: value("arm_request") == true and value("route_state") != "fault_isolated"
+
+    vote_to_permit:
+      from: VotePending
       to: Permit
-      type: classic
-      condition: value("arm_request") == true
+      type: timed
+      after: 250
 
-    release_to_inhibit:
+    vote_to_alarm:
+      from: VotePending
+      to: Alarm
+      type: classic
+      priority: 0
+      condition: value("route_state") == "degraded_watch" or value("route_state") == "fault_isolated"
+
+    permit_to_interlock:
       from: Permit
-      to: Inhibit
+      to: InterlockHold
       type: classic
-      condition: value("arm_request") == false
+      condition: value("arm_request") == false or value("route_state") == "load_shedding"
 
-    alarm_trip:
+    permit_to_alarm:
       from: Permit
       to: Alarm
-      type: timed
-      after: 3
+      type: classic
+      priority: 0
+      condition: value("route_state") == "fault_isolated"
 
-    alarm_reset:
+    interlock_to_vote:
+      from: InterlockHold
+      to: VotePending
+      type: classic
+      condition: value("arm_request") == true and value("route_state") == "backbone_sync"
+
+    interlock_to_inhibit:
+      from: InterlockHold
+      to: Inhibit
+      type: classic
+      priority: 1
+      condition: value("arm_request") == false
+
+    alarm_to_inhibit:
       from: Alarm
       to: Inhibit
       type: classic
-      condition: value("arm_request") == false
+      condition: value("arm_request") == false and value("route_state") == "standby"

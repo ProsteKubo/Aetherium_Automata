@@ -72,26 +72,21 @@ const EditorContent: React.FC = () => {
   const tabs = useUIStore((state) => state.tabs);
   const activeTabId = useUIStore((state) => state.activeTabId);
   const addNotification = useUIStore((state) => state.addNotification);
+  const togglePanel = useUIStore((state) => state.togglePanel);
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
-  const createAutomata = useAutomataStore((state) => state.createAutomata);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const automataMap = useAutomataStore((state) => state.automata);
   const openTab = useUIStore((state) => state.openTab);
+  const createProject = useProjectStore((state) => state.createProject);
   const openProject = useProjectStore((state) => state.openProject);
+  const project = useProjectStore((state) => state.project);
 
-  const handleNewAutomata = async (): Promise<void> => {
+  const handleCreateWorkspace = async (): Promise<void> => {
     try {
-      const automata = await createAutomata('New Automata', 'A new automata project');
-      setActiveAutomata(automata.id);
-      openTab({
-        type: 'automata',
-        targetId: automata.id,
-        name: automata.config.name,
-        isDirty: false,
-      });
+      await createProject();
     } catch (error) {
-      console.error('Failed to create automata:', error);
-      addNotification('error', 'Create Automata', 'Failed to create a new automata.');
+      console.error('Failed to create flagship workspace:', error);
+      addNotification('error', 'Create Workspace', 'Failed to create the flagship workspace.');
     }
   };
 
@@ -102,6 +97,34 @@ const EditorContent: React.FC = () => {
       console.error('Failed to open project:', error);
       addNotification('error', 'Open Project', 'Project open failed.');
     }
+  };
+
+  const handleOpenWorkspaceView = (panelId: CenterPanelId): void => {
+    togglePanel(panelId);
+  };
+
+  const handleOpenFirstAutomata = (): void => {
+    if (!project) {
+      return;
+    }
+
+    const firstAutomataId = project.networks
+      .flatMap((network) => network.rootAutomataIds)
+      .find((automataId) => project.automata[automataId]);
+
+    if (!firstAutomataId) {
+      addNotification('warning', 'Open Automata', 'No flagship automata were found in this workspace.');
+      return;
+    }
+
+    const automata = project.automata[firstAutomataId];
+    setActiveAutomata(firstAutomataId);
+    openTab({
+      type: 'automata',
+      targetId: firstAutomataId,
+      name: automata.config.name,
+      isDirty: false,
+    });
   };
 
   const findAutomataForState = (stateId: string): string => {
@@ -115,41 +138,118 @@ const EditorContent: React.FC = () => {
   };
 
   if (!activeTab) {
+    const networkCount = project?.networks.length ?? 0;
+    const automataCount = project ? Object.keys(project.automata).length : 0;
+    const channelCount = project?.networks.reduce(
+      (total, network) => total + (network.outputs?.length ?? 0),
+      0,
+    ) ?? 0;
+
     return (
       <div className="editor-welcome">
-        <div className="welcome-content">
-          <div className="welcome-badge">Automation Workbench</div>
-          <h1 className="welcome-title">Aetherium Automata</h1>
+        <div className="welcome-content flagship-welcome">
+          <div className="welcome-badge">Converged EFSM Orchestrator</div>
+          <h1 className="welcome-title">
+            {project ? project.metadata.name : 'Aetherium Flagship Workspace'}
+          </h1>
           <p className="welcome-subtitle">
-            Build, simulate, and deploy deterministic state machines from one command console.
+            {project?.metadata.description ||
+              'Design, deploy, observe, rewind, and analyze one multi-network EFSM package with named channels, black boxes, and deployment-aware runtime insight.'}
           </p>
 
           <div className="welcome-actions">
-            <button className="btn btn-primary btn-lg" onClick={() => void handleNewAutomata()}>
-              New Automata
+            <button className="btn btn-primary btn-lg" onClick={() => void handleCreateWorkspace()}>
+              Create Flagship Workspace
             </button>
             <button className="btn btn-secondary btn-lg" onClick={() => void handleOpenProject()}>
-              Open Project
+              Open Workspace
             </button>
+            {project && (
+              <button className="btn btn-ghost btn-lg" onClick={handleOpenFirstAutomata}>
+                Open First Automata
+              </button>
+            )}
           </div>
 
-          <div className="welcome-shortcuts">
-            <div className="shortcut-item">
-              <kbd>Ctrl</kbd>
-              <kbd>N</kbd>
-              <span>Create automata</span>
+          {project ? (
+            <>
+              <div className="workspace-overview-grid">
+                <div className="workspace-overview-card workspace-overview-card-accent">
+                  <span className="workspace-overview-label">Logical Networks</span>
+                  <strong>{networkCount}</strong>
+                  <span>Cooperating network domains in one workspace</span>
+                </div>
+                <div className="workspace-overview-card">
+                  <span className="workspace-overview-label">Automata</span>
+                  <strong>{automataCount}</strong>
+                  <span>State-heavy actors spanning devices, servers, and black boxes</span>
+                </div>
+                <div className="workspace-overview-card">
+                  <span className="workspace-overview-label">Named Channels</span>
+                  <strong>{channelCount}</strong>
+                  <span>Published outputs feeding cross-network orchestration and analysis</span>
+                </div>
+              </div>
+
+              <div className="workspace-launch-grid">
+                <button className="workspace-launch-card" onClick={() => handleOpenWorkspaceView('network')}>
+                  <span className="workspace-launch-kicker">Topology</span>
+                  <strong>Open Network Map</strong>
+                  <span>Inspect the network-of-networks layout, placements, and cross-network channel flow.</span>
+                </button>
+                <button className="workspace-launch-card" onClick={() => handleOpenWorkspaceView('runtime')}>
+                  <span className="workspace-launch-kicker">Runtime</span>
+                  <strong>Open Runtime &amp; Replay</strong>
+                  <span>Drive the flagship deployment, inspect live state, and move through time-travel traces.</span>
+                </button>
+                <button className="workspace-launch-card" onClick={() => handleOpenWorkspaceView('petri')}>
+                  <span className="workspace-launch-kicker">Petri Net</span>
+                  <strong>Open Petri View</strong>
+                  <span>See structural bottlenecks and synchronization points emerge from the flagship scenario.</span>
+                </button>
+                <button className="workspace-launch-card" onClick={() => handleOpenWorkspaceView('analyzer')}>
+                  <span className="workspace-launch-kicker">Analyzer</span>
+                  <strong>Open Analyzer View</strong>
+                  <span>Review contention, latency, blocked handoffs, and black-box opacity from one story.</span>
+                </button>
+              </div>
+
+              <div className="workspace-network-grid">
+                {project.networks.map((network) => (
+                  <div key={network.id} className="workspace-network-card">
+                    <div className="workspace-network-card-header">
+                      <span className="workspace-network-dot" style={{ backgroundColor: network.color || '#3d8fe9' }} />
+                      <strong>{network.name}</strong>
+                    </div>
+                    <p>{network.description || 'Flagship network segment.'}</p>
+                    <div className="workspace-network-meta">
+                      <span>{network.automataIds.length} automata</span>
+                      <span>{network.inputs?.length ?? 0} inputs</span>
+                      <span>{network.outputs?.length ?? 0} outputs</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="welcome-shortcuts">
+              <div className="shortcut-item">
+                <kbd>Ctrl</kbd>
+                <kbd>N</kbd>
+                <span>Create flagship workspace</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl</kbd>
+                <kbd>O</kbd>
+                <span>Open workspace</span>
+              </div>
+              <div className="shortcut-item">
+                <kbd>Ctrl</kbd>
+                <kbd>K</kbd>
+                <span>Search commands</span>
+              </div>
             </div>
-            <div className="shortcut-item">
-              <kbd>Ctrl</kbd>
-              <kbd>O</kbd>
-              <span>Open project</span>
-            </div>
-            <div className="shortcut-item">
-              <kbd>Ctrl</kbd>
-              <kbd>K</kbd>
-              <span>Quick search</span>
-            </div>
-          </div>
+          )}
         </div>
       </div>
     );

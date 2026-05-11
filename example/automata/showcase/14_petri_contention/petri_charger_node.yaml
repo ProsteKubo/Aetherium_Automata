@@ -3,12 +3,13 @@ version: 0.0.1
 config:
   name: Petri Charger Node
   type: inline
-  description: Charging consumer competing for the shared dc_bus resource.
+  description: Flagship charger participant that moves through precharge, bulk, topoff, and cooldown phases when granted the shared bus.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - contention
+    - flagship
 
 variables:
   - name: charge_enable
@@ -19,6 +20,10 @@ variables:
     type: string
     direction: output
     default: standby
+  - name: charge_cycles
+    type: int
+    direction: output
+    default: 0
 
 black_box:
   resources:
@@ -35,30 +40,111 @@ automata:
     Standby:
       outputs:
         - charger_state
+        - charge_cycles
       code: |
         local dc_bus = "open"
       on_enter: |
         setVal("charger_state", "standby")
 
-    Charging:
+    PrechargeCheck:
       inputs:
         - charge_enable
       outputs:
         - charger_state
+        - charge_cycles
       code: |
-        local dc_bus = "charging"
+        local dc_bus = "precharge"
       on_enter: |
-        setVal("charger_state", "charging")
+        setVal("charger_state", "precharge_check")
+
+    BulkCharge:
+      inputs:
+        - charge_enable
+      outputs:
+        - charger_state
+        - charge_cycles
+      code: |
+        local dc_bus = "bulk"
+      on_enter: |
+        setVal("charger_state", "bulk_charge")
+        setVal("charge_cycles", value("charge_cycles") + 1)
+
+    Topoff:
+      inputs:
+        - charge_enable
+      outputs:
+        - charger_state
+        - charge_cycles
+      code: |
+        local dc_bus = "topoff"
+      on_enter: |
+        setVal("charger_state", "topoff")
+
+    Cooldown:
+      outputs:
+        - charger_state
+        - charge_cycles
+      code: |
+        local dc_bus = "cooldown"
+      on_enter: |
+        setVal("charger_state", "cooldown")
 
   transitions:
-    start_charging:
+    standby_to_precharge:
       from: Standby
-      to: Charging
+      to: PrechargeCheck
       type: classic
       condition: value("charge_enable") == true
 
-    stop_charging:
-      from: Charging
+    precharge_to_bulk:
+      from: PrechargeCheck
+      to: BulkCharge
+      type: timed
+      after: 250
+
+    precharge_to_standby:
+      from: PrechargeCheck
       to: Standby
       type: classic
+      priority: 0
       condition: value("charge_enable") == false
+
+    bulk_to_topoff:
+      from: BulkCharge
+      to: Topoff
+      type: timed
+      after: 1200
+
+    bulk_to_cooldown:
+      from: BulkCharge
+      to: Cooldown
+      type: classic
+      priority: 0
+      condition: value("charge_enable") == false
+
+    topoff_to_cooldown:
+      from: Topoff
+      to: Cooldown
+      type: timed
+      after: 600
+
+    topoff_abort_to_cooldown:
+      from: Topoff
+      to: Cooldown
+      type: classic
+      priority: 0
+      condition: value("charge_enable") == false
+
+    cooldown_to_precharge:
+      from: Cooldown
+      to: PrechargeCheck
+      type: classic
+      priority: 0
+      condition: value("charge_enable") == true
+
+    cooldown_to_standby:
+      from: Cooldown
+      to: Standby
+      type: timed
+      priority: 1
+      after: 300

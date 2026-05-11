@@ -1,9 +1,90 @@
 defmodule AetheriumServer.ShowcaseCatalog do
   @moduledoc """
-  Helpers for curated showcase automata catalog listing and loading.
+  Helpers for curated showcase automata catalog listing, loading, and flagship bundle assembly.
   """
 
   @catalog_rel_path Path.join(["example", "automata", "showcase", "CATALOG.txt"])
+
+  @bundle_specs [
+    %{
+      id: "flagship_desktop",
+      name: "Flagship Desktop Showcase",
+      description:
+        "Canonical desktop-runnable bundle spanning signal chain, guarded cell host orchestration, power contention, resilience, and one docker black-box participant.",
+      members: [
+        %{
+          relative_path:
+            "example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml",
+          network: "Signal Chain Backbone",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml",
+          network: "Signal Chain Backbone",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml",
+          network: "Signal Chain Backbone",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml",
+          network: "Signal Chain Backbone",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml",
+          network: "Guarded Cell Cluster",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml",
+          network: "Guarded Cell Cluster",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml",
+          network: "Guarded Cell Cluster",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/14_petri_contention/petri_power_allocator.yaml",
+          network: "Power Contention Ring",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/14_petri_contention/petri_charger_node.yaml",
+          network: "Power Contention Ring",
+          device_role: "host"
+        },
+        %{
+          relative_path:
+            "example/automata/showcase/14_petri_contention/petri_motion_axis.yaml",
+          network: "Power Contention Ring",
+          device_role: "host"
+        },
+        %{
+          relative_path: "example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml",
+          network: "Resilience Watchdog",
+          device_role: "host"
+        },
+        %{
+          relative_path: "example/automata/showcase/12_black_box/docker_black_box_probe.yaml",
+          network: "Black Box Edge",
+          device_role: "black_box"
+        }
+      ]
+    }
+  ]
 
   @type entry :: %{
           id: String.t(),
@@ -11,6 +92,29 @@ defmodule AetheriumServer.ShowcaseCatalog do
           category: String.t(),
           relative_path: String.t(),
           absolute_path: String.t()
+        }
+
+  @type bundle_summary :: %{
+          id: String.t(),
+          name: String.t(),
+          description: String.t(),
+          member_count: non_neg_integer(),
+          networks: [String.t()],
+          device_roles: [String.t()]
+        }
+
+  @type bundle_member :: %{
+          entry: entry(),
+          automata: map(),
+          network: String.t(),
+          device_role: String.t()
+        }
+
+  @type bundle :: %{
+          id: String.t(),
+          name: String.t(),
+          description: String.t(),
+          members: [bundle_member()]
         }
 
   @spec list_entries() :: {:ok, [entry()]} | {:error, term()}
@@ -45,13 +149,99 @@ defmodule AetheriumServer.ShowcaseCatalog do
     end
   end
 
+  @spec list_bundles() :: {:ok, [bundle_summary()]}
+  def list_bundles do
+    {:ok,
+     Enum.map(@bundle_specs, fn spec ->
+       %{
+         id: spec.id,
+         name: spec.name,
+         description: spec.description,
+         member_count: length(spec.members),
+         networks:
+           spec.members
+           |> Enum.map(& &1.network)
+           |> Enum.uniq(),
+         device_roles:
+           spec.members
+           |> Enum.map(& &1.device_role)
+           |> Enum.uniq()
+       }
+     end)}
+  end
+
   @spec load_automata(String.t()) :: {:ok, %{entry: entry(), automata: map()}} | {:error, term()}
   def load_automata(target) when is_binary(target) do
     with {:ok, entries} <- list_entries(),
          {:ok, entry} <- fetch_entry(entries, target),
-         {:ok, parsed} <- YamlElixir.read_from_file(entry.absolute_path) do
-      {:ok, %{entry: entry, automata: normalize_showcase(parsed)}}
+         {:ok, automata} <- parse_entry_automata(entry) do
+      {:ok, %{entry: entry, automata: automata}}
     else
+      {:error, %File.Error{} = err} -> {:error, Exception.message(err)}
+      {:error, reason} -> {:error, reason}
+    end
+  end
+
+  @spec load_bundle(String.t()) :: {:ok, bundle()} | {:error, term()}
+  def load_bundle(bundle_id) when is_binary(bundle_id) do
+    with {:ok, spec} <- fetch_bundle_spec(bundle_id),
+         {:ok, entries} <- list_entries() do
+      entry_by_path = Map.new(entries, &{&1.relative_path, &1})
+
+      spec.members
+      |> Enum.reduce_while({:ok, []}, fn member_spec, {:ok, loaded} ->
+        case Map.fetch(entry_by_path, member_spec.relative_path) do
+          {:ok, entry} ->
+            case parse_entry_automata(entry) do
+              {:ok, automata} ->
+                {:cont,
+                 {:ok,
+                  loaded ++
+                    [
+                      %{
+                        entry: entry,
+                        automata: automata,
+                        network: member_spec.network,
+                        device_role: member_spec.device_role
+                      }
+                    ]}}
+
+              {:error, reason} ->
+                {:halt, {:error, reason}}
+            end
+
+          :error ->
+            {:halt,
+             {:error,
+              {:showcase_bundle_member_not_found, bundle_id, member_spec.relative_path}}}
+        end
+      end)
+      |> case do
+        {:ok, members} ->
+          {:ok,
+           %{
+             id: spec.id,
+             name: spec.name,
+             description: spec.description,
+             members: members
+           }}
+
+        {:error, reason} ->
+          {:error, reason}
+      end
+    end
+  end
+
+  defp fetch_bundle_spec(bundle_id) do
+    case Enum.find(@bundle_specs, &(&1.id == bundle_id)) do
+      nil -> {:error, {:showcase_bundle_not_found, bundle_id}}
+      spec -> {:ok, spec}
+    end
+  end
+
+  defp parse_entry_automata(entry) do
+    case YamlElixir.read_from_file(entry.absolute_path) do
+      {:ok, parsed} -> {:ok, normalize_showcase(parsed)}
       {:error, %File.Error{} = err} -> {:error, Exception.message(err)}
       {:error, reason} -> {:error, reason}
     end
@@ -429,7 +619,5 @@ defmodule AetheriumServer.ShowcaseCatalog do
     end
   end
 
-  defp is_nil_or_empty?(nil), do: true
-  defp is_nil_or_empty?(""), do: true
-  defp is_nil_or_empty?(_), do: false
+  defp is_nil_or_empty?(value), do: is_nil(value) or String.trim(to_s(value)) == ""
 end

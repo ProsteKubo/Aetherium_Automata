@@ -1,0 +1,187 @@
+\makeatletter
+\makeatother
+\begin{thebibliography}{10}
+
+\bibitem{Beilharz2022}
+{\sc\bgroup}Beilharz{\egroup}, J.; {\sc\bgroup}Wiesner{\egroup}, P.;
+  {\sc\bgroup}Boockmeyer{\egroup}, A.; {\sc\bgroup}Friedenberger{\egroup}, D.;
+  {\sc\bgroup}Brokhausen{\egroup}, F. et~al.
+\newblock Continuously Testing Distributed {IoT} Systems: An Overview of the
+  State of the Art.
+\newblock In:~{\em Service-Oriented Computing -- {ICSOC} 2021 Workshops}.
+\newblock Cham: Springer, 2022, p.~375--387.
+
+\bibitem{RapidYAML}
+{\sc\bgroup}Biga{\egroup}, J. P.~M.
+\newblock {\em {RapidYAML: Rapid YAML --- a library to parse and emit YAML, and
+  do it fast}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://github.com/biojppm/rapidyaml}}.
+\newblock [cit. 2025-05-11].
+\newblock MIT License.
+
+\bibitem{Eclipse4diac}
+{\sc\bgroup}{Eclipse Foundation}{\egroup}.
+\newblock {\em {Eclipse 4diac: Open Source Infrastructure for Distributed
+  Industrial Control Based on {IEC}~61499}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://eclipse.dev/4diac/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Geels2006}
+{\sc\bgroup}Geels{\egroup}, D.; {\sc\bgroup}Altekar{\egroup}, G.;
+  {\sc\bgroup}Shenker{\egroup}, S. and~{\sc\bgroup}Stoica{\egroup}, I.
+\newblock Replay Debugging for Distributed Applications.
+\newblock In:~{\em 2006 {USENIX} Annual Technical Conference ({USENIX ATC}
+  06)}.
+\newblock Boston, MA: {USENIX} Association, 2006, p.~289--300.
+\newblock Available at:
+  ~{\small\url{https://www.usenix.org/conference/2006-usenix-annual-technical-conference/replay-debugging-distributed-applications}}.
+\newblock Best Paper Award.
+
+\bibitem{Harel1987}
+{\sc\bgroup}Harel{\egroup}, D.
+\newblock Statecharts: A Visual Formalism for Complex Systems.
+\newblock {\em Science of Computer Programming}.
+\newblock North-Holland, 1987, vol.~8, no.~3, p.~231--274.
+\newblock ISSN 0167-6423.
+
+\bibitem{Hopcroft2006}
+{\sc\bgroup}Hopcroft{\egroup}, J.~E.; {\sc\bgroup}Motwani{\egroup}, R.
+  and~{\sc\bgroup}Ullman{\egroup}, J.~D.
+\newblock {\em Introduction to Automata Theory, Languages, and Computation}.
+\newblock 3rd ed.
+\newblock Upper Saddle River, NJ: Pearson Education, 2006.
+\newblock ISBN 978-0-321-45536-9.
+
+\bibitem{LuaManual54}
+{\sc\bgroup}Ierusalimschy{\egroup}, R.; {\sc\bgroup}{de Figueiredo}{\egroup},
+  L.~H. and~{\sc\bgroup}Celes{\egroup}, W.
+\newblock {\em {Lua 5.4 Reference Manual}} online.
+\newblock Lua.org, PUC-Rio, 2020.
+\newblock Available at: ~{\small\url{https://www.lua.org/manual/5.4/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Lua1996}
+{\sc\bgroup}Ierusalimschy{\egroup}, R.; {\sc\bgroup}{de Figueiredo}{\egroup},
+  L.~H. and~{\sc\bgroup}{Celes Filho}{\egroup}, W.
+\newblock {Lua---An Extensible Extension Language}.
+\newblock {\em Software: Practice and Experience}.
+\newblock Wiley, 1996, vol.~26, no.~6, p.~635--652.
+\newblock ISSN 1097-024X.
+\newblock Available at:
+  ~{\small\url{https://doi.org/10.1002/(SICI)1097-024X(199606)26:6<635::AID-SPE26>3.0.CO;2-P}}.
+
+\bibitem{IXWebSocket}
+{\sc\bgroup}{Machine Zone, Inc.}{\egroup}.
+\newblock {\em {IXWebSocket: WebSocket and HTTP Client and Server Library}}
+  online.
+\newblock 2024.
+\newblock Available at:
+  ~{\small\url{https://github.com/machinezone/IXWebSocket}}.
+\newblock [cit. 2025-05-11].
+\newblock BSD 3-Clause License.
+
+\bibitem{React}
+{\sc\bgroup}{Meta Open Source}{\egroup}.
+\newblock {\em {React: The Library for Web and Native User Interfaces}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://react.dev/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Murata1989}
+{\sc\bgroup}Murata{\egroup}, T.
+\newblock Petri Nets: Properties, Analysis and Applications.
+\newblock {\em Proceedings of the IEEE}.
+\newblock IEEE, 1989, vol.~77, no.~4, p.~541--580.
+\newblock ISSN 0018-9219.
+
+\bibitem{Noaman2022}
+{\sc\bgroup}Noaman{\egroup}, M.; {\sc\bgroup}Khan{\egroup}, M.~S.;
+  {\sc\bgroup}Abrar{\egroup}, M.~F.; {\sc\bgroup}Ali{\egroup}, S.;
+  {\sc\bgroup}Alvi{\egroup}, A. et~al.
+\newblock Challenges in Integration of Heterogeneous Internet of Things.
+\newblock {\em Scientific Programming}.
+\newblock Hindawi, 2022, vol.~2022, p.~1--17.
+
+\bibitem{NodeRED}
+{\sc\bgroup}O'Leary{\egroup}, N. and~{\sc\bgroup}{Conway-Jones}{\egroup}, D.
+\newblock {\em {Node-RED: Low-Code Programming for Event-Driven Applications}}
+  online.
+\newblock 2013.
+\newblock Available at: ~{\small\url{https://nodered.org/}}.
+\newblock [cit. 2025-05-11].
+\newblock Open-sourced September 2013; now part of the OpenJS Foundation.
+
+\bibitem{Electron}
+{\sc\bgroup}{OpenJS Foundation}{\egroup}.
+\newblock {\em {Electron: Build Cross-Platform Desktop Apps with JavaScript,
+  HTML, and CSS}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://www.electronjs.org/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Petri1962}
+{\sc\bgroup}Petri{\egroup}, C.~A.
+\newblock {\em {Kommunikation mit Automaten}}.
+\newblock Darmstadt, Germany, 1962.
+\newblock Dissertation.
+\newblock Technische Hochschule Darmstadt.
+
+\bibitem{Phoenix}
+{\sc\bgroup}{Phoenix Framework Contributors}{\egroup}.
+\newblock {\em {Phoenix Framework --- Peace of Mind from Prototype to
+  Production}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://www.phoenixframework.org/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Zustand}
+{\sc\bgroup}{Poimandres (pmndrs)}{\egroup}.
+\newblock {\em {Zustand: Bear Necessities for State Management in React}}
+  online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://github.com/pmndrs/zustand}}.
+\newblock [cit. 2025-05-11].
+\newblock MIT License.
+
+\bibitem{Strasser2008}
+{\sc\bgroup}Strasser{\egroup}, T.; {\sc\bgroup}Rooker{\egroup}, M.~N.;
+  {\sc\bgroup}Ebenhofer{\egroup}, G.; {\sc\bgroup}Zoitl{\egroup}, A.;
+  {\sc\bgroup}Sunder{\egroup}, C. et~al.
+\newblock Framework for Distributed Industrial Automation and Control
+  ({4DIAC}).
+\newblock In:~{\em 2008 6th {IEEE} International Conference on Industrial
+  Informatics ({INDIN})}.
+\newblock IEEE, 2008, p.~283--288.
+
+\bibitem{Sol2}
+{\sc\bgroup}{ThePhD}{\egroup}.
+\newblock {\em {Sol2: C++ $\leftrightarrow$ Lua API Wrapper}} online.
+\newblock 2023.
+\newblock Available at: ~{\small\url{https://github.com/ThePhD/sol2}}.
+\newblock [cit. 2025-05-11].
+\newblock MIT License.
+
+\bibitem{Elixir}
+{\sc\bgroup}Valim{\egroup}, J. et~al.
+\newblock {\em {Elixir Programming Language}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://elixir-lang.org/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{YAML122}
+{\sc\bgroup}{YAML Language Development Team}{\egroup}.
+\newblock {\em {YAML Ain't Markup Language (YAML) Revision 1.2.2}} online.
+\newblock 2021.
+\newblock Available at: ~{\small\url{https://yaml.org/spec/1.2.2/}}.
+\newblock [cit. 2025-05-11].
+
+\bibitem{Zoitl2017}
+{\sc\bgroup}Zoitl{\egroup}, A. and~{\sc\bgroup}Strasser{\egroup}, T.
+\newblock {\em Distributed Control Applications: Guidelines, Design Patterns,
+  and Application Examples with the {IEC}~61499}.
+\newblock Boca Raton, FL: CRC Press / Taylor \& Francis, 2017.
+\newblock ISBN 978-1-482-25905-6.
+
+\end{thebibliography}

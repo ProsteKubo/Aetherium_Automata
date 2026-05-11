@@ -1,34 +1,37 @@
-# Aetherium_Automata
-A Visual Automata Framework for building and managing self-adaptive IoT networks. Features a visual TDD environment, a plugin ecosystem for hardware and protocols, and native ROS2 integration.
+# Aetherium Automata
+A focused IoT IDE orchestrator for distributed EFSM networks. The package centers on state-heavy automata, Lua as a supporting language, named channels, deployment-aware runtime monitoring, black-box integration, fault injection, time-travel replay, and analyzer/Petri-net insight.
 
-# Aetherium Automata: Visual Automata Framework for Self-Adaptive Networks
+# Aetherium Automata: Distributed EFSM Orchestrator
 <p align="center">
   <img src="https://img.shields.io/badge/status-in%20development-blue" alt="Project Status">
 </p>
 
+## Canonical Product Slice
+
 Current focus:
 - keep the current `gateway + server + engine + IDE` architecture
-- tighten the canonical runtime/deploy/replay workflow
-- prioritize host runtime and ESP32 over breadth-first platform expansion
+- tighten one canonical workflow: design → bind → deploy → observe → fault → rewind → analyze
+- prioritize host/docker runtime and desktop runners as the acceptance environment
+- use EFSM state structure as the primary behavior model, with Lua in a supporting role
+- prefer product convergence over breadth and do not preserve backward compatibility during this phase
 
-
-# Autonomous IoT Engine: Visual Automata Framework for Self-Adaptive Networks
+## Non-goals during convergence
+- broad plugin-platform expansion as a primary objective
+- ROS2-first storytelling or robotics-specific demos in the default path
+- preserving parallel legacy paths purely for compatibility
+- shipping many fragmented showcases instead of one flagship package
 
 ## Core Problem
-IoT networks need **visual, extensible automata engines** for adaptive behavior modeling. Existing solutions lack:
-1. **Real-time visual design** with TDD-driven development cycles.
-2. **Plugin-based extensibility** for diverse hardware and communication protocols.
-3. **Hierarchical automata composition** (automata within automata).
-4. **Remote deployment pipelines** for distributed IoT ecosystems.
+Distributed IoT systems need one coherent tool for visual design, orchestration, deployment-aware observability, replay-driven debugging, and structural analysis. This repository is being converged toward that single product story.
 
 ---
 
-## Technical Objectives
-1. Build a **visual automata engine** with real-time TDD capabilities and network visualization.
-2. Develop **plugin-extensible architecture** for hardware, middleware, and communication protocols.
-3. Enable **ROS2 integration** and **nested automata** for complex behavior modeling.
-4. Create **remote deployment tools** for distributed IoT network management.
-5. **Configurable size** for different iot devices where certain features can be turned off for space savings 
+## Product Objectives
+1. Build a **state-centric EFSM orchestration environment** for distributed device networks.
+2. Provide **named channel binding** across automata, devices, servers, and black boxes.
+3. Make **fault injection, time-travel replay, and runtime observability** part of the normal workflow.
+4. Expose **deployment-aware analyzer and Petri-net views** for bottlenecks, contention, and architecture insight.
+5. Deliver one **desktop/docker flagship showcase** that demonstrates the full package end to end.
 ---
 
 ## Documentation

@@ -3,12 +3,13 @@ version: 0.0.1
 config:
   name: Petri Motion Axis
   type: inline
-  description: Motion consumer competing for the same dc_bus resource as the charger.
+  description: Flagship motion participant that stages the shared bus through homing, acceleration, tracking, braking, and recovery hold phases.
   author: Aetherium Team
   tags:
     - showcase
     - petri
     - contention
+    - flagship
 
 variables:
   - name: drive_enable
@@ -19,6 +20,10 @@ variables:
     type: string
     direction: output
     default: parked
+  - name: move_cycles
+    type: int
+    direction: output
+    default: 0
 
 black_box:
   resources:
@@ -35,30 +40,133 @@ automata:
     Parked:
       outputs:
         - axis_state
+        - move_cycles
       code: |
         local dc_bus = "parked"
       on_enter: |
         setVal("axis_state", "parked")
 
-    Moving:
+    Homing:
       inputs:
         - drive_enable
       outputs:
         - axis_state
+        - move_cycles
       code: |
-        local dc_bus = "moving"
+        local dc_bus = "homing"
       on_enter: |
-        setVal("axis_state", "moving")
+        setVal("axis_state", "homing")
+
+    Accelerating:
+      inputs:
+        - drive_enable
+      outputs:
+        - axis_state
+        - move_cycles
+      code: |
+        local dc_bus = "accelerating"
+      on_enter: |
+        setVal("axis_state", "accelerating")
+
+    Tracking:
+      inputs:
+        - drive_enable
+      outputs:
+        - axis_state
+        - move_cycles
+      code: |
+        local dc_bus = "tracking"
+      on_enter: |
+        setVal("axis_state", "tracking")
+        setVal("move_cycles", value("move_cycles") + 1)
+
+    Braking:
+      outputs:
+        - axis_state
+        - move_cycles
+      code: |
+        local dc_bus = "braking"
+      on_enter: |
+        setVal("axis_state", "braking")
+
+    RecoveryHold:
+      outputs:
+        - axis_state
+        - move_cycles
+      code: |
+        local dc_bus = "recovery"
+      on_enter: |
+        setVal("axis_state", "recovery_hold")
 
   transitions:
-    start_motion:
+    parked_to_homing:
       from: Parked
-      to: Moving
+      to: Homing
       type: classic
       condition: value("drive_enable") == true
 
-    stop_motion:
-      from: Moving
+    homing_to_accelerating:
+      from: Homing
+      to: Accelerating
+      type: timed
+      after: 250
+
+    homing_to_parked:
+      from: Homing
       to: Parked
       type: classic
+      priority: 0
+      condition: value("drive_enable") == false
+
+    accelerating_to_tracking:
+      from: Accelerating
+      to: Tracking
+      type: timed
+      after: 300
+
+    accelerating_to_braking:
+      from: Accelerating
+      to: Braking
+      type: classic
+      priority: 0
+      condition: value("drive_enable") == false
+
+    tracking_to_braking:
+      from: Tracking
+      to: Braking
+      type: classic
+      priority: 0
+      condition: value("drive_enable") == false
+
+    tracking_to_recovery:
+      from: Tracking
+      to: RecoveryHold
+      type: timed
+      priority: 1
+      after: 1800
+
+    braking_to_parked:
+      from: Braking
+      to: Parked
+      type: timed
+      after: 300
+
+    braking_to_homing:
+      from: Braking
+      to: Homing
+      type: classic
+      priority: 0
+      condition: value("drive_enable") == true
+
+    recovery_to_homing:
+      from: RecoveryHold
+      to: Homing
+      type: classic
+      condition: value("drive_enable") == true
+
+    recovery_to_parked:
+      from: RecoveryHold
+      to: Parked
+      type: classic
+      priority: 1
       condition: value("drive_enable") == false

@@ -289,7 +289,8 @@ export interface DeployRequest {
 export interface DeployResponse {
   success: boolean;
   deviceId: DeviceId;
-  deployedVersion: string;
+  deploymentId?: string;
+  deployedVersion?: string;
   previousVersion?: string;
 }
 

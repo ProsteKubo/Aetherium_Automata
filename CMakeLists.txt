@@ -10,7 +10,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_C_STANDARD 11)
 
 option(AETHERIUM_BUILD_ENGINE_SMOKE "Build in-process engine command smoke checker target" OFF)
-option(AETHERIUM_ENABLE_LUA_SCRIPT_ENGINE "Enable Lua-backed default script engine in aetherium_core" ON)
+option(AETHERIUM_ENABLE_LUA_SCRIPT_ENGINE "Enable Lua-backed default script engine in the runtime core" ON)
 
 include(FetchContent)
 
@@ -44,32 +44,26 @@ FetchContent_Declare(ixwebsocket
 
 FetchContent_MakeAvailable(ryml)
 
-# Build Lua as a library
-FetchContent_GetProperties(lua)
-if(NOT lua_POPULATED)
-    FetchContent_Populate(lua)
-    
-    # Create Lua library from source - enable C language explicitly
-    enable_language(C)
-    file(GLOB LUA_SOURCES "${lua_SOURCE_DIR}/*.c")
-    list(REMOVE_ITEM LUA_SOURCES "${lua_SOURCE_DIR}/lua.c" "${lua_SOURCE_DIR}/luac.c")
-    
-    add_library(lua_static STATIC ${LUA_SOURCES})
-    target_include_directories(lua_static PUBLIC ${lua_SOURCE_DIR})
-    set_target_properties(lua_static PROPERTIES LINKER_LANGUAGE C)
-    if(UNIX AND NOT APPLE)
-        target_compile_definitions(lua_static PUBLIC LUA_USE_POSIX)
-        target_link_libraries(lua_static PUBLIC m dl)
-    elseif(APPLE)
-        target_compile_definitions(lua_static PUBLIC LUA_USE_MACOSX)
-    endif()
+# Build Lua as a library from upstream sources.
+FetchContent_MakeAvailable(lua)
+
+# Create Lua library from source - enable C language explicitly
+enable_language(C)
+file(GLOB LUA_SOURCES "${lua_SOURCE_DIR}/*.c")
+list(REMOVE_ITEM LUA_SOURCES "${lua_SOURCE_DIR}/lua.c" "${lua_SOURCE_DIR}/luac.c")
+
+add_library(lua_static STATIC ${LUA_SOURCES})
+target_include_directories(lua_static PUBLIC ${lua_SOURCE_DIR})
+set_target_properties(lua_static PROPERTIES LINKER_LANGUAGE C)
+if(UNIX AND NOT APPLE)
+    target_compile_definitions(lua_static PUBLIC LUA_USE_POSIX)
+    target_link_libraries(lua_static PUBLIC m dl)
+elseif(APPLE)
+    target_compile_definitions(lua_static PUBLIC LUA_USE_MACOSX)
 endif()
 
-# Sol2 is header-only, just get it
-FetchContent_GetProperties(sol2)
-if(NOT sol2_POPULATED)
-    FetchContent_Populate(sol2)
-endif()
+# Sol2 is header-only; make it available so the runtime core can include it directly.
+FetchContent_MakeAvailable(sol2)
 
 # IXWebSocket
 set(USE_TLS OFF CACHE BOOL "" FORCE)
@@ -151,43 +145,7 @@ target_link_libraries(aetherium_transport_ws PUBLIC
   ixwebsocket
 )
 
-# Legacy monolithic target for existing desktop code paths.
-# Kept during the split so desktop builds remain unchanged while runtime_core/frontend/ws are adopted incrementally.
-add_library(aetherium_core STATIC
-  src/engine/core/runtime.cpp
-  src/engine/core/protocol.cpp
-  src/engine/core/protocol_v2.cpp
-  src/engine/core/execution_trace.cpp
-  src/engine/core/telemetry_log_hub.cpp
-  src/engine/core/automata_loader.cpp
-  src/engine/core/command_bus.cpp
-  src/engine/core/engine.cpp
-  src/engine/core/websocket_transport.cpp
-)
-
-if(AETHERIUM_ENABLE_LUA_SCRIPT_ENGINE)
-  target_sources(aetherium_core PRIVATE src/engine/core/lua_engine.cpp)
-else()
-  target_compile_definitions(aetherium_core PUBLIC AETHERIUM_DISABLE_LUA_SCRIPT_ENGINE=1)
-endif()
-
-target_include_directories(aetherium_core PUBLIC
-  ${CMAKE_SOURCE_DIR}/src/engine
-  ${CMAKE_SOURCE_DIR}/src
-  ${sol2_SOURCE_DIR}/include
-  ${lua_SOURCE_DIR}
-)
-
-target_link_libraries(aetherium_core PUBLIC
-  aetherium_ir
-  ryml::ryml
-  ixwebsocket
-)
-
-if(AETHERIUM_ENABLE_LUA_SCRIPT_ENGINE)
-  target_link_libraries(aetherium_core PUBLIC lua_static)
-endif()
-
+# Desktop platform target
 add_library(aetherium_platform_desktop INTERFACE)
 target_link_libraries(aetherium_platform_desktop INTERFACE
   aetherium_runtime_core
@@ -200,7 +158,6 @@ target_include_directories(aetherium_platform_desktop INTERFACE
 )
 
 # AVR platform scaffolding target (Arduino IDE/library integration lives under src/engine/embedded/arduino).
-# This is a stable dependency name for downstream code while the runtime-core split is completed.
 add_library(aetherium_platform_avr INTERFACE)
 target_link_libraries(aetherium_platform_avr INTERFACE aetherium_runtime_core)
 target_include_directories(aetherium_platform_avr INTERFACE
@@ -235,8 +192,8 @@ add_executable(aetherium_engine
 
 target_include_directories(aetherium_engine PRIVATE ${CMAKE_SOURCE_DIR}/src)
 
-target_link_libraries(aetherium_engine PRIVATE 
-  aetherium_core
+target_link_libraries(aetherium_engine PRIVATE
+  aetherium_platform_desktop
 )
 
 # In-process command smoke checker for engine protocol command handling.
@@ -253,7 +210,7 @@ if(AETHERIUM_BUILD_ENGINE_SMOKE)
     )
 
     target_link_libraries(aetherium_engine_command_smoke PRIVATE
-      aetherium_core
+      aetherium_platform_desktop
     )
   else()
     message(WARNING "AETHERIUM_BUILD_ENGINE_SMOKE=ON but tests/engine_command_smoke.cpp was not found; skipping smoke target.")

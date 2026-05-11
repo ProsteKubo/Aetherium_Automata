@@ -13,34 +13,74 @@ import { buildAnalyzerFlow } from '../../utils/analyzerGraph';
 import { analyzerSeverityRank, findingMatchesFilters, formatAnalyzerWarning } from '../../utils/analyzerFormat';
 import { normalizeImportedAutomata } from '../../utils/importedAutomata';
 
+type ShowcaseAnalyzerNetwork = {
+  id: string;
+  name: string;
+  description: string;
+  color: string;
+  icon: string;
+  relativePaths: string[];
+};
+
 const ANALYZER_DEMO_SETS = [
   {
-    id: 'analyzer_contention',
-    title: 'Contention Demo',
+    id: 'flagship_showcase',
+    title: 'Flagship Showcase Analyzer',
     description:
-      'Three automata competing for one shared dc_bus resource. This is the cleanest offline analyzer demo.',
-    relativePaths: [
-      'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
-      'example/automata/showcase/14_petri_contention/petri_charger_node.yaml',
-      'example/automata/showcase/14_petri_contention/petri_motion_axis.yaml',
-    ],
-    scope: 'group' as const,
-  },
-  {
-    id: 'analyzer_signal_chain',
-    title: 'Signal Chain Demo',
-    description:
-      'Four connected automata with a shared field bus and a black-box drive unit so you can inspect multi-actor analyzer topology.',
-    relativePaths: [
-      'example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
-      'example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml',
-    ],
+      'Deployment-aware bundle spanning signal-chain, guarded-cell, resilience, and contention networks to surface latency, blocked handoffs, shared-resource pressure, and opaque black-box links.',
+    networks: [
+      {
+        id: 'signal_chain_backbone',
+        name: 'Signal Chain Backbone',
+        description: 'Operator-to-drive backbone that emits heartbeat, permit, state, and module-status channels.',
+        color: '#1f6f78',
+        icon: 'network',
+        relativePaths: [
+          'example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml',
+          'example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml',
+        ],
+      },
+      {
+        id: 'guarded_cell_cluster',
+        name: 'Guarded Cell Cluster',
+        description: 'State-heavy host and embedded actors sharing permit, supervisor, and alarm channels.',
+        color: '#7c3aed',
+        icon: 'shield',
+        relativePaths: [
+          'example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml',
+          'example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml',
+          'example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml',
+          'example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml',
+        ],
+      },
+      {
+        id: 'resilience_watchdog',
+        name: 'Resilience Watchdog',
+        description: 'Heartbeat consumer that makes liveness loss explicit for rewind and replay workflows.',
+        color: '#0f766e',
+        icon: 'pulse',
+        relativePaths: ['example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml'],
+      },
+      {
+        id: 'power_contention_ring',
+        name: 'Power Contention Ring',
+        description: 'Shared dc_bus contention scenario that feeds analyzer blocked-handoff and latency findings.',
+        color: '#c84c09',
+        icon: 'analysis',
+        relativePaths: [
+          'example/automata/showcase/14_petri_contention/petri_power_allocator.yaml',
+          'example/automata/showcase/14_petri_contention/petri_charger_node.yaml',
+          'example/automata/showcase/14_petri_contention/petri_motion_axis.yaml',
+        ],
+      },
+    ] satisfies readonly ShowcaseAnalyzerNetwork[],
     scope: 'group' as const,
   },
 ] as const;
-
 const activateCenterPanel = (panelId: PanelId): void => {
   const store = useUIStore.getState();
   const isVisible = store.layout.panels[panelId]?.isVisible ?? false;
@@ -93,6 +133,7 @@ export const AnalyzerPanel: React.FC = () => {
   const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const createNetwork = useProjectStore((state) => state.createNetwork);
+  const updateNetwork = useProjectStore((state) => state.updateNetwork);
   const addAutomataToNetwork = useProjectStore((state) => state.addAutomataToNetwork);
   const ensureLocalProject = useProjectStore((state) => state.ensureLocalProject);
   const markProjectDirty = useProjectStore((state) => state.markDirty);
@@ -197,7 +238,8 @@ export const AnalyzerPanel: React.FC = () => {
   const attachImportedAutomata = useCallback(
     (
       importedData: Partial<Automata> | Record<string, unknown>,
-      filePath?: string,
+      filePath: string | undefined,
+      targetNetwork: ShowcaseAnalyzerNetwork,
     ): { id: string; name: string; skipped: boolean } | null => {
       const normalizedPath = String(filePath || '').replace(/\\/g, '/');
       const currentAutomataMap = useAutomataStore.getState().automata;
@@ -207,7 +249,37 @@ export const AnalyzerPanel: React.FC = () => {
           )
         : undefined;
 
+      let activeProject = useProjectStore.getState().project;
+      if (!activeProject) {
+        ensureLocalProject('Flagship Showcase Workspace');
+        activeProject = useProjectStore.getState().project;
+      }
+
+      if (!activeProject) {
+        return null;
+      }
+
+      let network = activeProject.networks.find((entry) => entry.relativePath === `showcase/${targetNetwork.id}`);
+      let networkId = network?.id;
+
+      if (!networkId) {
+        networkId = createNetwork(targetNetwork.name);
+        updateNetwork(networkId, {
+          name: targetNetwork.name,
+          description: targetNetwork.description,
+          relativePath: `showcase/${targetNetwork.id}`,
+          color: targetNetwork.color,
+          icon: targetNetwork.icon,
+          isExpanded: true,
+        });
+        activeProject = useProjectStore.getState().project;
+        network = activeProject?.networks.find((entry) => entry.id === networkId);
+      }
+
       if (existing) {
+        if (networkId) {
+          addAutomataToNetwork(networkId, existing);
+        }
         return { id: existing.id, name: existing.config.name, skipped: true };
       }
 
@@ -220,35 +292,35 @@ export const AnalyzerPanel: React.FC = () => {
       nextMap.set(normalizedAutomata.id, normalizedAutomata);
       setAutomataMap(nextMap);
 
-      let activeProject = useProjectStore.getState().project;
-      if (!activeProject) {
-        ensureLocalProject('Analyzer Demo Project');
-        activeProject = useProjectStore.getState().project;
-      }
-
-      if (activeProject) {
-        let networkId = activeProject.networks[0]?.id;
-        if (!networkId) {
-          networkId = createNetwork('Default Network');
-        }
+      if (networkId) {
         addAutomataToNetwork(networkId, normalizedAutomata);
         markProjectDirty();
       }
 
       return { id: normalizedAutomata.id, name: normalizedAutomata.config.name, skipped: false };
     },
-    [addAutomataToNetwork, createNetwork, ensureLocalProject, markProjectDirty, setAutomataMap],
+    [
+      addAutomataToNetwork,
+      createNetwork,
+      ensureLocalProject,
+      markProjectDirty,
+      setAutomataMap,
+      updateNetwork,
+    ],
   );
 
   const importShowcaseAutomata = useCallback(
-    async (target: string): Promise<{ id: string; name: string; skipped: boolean } | null> => {
+    async (
+      target: string,
+      network: ShowcaseAnalyzerNetwork,
+    ): Promise<{ id: string; name: string; skipped: boolean } | null> => {
       const result = await window.api.automata.loadShowcase(target);
       if (!result.success || !result.data) {
         addNotification('error', 'Analyzer Demo', result.error || `Failed to load ${target}`);
         return null;
       }
 
-      return attachImportedAutomata(result.data as Record<string, unknown>, result.filePath);
+      return attachImportedAutomata(result.data as Record<string, unknown>, result.filePath, network);
     },
     [addNotification, attachImportedAutomata],
   );
@@ -262,10 +334,12 @@ export const AnalyzerPanel: React.FC = () => {
       try {
         const loaded: Array<{ id: string; name: string; skipped: boolean }> = [];
 
-        for (const relativePath of demo.relativePaths) {
-          const imported = await importShowcaseAutomata(relativePath);
-          if (imported) {
-            loaded.push(imported);
+        for (const network of demo.networks) {
+          for (const relativePath of network.relativePaths) {
+            const imported = await importShowcaseAutomata(relativePath, network);
+            if (imported) {
+              loaded.push(imported);
+            }
           }
         }
 
@@ -297,8 +371,8 @@ export const AnalyzerPanel: React.FC = () => {
         const skippedCount = loaded.filter((entry) => entry.skipped).length;
         const summary =
           skippedCount > 0
-            ? `Loaded ${importedCount} new automata and reused ${skippedCount} existing automata.`
-            : `Loaded ${importedCount} automata into the analyzer workspace.`;
+            ? `Loaded ${importedCount} new automata across ${demo.networks.length} showcase networks and reused ${skippedCount} existing automata.`
+            : `Loaded ${importedCount} automata across ${demo.networks.length} showcase networks into the analyzer workspace.`;
         addNotification('success', demo.title, summary);
       } finally {
         setImportingDemoId(null);

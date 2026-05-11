@@ -1,0 +1,93 @@
+This is BibTeX, Version 0.99e (TeX Live 2026)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: projekt.aux
+The style file: bib-styles/Pysny/enplain.bst
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated wiz_functions (elt_size=4) to 6000 items from 3000.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Reallocated singl_function (elt_size=4) to 100 items from 50.
+Database file #1: projekt-20-literatura-bibliography.bib
+Warning--empty editor and organization in Beilharz2022
+Warning--empty isbn and issn in Beilharz2022
+Warning--"{" isn't a brace-balanced string for entry RapidYAML
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Eclipse4diac
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty editor and organization in Geels2006
+Warning--empty isbn and issn in Geels2006
+Warning--empty edition in Harel1987
+Warning--"{" isn't a brace-balanced string for entry LuaManual54
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Lua1996
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in Lua1996
+Warning--"{" isn't a brace-balanced string for entry IXWebSocket
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry React
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in Murata1989
+Warning--empty edition in Noaman2022
+Warning--empty number in Noaman2022
+Warning--"{" isn't a brace-balanced string for entry NodeRED
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Electron
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Petri1962
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Phoenix
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Zustand
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty editor and organization in Strasser2008
+Warning--empty isbn and issn in Strasser2008
+Warning--"{" isn't a brace-balanced string for entry Sol2
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Elixir
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry YAML122
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in Zoitl2017
+You've used 22 entries,
+            3768 wiz_defined-function locations,
+            940 strings with 9248 characters,
+and the built_in function-call counts, 10347 in all, are:
+= -- 860
+> -- 342
+< -- 33
++ -- 120
+- -- 98
+* -- 617
+:= -- 1346
+add.period$ -- 91
+call.type$ -- 22
+change.case$ -- 178
+chr.to.int$ -- 24
+cite$ -- 34
+duplicate$ -- 598
+empty$ -- 1299
+format.name$ -- 98
+if$ -- 2487
+int.to.chr$ -- 0
+int.to.str$ -- 22
+missing$ -- 0
+newline$ -- 162
+num.names$ -- 44
+pop$ -- 286
+preamble$ -- 1
+purify$ -- 102
+quote$ -- 0
+skip$ -- 432
+stack$ -- 0
+substring$ -- 438
+swap$ -- 126
+text.length$ -- 33
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 45
+warning$ -- 12
+while$ -- 65
+width$ -- 24
+write$ -- 308
+(There were 26 warnings)

@@ -1,13 +1,14 @@
 defmodule Mix.Tasks.Aetherium.BlackBox.Smoke do
   use Mix.Task
 
-  @shortdoc "Deploy and exercise the docker black-box probe through the gateway API"
+  @shortdoc "Deploy and exercise the flagship black-box participant through the gateway API"
 
   alias AetheriumServer.ShowcaseCatalog
 
   @default_gateway_ws_url "ws://localhost:8080/socket/websocket"
   @default_ui_token "dev_secret_token"
-  @default_showcase "example/automata/showcase/12_black_box/docker_black_box_probe.yaml"
+  @default_bundle "flagship_desktop"
+  @default_device_role "black_box"
   @default_device_id "black_box_01"
   @default_wait_ms 20_000
   @default_timeout_ms 20_000
@@ -54,14 +55,19 @@ defmodule Mix.Tasks.Aetherium.BlackBox.Smoke do
 
     Mix.shell().info("Using server_id=#{server_id} device_id=#{device_id} for black-box smoke")
 
-    %{automata: automata} = load_showcase!(Keyword.fetch!(opts, :showcase))
+    target = load_target!(opts)
+
+    Mix.shell().info(
+      "Smoke target #{target.bundle_id || "single_showcase"} :: #{target.network || "Black Box Edge"} :: #{target.entry.name}"
+    )
+
     automata_id = "black-box-smoke-#{System.system_time(:millisecond)}"
     deployment_id = "#{automata_id}:#{device_id}"
 
     automata =
-      automata
+      target.automata
       |> Map.put("id", automata_id)
-      |> Map.put("name", "#{automata["name"] || "Docker Black Box Probe"} Smoke")
+      |> Map.put("name", "#{target.automata["name"] || target.entry.name} Smoke")
 
     try do
       {_deploy_reply, deploy_outcome} =
@@ -392,18 +398,24 @@ defmodule Mix.Tasks.Aetherium.BlackBox.Smoke do
           token: :string,
           server_id: :string,
           device_id: :string,
+          bundle: :string,
           showcase: :string,
           wait_ms: :integer,
           timeout_ms: :integer
         ]
       )
 
+    if Keyword.has_key?(opts, :bundle) and Keyword.has_key?(opts, :showcase) do
+      raise "Use either --bundle or --showcase, not both"
+    end
+
     [
       gateway_url: Keyword.get(opts, :gateway_url, @default_gateway_ws_url),
       token: Keyword.get(opts, :token, @default_ui_token),
       server_id: Keyword.get(opts, :server_id),
       device_id: Keyword.get(opts, :device_id, @default_device_id),
-      showcase: Keyword.get(opts, :showcase, @default_showcase),
+      bundle: Keyword.get(opts, :bundle, @default_bundle),
+      showcase: Keyword.get(opts, :showcase),
       wait_ms: max(Keyword.get(opts, :wait_ms, @default_wait_ms), 1_000),
       timeout_ms: max(Keyword.get(opts, :timeout_ms, @default_timeout_ms), 1_000)
     ]
@@ -541,6 +553,37 @@ defmodule Mix.Tasks.Aetherium.BlackBox.Smoke do
     case match do
       nil -> :no_match
       device -> {:ok, device["server_id"] || device[:server_id], device["id"] || device[:id]}
+    end
+  end
+
+  defp load_target!(opts) do
+    case Keyword.get(opts, :showcase) do
+      target when is_binary(target) ->
+        if String.trim(target) == "" do
+          load_flagship_black_box!(Keyword.fetch!(opts, :bundle))
+        else
+          load_showcase!(target)
+          |> Map.put(:bundle_id, nil)
+          |> Map.put(:network, "Black Box Edge")
+        end
+
+      _ ->
+        load_flagship_black_box!(Keyword.fetch!(opts, :bundle))
+    end
+  end
+
+  defp load_flagship_black_box!(bundle_id) do
+    with {:ok, bundle} <- ShowcaseCatalog.load_bundle(bundle_id),
+         member when is_map(member) <-
+           Enum.find(bundle.members, &(&1.device_role == @default_device_role)) do
+      member
+      |> Map.put(:bundle_id, bundle.id)
+    else
+      nil ->
+        raise "Bundle #{bundle_id} does not include a #{@default_device_role} participant"
+
+      {:error, reason} ->
+        raise "Failed to load showcase bundle #{bundle_id}: #{inspect(reason)}"
     end
   end
 

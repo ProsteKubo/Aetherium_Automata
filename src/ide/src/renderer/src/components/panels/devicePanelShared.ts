@@ -1,13 +1,6 @@
 import type { Device } from '../../types';
 import type { RuntimeDeployment, RuntimeDeploymentTransfer } from '../../types/runtimeView';
 
-export interface ShowcaseAutomataEntry {
-  id: string;
-  name: string;
-  category: string;
-  relativePath: string;
-}
-
 export interface DeviceDeploymentView {
   deploymentId: string;
   automataId: string;

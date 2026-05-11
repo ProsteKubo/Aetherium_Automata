@@ -13,8 +13,9 @@ import ReactFlow, {
   ReactFlowInstance,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { useAutomataStore, useGatewayStore, useRuntimeViewStore, useUIStore } from '../../stores';
+import { useAutomataStore, useGatewayStore, useProjectStore, useRuntimeViewStore, useUIStore } from '../../stores';
 import type { RuntimeDeployment } from '../../types';
+import { deriveCompatibleBindingDrafts } from '../../utils/automataBindings';
 import { IconAutomata, IconDevice, IconGateway, IconRefresh } from '../common/Icons';
 
 type NetworkNodeKind = 'gateway' | 'server' | 'device';
@@ -35,6 +36,37 @@ type Selection =
 
 type CanvasNodeData = {
   node: NetworkCanvasNode;
+};
+
+type LogicalNetworkSummary = {
+  id: string;
+  name: string;
+  color?: string;
+  automataCount: number;
+  deploymentCount: number;
+  deviceCount: number;
+  serverCount: number;
+  crossNetworkChannelCount: number;
+  inputCount: number;
+  outputCount: number;
+};
+
+type LogicalChannelRoute = {
+  id: string;
+  channelName: string;
+  sourceNetworkId: string;
+  sourceNetworkName: string;
+  sourceNetworkColor?: string;
+  targetNetworkId: string;
+  targetNetworkName: string;
+  targetNetworkColor?: string;
+  sourceAutomataIds: string[];
+  targetAutomataIds: string[];
+  sourceAutomataNames: string[];
+  targetAutomataNames: string[];
+  sourceTypes: string[];
+  targetTypes: string[];
+  linkCount: number;
 };
 
 const HIDDEN_HANDLE_STYLE = {
@@ -100,10 +132,108 @@ export const NetworkPanel: React.FC = () => {
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const deploymentsMap = useRuntimeViewStore((state) => state.deployments);
   const automataMap = useAutomataStore((state) => state.automata);
+  const project = useProjectStore((state) => state.project);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const openTab = useUIStore((state) => state.openTab);
   const layout = useUIStore((state) => state.layout);
   const togglePanel = useUIStore((state) => state.togglePanel);
+
+  const networkByAutomataId = useMemo(() => {
+    const mapped = new Map<string, { id: string; name: string; color?: string; inputCount: number; outputCount: number }>();
+    project?.networks.forEach((network) => {
+      network.automataIds.forEach((automataId) => {
+        mapped.set(automataId, {
+          id: network.id,
+          name: network.name,
+          color: network.color,
+          inputCount: network.inputs?.length ?? 0,
+          outputCount: network.outputs?.length ?? 0,
+        });
+      });
+    });
+    return mapped;
+  }, [project]);
+
+  const crossNetworkChannels = useMemo(() => {
+    return deriveCompatibleBindingDrafts(Array.from(automataMap.values()))
+      .map((binding) => {
+        const sourceNetwork = networkByAutomataId.get(binding.sourceAutomataId);
+        const targetNetwork = networkByAutomataId.get(binding.targetAutomataId);
+        return {
+          binding,
+          sourceNetwork,
+          targetNetwork,
+        };
+      })
+      .filter(
+        (entry) =>
+          Boolean(entry.sourceNetwork && entry.targetNetwork) &&
+          entry.sourceNetwork?.id !== entry.targetNetwork?.id,
+      );
+  }, [automataMap, networkByAutomataId]);
+
+  const logicalChannelRoutes = useMemo<LogicalChannelRoute[]>(() => {
+    const grouped = new Map<string, LogicalChannelRoute>();
+
+    crossNetworkChannels.forEach((entry) => {
+      if (!entry.sourceNetwork || !entry.targetNetwork) {
+        return;
+      }
+
+      const key = [
+        entry.sourceNetwork.id,
+        entry.targetNetwork.id,
+        entry.binding.sourceOutputName,
+      ].join('::');
+      const sourceAutomataName = automataMap.get(entry.binding.sourceAutomataId)?.config.name ?? entry.binding.sourceAutomataId;
+      const targetAutomataName = automataMap.get(entry.binding.targetAutomataId)?.config.name ?? entry.binding.targetAutomataId;
+      const existing = grouped.get(key);
+
+      if (existing) {
+        if (!existing.sourceAutomataIds.includes(entry.binding.sourceAutomataId)) {
+          existing.sourceAutomataIds.push(entry.binding.sourceAutomataId);
+          existing.sourceAutomataNames.push(sourceAutomataName);
+        }
+        if (!existing.targetAutomataIds.includes(entry.binding.targetAutomataId)) {
+          existing.targetAutomataIds.push(entry.binding.targetAutomataId);
+          existing.targetAutomataNames.push(targetAutomataName);
+        }
+        if (!existing.sourceTypes.includes(entry.binding.sourceType)) {
+          existing.sourceTypes.push(entry.binding.sourceType);
+        }
+        if (!existing.targetTypes.includes(entry.binding.targetType)) {
+          existing.targetTypes.push(entry.binding.targetType);
+        }
+        existing.linkCount += 1;
+        return;
+      }
+
+      grouped.set(key, {
+        id: key,
+        channelName: entry.binding.sourceOutputName,
+        sourceNetworkId: entry.sourceNetwork.id,
+        sourceNetworkName: entry.sourceNetwork.name,
+        sourceNetworkColor: entry.sourceNetwork.color,
+        targetNetworkId: entry.targetNetwork.id,
+        targetNetworkName: entry.targetNetwork.name,
+        targetNetworkColor: entry.targetNetwork.color,
+        sourceAutomataIds: [entry.binding.sourceAutomataId],
+        targetAutomataIds: [entry.binding.targetAutomataId],
+        sourceAutomataNames: [sourceAutomataName],
+        targetAutomataNames: [targetAutomataName],
+        sourceTypes: [entry.binding.sourceType],
+        targetTypes: [entry.binding.targetType],
+        linkCount: 1,
+      });
+    });
+
+    return Array.from(grouped.values()).sort((left, right) => {
+      if (right.linkCount !== left.linkCount) {
+        return right.linkCount - left.linkCount;
+      }
+      return left.channelName.localeCompare(right.channelName);
+    });
+  }, [automataMap, crossNetworkChannels]);
 
   const activatePanel = useCallback(() => {
     if (!layout.panels.automata?.isVisible) {
@@ -180,6 +310,40 @@ export const NetworkPanel: React.FC = () => {
     [automataMap, deploymentsMap, devicesMap],
   );
 
+  const logicalNetworks = useMemo<LogicalNetworkSummary[]>(() => {
+    if (!project) {
+      return [];
+    }
+
+    return project.networks.map((network) => {
+      const automataIds = new Set(network.automataIds);
+      const deployments = Array.from(deploymentsMap.values()).filter((deployment) => automataIds.has(deployment.automataId));
+      const deviceIds = Array.from(new Set(deployments.map((deployment) => String(deployment.deviceId))));
+      const serverIds = Array.from(
+        new Set(
+          deviceIds
+            .map((deviceId) => devicesMap.get(deviceId)?.serverId)
+            .filter((serverId): serverId is string => typeof serverId === 'string' && serverId.length > 0),
+        ),
+      );
+
+      return {
+        id: network.id,
+        name: network.name,
+        color: network.color,
+        automataCount: network.automataIds.length,
+        deploymentCount: deployments.length,
+        deviceCount: deviceIds.length,
+        serverCount: serverIds.length,
+        crossNetworkChannelCount: logicalChannelRoutes.filter(
+          (route) => route.sourceNetworkId === network.id || route.targetNetworkId === network.id,
+        ).length,
+        inputCount: network.inputs?.length ?? 0,
+        outputCount: network.outputs?.length ?? 0,
+      };
+    });
+  }, [deploymentsMap, devicesMap, logicalChannelRoutes, project]);
+
   const graph = useMemo(() => {
     const nodes: NetworkCanvasNode[] = [
       {
@@ -234,6 +398,14 @@ export const NetworkPanel: React.FC = () => {
           : device.assignedAutomataId
             ? automataMap.get(device.assignedAutomataId)?.config.name ?? device.assignedAutomataId
             : undefined;
+        const deviceNetworkNames = Array.from(
+          new Set(
+            deploymentList
+              .map((deployment) => networkByAutomataId.get(deployment.automataId)?.name)
+              .filter((value): value is string => Boolean(value)),
+          ),
+        );
+        const primaryNetwork = primaryDeployment ? networkByAutomataId.get(primaryDeployment.automataId) : undefined;
         const deviceNodeId = `device:${device.id}`;
 
         nodes.push({
@@ -243,10 +415,9 @@ export const NetworkPanel: React.FC = () => {
           subtitle:
             assignedBlackBox
               ? `Black box · ${automataName ?? 'interface only'}`
-              : automataName ??
-            device.connectorType ??
-            device.transport ??
-            device.address,
+              : deviceNetworkNames.length > 0
+                ? `${deviceNetworkNames.join(' · ')}${automataName ? ` · ${automataName}` : ''}`
+                : automataName ?? device.connectorType ?? device.transport ?? device.address,
           status: device.status,
           position: { x: 650, y: serverY + deviceIndex * 108 - Math.max(0, serverDevices.length - 1) * 42 },
           metadata: {
@@ -263,6 +434,14 @@ export const NetworkPanel: React.FC = () => {
             ownership: assignedBlackBox ? 'external-interface-only' : 'gateway-managed',
             blackBoxPortCount: assignedBlackBox?.ports.length,
             blackBoxResourceCount: assignedBlackBox?.resources.length,
+            logicalNetwork: primaryNetwork?.name,
+            logicalNetworks: deviceNetworkNames,
+            logicalChannelCount: primaryNetwork
+              ? logicalChannelRoutes.filter(
+                  (route) =>
+                    route.sourceNetworkId === primaryNetwork.id || route.targetNetworkId === primaryNetwork.id,
+                ).length
+              : 0,
           },
         });
 
@@ -288,7 +467,7 @@ export const NetworkPanel: React.FC = () => {
     });
 
     return { nodes, edges };
-  }, [automataMap, deploymentsByDevice, devices, gatewayStatus, servers]);
+  }, [automataMap, deploymentsByDevice, devices, gatewayStatus, logicalChannelRoutes, networkByAutomataId, servers]);
 
   const flowNodes = useMemo<Node<CanvasNodeData>[]>(
     () =>
@@ -324,6 +503,9 @@ export const NetworkPanel: React.FC = () => {
             <IconDevice size={12} />
             {devices.length} devices
           </span>
+          <span className="petri-chip">{logicalNetworks.length} logical networks</span>
+          <span className="petri-chip">{logicalChannelRoutes.length} M:N channel routes</span>
+          <span className="petri-chip">{crossNetworkChannels.length} individual channel links</span>
         </div>
         <div className="network-live-toolbar-group">
           <label className="petri-toggle">
@@ -447,6 +629,88 @@ export const NetworkPanel: React.FC = () => {
             </div>
           )}
 
+          {logicalNetworks.length > 0 && (
+            <div className="petri-inspector-section">
+              <div className="petri-block-title">Logical Networks</div>
+              <div className="petri-inspector-subtitle">
+                The flagship workspace is organized as a network-of-networks. These groups describe where EFSMs are
+                deployed and how many M:N channel routes each group exposes to the rest of the workspace.
+              </div>
+              <div className="petri-warning-list">
+                {logicalNetworks.map((network) => (
+                  <div key={network.id} className="petri-merge-item">
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 0, flex: 1 }}>
+                      <strong>{network.name}</strong>
+                      <span>
+                        {network.automataCount} automata · {network.deploymentCount} deployments · {network.deviceCount}{' '}
+                        devices · {network.serverCount} servers
+                      </span>
+                      <span>
+                        {network.inputCount} inputs · {network.outputCount} outputs · {network.crossNetworkChannelCount}{' '}
+                        M:N routes
+                      </span>
+                    </div>
+                    <span className="petri-chip accent" style={network.color ? { borderColor: network.color, color: network.color } : undefined}>
+                      logical network
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {logicalChannelRoutes.length > 0 && (
+            <div className="petri-inspector-section">
+              <div className="petri-block-title">Channel Routes</div>
+              <div className="petri-inspector-subtitle">
+                Named outputs and inputs are linked as M:N channels. These routes show how the flagship workspace binds
+                one logical network to another through shared channel contracts.
+              </div>
+              <div className="petri-warning-list">
+                {logicalChannelRoutes.map((route) => (
+                  <div key={route.id} className="petri-merge-item" style={{ alignItems: 'flex-start' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <strong>channel:{route.channelName}</strong>
+                        <span className="petri-chip">{route.linkCount} links</span>
+                        <span className="petri-chip">{route.sourceTypes.join(', ')} → {route.targetTypes.join(', ')}</span>
+                      </div>
+                      <span>
+                        <span style={route.sourceNetworkColor ? { color: route.sourceNetworkColor } : undefined}>
+                          {route.sourceNetworkName}
+                        </span>
+                        {' → '}
+                        <span style={route.targetNetworkColor ? { color: route.targetNetworkColor } : undefined}>
+                          {route.targetNetworkName}
+                        </span>
+                      </span>
+                      <span>Sources: {route.sourceAutomataNames.join(', ')}</span>
+                      <span>Targets: {route.targetAutomataNames.join(', ')}</span>
+                    </div>
+                    <div className="petri-inspector-actions" style={{ marginTop: 0 }}>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => openAutomata(route.sourceAutomataIds[0])}
+                      >
+                        <IconAutomata size={14} />
+                        Open Source
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => openAutomata(route.targetAutomataIds[0])}
+                      >
+                        <IconAutomata size={14} />
+                        Open Target
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {blackBoxParticipants.length > 0 && (
             <div className="petri-inspector-section">
               <div className="petri-block-title">Black Box Participants</div>
@@ -494,6 +758,18 @@ export const NetworkPanel: React.FC = () => {
         <div className="petri-summary-stat">
           <span className="petri-summary-label">Devices</span>
           <strong>{devices.length}</strong>
+        </div>
+        <div className="petri-summary-stat">
+          <span className="petri-summary-label">Networks</span>
+          <strong>{logicalNetworks.length}</strong>
+        </div>
+        <div className="petri-summary-stat">
+          <span className="petri-summary-label">M:N Routes</span>
+          <strong>{logicalChannelRoutes.length}</strong>
+        </div>
+        <div className="petri-summary-stat">
+          <span className="petri-summary-label">Channel Links</span>
+          <strong>{crossNetworkChannels.length}</strong>
         </div>
         <div className="petri-summary-stat">
           <span className="petri-summary-label">Deployments</span>

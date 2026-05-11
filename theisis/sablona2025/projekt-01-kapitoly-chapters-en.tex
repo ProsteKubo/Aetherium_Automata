@@ -1,0 +1,884 @@
+% Thesis content -- Aetherium Automata
+% Author: Jakub Kapitulcin
+% Supervisor: doc. Ing. Vladimír Janoušek, Ph.D.
+% Note: amsmath, amssymb, listings, xcolor, booktabs, float are loaded in fitthesis.cls or projekt.tex preamble.
+
+% Style for YAML/code listings
+\lstdefinelanguage{yaml}{
+  keywords={version, config, name, type, automata, states, transitions, variables, initial\_state,
+            from, to, condition, priority, weight, on\_enter, body, on\_exit, direction, default,
+            timed, event, triggers, signal, trigger, mode, after, every, threshold, operator, value},
+  sensitive=false,
+  comment=[l]{\#},
+  morestring=[b]",
+  morestring=[b]',
+}
+\lstset{
+  basicstyle=\ttfamily\small,
+  keywordstyle=\color{blue},
+  commentstyle=\color{gray},
+  stringstyle=\color{orange},
+  breaklines=true,
+  frame=single,
+  numbers=left,
+  numberstyle=\tiny,
+}
+
+% ============================================================
+\chapter{Introduction}
+% ============================================================
+
+The Internet of Things (IoT) connects increasingly large numbers of heterogeneous devices that must cooperate to execute control logic in real time. Such systems are inherently distributed and stateful: a smart thermostat cycles through heating, idle, and cooling modes; a production-line robot arm progresses through pick, move, and place phases; a sensor watchdog transitions between monitoring, alarming, and recovery states. The heterogeneity of devices, communication protocols, and data formats in large IoT deployments is a well-documented integration challenge~\cite{Noaman2022}. Despite the pervasiveness of state-driven behavior, most existing IoT toolchains treat control logic as ad-hoc scripts embedded in event callbacks or workflow DAGs, making the underlying state structure implicit and difficult to reason about.
+
+The consequence is a practical problem: when a system deployed across dozens of devices misbehaves, developers must reconstruct the global state from scattered log messages, often without any ability to replay or visually inspect the sequence of events that led to the fault. Testing distributed IoT systems reliably requires simulating faults and reproducing timing-sensitive failure scenarios~\cite{Beilharz2022}, a capability that most existing IoT platforms do not provide natively.
+
+This thesis addresses that problem by presenting \textit{Aetherium Automata}, a complete toolchain for the visual design, deployment, and monitoring of distributed IoT control systems modeled as \textit{Extended Finite State Machines} (EFSMs). The system treats automata as first-class citizens: every device behavior is expressed as a named state machine with typed variables, Lua-scripted guards and actions, and a rich set of transition types. The toolchain includes:
+
+\begin{itemize}
+  \item a portable C++17 runtime engine that executes EFSM definitions on targets ranging from desktop Linux to ESP32 and Raspberry Pi Pico,
+  \item a YAML-based domain-specific language (DSL) for authoring automata,
+  \item a real-time Elixir/Phoenix gateway that bridges IDE and device network,
+  \item an Electron-based visual IDE for design, live monitoring, fault injection, and time-travel debugging,
+  \item structural analysis using Petri net formalism for deadlock and bottleneck detection across multi-automata networks.
+\end{itemize}
+
+\section{Goals}
+
+% TODO: align with the official assignment wording from IS VUT
+
+The primary goals of this thesis are:
+
+\begin{enumerate}
+  \item Design and implement an EFSM model expressive enough to cover the control logic of real-world IoT devices, including time-driven, event-driven, and probabilistic behavior.
+  \item Implement a portable C++ runtime engine capable of executing the model on both desktop and constrained embedded platforms.
+  \item Design a YAML domain-specific language for authoring automata definitions.
+  \item Implement a real-time gateway and IDE that allow an operator to deploy, monitor, and debug automata across a network of heterogeneous devices.
+  \item Validate the system with a catalog of representative IoT showcase automata.
+\end{enumerate}
+
+\section{Thesis Structure}
+
+Chapter~\ref{chap:background} introduces the theoretical background: Finite State Machines, Extended Finite State Machines, and Petri nets. Chapter~\ref{chap:analysis} discusses related tools and analyses requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine internals. Chapter~\ref{chap:gateway} describes the gateway and communication protocol. Chapter~\ref{chap:ide} covers the IDE. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:conclusion} concludes with results and future work.
+
+% ============================================================
+\chapter{Background}
+\label{chap:background}
+% ============================================================
+
+\section{Finite State Machines}
+\label{sec:fsm}
+
+A \textit{Finite State Machine} (FSM) is a well-established mathematical formalism for modeling systems that can be in exactly one of a finite number of states at any given time and that change state in response to inputs~\cite{Hopcroft2006}. Formally, a deterministic FSM is defined as a 5-tuple:
+
+\begin{equation}
+  M = (Q,\, \Sigma,\, \delta,\, q_0,\, F)
+\end{equation}
+
+\noindent where:
+\begin{itemize}
+  \item $Q$ is a finite, non-empty set of states,
+  \item $\Sigma$ is a finite input alphabet (set of events or signals),
+  \item $\delta : Q \times \Sigma \rightarrow Q$ is the transition function,
+  \item $q_0 \in Q$ is the initial state,
+  \item $F \subseteq Q$ is the set of accepting (final) states.
+\end{itemize}
+
+In control applications the acceptance criterion is typically not used; the focus lies instead on the transition function and any actions associated with states or transitions. Two classical variants are distinguished:
+
+\begin{description}
+  \item[Moore machine] Output depends only on the current state. Output is produced upon entering a state.
+  \item[Mealy machine] Output depends on both the current state and the current input. Output is produced when a transition fires.
+\end{description}
+
+Aetherium Automata supports both semantics simultaneously through per-state code hooks executed on entry and per-tick, and per-transition code executed when a transition fires.
+
+\section{Extended Finite State Machines}
+\label{sec:efsm}
+
+A plain FSM is insufficient for most practical control problems because all variation must be encoded into distinct states. An \textit{Extended Finite State Machine} (EFSM) augments the FSM with a variable store, transforming guards and actions into functions over that store~\cite{Harel1987}:
+
+\begin{equation}
+  M_E = (Q,\, \Sigma,\, V,\, \delta_E,\, \lambda,\, q_0)
+\end{equation}
+
+\noindent where:
+\begin{itemize}
+  \item $Q$, $\Sigma$, $q_0$ are as in the standard FSM,
+  \item $V$ is a finite set of typed variables (the \textit{data context}),
+  \item $\delta_E : Q \times \Sigma \times \mathit{Bool}(V) \rightarrow Q$ is the extended transition function; each transition edge carries a \textit{guard} $g : V \rightarrow \mathit{Bool}$ that must be satisfied for the transition to fire,
+  \item $\lambda : Q \times \Sigma \times V \rightarrow V$ is the output/action function that updates the variable store when a transition fires.
+\end{itemize}
+
+In Aetherium, the variable store $V$ contains three classes of variables: \textit{input} variables (written by the external environment, read-only to the automaton), \textit{output} variables (written by the automaton, consumed externally), and \textit{internal} variables (read-write by the automaton alone). Guards and actions are expressed as Lua~\cite{Lua1996,LuaManual54} scripts evaluated against $V$ at runtime. Lua was specifically designed as a lightweight, embeddable extension language~\cite{Lua1996}, making it well suited for use inside a portable C++ runtime with constrained memory budgets.
+
+Each state $q \in Q$ additionally carries three optional code hooks evaluated in the following order:
+\begin{enumerate}
+  \item \texttt{on\_enter} — executed once when the state is entered,
+  \item \texttt{body} — executed on every execution tick while the machine remains in the state,
+  \item \texttt{on\_exit} — executed once immediately before leaving the state.
+\end{enumerate}
+
+This structure corresponds to a Moore/Mealy hybrid: \texttt{on\_enter} provides state-dependent output (Moore), while the transition \texttt{body} hook provides input-dependent output (Mealy).
+
+\section{Petri Nets}
+\label{sec:petri}
+
+A \textit{Petri net} is a mathematical formalism designed for modeling concurrent, distributed, and asynchronous systems~\cite{Petri1962}. It generalizes finite automata by allowing multiple simultaneous active conditions (tokens in multiple places). A formal survey with analysis properties is given by Murata~\cite{Murata1989}. A Petri net is defined as a 4-tuple:
+
+\begin{equation}
+  N = (P,\, T,\, F,\, M_0)
+\end{equation}
+
+\noindent where:
+\begin{itemize}
+  \item $P$ is a finite set of \textit{places} (representing conditions or states),
+  \item $T$ is a finite set of \textit{transitions}, with $P \cap T = \emptyset$,
+  \item $F \subseteq (P \times T) \cup (T \times P)$ is the \textit{flow relation} (directed arcs),
+  \item $M_0 : P \rightarrow \mathbb{N}$ is the \textit{initial marking} (token distribution).
+\end{itemize}
+
+A transition $t \in T$ is \textit{enabled} under marking $M$ if every input place $p$ of $t$ holds at least one token: $\forall p \in \bullet t : M(p) \geq 1$. Firing $t$ removes one token from each input place and adds one token to each output place:
+\begin{equation}
+  M'(p) = M(p) - F(p,t) + F(t,p)
+\end{equation}
+
+Petri nets provide the foundation for several analysis problems relevant to IoT networks:
+\begin{description}
+  \item[Reachability] Determine whether a given marking $M'$ is reachable from $M_0$.
+  \item[Boundedness] Determine whether the number of tokens in any place is bounded.
+  \item[Liveness (deadlock-freedom)] Determine whether every transition can eventually fire from every reachable marking.
+\end{description}
+
+In Aetherium, the Petri net formalism is applied at the \textit{network level}: each automaton's current state contributes a conceptual token, and the combined network of automata is analyzed for deadlocks, bottlenecks, and resource contention. This is described in detail in Chapter~\ref{chap:petri}.
+
+% ============================================================
+\chapter{Analysis of Existing Solutions}
+\label{chap:analysis}
+% ============================================================
+
+Before designing Aetherium Automata, two representative existing platforms were analysed: Node-RED, which represents the flow-based IoT automation category, and Eclipse 4diac, which represents the IEC~61499 function-block category. Together they cover the main points of comparison relevant to the thesis goals: explicit state modelling, embedded portability, testability, and observability.
+
+% ─────────────────────────────────────────────────────────────
+\section{Node-RED}
+\label{sec:nodered}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Overview}
+
+Node-RED~\cite{NodeRED} is a low-code, flow-based programming tool originally developed in early 2013 by Nick O'Leary and Dave Conway-Jones at IBM's Emerging Technology Services group. It was open-sourced in September 2013 and later donated to the OpenJS Foundation (through the JS Foundation in 2016). Today it is one of the most widely adopted visual programming environments for IoT prototyping.
+
+\subsection{Programming Model}
+
+Node-RED implements the \textit{flow-based programming} paradigm~\cite{Noaman2022}, in which an application is expressed as a directed graph of \textit{nodes} connected by \textit{wires}. Each node encapsulates a single unit of processing and communicates with adjacent nodes by passing JavaScript message objects (\texttt{msg}). Flows are the top-level grouping unit and are serialised as JSON. The browser-based editor communicates with a Node.js runtime that executes the flows.
+
+Three kinds of built-in nodes are provided:
+\begin{description}
+  \item[Input nodes] Inject messages into the flow from external sources --- timers, MQTT brokers, HTTP endpoints, or hardware GPIO.
+  \item[Processing nodes] Transform, filter, or route messages --- function nodes accept arbitrary JavaScript code, switch nodes branch on message properties.
+  \item[Output nodes] Send messages to external sinks --- MQTT publish, HTTP response, database write.
+\end{description}
+
+A community ecosystem of over 5\,000 third-party nodes extends the platform with protocol adapters, UI widgets, and cloud service integrations.
+
+\subsection{State Management}
+
+Node-RED has no built-in concept of a state machine. Application-level state must be managed explicitly using \textit{context storage}: node context (local to one node), flow context (shared within a flow tab), or global context (shared across all flows). Accessing and mutating context from within function nodes requires manual bookkeeping and is untyped.
+
+Several community packages attempt to address this gap by adding FSM nodes (e.g.\ \texttt{node-red-contrib-finite-statemachine}, \texttt{node-red-contrib-xstate-machine}), but these are third-party add-ons with no native IDE integration, no visual state graph, and no support for timed or probabilistic transitions. Representing complex stateful logic natively in Node-RED leads to large, hard-to-navigate flow graphs in which control flow and data flow are interleaved.
+
+\subsection{Embedded Targets and Observability}
+
+Node-RED runs on the Node.js runtime, which requires a relatively capable host: minimum a Raspberry Pi class device with a full operating system. Bare-metal microcontrollers such as ESP32 (without an OS) or ARM Cortex-M targets are not directly supported.
+
+Runtime observability is provided through a Debug side-panel that displays message values at selected wire taps. There is no structured execution trace, no replay capability, and no fault injection mechanism. Reproducing a timing-sensitive failure requires either manual test setup or third-party logging infrastructure.
+
+\subsection{Summary}
+
+Node-RED excels at rapid prototyping and data routing in environments where state is simple or absent. It is poorly suited to applications requiring rich stateful behaviour, reproducible testing under adverse conditions, or deployment on constrained embedded hardware.
+
+% ─────────────────────────────────────────────────────────────
+\section{Eclipse 4diac}
+\label{sec:fordiac}
+% ─────────────────────────────────────────────────────────────
+
+\subsection{Overview}
+
+Eclipse 4diac~\cite{Eclipse4diac} (originally named 4DIAC --- Framework for Distributed Industrial Automation and Control) is an open-source development environment and runtime for distributed control systems based on the IEC~61499 standard. It was first presented by Strasser, Rooker, Zoitl et al.\ in 2008~\cite{Strasser2008} and later became an Eclipse Foundation project. Its primary reference text is the book by Zoitl and Strasser~\cite{Zoitl2017}.
+
+\subsection{IEC 61499 and Function Blocks}
+
+IEC~61499 is an international standard for distributed industrial process measurement and control systems. It defines a \textit{Function Block} (FB) as the primary computational unit and extends the earlier IEC~61131-3 PLC programming standard to multi-device, distributed architectures.
+
+Three FB types are defined:
+
+\begin{description}
+  \item[Basic Function Block (BFB)] The fundamental executable unit. Its behaviour is defined by an \textit{Execution Control Chart} (ECC) --- an event-driven state machine --- combined with one or more \textit{algorithms} expressed in Structured Text, Ladder Diagram, or Function Block Diagram (languages drawn from IEC~61131-3). A BFB transitions between ECC states when input \textit{events} arrive and associated Boolean guard conditions are satisfied. Executing an ECC state fires the associated algorithm, which may produce output events and set output data variables.
+  \item[Composite Function Block (CFB)] A network of interconnected FBs, providing hierarchical composition without a separate ECC. The internal topology is fixed at design time.
+  \item[Service Interface Function Block (SIFB)] Provides a typed interface to external services such as hardware peripherals, network protocols, or operating system calls.
+\end{description}
+
+The ECC of a BFB is structurally similar to an EFSM (Section~\ref{sec:efsm}): states, guarded transitions, and per-state algorithms. However, the trigger mechanism differs fundamentally --- transitions fire only in response to named input \textit{events} (discrete signals), not as a result of continuous condition polling or timer expiry. Timed behaviour must be implemented using dedicated timer SIFBs wired into the network, and probabilistic transitions are not part of the standard.
+
+\subsection{4diac IDE and FORTE Runtime}
+
+The \textbf{4diac IDE} is based on the Eclipse framework. It provides a graphical editor for composing FB networks, an ECC editor for designing BFB state machines, and deployment tooling for distributing application partitions across multiple devices.
+
+The \textbf{4diac FORTE} runtime is a portable C++ implementation of the IEC~61499 execution model targeting 16-bit and 32-bit embedded devices. It supports real-time execution and online reconfiguration of running applications. Supported platforms include Linux, Windows, VxWorks, and several bare-metal embedded targets.
+
+\subsection{Limitations Relevant to this Thesis}
+
+Despite its rigorous foundations, 4diac exhibits several limitations from the perspective of the Aetherium design goals:
+
+\begin{itemize}
+  \item \textbf{Event-only trigger model.} The ECC transitions fire exclusively on named input events. There is no native support for time-based transitions (without auxiliary timer FBs), no probabilistic selection, and no direct reactivity to data threshold crossings without additional logic.
+  \item \textbf{Scripting.} Algorithms are written in IEC~61131-3 languages (primarily Structured Text). There is no embedded general-purpose scripting language comparable to Lua. Dynamic behaviour that depends on runtime arithmetic requires either pre-compiled C++ SIFBs or complex FB networks.
+  \item \textbf{IDE weight.} The Eclipse-based IDE carries a significant installation footprint and a steep learning curve, in contrast to a purpose-built Electron application.
+  \item \textbf{No fault injection or replay.} 4diac provides no mechanism to inject network delays, packet loss, or disconnection events into a running deployment, and no execution trace suitable for step-by-step replay.
+  \item \textbf{Informal execution semantics.} The original IEC~61499 standard left execution semantics underspecified, leading to interpreter divergence across implementations. While later editions improved this, the ECC execution model remains more complex to reason about than the deterministic tick-based resolution used in Aetherium.
+\end{itemize}
+
+% ─────────────────────────────────────────────────────────────
+\section{Comparison}
+\label{sec:comparison}
+% ─────────────────────────────────────────────────────────────
+
+Table~\ref{tab:comparison} summarises the key characteristics of both analysed platforms against Aetherium Automata.
+
+\begin{table}[H]
+  \centering
+  \caption{Feature comparison of Node-RED, Eclipse 4diac, and Aetherium Automata.}
+  \label{tab:comparison}
+  \vskip6pt
+  \begin{tabular}{llll}
+    \toprule
+    Feature & Node-RED & 4diac & Aetherium \\
+    \midrule
+    Explicit state model      & No               & Yes (ECC)             & Yes (EFSM) \\
+    Transition types          & N/A              & Event + guard         & Classic, Timed, Event, \\
+                              &                  &                       & Probabilistic, Immediate \\
+    Scripting language        & JavaScript       & Structured Text       & Lua 5.4 \\
+    Visual editor             & Browser (Node.js)& Eclipse IDE           & Electron desktop \\
+    Embedded runtime          & No               & Yes (FORTE, C++)       & Yes (C++17) \\
+    Embedded targets          & Raspberry Pi+    & 16/32-bit MCUs        & ESP32, Pico, MCXN947 \\
+    Flow/program format       & JSON             & XML (FBT files)       & YAML \\
+    Typed variables           & No (JavaScript)  & Yes (IEC 61131-3)     & Yes (7 types) \\
+    Fault injection           & No               & No                    & Yes \\
+    Time-travel debugging     & No               & No                    & Yes \\
+    Structural analysis       & No               & No                    & Petri net analysis \\
+    Target domain             & General IoT      & Industrial automation & General IoT + embedded \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The analysis reveals that neither platform simultaneously satisfies all of the requirements identified in Section~\ref{sec:requirements}. Node-RED lacks explicit state modelling entirely and cannot run on bare-metal embedded targets. 4diac provides formal state machines through the ECC but restricts transitions to an event-driven model and provides no fault injection or replay capability. Aetherium Automata addresses these gaps by combining a five-type EFSM model, a portable C++ runtime, deterministic fault injection, and execution trace replay within a single unified toolchain.
+
+% ─────────────────────────────────────────────────────────────
+\section{Requirements}
+\label{sec:requirements}
+% ─────────────────────────────────────────────────────────────
+
+Based on the analysis above and the thesis goals, the following requirements were identified:
+
+\begin{description}
+  \item[R1 -- EFSM expressiveness] The model must support guarded transitions, time-driven transitions, event/signal-driven transitions, probabilistic transitions, and unconditional (epsilon) transitions.
+  \item[R2 -- Scripting] Guards and actions must be expressible as scripts evaluated against the current variable store. Lua is chosen as the scripting language.
+  \item[R3 -- Portability] The runtime engine must compile and execute on desktop Linux/macOS, ESP32 (Arduino/FreeRTOS), Raspberry Pi Pico, and ARM Cortex-M (MCXN947).
+  \item[R4 -- DSL] Automata definitions must be authored in a human-readable format. YAML is chosen.
+  \item[R5 -- Real-time monitoring] The IDE must display the current state and variable values of running automata with low latency.
+  \item[R6 -- Fault injection] The system must support deterministic fault injection (delay, jitter, drop, disconnect) for testing.
+  \item[R7 -- Time-travel debugging] Execution traces must be recorded and replayable step-by-step in the IDE.
+  \item[R8 -- Structural analysis] The system must detect deadlocks and bottlenecks in multi-automata networks using Petri net analysis.
+\end{description}
+
+% ============================================================
+\chapter{System Architecture}
+\label{chap:architecture}
+% ============================================================
+
+The Aetherium Automata platform is composed of four major components that form a layered architecture:
+
+\begin{enumerate}
+  \item \textbf{Engine} --- a portable C++17 library that parses, loads, and executes EFSM definitions.
+  \item \textbf{Server} --- an Elixir/OTP application that manages connected devices, routes messages, and aggregates state.
+  \item \textbf{Gateway} --- an Elixir/Phoenix application that exposes a WebSocket channel interface to the IDE.
+  \item \textbf{IDE} --- an Electron desktop application (TypeScript/React) for visual design, deployment, and monitoring.
+\end{enumerate}
+
+Figure~\ref{fig:arch} shows the high-level component topology.
+
+% TODO: insert actual architecture diagram
+\begin{figure}[H]
+  \centering
+  % \includegraphics[width=0.85\textwidth]{obrazky-figures/architecture.pdf}
+  \fbox{\parbox{0.85\textwidth}{\centering\vspace{2cm}
+    % TODO: replace with actual architecture diagram
+    Architecture diagram placeholder\\[0.5em]
+    IDE (Electron) $\leftrightarrow$ Gateway (Phoenix) $\leftrightarrow$ Server (Elixir) $\leftrightarrow$ Devices (C++ Engine)
+  \vspace{2cm}}}
+  \caption{High-level component architecture of Aetherium Automata.}
+  \label{fig:arch}
+\end{figure}
+
+\section{Component Responsibilities}
+
+\subsection{Engine}
+
+The engine is the core library. It is written in C++17 with no dynamic dependencies beyond the platform-specific backends (Lua~5.4~\cite{LuaManual54} on desktop, IXWebSocket~\cite{IXWebSocket} for transport). It is responsible for:
+\begin{itemize}
+  \item parsing automata definitions from YAML~\cite{YAML122} (via RapidYAML~\cite{RapidYAML}),
+  \item maintaining the variable store and evaluating Lua guards and actions (via Sol2~\cite{Sol2}),
+  \item resolving and firing transitions on each execution tick,
+  \item transmitting telemetry and receiving commands over a pluggable transport interface.
+\end{itemize}
+
+Three abstract interfaces isolate all platform-specific behavior:
+\begin{description}
+  \item[\texttt{IClock}] Monotonic time source. Desktop: \texttt{std::chrono}. Embedded: hardware timer peripheral.
+  \item[\texttt{IRandomSource}] Pseudorandom number generator. Desktop: \texttt{std::mt19937\_64}. Embedded: hardware RNG.
+  \item[\texttt{IScriptEngine}] Script evaluation. Desktop: Lua~5.4 via Sol2. Embedded: lightweight evaluator or no-op stub.
+\end{description}
+
+CMake build targets select the appropriate implementations at compile time.
+
+\subsection{Server}
+
+The server is an Elixir/OTP application. It manages the registry of connected devices, buffers messages, routes inputs to devices and outputs to subscribers, and handles deployment commands. It communicates with devices over WebSocket, MQTT, or Serial/USB depending on the device type.
+
+\subsection{Gateway}
+
+The gateway is an Elixir/Phoenix application that exposes a \textit{Phoenix Channel} endpoint. The IDE connects to this endpoint over a persistent WebSocket. The gateway translates IDE commands (deploy, start, stop, set input) into server calls, and streams device events (state changes, variable updates, telemetry) back to the IDE in real time.
+
+\subsection{IDE}
+
+The IDE is an Electron desktop application. The main process handles native file system access. The renderer process is a React single-page application with Zustand-based state management. The IDE communicates with the gateway exclusively via Phoenix Channels.
+
+\section{Deployment Model}
+
+Devices are deployed using Docker Compose for local multi-service orchestration. A typical local stack consists of the gateway service, the server service, one or more device emulator services (running the engine on desktop), and optionally a black-box probe container for sandboxed external systems.
+
+% ============================================================
+\chapter{Automata Model and DSL}
+\label{chap:model}
+% ============================================================
+
+\section{Model Overview}
+
+An \textit{automaton} in Aetherium is a named, versioned EFSM definition. At the top level it contains:
+\begin{itemize}
+  \item \textbf{config} --- name, version, layout type (\texttt{inline} or \texttt{folder}), description, author, tags,
+  \item \textbf{variables} --- typed I/O and internal variables,
+  \item \textbf{automata} --- the EFSM body: initial state, states, and transitions.
+\end{itemize}
+
+\section{States}
+
+Each state $q \in Q$ is identified by a string \texttt{StateId} matching the pattern \texttt{\^{}[A-Za-z\_][A-Za-z0-9\_]*\$}. States carry three optional Lua code hooks:
+
+\begin{description}
+  \item[\texttt{on\_enter}] Executed once when the machine transitions into this state.
+  \item[\texttt{body}] Executed on every execution tick while the machine remains in this state.
+  \item[\texttt{on\_exit}] Executed once immediately before transitioning away.
+\end{description}
+
+One state per automaton is designated the \texttt{initial\_state}; the engine enters it when execution begins.
+
+\section{Variables}
+\label{sec:variables}
+
+Variables form the data context $V$ of the EFSM. Each variable is defined by a \textit{VariableSpec} that carries:
+\begin{itemize}
+  \item \textbf{name} --- unique string identifier,
+  \item \textbf{type} --- one of \texttt{bool}, \texttt{int32}, \texttt{int64}, \texttt{float32}, \texttt{float64}, \texttt{string}, \texttt{binary}, \texttt{table},
+  \item \textbf{direction} --- \texttt{input} (read-only, written by the external environment), \texttt{output} (write-only for the environment, written by the automaton), or \texttt{internal} (read-write by the automaton),
+  \item \textbf{default} --- optional initial value.
+\end{itemize}
+
+At runtime each variable is a \textit{Variable} instance wrapping a type-safe \texttt{Value} variant and a boolean \texttt{changed()} flag. The flag is set on every write and cleared explicitly or on state transition. It is used by event-type transitions for O(1) reactive detection without polling.
+
+\section{Transition Types}
+\label{sec:transitions}
+
+Aetherium defines five transition kinds, each with distinct enabling semantics:
+
+\subsection{Classic}
+
+A classic transition is enabled when a Lua guard expression evaluates to \texttt{true}:
+\begin{equation}
+  \text{enabled}(t) \iff g_t(V) = \mathit{true}
+\end{equation}
+Guards are arbitrary Lua expressions operating on the variable store through the engine API.
+
+\subsection{Timed}
+
+A timed transition fires based on time domain conditions. Five modes are supported:
+\begin{description}
+  \item[\texttt{after}] Fire after a fixed delay $\Delta t$ (in milliseconds) from the last state entry.
+  \item[\texttt{every}] Fire repeatedly with period $\tau$.
+  \item[\texttt{timeout}] Fire if no other transition from the same state has fired within $\Delta t$.
+  \item[\texttt{at}] Fire at an absolute timestamp.
+  \item[\texttt{window}] Fire only if the current time lies within $[t_\mathit{start}, t_\mathit{end}]$.
+\end{description}
+
+An optional jitter parameter $\varepsilon \geq 0$ adds a uniform random offset to the scheduled fire time:
+\begin{equation}
+  t_\mathit{fire} = t_\mathit{target} + \mathcal{U}(0, \varepsilon)
+\end{equation}
+This prevents synchronized firing across multiple automata instances and models real-world timer imprecision.
+
+\subsection{Event}
+
+An event transition is enabled when a named variable satisfies a specified signal condition. Supported trigger types are:
+\begin{description}
+  \item[\texttt{on\_change}] Any write to the variable since the last evaluation.
+  \item[\texttt{on\_rise}] The variable transitions from \texttt{false} to \texttt{true}.
+  \item[\texttt{on\_fall}] The variable transitions from \texttt{true} to \texttt{false}.
+  \item[\texttt{on\_threshold}] The variable crosses a comparator threshold: $v \bowtie k$ where ${\bowtie} \in \{>, <, \geq, \leq, =, \neq\}$.
+\end{description}
+
+An optional debounce delay $\delta_d$ filters spurious signals shorter than the threshold. The \texttt{one\_shot} flag causes a threshold trigger to fire at most once per crossing. A transition may specify multiple triggers, combined with either AND or OR logic (\texttt{require\_all}).
+
+\subsection{Probabilistic}
+
+A probabilistic transition is always structurally enabled. Its \textit{weight} $w_i \in [0, 10000]$ (representing 0.00\%--100.00\% in fixed-point) participates in a weighted roulette selection among all enabled transitions in the same priority group. The selection probability is:
+\begin{equation}
+  P(T_i) = \frac{w_i}{\displaystyle\sum_{j \in G} w_j}
+  \label{eq:roulette}
+\end{equation}
+where $G$ is the set of enabled transitions in the highest-priority group. Weights may be Lua expressions re-evaluated on each tick, enabling dynamic probability distributions.
+
+\subsection{Immediate (Epsilon)}
+
+An immediate transition is always enabled and is resolved before transitions of any other type. It models the $\varepsilon$-transitions of non-deterministic finite automata: unconditional, instantaneous state changes used to chain states without observable intermediate steps.
+
+\section{Transition Resolution Algorithm}
+\label{sec:resolution}
+
+On each execution tick the engine resolves which transition, if any, fires from the current state. The algorithm is:
+
+\begin{enumerate}
+  \item Collect all outgoing transitions $T_\mathit{out}$ from the current state $q$.
+  \item Evaluate each transition for enablement according to its type (Section~\ref{sec:transitions}).
+  \item Let $E \subseteq T_\mathit{out}$ be the set of enabled transitions.
+  \item If $E = \emptyset$: remain in $q$, execute \texttt{body}, terminate tick.
+  \item Sort $E$ by priority value (ascending integer; lower value = higher priority).
+  \item Let $G \subseteq E$ be the subset with the minimum (highest) priority value.
+  \item Select a transition $t^* \in G$:
+    \begin{enumerate}
+      \item If $|G| = 1$: $t^* \gets$ the single element.
+      \item If all members of $G$ have weight $> 0$: apply Equation~\eqref{eq:roulette}.
+      \item Otherwise: $t^* \gets$ the first element in declaration order (deterministic fallback).
+    \end{enumerate}
+  \item Fire $t^*$:
+    \begin{enumerate}
+      \item Execute \texttt{on\_exit} of $q$.
+      \item Execute the transition \texttt{body} hook of $t^*$.
+      \item Move to target state $q' = \delta_E(q, t^*)$.
+      \item Execute \texttt{on\_enter} of $q'$.
+    \end{enumerate}
+\end{enumerate}
+
+Priority establishes a total deterministic order; probabilistic selection applies only within a single priority group. This cleanly separates intentional non-determinism from deterministic control flow.
+
+\section{Black-Box Contract}
+\label{sec:blackbox}
+
+An automaton may optionally declare a \textit{black-box contract} --- a formal interface specification for external systems. The contract defines:
+\begin{itemize}
+  \item \textbf{ports} --- named inputs/outputs with direction, type, observability flag (visible to monitors), and fault-injectability flag,
+  \item \textbf{emitted events} --- names of events the automaton produces,
+  \item \textbf{observable states} --- the subset of states visible to external monitors,
+  \item \textbf{resources} --- shared or exclusive resources with capacity and latency sensitivity annotations.
+\end{itemize}
+
+Black-box contracts are used by the structural analysis layer (Chapter~\ref{chap:petri}) and by the fault injection subsystem.
+
+\section{YAML Domain-Specific Language}
+\label{sec:yaml}
+
+Automata are authored in YAML~\cite{YAML122}. The top-level schema is:
+
+\begin{lstlisting}[language=yaml, caption={YAML DSL top-level structure.}]
+version: 0.0.1
+config:
+  name: <string>
+  type: inline | folder
+  location: <path>        # required if type: folder
+  language: lua           # optional, default lua
+  description: <string>   # optional
+  author: <string>        # optional
+  tags: [<string>, ...]   # optional
+
+variables:
+  - name: <VarName>
+    type: bool | int32 | int64 | float32 | float64 | string | binary
+    direction: input | output | internal
+    default: <value>      # optional
+
+automata:
+  initial_state: <StateId>
+  states:
+    <StateId>:
+      on_enter: |
+        <lua code>
+      body: |
+        <lua code>
+      on_exit: |
+        <lua code>
+  transitions:
+    <TransitionId>:
+      from: <StateId>
+      to: <StateId>
+      type: classic | timed | event | probabilistic | immediate
+      priority: <int>     # lower value = higher priority
+      weight: <float>     # for probabilistic selection
+      condition: |        # for type: classic
+        <lua expression>
+      timed:              # for type: timed
+        mode: after | at | every | timeout | window
+        after: <ms>
+        jitter: <ms>      # optional
+      event:              # for type: event
+        triggers:
+          - signal: <VarName>
+            trigger: on_change | on_rise | on_fall | on_threshold
+            threshold:
+              operator: ">" | "<" | ">=" | "<=" | "==" | "!="
+              value: <number>
+              one_shot: <bool>
+        require_all: <bool>
+\end{lstlisting}
+
+\subsection{Layout Types}
+
+The \texttt{inline} layout places all state and transition Lua code directly inside the YAML file. The \texttt{folder} layout externalizes code into separate files referenced by path, enabling better IDE tooling, version-control diffs, and code reuse.
+
+\subsection{Validation Rules}
+
+The parser enforces the following constraints:
+\begin{itemize}
+  \item All state and transition identifiers must match \texttt{\^{}[A-Za-z\_][A-Za-z0-9\_]*\$}.
+  \item Every transition endpoint (\texttt{from}, \texttt{to}) must reference a state defined in \texttt{automata.states}.
+  \item Variable names must be unique within an automaton.
+  \item Exactly one state must be designated \texttt{initial\_state}.
+  \item The \texttt{timed.mode} field determines which time parameters are required.
+\end{itemize}
+
+% ============================================================
+\chapter{Runtime Engine}
+\label{chap:engine}
+% ============================================================
+
+\section{Engine Architecture}
+
+The engine is structured as a set of cooperating modules within a single C++17 static library (\texttt{aetherium\_runtime\_core}). The principal modules are:
+
+\begin{description}
+  \item[\texttt{model.hpp}] Data types: \texttt{State}, \texttt{Transition}, \texttt{Automata}, \texttt{CodeBlock}, and per-type transition configuration structs (\texttt{ClassicConfig}, \texttt{TimedConfig}, \texttt{EventConfig}, \texttt{ProbabilisticConfig}).
+  \item[\texttt{variable.hpp}] \texttt{Value} (a type-safe variant over \texttt{bool}, \texttt{int32\_t}, \texttt{int64\_t}, \texttt{float}, \texttt{double}, \texttt{string}, \texttt{vector<uint8\_t>}), \texttt{VariableSpec}, \texttt{Variable} (runtime instance with \texttt{changed()} flag and timestamp), \texttt{VariableStore}.
+  \item[\texttt{types.hpp}] Enumerations (\texttt{ValueType}, \texttt{TransitionType}, \texttt{TimedMode}, \texttt{EventTrigger}, \texttt{CompareOp}, \texttt{ExecutionState}), ID types (\texttt{StateId}, \texttt{TransitionId}, \texttt{VariableId}), and a \texttt{Result<T>} monad for error propagation.
+  \item[\texttt{parser.hpp/cpp}] YAML~\cite{YAML122} deserialization via RapidYAML~\cite{RapidYAML} (\texttt{ryml}). Produces a validated \texttt{Automata} model.
+  \item[\texttt{runtime.hpp/cpp}] The execution loop. Drives the tick cycle, manages per-transition timer entries, and dispatches the transition resolution algorithm.
+  \item[\texttt{engine.cpp/hpp}] The top-level orchestrator. Receives commands from the transport layer, dispatches to the runtime, and produces telemetry events.
+  \item[\texttt{lua\_engine.cpp/hpp}] Lua~5.4~\cite{LuaManual54} scripting host via Sol2~\cite{Sol2}. Exposes the engine API to scripts (Section~\ref{sec:lua}).
+  \item[\texttt{transport.hpp}] Abstract \texttt{ITransport} interface. \texttt{WebSocketTransport} implements it via IXWebSocket~\cite{IXWebSocket}.
+  \item[\texttt{protocol.cpp/hpp}] Binary wire format serialization and deserialization.
+  \item[\texttt{execution\_trace.hpp}] \texttt{TraceRecord} (per-event structured record), \texttt{FaultProfile} (injection parameters), \texttt{DeploymentDescriptor} (device metadata).
+  \item[\texttt{telemetry\_log\_hub.cpp/hpp}] Structured log event capture and streaming callbacks.
+  \item[\texttt{artifact.hpp/cpp}] Binary container format for deployable automata.
+\end{description}
+
+\section{Lua Scripting}
+\label{sec:lua}
+
+Guards and state/transition code are authored in Lua~5.4~\cite{Lua1996,LuaManual54}. The engine exposes the following global API functions to scripts:
+
+\begin{description}
+  \item[\texttt{value(name)}] Read the current value of a variable by name.
+  \item[\texttt{setVal(name, v)}] Write a value to a variable by name.
+  \item[\texttt{check(name)}] Return \texttt{true} if the variable's \texttt{changed()} flag is set.
+  \item[\texttt{emit(name)}] Signal a named event.
+  \item[\texttt{log(msg)}] Write a message to the telemetry log.
+  \item[\texttt{rand()}] Return a uniform random float in $[0, 1)$ using the platform \texttt{IRandomSource}.
+  \item[\texttt{now()}] Return the current monotonic timestamp in milliseconds from \texttt{IClock}.
+  \item[\texttt{clamp(v, lo, hi)}] Clamp $v$ to $[\mathit{lo}, \mathit{hi}]$.
+\end{description}
+
+On platforms where full Lua is not available (highly constrained microcontrollers), a \texttt{SimpleScriptEngine} or no-op stub can be substituted via the \texttt{IScriptEngine} interface without modifying any other engine module.
+
+\section{Timer Management}
+
+The runtime maintains a table of timer entries, one per timed transition. Each entry stores:
+\begin{itemize}
+  \item \texttt{startTime} --- the monotonic time at which the timer was armed,
+  \item \texttt{targetTime} --- the computed fire time (including jitter),
+  \item \texttt{repeatCount} --- remaining repetitions for \texttt{every} mode (0 = infinite).
+\end{itemize}
+
+On each tick the runtime queries \texttt{IClock::now()} and compares it against \texttt{targetTime} for each armed timer. Expired timers with \texttt{mode = every} are immediately re-armed with a new \texttt{targetTime = now + period + jitter}.
+
+\section{Fault Injection}
+\label{sec:fault}
+
+Fault injection is a proven technique for testing the resilience of distributed systems under realistic adverse conditions~\cite{Beilharz2022}. A \texttt{FaultProfile} can be attached to a deployment descriptor per device. The profile specifies:
+\begin{description}
+  \item[Ingress faults] Applied to messages arriving at the device:
+    \begin{itemize}
+      \item fixed delay and jitter (ms),
+      \item drop probability $p_d \in [0, 1]$,
+      \item duplicate probability $p_{dup} \in [0, 1]$.
+    \end{itemize}
+  \item[Egress faults] The same parameters applied to outgoing messages.
+  \item[Disconnect simulation] Periodic forced disconnection windows of configurable duration.
+  \item[Battery drain] Per-tick and per-message energy consumption, combined with a \texttt{BatteryProfile} that models charge state and cutoff voltage.
+\end{description}
+
+All random decisions within the fault injector use the platform \texttt{IRandomSource} seeded from a field in the \texttt{FaultProfile}, ensuring deterministic and reproducible fault scenarios across runs.
+
+\section{Execution Trace and Time-Travel Debugging}
+\label{sec:trace}
+
+Record-and-replay is a well-established strategy for debugging distributed systems: events are recorded during execution and can be replayed deterministically to reproduce failures~\cite{Geels2006}. Aetherium applies this principle at the automata level. Every engine event is recorded in an \texttt{ExecutionTrace} as a sequence of \texttt{TraceRecord} entries. Each record carries:
+\begin{itemize}
+  \item sequence number,
+  \item wall-clock and monotonic timestamps,
+  \item event type (state transition, variable change, message send/receive),
+  \item old and new values,
+  \item latency measurements,
+  \item the fault actions applied to the associated message (if any).
+\end{itemize}
+
+The trace is exported to newline-delimited JSON (JSON Lines) for post-mortem tooling. The IDE's runtime view panel can load a trace and step forward and backward through it, reconstructing the exact variable and state values at each recorded instant. This enables deterministic replay of timing-sensitive bugs in distributed systems without requiring hardware reproduction of the fault.
+
+% ============================================================
+\chapter{Gateway and Communication Protocol}
+\label{chap:gateway}
+% ============================================================
+
+\section{Binary Wire Protocol}
+
+All messages between the engine and the server use a compact binary envelope:
+
+\begin{equation}
+  \underbrace{\texttt{0xAE01}}_{\text{magic}} \;
+  \underbrace{\texttt{0x01}}_{\text{version}} \;
+  \underbrace{\texttt{type}}_{\text{1 byte}} \;
+  \underbrace{\texttt{length}}_{\text{4 bytes}} \;
+  \underbrace{\texttt{payload}}_{\text{N bytes}}
+\end{equation}
+
+Messages are organized into three categories:
+
+\begin{description}
+  \item[Control plane] \texttt{Hello}, \texttt{Ping}, \texttt{Pong}, \texttt{Status} --- connection management.
+  \item[Automata plane] \texttt{LoadAutomata}, \texttt{Start}, \texttt{Stop}, \texttt{Restart} --- lifecycle commands.
+  \item[Data plane] \texttt{Input}, \texttt{Output}, \texttt{StateChange}, \texttt{Telemetry} --- runtime data exchange.
+\end{description}
+
+Large automata definitions that exceed the message MTU are fragmented using a chunked-transfer sub-protocol before being reassembled on the receiver side.
+
+\section{Phoenix Gateway}
+
+The gateway is implemented as an Elixir~\cite{Elixir}/Phoenix~\cite{Phoenix} application using Phoenix Channels. Phoenix Channels provide persistent, topic-routed bidirectional WebSocket connections with presence tracking. Each IDE client session maps to one channel subscription.
+
+The gateway exposes the following operations to the IDE:
+\begin{itemize}
+  \item \texttt{ping()} --- test channel connectivity,
+  \item \texttt{listDevices()} --- retrieve the current device registry,
+  \item \texttt{deployAutomata(yaml, deviceId)} --- transmit an automaton definition to a device,
+  \item \texttt{startAutomata(deviceId, runId)} --- command a device to begin execution,
+  \item \texttt{stopAutomata(deviceId, runId)} --- command a device to halt,
+  \item \texttt{setInput(deviceId, varName, value)} --- write an input variable,
+  \item \texttt{getSnapshot()} --- retrieve the current full device/variable state.
+\end{itemize}
+
+Snapshot caching reduces reconnection latency: when the IDE reconnects, it receives the last cached snapshot rather than waiting for a full device re-advertisement cycle.
+
+\section{End-to-End Message Flow}
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with a proper sequence diagram figure
+  \fbox{\parbox{0.85\textwidth}{\small\ttfamily
+    IDE $\xrightarrow{\text{DEPLOY(yaml)}}$ Gateway $\xrightarrow{\text{LOAD(bytes)}}$ Device \\[4pt]
+    IDE $\xleftarrow{\text{DEPLOY\_OK}}$ Gateway $\xleftarrow{\text{LOAD\_ACK}}$ Device \\[8pt]
+    IDE $\xrightarrow{\text{START(runId)}}$ Gateway $\xrightarrow{\text{START}}$ Device \\[4pt]
+    IDE $\xleftarrow{\text{RUNNING}}$ Gateway $\xleftarrow{\text{RUNNING}}$ Device \\[8pt]
+    IDE $\xrightarrow{\text{SET\_INPUT(x=5)}}$ Gateway $\xrightarrow{\text{INPUT}}$ Device \\[4pt]
+    IDE $\xleftarrow{\text{OUTPUT(y=10)}}$ Gateway $\xleftarrow{\text{OUTPUT}}$ Device
+  }}
+  \caption{Simplified end-to-end message flow for deploy, start, and I/O exchange.}
+  \label{fig:msgflow}
+\end{figure}
+
+% ============================================================
+\chapter{Integrated Development Environment}
+\label{chap:ide}
+% ============================================================
+
+\section{Architecture}
+
+The IDE is built on Electron~\cite{Electron}, which embeds a Node.js main process and a Chromium-based renderer process. The main process exposes native file system access and IPC bridges. The renderer process is a React~\cite{React} single-page application.
+
+State management uses Zustand~\cite{Zustand}, a lightweight library that exposes individual atomic stores with direct mutation. Each store covers a narrow concern:
+
+\begin{table}[H]
+  \centering
+  \caption{Zustand stores in the IDE renderer.}
+  \label{tab:stores}
+  \vskip6pt
+  \begin{tabular}{ll}
+    \toprule
+    Store & Responsibility \\
+    \midrule
+    \texttt{automataStore} & Current automaton definition being edited \\
+    \texttt{projectStore} & Multi-automaton project and file management \\
+    \texttt{runtimeViewStore} & Live visualization state (current state, variable values, zoom) \\
+    \texttt{gatewayStore} & Phoenix channel connection, device list, pending commands \\
+    \texttt{analyzerStore} & Petri net analysis results (deadlocks, bottlenecks) \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Phoenix Gateway Service}
+
+\texttt{PhoenixGatewayService} is the IDE-side client for the Phoenix Channel. It manages the WebSocket lifecycle (connect, reconnect, presence), serializes commands into channel push events, and dispatches received events to the appropriate Zustand store actions. Command outcome tracking allows the UI to display pending/success/error states per operation.
+
+\section{Panels}
+
+The IDE UI is organized into panels:
+
+\begin{description}
+  \item[Canvas / State Machine Editor] Visual graph editor. States are rendered as nodes; transitions as directed edges annotated with type, priority, and weight. Users can drag to create states, draw transitions, and edit properties inline.
+  \item[State Inspector] Edits \texttt{on\_enter}, \texttt{body}, and \texttt{on\_exit} Lua code for the selected state with syntax highlighting.
+  \item[Transition Inspector] Edits condition, type, priority, weight, and type-specific parameters (timed mode, event triggers) for the selected transition.
+  \item[Variables Panel] Unified view of all input, output, and internal variables with current values and types.
+  \item[Gateway Panel] Connection settings, device list, and manual command testing.
+  \item[Runtime Monitor Panel] Live display of the current state (highlighted in the canvas) and variable values during execution.
+  \item[Log Panel] Streaming telemetry event log with filtering by level and source.
+  \item[Network Panel] Topology view of the multi-device network and inter-automaton wiring.
+  \item[Analyzer Panel] Petri net analysis output: bottleneck warnings, deadlock candidates, contention reports.
+  \item[Petri Net Panel] Visual representation of the Petri net derived from the automata network.
+  \item[Explorer Panel] File-based project navigator for folder-layout automata.
+\end{description}
+
+% ============================================================
+\chapter{Petri Net Analysis}
+\label{chap:petri}
+% ============================================================
+
+\section{Lifting Automata to Petri Nets}
+
+A network of communicating automata can be analyzed structurally by lifting it to a Petri net representation. Each automaton's current state contributes a token to a corresponding place. The communication channels between automata are modeled as arcs connecting output transitions of one automaton's places to input places of another.
+
+This lifting is performed statically from the YAML definitions, without requiring execution: the analyzer reads all automata in the project, maps each state to a place, maps each transition to a Petri net transition, and wires inter-automaton signal connections as shared places.
+
+\section{Analysis Operations}
+
+The analyzer performs the following checks:
+
+\begin{description}
+  \item[Deadlock detection] A marking $M$ is a deadlock if no transition in the Petri net is enabled under $M$. The analyzer reports states of the automata network from which no further progress is possible.
+  \item[Unbounded place detection] A place is unbounded if tokens can accumulate without limit. In an automata network this corresponds to an output channel that is written faster than it is consumed---a~queue overflow risk.
+  \item[Bottleneck identification] Places that are persistently marked across the reachability graph indicate points of sustained contention or backpressure.
+  \item[Contention analysis] Resources declared in black-box contracts (Section~\ref{sec:blackbox}) are modeled as bounded-capacity places. The analyzer identifies pairs of automata that may simultaneously request the same exclusive resource and reports potential mutual exclusion violations.
+\end{description}
+
+\section{Showcase Scenarios}
+
+Two showcase categories directly exercise the Petri net analysis:
+\begin{description}
+  \item[Showcase 13 -- Petri Signal Chain] A four-automaton pipeline: command router $\to$ safety gate $\to$ drive unit $\to$ telemetry observer. The analyzer visualizes the token flow and identifies whether the safety gate can become a bottleneck under high command rates.
+  \item[Showcase 14 -- Petri Contention] Three automata (charger node, motion axis, power allocator) competing for a shared power budget. The analyzer detects the potential contention and reports which automata pairs require arbitration.
+\end{description}
+
+% ============================================================
+\chapter{Showcase Catalog}
+\label{chap:showcase}
+% ============================================================
+
+The system is validated by a catalog of 18 showcase automata organized into 14 categories. All definitions reside in \texttt{example/automata/showcase/} and are verified by \texttt{example/automata/showcase/CATALOG.txt}.
+
+\begin{table}[H]
+  \centering
+  \caption{Showcase automata catalog.}
+  \label{tab:catalog}
+  \vskip6pt
+  \begin{tabular}{lll}
+    \toprule
+    \# & Category & Key concepts demonstrated \\
+    \midrule
+    01 & Basics & Timed and classic transitions, manual override input \\
+    02 & Control & Event threshold triggers, pump state control \\
+    03 & Probabilistic & Weighted 3-lane quality routing \\
+    04 & Resilience & Watchdog timer, fault detection, retry with backoff \\
+    05 & Energy & Load prediction, peak shaving scheduler \\
+    06 & Pipeline & Multi-stage line buffer dispatcher \\
+    07 & Folderized & Folder-based code layout, door safety controller \\
+    08 & ESP32 & PWM, LED, OLED, thermostat, production line (8 automata) \\
+    09 & MCXN947 & ARM Cortex-M7: GPIO, buttons, touch, temperature (4 automata) \\
+    10 & Guarded Cell & 6-automata safety supervision network \\
+    11 & Bidirectional Loop & 4 automata with bidirectional signal wiring \\
+    12 & Black Box & Docker-sandboxed probe, external system wrapping \\
+    13 & Petri Signal Chain & Command router $\to$ safety gate $\to$ drive unit $\to$ telemetry \\
+    14 & Petri Contention & Charger, motion axis, power allocator competing for resources \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+% TODO: expand each showcase with a short description, diagram, and YAML snippet for the most illustrative cases.
+
+\section{Selected Showcase: Quality Router (03)}
+
+The quality router demonstrates probabilistic transition selection. Three output lanes (A, B, C) are represented as transitions from a single routing state. Each transition carries a weight:
+
+\begin{itemize}
+  \item Lane A: weight 5000 (50\%)
+  \item Lane B: weight 3000 (30\%)
+  \item Lane C: weight 2000 (20\%)
+\end{itemize}
+
+On each tick the transition resolver applies Equation~\eqref{eq:roulette} to select the lane. The weights are static in this example but could be Lua expressions that respond to sensor readings (e.g., routing more batches to Lane~A when Lane~B is congested).
+
+\section{Selected Showcase: Sensor Watchdog Recovery (04)}
+
+The watchdog demonstrates timed transitions combined with classic guarded recovery. The automaton cycles through:
+\begin{enumerate}
+  \item \texttt{monitoring} --- waiting for sensor data with a timeout transition.
+  \item \texttt{alarming} --- entered when the timeout fires (sensor silent), emitting an alert output.
+  \item \texttt{recovering} --- attempting to restart the sensor, with a timed retry and a maximum retry count tracked in an internal variable.
+\end{enumerate}
+
+This pattern is a common real-world requirement: detect device failure, raise an alarm, attempt structured recovery, and escalate if recovery fails.
+
+% ============================================================
+\chapter{Conclusion}
+\label{chap:conclusion}
+% ============================================================
+
+\section{Summary}
+
+This thesis presented Aetherium Automata, a platform for the visual design, deployment, and monitoring of distributed IoT control systems modeled as Extended Finite State Machines. The system was designed around the principle that stateful control logic is better expressed explicitly as a state machine than embedded in ad-hoc scripts or workflow engines.
+
+The key contributions are:
+\begin{enumerate}
+  \item A formal EFSM model supporting five transition types (classic, timed, event, probabilistic, immediate), typed variables with reactive change detection, and Lua-scripted guards and actions.
+  \item A YAML domain-specific language for authoring automata in both inline and folder layouts, with a parser that validates structure and identifier correctness.
+  \item A portable C++17 runtime engine that executes the model on desktop Linux and embedded platforms (ESP32, Raspberry Pi Pico, MCXN947) via three abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}).
+  \item A binary wire protocol and Elixir/Phoenix gateway for real-time, bidirectional IDE-to-device communication.
+  \item An Electron IDE with live state monitoring, variable inspection, fault injection, and time-travel debugging via execution trace replay.
+  \item A Petri net analysis layer that detects deadlocks, bottlenecks, and resource contention in multi-automata networks.
+  \item A catalog of 18 showcase automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, and multi-device coordination.
+\end{enumerate}
+
+\section{Future Work}
+
+% TODO: expand with specific next steps based on what is NOT yet implemented.
+
+The following directions are identified for future development:
+\begin{itemize}
+  \item Full Petri net reachability analysis (currently the analyzer performs structural checks; complete reachability graph construction is pending).
+  \item Bytecode compilation of Lua scripts into a compact \texttt{EngineBytecodeProgram} format for deployment to the most constrained targets.
+  \item Hierarchical (nested) automata to support modular composition of complex behaviors.
+  \item Extended IDE canvas: undo/redo history, multi-select, copy-paste of states and transitions.
+  \item Integration with InfluxDB and Grafana for long-running time-series metrics dashboards.
+\end{itemize}
