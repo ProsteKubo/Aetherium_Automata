@@ -93,7 +93,7 @@ The primary goals of this thesis are:
 
 \section{Thesis Structure}
 
-Section~\ref{sec:philosophy} above introduces the two guiding principles (Reality-in-the-Loop and Deployment-Aware Development) that inform all subsequent design decisions. Chapter~\ref{chap:background} establishes the theoretical background: Finite State Machines, Extended Finite State Machines, Petri nets, and Record-and-Replay Debugging. Chapter~\ref{chap:analysis} analyses existing tools (Node-RED, Eclipse 4diac), compares programmer mental models, and derives requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine, including fault injection and execution trace recording. Chapter~\ref{chap:gateway} describes the gateway and binary wire protocol. Chapter~\ref{chap:ide} covers the IDE panels. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:demonstration} walks through an end-to-end demonstration. Chapter~\ref{chap:conclusion} concludes with results and future work.
+Section~\ref{sec:philosophy} above introduces the two guiding principles (Reality-in-the-Loop and Deployment-Aware Development) that inform all subsequent design decisions. Chapter~\ref{chap:background} establishes the theoretical background: Finite State Machines, Extended Finite State Machines, Petri nets, and Record-and-Replay Debugging. Chapter~\ref{chap:analysis} analyses existing tools (Node-RED, Eclipse 4diac), compares programmer mental models, and derives requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine, including fault injection and execution trace recording. Chapter~\ref{chap:gateway} describes the gateway, binary wire protocol, and IDE integration layer. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:validation} documents automated, end-to-end, and manual validation. Chapter~\ref{chap:demonstration} walks through an end-to-end demonstration. Chapter~\ref{chap:conclusion} concludes with results and future work.
 
 % ============================================================
 \chapter{Background}
@@ -222,6 +222,19 @@ automaton state at any past timestamp and dispatches a \texttt{RestoreState} com
 the physical device, resetting it to that historical state without stopping the
 orchestration layer.  This mechanism is described in detail in Section~\ref{sec:trace}.
 
+\section{Implications for an IoT Toolchain}
+\label{sec:background-implications}
+
+The three theoretical ideas above are not independent background topics; they define the shape of the toolchain. A plain FSM gives the developer an explicit control-state graph. An EFSM adds the data context needed by real devices: sensor readings, counters, retry budgets, battery state, and output commands. A Petri net then lifts multiple local automata into a structural model of the network. Record-and-replay closes the loop by turning runtime behavior back into inspectable state history.
+
+This layering is important because each formalism answers a different engineering question. The FSM view answers "where is the device now?" The EFSM view answers "why is it allowed to transition?" The Petri net view answers "what happens when several devices interact?" The replay view answers "what exact sequence produced this failure?" Aetherium intentionally keeps all four questions connected to the same model rather than forcing the developer to move between unrelated tools.
+
+For example, a watchdog automaton can be understood locally as an EFSM with states \texttt{monitoring}, \texttt{alarming}, \texttt{recovering}, and \texttt{failed}. Its retry counter and silence timer belong naturally to the EFSM variable store. Once the watchdog is connected to a production-line controller, however, a local view is no longer enough: the alarm output may block a downstream actuator, consume a shared maintenance resource, or trigger a recovery command in another automaton. The Petri lift reveals these interactions as token flow through shared places.
+
+Similarly, record-and-replay is only useful if the recorded abstraction matches the model that the developer reasons about. Capturing raw CPU instructions would be excessive for a distributed IoT IDE. Capturing only textual logs would be insufficient because logs do not reconstruct state. Aetherium records the domain-level events that matter to the EFSM: active state, variable values, transition identifiers, message sequence numbers, and deployment metadata. This makes replay both compact and semantically meaningful.
+
+The resulting design choice is pragmatic: Aetherium does not attempt to become a theorem prover for arbitrary distributed systems. Instead, it provides enough formal structure to make common IoT failures visible: missing transitions, malformed state definitions, producer-consumer mismatches, unbounded queues, unavailable shared resources, intermittent communication, and timing-dependent recovery bugs. These are the problems that motivated the requirements in the next chapter.
+
 % ============================================================
 \chapter{Analysis of Existing Solutions}
 \label{chap:analysis}
@@ -315,7 +328,7 @@ Despite its rigorous foundations, 4diac exhibits several limitations from the pe
 
 Table~\ref{tab:comparison} summarises the key characteristics of both analysed platforms against Aetherium Automata.
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Feature comparison of Node-RED, Eclipse 4diac, and Aetherium Automata.}
   \label{tab:comparison}
@@ -386,9 +399,9 @@ The Aetherium Automata platform is composed of four major components that form a
 
 Figure~\ref{fig:arch} shows the high-level component topology.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.95\textwidth]{obrazky-figures/arch}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/arch}
   \caption{High-level component architecture of Aetherium Automata.}
   \label{fig:arch}
 \end{figure}
@@ -431,9 +444,9 @@ The engine is packaged as a static library rather than an application. The consu
 The three interfaces that isolate platform-specific behavior are:
 
 \begin{description}
-  \item[\texttt{IClock}] Monotonic time source. The desktop implementation delegates to \texttt{std::chrono::steady\_clock}. Embedded implementations read a hardware timer peripheral. The interface returns a 64-bit microsecond count; the engine uses this for timed-transition deadlines and fault injection timing.
-  \item[\texttt{IRandomSource}] Pseudorandom number generator. The desktop implementation uses \texttt{std::mt19937\_64} seeded from \texttt{/dev/urandom}. Embedded implementations use the hardware RNG peripheral when available, or a software LFSR. Probabilistic transitions draw from this source on every evaluation.
-  \item[\texttt{IScriptEngine}] Script evaluation. The desktop implementation uses Lua~5.4 via Sol2~\cite{Sol2}, providing full scripting capability. Embedded implementations can substitute a lightweight expression evaluator or a no-op stub. When the no-op is used, guards reduce to the static values defined in the YAML, and the resulting binary is approximately 64\,KB.
+  \item[\texttt{IClock}] Monotonic time source. Desktop builds delegate to the standard C++ steady clock, while embedded builds read a hardware timer. The interface returns a 64-bit microsecond count used for timed transitions and fault timing.
+  \item[\texttt{IRandomSource}] Pseudorandom source. Desktop builds use a 64-bit Mersenne Twister seeded from the host OS. Embedded builds use a hardware RNG when available, otherwise a compact software generator. Probabilistic transitions draw from this source on every evaluation.
+  \item[\texttt{IScriptEngine}] Script evaluation. Desktop builds use Lua~5.4 via Sol2~\cite{Sol2}. Embedded builds can substitute a lightweight evaluator or a no-op stub. With the stub, guards reduce to static YAML values and the resulting binary is approximately 64\,KB.
 \end{description}
 
 \paragraph{CMake build target selection.}
@@ -633,70 +646,9 @@ An automaton may optionally declare a \textit{black-box contract} --- a formal i
 
 Black-box contracts are used by the structural analysis layer (Chapter~\ref{chap:petri}) and by the fault injection subsystem.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
 \centering
-\begin{tikzpicture}[
-  font=\small, >=Stealth,
-  box/.style={draw=aethpurple, fill=aethpurple!5, rectangle, rounded corners=3pt,
-              minimum width=2.9cm, minimum height=1.0cm, inner sep=3pt, align=center,
-              line width=0.6pt},
-  sig/.style={draw=aethpurple, fill=aethpurple!5, ellipse, minimum width=1.65cm,
-              minimum height=0.6cm, align=center, line width=0.6pt},
-  stc/.style={draw=aethpurple, fill=aethpurple!5, circle, minimum size=0.55cm,
-              inner sep=0pt, font=\scriptsize, line width=0.6pt},
-  arr/.style ={->, line width=0.6pt},
-  darr/.style={->, dashed, line width=0.6pt}
-]
-% ── bounding boxes (drawn first so nodes render on top) ────────────
-% Left env box
-\draw[draw=gray!50,fill=gray!5,rounded corners=4pt,line width=0.5pt]
-    (-1.7,0.25) rectangle (1.7,3.2);
-\node[font=\scriptsize,text=gray!70] at (0,3.42) {External Environment};
-% Contract box
-\draw[draw=aethpurple!60,fill=aethpurple!3,rounded corners=5pt,line width=0.7pt]
-    (2.4,-2.8) rectangle (5.8,2.9);
-\node[font=\small\bfseries] at (4.1,3.12) {Black-Box Contract};
-% Right env box
-\draw[draw=gray!50,fill=gray!5,rounded corners=4pt,line width=0.5pt]
-    (6.5,-0.55) rectangle (9.1,2.0);
-\node[font=\scriptsize,text=gray!70] at (7.8,2.22) {External Environment};
-% Hidden box — top at -4.4 creates 1.6cm gap so dashed labels clear the title
-\draw[draw=gray!60,fill=gray!5,rounded corners=5pt,line width=0.7pt]
-    (0.3,-6.7) rectangle (7.6,-4.4);
-% Title inside box, anchored to top edge so it hangs inward
-\node[font=\small\bfseries, anchor=north, align=center] at (3.95,-4.4)
-    {Internal Implementation (opaque)};
-% ── input signals ──────────────────────────────────────────────────
-\node[sig] (s1) at (0, 2.5) {\texttt{force\_on}\\bool};
-\node[sig] (s2) at (0, 1.15) {\texttt{reset\_cmd}\\bool};
-% ── contract ports ─────────────────────────────────────────────────
-\node[box] (ip)  at (4.1,  2.2) {Input Ports\\{\scriptsize force\_on $\cdot$ reset\_cmd}};
-\node[box] (op)  at (4.1,  0.8) {Output Ports\\{\scriptsize led\_on $\cdot$ alarm}};
-\node[box] (obs) at (4.1, -0.6) {Observable States\\{\scriptsize Running $\cdot$ Alarming}};
-\node[box] (ev)  at (4.1, -2.1) {Events\\{\scriptsize alarm\_triggered}};
-% ── output signals — 1.25cm apart so two-line ellipses don't touch ─
-\node[sig] (o1) at (7.8, 1.35) {\texttt{led\_on}\\bool};
-\node[sig] (o2) at (7.8, 0.1) {\texttt{alarm}\\bool};
-% ── state machine circles (lowered to give top-area breathing room) ─
-\node[stc] (off) at (1.5, -5.6) {Off};
-\node[stc] (on)  at (3.95,-5.6) {On};
-\node[stc] (err) at (6.4, -5.6) {Error};
-% ── solid arrows ───────────────────────────────────────────────────
-\draw[arr] (s1.east) -- (ip.west);
-\draw[arr] (s2.east) -- (ip.west);
-\draw[arr] (op.east) -- (o1.west);
-\draw[arr] (op.east) -- (o2.west);
-% ── state machine transitions ──────────────────────────────────────
-\draw[arr,bend left=22] (off) to node[above,font=\scriptsize]{after 700ms} (on);
-\draw[arr,bend left=22] (on)  to node[below,font=\scriptsize]{after 700ms} (off);
-\draw[arr] (on) -- node[above,font=\scriptsize]{fault} (err);
-% Reset: rectangular path BELOW circles — keeps top area free for title
-\draw[arr] (err.south) -- (6.4,-6.35) -- (1.5,-6.35) -- (off.south);
-\node[below,font=\scriptsize] at (3.95,-6.35) {reset};
-% ── dashed arrows in the 1.6cm gap — labels sit well clear of both boxes
-\draw[darr] (3.2,-2.8) -- node[left,font=\scriptsize]{write} (3.2,-4.4);
-\draw[darr] (5.0,-4.4) -- node[right,font=\scriptsize]{observe / expose} (5.0,-2.8);
-\end{tikzpicture}
+\includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/black_box_contract}
 \caption{Black-box contract boundary. The visible contract layer exposes named input/output
   ports, observable states, and emitted events to the external environment. The internal
   implementation --- states, variables, and transitions --- is opaque.}
@@ -784,9 +736,9 @@ The parser enforces the following constraints:
 
 The engine runs a continuous tick loop. On each tick it advances timers, evaluates transition guards, selects and fires at most one transition per automaton, and emits telemetry. Figure~\ref{fig:tick} shows the full cycle.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.42\textwidth, keepaspectratio]{obrazky-figures/tick_cycle}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/tick_cycle}
   \caption{Engine execution tick cycle. A transition fires at most once per tick per automaton.}
   \label{fig:tick}
 \end{figure}
@@ -796,14 +748,14 @@ The engine runs a continuous tick loop. On each tick it advances timers, evaluat
 
 All platform-specific behavior is isolated behind three abstract interfaces, allowing the same runtime core to compile on desktop Linux and bare-metal microcontrollers without \texttt{\#ifdef} sprawl. Figure~\ref{fig:platform} shows the two-layer structure.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.95\textwidth, keepaspectratio]{obrazky-figures/platform_abstraction}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/platform_abstraction}
   \caption{Platform abstraction layer. The runtime core depends only on the three interfaces; concrete implementations are selected at link time.}
   \label{fig:platform}
 \end{figure}
 
-The interfaces are: \textbf{IClock} (monotonic time source), \textbf{IRandomSource} (seeded PRNG for reproducible fault injection and probabilistic transitions), and \textbf{IScriptEngine} (Lua~5.4~\cite{LuaManual54} via Sol2~\cite{Sol2} on desktop; a lightweight evaluator or no-op stub on constrained targets). CMake build targets select the concrete implementations at compile time via RapidYAML~\cite{RapidYAML} and IXWebSocket~\cite{IXWebSocket} as the only external dependencies on desktop.
+The runtime depends on three platform interfaces: clock, randomness, and script evaluation. On desktop, these bind to the standard C++ clock, a seeded PRNG, and Lua~5.4~\cite{LuaManual54} via Sol2~\cite{Sol2}. On constrained targets, the same interfaces can bind to hardware timers, compact random sources, and a lightweight evaluator or no-op script stub. CMake selects the concrete implementations at compile time; RapidYAML~\cite{RapidYAML} and IXWebSocket~\cite{IXWebSocket} remain desktop-only dependencies.
 
 \section{Lua Scripting}
 \label{sec:lua}
@@ -852,10 +804,10 @@ Fault injection is a proven technique for testing the resilience of distributed 
 
 All random decisions within the fault injector use the platform \texttt{IRandomSource} seeded from a field in the \texttt{FaultProfile}, ensuring deterministic and reproducible fault scenarios across runs.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=\textwidth]{obrazky-figures/fault_injection_pipeline.pdf}
-  \caption{FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to$~device) and egress (device~$\to$~server). All probabilistic decisions draw from a seeded \texttt{IRandomSource}, making fault scenarios fully reproducible.}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/fault_injection_pipeline}
+  \caption{FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to$~device) and egress (device~$\to$~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible.}
   \label{fig:fault-pipeline}
 \end{figure}
 
@@ -911,9 +863,9 @@ after a \texttt{rewind\_deployment} call the device restarts execution from the 
 historical state, as evidenced by the first transition fired being the one consistent
 with the reconstructed variable values.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.95\textwidth]{obrazky-figures/time_travel_flow.pdf}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/time_travel_flow}
   \caption{Time-travel rewind sequence. The IDE dispatches \texttt{rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt{replay\_state\_at} and delivers a \texttt{RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}
   \label{fig:time-travel-seq}
 \end{figure}
@@ -928,7 +880,7 @@ with the reconstructed variable values.
 
 All messages between the engine and the server use a compact binary envelope shown in Figure~\ref{fig:wire}.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
   \vspace{0.5em}
   \[
@@ -974,25 +926,23 @@ Snapshot caching reduces reconnection latency: when the IDE reconnects, it recei
 
 \section{End-to-End Message Flow}
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.80\textwidth, height=0.55\textheight, keepaspectratio]{obrazky-figures/msgflow}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/msgflow}
   \caption{End-to-end message sequence for deploy, start, and runtime I/O exchange.}
   \label{fig:msgflow}
 \end{figure}
 
-% ============================================================
-\chapter{Integrated Development Environment}
-\label{chap:ide}
-% ============================================================
+\section{Integrated Development Environment}
+\label{sec:ide}
 
-\section{Architecture}
+\subsection{IDE Architecture}
 
 The IDE is built on Electron~\cite{Electron}, which embeds a Node.js main process and a Chromium-based renderer process. The main process exposes native file system access and IPC bridges. The renderer process is a React~\cite{React} single-page application.
 
 State management uses Zustand~\cite{Zustand}, a lightweight library that exposes individual atomic stores with direct mutation. Each store covers a narrow concern:
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Zustand stores in the IDE renderer.}
   \label{tab:stores}
@@ -1010,11 +960,11 @@ State management uses Zustand~\cite{Zustand}, a lightweight library that exposes
   \end{tabular}
 \end{table}
 
-\section{Phoenix Gateway Service}
+\subsection{Phoenix Gateway Service}
 
 \texttt{PhoenixGatewayService} is the IDE-side client for the Phoenix Channel. It manages the WebSocket lifecycle (connect, reconnect, presence), serializes commands into channel push events, and dispatches received events to the appropriate Zustand store actions. Command outcome tracking allows the UI to display pending/success/error states per operation.
 
-\section{Panels}
+\subsection{Operator Panels}
 
 The IDE UI is organized into panels:
 
@@ -1082,9 +1032,9 @@ $M^0_i(s^0_i) = 1$ for the initial state; $M^0_i(s) = 0$ for all other state pla
 
 Figure~\ref{fig:petri-lifting} illustrates the construction for two automata communicating through a single named channel.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.72\textwidth, keepaspectratio]{obrazky-figures/petri_lifting}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/petri_lifting}
   \caption{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt{ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}
   \label{fig:petri-lifting}
 \end{figure}
@@ -1150,7 +1100,7 @@ Three automata compete for a shared power budget modeled as a resource place wit
   \item \textbf{PowerAllocator} requests~1 unit during peak arbitration.
 \end{itemize}
 
-The analyzer identifies three contending pairs (charger+axis, charger+allocator, axis+allocator) and reports that the worst-case demand of~3 units exceeds the capacity of~2. The analysis output names the states from which simultaneous requests are possible, providing the developer with precise targets for adding priority or mutual-exclusion transitions to the power allocator automaton.
+The analyzer identifies all three pairwise resource conflicts and reports that the worst-case demand of~3 units exceeds the capacity of~2. The analysis output names the states from which simultaneous requests are possible, providing the developer with precise targets for adding priority or mutual-exclusion transitions to the power allocator automaton.
 
 % ============================================================
 \chapter{Showcase Catalog}
@@ -1159,7 +1109,7 @@ The analyzer identifies three contending pairs (charger+axis, charger+allocator,
 
 The system is validated by a showcase set of 39 YAML automata organized into 15 categories. A curated validation catalog lists the desktop-runnable scenarios used for regression checks. All definitions reside under \texttt{example/automata/showcase/}.
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Showcase automata catalog.}
   \label{tab:catalog}
@@ -1195,10 +1145,10 @@ The Aetherium Gem Cell is the primary thesis demonstration project. It is intent
 The showcase combines the main platform abilities in one readable model:
 
 \begin{itemize}
-  \item \textbf{TDD checkpoints}: the \texttt{SelfTestArrange}, \texttt{SelfTestAct}, and \texttt{SelfTestAssert} states encode an arrange-act-assert flow and expose \texttt{tdd\_assertion\_passed} for automated validation.
-  \item \textbf{Fault injection}: \texttt{fault\_inject\_drop} and \texttt{fault\_inject\_delay} drive explicit fault and compensation paths, so the Gateway panel can perturb the same boundary that production uses.
-  \item \textbf{Petri lift}: the \texttt{gem\_workcell\_bus} black-box resource and \texttt{demand\_bus} output create a shared-resource place when the automaton is lifted into the Petri net view.
-  \item \textbf{Time-travel debugging}: each major phase writes a \texttt{replay\_marker}, making the execution trace easy to inspect and rewind during demonstrations.
+  \item \textbf{TDD checkpoints}: three self-test states encode an arrange-act-assert flow and expose a validation result for automated checks.
+  \item \textbf{Fault injection}: drop and delay inputs drive explicit fault and compensation paths, so the Gateway panel perturbs the same boundary that production uses.
+  \item \textbf{Petri lift}: the workcell bus resource and demand output create a shared-resource place when the automaton is lifted into the Petri net view.
+  \item \textbf{Time-travel debugging}: each major phase writes a replay marker, making the execution trace easy to inspect and rewind during demonstrations.
   \item \textbf{Black-box contract}: the model declares observable ports, emitted events, and resource metadata so the analyzer can reason about the boundary even if the internal implementation is hidden.
 \end{itemize}
 
@@ -1217,7 +1167,7 @@ request_fault_drop:
   condition: value("fault_inject_drop") == true or value("sensor_ok") == false
 \end{lstlisting}
 
-The corresponding IDE project is \texttt{example/ide\_demo\_projects/backend-capabilities-tour.aeth}. It places the Gem Cell first, followed by the signal-chain, guarded-cell, power-contention, and watchdog networks. This ordering makes the project suitable for demonstrations: start with one comprehensive automaton, then show how the same ideas scale to a multi-automata network.
+The corresponding IDE project is the backend capabilities tour in the demo projects directory. It places the Gem Cell first, followed by the signal-chain, guarded-cell, power-contention, and watchdog networks. This ordering makes the project suitable for demonstrations: start with one comprehensive automaton, then show how the same ideas scale to a multi-automata network.
 
 \section{Selected Showcase: Quality Router (03)}
 
@@ -1235,14 +1185,200 @@ On each tick the transition resolver applies Equation~\eqref{eq:roulette} to sel
 
 The watchdog demonstrates timed transitions combined with classic guarded recovery. Figure~\ref{fig:watchdog} shows the full state machine.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  \includegraphics[width=0.78\textwidth]{obrazky-figures/watchdog}
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/watchdog}
   \caption{Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt{failed} state is a terminal escalation sink.}
   \label{fig:watchdog}
 \end{figure}
 
 The automaton uses three transition types together: a \textit{timed/timeout} transition detects sensor silence, \textit{immediate} transitions chain states without observable intermediate steps, and \textit{classic} guards check the \texttt{retry\_count} variable to decide between another attempt and escalation to \texttt{failed}. This pattern recurs in many real-world IoT deployments: detect device failure, raise an alarm, attempt structured recovery, and escalate definitively if recovery is exhausted.
+
+\section{Catalog as a Validation Corpus}
+\label{sec:catalog-validation-corpus}
+
+The showcase catalog is not only presentation material. It acts as a regression corpus for the YAML DSL and for the runtime semantics. This is why the examples are intentionally varied rather than all being minor variations of a blinking LED. A good validation corpus must contain small cases that isolate individual features and larger cases that combine features in ways that resemble real deployments.
+
+The first categories are deliberately narrow. The basics and control examples validate that ordinary timed, event, and guarded transitions can be expressed cleanly. The probabilistic quality router isolates weighted transition selection. The watchdog example isolates failure detection and recovery escalation. These small models are easy to inspect manually and are useful when a parser or runtime regression must be localized quickly.
+
+The middle categories introduce composition pressure. Pipeline and bidirectional-loop examples validate that signals can move through multiple automata without losing their intended direction. The guarded-cell network validates supervision logic across several cooperating automata. The ESP32 and MCXN947 categories demonstrate that the same model can target hardware-specific bindings without changing the conceptual EFSM structure.
+
+The later categories target the thesis-specific features. Black-box examples validate that an opaque component can participate through an explicit signal contract. Petri signal-chain and contention examples validate that structural analysis finds bottlenecks and shared-resource competition. The Aetherium Gem Cell intentionally combines TDD checkpoints, fault-injection inputs, replay markers, state churn, and Petri-liftable resource demand in one flagship model.
+
+This distribution gives the catalog two roles. During development, it is a quick regression suite: the curated \texttt{CATALOG.txt} set should validate on every substantial change. During presentation, it is a guided tour: the reader can start from one-feature examples and progress toward the Gem Cell without learning a new notation at each step.
+
+\section{Demonstration Selection Criteria}
+\label{sec:showcase-selection}
+
+Only a subset of the catalog is used in the thesis walkthrough because a thesis demonstration must be both representative and readable. The selected examples were chosen according to four criteria:
+
+\begin{enumerate}
+  \item The example must exercise a capability that is central to the thesis goals.
+  \item The state graph must be readable in the IDE without excessive zooming or hidden detail.
+  \item The runtime behavior must produce observable state or variable changes within a short demonstration window.
+  \item The example must either validate a single feature clearly or combine multiple features in a way that justifies the added complexity.
+\end{enumerate}
+
+The Gem Cell satisfies the fourth criterion in the strongest way: it is complex enough to show that the platform is not limited to toy automata, but it keeps code blocks short so that state transitions remain the primary explanation mechanism. The watchdog satisfies the opposite role: it is small, readable, and immediately understandable as a real control pattern. The Petri signal-chain and contention scenarios then show why network-level analysis matters once several individually simple automata interact.
+
+This selection keeps the demonstration focused. Rather than presenting all 39 automata individually, the thesis uses the catalog as supporting evidence and gives detailed attention to the scenarios that best demonstrate the platform's distinctive capabilities.
+
+% ============================================================
+\chapter{Testing and Validation}
+\label{chap:validation}
+% ============================================================
+
+The implementation was validated at several levels. The goal was not only to check individual functions, but to verify the central thesis claim: an EFSM-based IoT toolchain can support design, deployment, observation, fault injection, replay, and structural analysis through one coherent model. For that reason, the validation strategy combines unit tests, component integration tests, end-to-end stack tests, curated showcase validation, and manual operator workflows in the IDE.
+
+\section{Validation Scope}
+
+Figure~\ref{fig:validation-coverage} shows the validation coverage model used in the project. The model is intentionally layered: low-level tests verify deterministic behavior inside one component, while higher layers check that the same behavior remains correct when messages cross process, transport, and operator-interface boundaries.
+
+\begin{figure}[!htbp]
+  \centering
+  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/testing_validation_coverage}
+  \caption{Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows.}
+  \label{fig:validation-coverage}
+\end{figure}
+
+The concrete validation layers are:
+
+\begin{description}
+  \item[Engine build.] \texttt{cmake --build build} compiles the portable C++ runtime and command smoke binaries.
+  \item[CLI and parser checks.] \texttt{pytest} verifies command-line argument handling, YAML validation, and deterministic error reporting.
+  \item[Gateway tests.] \texttt{mix test} in the gateway application covers authentication, registry behavior, command envelopes, protocol encoding, server channels, heartbeat handling, and variable updates.
+  \item[Server tests.] \texttt{mix test} in the server application covers automata runtime behavior, deployment compilation, device manager commands, time-series replay, analyzer projection, protocol handling, ROS2 connector logic, and showcase catalog loading.
+  \item[IDE tests.] \texttt{npm test} covers the TypeScript/Electron client where the local test target is configured.
+  \item[Catalog checks.] The showcase validation script checks the curated desktop-runnable set listed in the showcase catalog.
+  \item[Runtime stack checks.] The stack smoke targets exercise deployed services, black-box devices, and optional Influx time-series integration.
+  \item[Manual workflow checks.] IDE and hardware/container checklists confirm that visual deployment, monitoring, fault injection, replay, and Petri analysis remain usable from the operator surface.
+\end{description}
+
+Each layer targets a different risk: parser regressions, protocol incompatibility, runtime execution errors, gateway/server orchestration faults, IDE command wiring mistakes, and failures that only appear when several services run together.
+
+\section{Requirement Traceability}
+
+The requirements derived in Section~\ref{sec:requirements} were mapped to validation evidence rather than treated as informal goals. Table~\ref{tab:validation-traceability} summarizes this mapping. The table is not a coverage percentage in the line-coverage sense; it is a feature-level assurance matrix showing which validation method protects each thesis requirement.
+
+\begin{table}[!htbp]
+  \centering
+  \caption{Requirement-to-validation traceability.}
+  \label{tab:validation-traceability}
+  \vskip6pt
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.30\textwidth}X}
+    \toprule
+    Requirement area & Validation evidence \\
+    \midrule
+    Explicit EFSM model and YAML DSL & Python CLI tests, engine validation, showcase catalog validation, server YAML tests. \\
+    Multiple transition types & Runtime ExUnit tests, curated showcase cases for timed, event, probabilistic, immediate, and classic transitions. \\
+    Portable execution & CMake build, host-runtime deployment tests, target-profile compiler tests for desktop, AVR, ESP32, and MCXN947. \\
+    Real-time gateway communication & Gateway protocol tests, server channel tests, heartbeat tests, deployment transfer tests, Docker stack smoke tests. \\
+    Live IDE monitoring & Manual IDE checklist, Phoenix gateway service behavior, runtime monitor workflow in the demonstration. \\
+    Fault injection & Gateway fault workflow, device manager tests with fault metadata, manual delay/drop/disconnect profiles. \\
+    Time-travel debugging & Time-series store/query tests, replay script checks, rewind deployment command tests. \\
+    Petri net analysis & Analyzer projection tests, Petri signal-chain and contention showcases, manual Analyzer/Petri panel checks. \\
+    Black-box integration & Gateway black-box tests, device manager command validation, black-box stack smoke tests. \\
+    Hardware feasibility & ESP32 and MCXN947 build/flash smoke workflows, board-specific showcase definitions. \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+This mapping also makes missing evidence visible. For example, the hardware rows are validated by smoke tests and manual checks rather than by exhaustive endurance runs. Conversely, the time-travel row has strong automated coverage because it depends on deterministic state reconstruction, which can be checked headlessly.
+
+\section{Unit and Component Tests}
+
+The C++ runtime is validated first by compilation and command smoke checks. These tests protect the lowest layer: if the runtime cannot parse arguments, validate YAML, or construct the command path, higher-level gateway and IDE tests would only report secondary failures. The Python test suite under \texttt{tests/} exercises this command-line surface and checks that the engine reports deterministic errors for invalid invocations.
+
+The gateway and server use Elixir's ExUnit framework. Gateway tests cover the boundary between IDE clients, servers, and devices: token authentication, automata registration, command envelope normalization, binary protocol encoding, heartbeat handling, deployment transfer, connector status, and variable update propagation. These tests are intentionally close to the Phoenix channel boundary because most gateway regressions appear as malformed or misrouted messages rather than pure calculation errors.
+
+Server tests cover the central orchestration behavior. The \texttt{automata\_runtime} suite verifies state initialization, variable defaults, lifecycle commands, transition firing, event transitions, and runtime code hooks. The deployment compiler tests check target-specific compilation decisions for desktop, AVR, ESP32, and MCXN947 profiles, including unsupported-feature rejection for constrained targets. Device manager tests exercise command handling, deployment rewind from recorded snapshots, host runtime execution through the standard deployment API, black-box command validation, topic-versioned input propagation, and error metadata captured during remote deployment failures.
+
+Time-series and analyzer behavior are tested separately because they support the time-travel and Petri-analysis claims. The time-series store and query tests verify event/snapshot persistence, state reconstruction at a target timestamp, local backend selection, Influx backend selection, and fallback behavior. Analyzer projection tests verify that deployment evidence, connection backlog, blocked handoffs, queue pressure, latency findings, and injected-fault metadata are converted into structured analysis results instead of remaining as uncorrelated log entries.
+
+\section{Coverage by Component}
+
+The validation suite is organized around component ownership. This avoids a common failure mode in distributed systems testing: high-level smoke tests pass while an untested internal edge case remains invisible. Each major component therefore has a focused set of tests:
+
+\begin{description}
+  \item[Runtime engine.] Build and CLI tests cover startup, arguments, YAML validation, and command-smoke behavior. These tests establish that the lowest layer produces deterministic acceptance and rejection results before deployment is involved.
+  \item[Server runtime.] ExUnit tests cover the in-memory automata runtime: state initialization, \texttt{on\_enter}/\texttt{body}/\texttt{on\_exit} hooks, input updates, event transitions, weighted transitions, lifecycle commands, and host-runtime deployment paths.
+  \item[Deployment compiler.] Tests cover target-profile decisions. Rich targets can accept Lua-bearing automata, while constrained profiles either compile supported subsets to engine artifacts or reject unsupported constructs with deterministic errors.
+  \item[Gateway.] Tests cover authentication, server and device channels, command envelope normalization, heartbeat handling, deployment transfer, variable updates, and protocol compatibility between JSON channel messages and binary device messages.
+  \item[Time-series layer.] Store and query tests cover snapshot/event persistence, replay from local storage, Influx-backed replay, and fallback behavior when the Influx backend is unavailable.
+  \item[Analyzer.] Projection tests cover structural and evidence-based findings: queue backlog, blocked handoff, connection backlog, latency warnings, and injected-fault correlations.
+  \item[IDE.] The TypeScript test target covers client-side logic where configured; the remaining coverage is manual because the most important IDE behavior is visual workflow correctness across editor, gateway, runtime monitor, analyzer, and Petri panels.
+\end{description}
+
+This component view is useful for regression work: a parser failure should fail fast in Python or engine validation; a channel schema break should fail in gateway/server tests; a UI wiring problem should be caught either by IDE tests or by the manual operator checklist. The project does not rely on one monolithic "run the demo" test to validate all behavior.
+
+\section{End-to-End Tests}
+
+End-to-end testing validates paths that cross process boundaries. The project includes a dedicated Mix task, \texttt{mix aetherium.e2e}, which deploys a flagship showcase target through the gateway/server path, runs a scripted input sequence, and checks that the resulting device state and emitted telemetry match the expected behavior. This is the highest-value automated check because it exercises the same protocol and deployment path used by the IDE.
+
+The time-travel workflow is covered by \texttt{scripts/test\_time\_travel.py}. The script deploys a representative automaton, waits for state changes, requests a rewind of the deployment to an earlier timestamp, and verifies that the reconstructed state is accepted by the runtime. This test specifically guards the contract between the server's time-series query layer and the engine's \texttt{RestoreState} command.
+
+The Docker-based smoke tests validate service composition. The core stack check starts the gateway, server, and C++ device container. The black-box smoke test starts the black-box profile and verifies activation/response behavior through the declared signal contract. The time-series integration test starts the Influx/Grafana profile and runs the server-side Influx integration suite with \texttt{RUN\_INFLUX\_INTEGRATION\_TESTS=1}. These checks are slower than unit tests but catch configuration, networking, and service-startup errors that isolated component tests cannot expose.
+
+\section{Fault Injection and Replay Validation}
+
+Fault injection and time-travel debugging are core to Reality-in-the-Loop, so they require validation beyond normal deployment success. The tested path begins with an ordinary automaton deployment, then deliberately perturbs the system boundary. A delay fault validates that the runtime continues ticking while transport latency changes. A drop fault validates that the analyzer and runtime surfaces report missing or delayed evidence instead of silently assuming nominal communication. A disconnect fault validates recovery behavior after a WebSocket session interruption.
+
+The replay validation then checks the inverse operation: after enough events and snapshots have been recorded, the server reconstructs an earlier state and sends \texttt{RestoreState} to the engine. The expected result is not merely that the command succeeds. The next observed state transition must be consistent with the restored state and variable values. This condition is stronger than checking a response code because it validates the semantic link between historical reconstruction and live execution.
+
+The Aetherium Gem Cell showcase supports this validation particularly well. Its replay-marker variable records named phase checkpoints, while the TDD step and assertion flag expose the arrange-act-assert self-test path. During a replay run, these values provide human-readable anchors in the Runtime Monitor and machine-readable evidence in the trace. The same automaton therefore supports automated assertions and manual inspection without maintaining two separate models.
+
+\section{Showcase Catalog Validation}
+
+The showcase catalog is both a demonstration asset and a regression corpus. Each curated YAML file checks a different slice of the DSL and runtime:
+
+\begin{itemize}
+  \item timed transitions and manual override inputs,
+  \item event thresholds and stateful control,
+  \item probabilistic routing,
+  \item watchdog recovery and retry escalation,
+  \item pipeline dispatch,
+  \item bidirectional signal wiring,
+  \item black-box contracts,
+  \item Petri signal-chain and contention models,
+  \item the Aetherium Gem Cell with TDD checkpoints, fault-injection inputs, replay markers, and Petri-liftable resource demand.
+\end{itemize}
+
+The validation script reads \texttt{example/automata/showcase/CATALOG.txt} and validates the curated set against the engine's accepted YAML subset. This is deliberately narrower than "all examples in the repository": some examples target specific hardware or documentation scenarios and are not expected to be desktop-runnable. Keeping a curated catalog makes regression results stable while still covering the core language features.
+
+\section{Manual Validation Protocol}
+
+Manual validation is treated as a protocol, not as casual clicking through the application. For each manual pass, the operator records the stack profile used, the selected automaton, the target device, the induced fault profile if any, and the observed final state. This is important because manual validation is the only layer that checks visual correctness: whether the current state highlight appears on the expected node, whether the variable table updates without stale values, whether the Gateway panel reports the correct connection state, and whether the Petri graph is readable after layout.
+
+The manual protocol uses three representative workflows:
+
+\begin{enumerate}
+  \item \textbf{Nominal deployment workflow.} Start the core Docker stack, open the demo project, deploy the Gem Cell or watchdog automaton to the containerized C++ device, start execution, and verify live state and variable updates.
+  \item \textbf{Reality-in-the-Loop workflow.} Apply a seeded delay/drop/disconnect profile, observe the runtime/analyzer response, rewind to a pre-fault event, resume execution, and verify that the same phase sequence is reproduced.
+  \item \textbf{Structural-analysis workflow.} Open the Petri signal-chain, contention, and Gem Cell networks, run the analyzer, and verify that reported bottlenecks or resource demands correspond to the visible automata states and signal channels.
+\end{enumerate}
+
+These workflows are deliberately aligned with the screenshots required by the thesis. A screenshot is considered valid only if it was captured during one of these workflows and shows a real deployed or loaded project state.
+
+\section{Manual IDE and Hardware Validation}
+
+Some requirements are inherently operator-facing and cannot be fully validated by headless tests. Manual validation therefore focuses on workflows that must remain understandable in the IDE:
+
+\begin{enumerate}
+  \item Open \texttt{NewProject.aeth} and verify that the network list, explorer, and automata editor load the curated demo project.
+  \item Deploy the Aetherium Gem Cell or watchdog automaton to the containerized C++ target and confirm that live state, variables, and transition history update in the Runtime Monitor.
+  \item Apply \texttt{delay}, \texttt{drop}, or \texttt{disconnect} fault profiles in the Gateway panel and confirm that the runtime and analyzer report the induced condition.
+  \item Select a historical runtime event and execute the rewind workflow, verifying that the server reconstructs state and the device resumes from the restored point.
+  \item Open the Petri Net and Analyzer panels for the Petri signal-chain, contention, and Gem Cell networks and verify that bottlenecks, resource demand, and anomaly summaries are displayed.
+  \item For ESP32 and MCXN947 targets, flash the board-specific runtime, connect through the serial server, deploy a hardware-specific showcase, and confirm GPIO, OLED, touch, or temperature behavior against the physical board.
+\end{enumerate}
+
+Manual checks are recorded as validation notes rather than formal proofs. Their purpose is to confirm that the integrated development workflow remains usable and that the screenshots included in the thesis correspond to real UI states, not isolated mockups.
+
+\section{Validation Limits}
+
+The current validation suite demonstrates functional correctness for representative scenarios, but it does not constitute exhaustive verification. Full Petri net reachability graph construction is listed as future work, so the analyzer currently focuses on structural deadlocks, bottlenecks, contention, and evidence-based projections. Long-running hardware reliability is also outside the automated suite; embedded checks are smoke tests rather than multi-day endurance tests. Finally, fault injection is validated with deterministic seeds and representative profiles, but the space of possible timing schedules in distributed IoT deployments remains unbounded.
+
+These limits are acceptable for the thesis scope because the objective is to validate the architecture and demonstrate that the toolchain can execute the full Reality-in-the-Loop loop: induce a fault, observe it, record it, rewind it, and analyze its structural cause. The combination of automated tests, showcase regression checks, and manual end-to-end workflows provides evidence for that objective while clearly identifying what remains future work.
 
 % ============================================================
 \chapter{End-to-End Demonstration}
@@ -1312,11 +1448,9 @@ of devices it contains, and whether any of those devices are currently connected
 through the gateway. Figure~\ref{fig:ide-network} shows the Network panel
 with the demo project loaded and \texttt{device\_cpp\_01} online.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot (PNG or PDF)
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_network_panel}
+  \aethscreenshotplaceholder{Network Panel Screenshot}{Capture the demo project with the Aetherium Gem Cell and connected C++ device visible.}
   \caption{Network panel showing the demo project with one connected device.}
   \label{fig:ide-network}
 \end{figure}
@@ -1338,11 +1472,9 @@ validates the YAML, compiles the EFSM model, and delivers the binary payload to
 the device engine. A deployment acknowledgement appears in the Runtime Monitor
 panel within a few hundred milliseconds on a local network.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_runtime_deploy}
+  \aethscreenshotplaceholder{Runtime Deployment Screenshot}{Capture deployment acknowledgement for the watchdog or Gem Cell automaton on the containerized C++ target.}
   \caption{Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt{device\_cpp\_01}.}
   \label{fig:ide-deploy}
 \end{figure}
@@ -1374,11 +1506,9 @@ rate. Because the gateway maintains persistent WebSocket connections in both
 directions, state updates arrive in the IDE within one to two tick cycles of
 firing.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_runtime_monitor}
+  \aethscreenshotplaceholder{Runtime Monitor Screenshot}{Capture live state, variables, and transition history while the deployed automaton is running.}
   \caption{Runtime Monitor panel displaying live state and variable values for the deployed automaton.}
   \label{fig:ide-monitor}
 \end{figure}
@@ -1416,17 +1546,15 @@ reproducible. The same seed applied to the same automaton always produces the
 same sequence of dropped or delayed messages, which is essential for debugging
 timing-dependent failures.
 
-Figure~\ref{fig:ide-fault} shows the Gateway panel with a \texttt{delay} fault
-profile active on \texttt{device\_cpp\_01}. The Runtime Monitor simultaneously
-shows the automaton continuing to execute normally despite the injected latency,
+Figure~\ref{fig:ide-fault} shows the Gateway panel with a delay fault
+profile active on the demo C++ device. The Runtime Monitor simultaneously
+shows the automaton continuing to execute despite the injected latency,
 demonstrating that the engine's internal timing is decoupled from transport
 delays.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_fault_injection}
+  \aethscreenshotplaceholder{Fault Injection Screenshot}{Capture the Gateway fault profile together with monitor evidence of delayed, dropped, or disconnected traffic.}
   \caption{Gateway panel with an active delay fault profile on the demo device.}
   \label{fig:ide-fault}
 \end{figure}
@@ -1466,11 +1594,9 @@ The time-travel workflow proceeds as follows:
 watchdog automaton.  The selected event shows the automaton entering the
 \texttt{alarming} state and the \texttt{alarm\_count} variable incrementing.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_time_travel}
+  \aethscreenshotplaceholder{Time-Travel Screenshot}{Capture the replay timeline with a selected historical event and restored automaton state.}
   \caption{Execution trace replay timeline in the Runtime Monitor panel.}
   \label{fig:ide-replay}
 \end{figure}
@@ -1498,11 +1624,9 @@ makes the contention explicit: the power-budget place has three input arcs and
 one output arc, which the structural analysis immediately flags as a potential
 bottleneck.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_petri_net}
+  \aethscreenshotplaceholder{Petri Net Screenshot}{Capture the Petri projection for the Gem Cell or power-contention showcase with shared resources visible.}
   \caption{Petri Net panel showing token flow for the power-contention scenario.}
   \label{fig:ide-petri}
 \end{figure}
@@ -1555,11 +1679,9 @@ deployment of the Petri Signal Chain showcase (Showcase~13), where the safety
 gate automaton is identified as processing commands at a lower rate than the
 command router is emitting them.
 
-\begin{figure}[H]
+\begin{figure}[!htbp]
   \centering
-  % TODO: replace with actual screenshot
-  % TODO: replace with actual screenshot
-  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_analyzer}
+  \aethscreenshotplaceholder{Analyzer Screenshot}{Capture analyzer findings for the signal-chain or Gem Cell scenario with channel activity and anomaly details.}
   \caption{Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}
   \label{fig:ide-analyzer}
 \end{figure}
@@ -1593,7 +1715,7 @@ The end-to-end walkthrough demonstrates all primary platform capabilities on a
 single machine without any physical hardware. Table~\ref{tab:demo-coverage}
 maps each demonstrated capability to the platform component responsible for it.
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Demonstration coverage summary.}
   \label{tab:demo-coverage}
@@ -1642,9 +1764,51 @@ The concrete contributions that realise these principles are:
   \item A portable C++17 runtime engine that executes the model on desktop Linux and embedded platforms (ESP32, Raspberry Pi Pico, MCXN947) via three abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}).
   \item A binary wire protocol inspired by MQTT's lightweight publish/subscribe model but reimplemented to support server-side sequence numbering and execution trace recording --- the technical foundation of time-travel debugging.
   \item An Electron IDE providing live state monitoring, variable inspection, fault injection, time-travel debugging, and Petri net analysis --- the single surface at which both RitL and DAD are exercised.
-  \item A Petri net analysis layer that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
-  \item A showcase set of 39 YAML automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, multi-device coordination, and the dedicated Aetherium Gem Cell project.
-\end{enumerate}
+	  \item A Petri net analysis layer that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
+	  \item A showcase set of 39 YAML automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, multi-device coordination, and the dedicated Aetherium Gem Cell project.
+	  \item A multi-layer validation suite combining unit tests, component tests, end-to-end deployment checks, curated showcase validation, manual IDE workflows, and hardware smoke tests.
+	\end{enumerate}
+
+\section{Evaluation Against Goals}
+\label{sec:goal-evaluation}
+
+The goals stated in Section~\ref{sec:philosophy} and Section~1.2 can be evaluated directly against the implemented system.
+
+The first goal was to design an EFSM model expressive enough for real IoT control logic. This goal was met by the combination of typed variables, Lua guards and actions, five transition types, and state-level hooks. The showcase catalog demonstrates this expressiveness across watchdog recovery, probabilistic quality routing, power allocation, signal chains, bidirectional feedback, and the Gem Cell.
+
+The second goal was portability. The runtime core is written in C++17 and separated from platform-specific services through clock, random-source, and script-engine abstractions. Desktop execution is used for Docker and local testing; embedded profiles cover ESP32, Raspberry Pi Pico, and MCXN947-style targets. The deployment compiler tests confirm that richer targets can accept richer automata while constrained profiles reject unsupported constructs deterministically.
+
+The third goal was a practical authoring format. The YAML DSL satisfies this by keeping automata definitions readable in plain text while still supporting inline and folderized layouts. The DSL is also compatible with the IDE: developers can edit YAML directly, but the same file can be visualized as states, transitions, variables, and network wiring.
+
+The fourth goal was live deployment and monitoring. This was met by the Phoenix gateway, server-side device manager, binary device protocol, and IDE runtime monitor. The operator can deploy an automaton, observe the current state and variables, modify inputs, and inspect transition history without leaving the tool.
+
+The fifth goal was Reality-in-the-Loop testing. The implementation supports seeded fault profiles, black-box contracts, trace recording, state reconstruction, and device-level restore. The validation chapter shows that this loop is tested through unit, integration, end-to-end, and manual workflows.
+
+The sixth goal was Petri net analysis. The system lifts automata into Petri net substructures, composes shared channels and resources, and reports deadlock candidates, bottlenecks, P-invariant evidence, and contention. This does not yet constitute a complete formal verification engine, but it does provide useful structural analysis inside the development workflow.
+
+\section{Limitations}
+\label{sec:conclusion-limitations}
+
+Several limitations remain. The Petri analysis is intentionally bounded and structural. Complete reachability graph construction for large networks is still future work because state-space explosion becomes significant once many automata and data-dependent guards are involved. The current analyzer is therefore best understood as a practical design-time warning system rather than a proof of all possible executions.
+
+The IDE is functional but still a research prototype. It demonstrates visual editing, live monitoring, fault injection, replay, and Petri views, but it does not yet provide all productivity features expected from a mature modeling environment: complete undo/redo history, multi-select editing, advanced layout tools, and collaborative project management.
+
+Hardware validation is also limited to representative smoke workflows. The runtime architecture supports embedded targets, and board-specific examples exist, but the thesis does not claim long-term reliability data from multi-day hardware deployments. That kind of endurance validation would require a separate experimental setup with controlled power, network, and environmental conditions.
+
+Finally, the current DSL uses Lua for guard and action logic. This is pragmatic and expressive, but it also means that not all behavior is statically analyzable. Future versions could introduce a restricted expression subset for safety-critical transitions while keeping Lua available for richer targets and non-critical behavior.
+
+\section{Practical Impact}
+\label{sec:practical-impact}
+
+The practical value of Aetherium is that it shortens the distance between modelling, deployment, and diagnosis. In many IoT projects these activities are separated: a state diagram may exist in documentation, device code is written separately, telemetry is collected by another system, and debugging depends on logs. Aetherium keeps these activities connected to the same EFSM definition. The state graph is not only documentation; it is the deployed behavior, the runtime monitoring surface, and the source model for analysis.
+
+This is particularly useful for small and medium-sized IoT teams. Such teams often do not have the capacity to maintain separate formal models, firmware implementations, cloud dashboards, and test harnesses. A single toolchain that can deploy a model, perturb it with faults, capture its execution trace, and replay it from a previous state reduces that maintenance burden. It also improves communication: a developer, tester, and supervisor can discuss the same visible state machine instead of translating between code, logs, and diagrams.
+
+The platform also makes failure handling more explicit. Watchdogs, retry loops, degraded modes, black-box interfaces, and recovery transitions are represented as states and edges rather than hidden inside callbacks. This encourages developers to model negative paths early. Fault injection then turns those negative paths into executable scenarios. A failed sensor, delayed message, disconnected device, or unavailable resource becomes a planned test condition rather than a surprise in production.
+
+Another practical contribution is observability at the correct abstraction level. Raw logs are too low-level for many control problems, while dashboard metrics are often too high-level to explain a state-machine failure. Aetherium records the middle layer: transitions, variables, commands, snapshots, and deployment metadata. This information is precise enough for debugging and compact enough for replay.
+
+Finally, the Petri net lift provides a bridge between engineering practice and formal analysis. Developers do not need to write Petri nets manually. They model devices as automata, and the tool derives a structural view that exposes queues, shared resources, and possible deadlocks. This lowers the barrier to using formal methods in everyday IoT development.
 
 \section{Future Work}
 

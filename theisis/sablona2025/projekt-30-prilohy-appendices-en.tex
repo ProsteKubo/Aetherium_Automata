@@ -29,7 +29,7 @@ The included storage medium contains the following items:
 The complete field reference for the YAML domain-specific language is given below.
 Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional.
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Top-level YAML fields.}
   \label{tab:app-toplevel}
@@ -46,7 +46,7 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
   \end{tabularx}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{\texttt{config} block fields.}
   \label{tab:app-config}
@@ -66,7 +66,7 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
   \end{tabularx}
 \end{table}
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Transition type-specific fields.}
   \label{tab:app-transitions}
@@ -87,17 +87,17 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
 \chapter{Supported Platform Targets}
 \label{app:targets}
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Engine platform targets and their capability profiles.}
   \label{tab:app-platforms}
   \vskip6pt
-  \begin{tabularx}{\textwidth}{XXXXX}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.22\textwidth}>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}p{0.16\textwidth}>{\raggedright\arraybackslash}p{0.14\textwidth}}
     \toprule
     Target & Architecture & Script engine & Transport & Build \\
     \midrule
-    Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 (Sol2)      & WebSocket (IXWebSocket) & CMake \\
-    ESP32               & Xtensa LX6     & Lightweight / no-op & Serial / MQTT           & Arduino + CMake \\
+    Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 via Sol2    & WebSocket               & CMake \\
+    ESP32               & Xtensa LX6     & Lightweight or stub & Serial / MQTT           & Arduino \\
     Raspberry Pi Pico   & ARM Cortex-M0+ & No-op stub          & Serial (UART)           & CMake \\
     MCXN947             & ARM Cortex-M7  & Lightweight         & Serial (UART)           & CMake \\
     \bottomrule
@@ -109,20 +109,20 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
 
 The current thesis includes placeholder IDE figures so the report can be compiled before final screenshots are captured. The final visual pass should replace these placeholders with screenshots taken from the running Aetherium Gem Cell and flagship desktop project.
 
-\begin{table}[H]
+\begin{table}[!htbp]
   \centering
   \caption{Screenshot checklist for the final thesis figures.}
   \label{tab:app-figure-checklist}
   \vskip6pt
-  \begin{tabularx}{\textwidth}{lX}
+  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}X}
     \toprule
     Figure & Required capture \\
     \midrule
-    Network panel & Open \texttt{backend-capabilities-tour.aeth}; capture the project tree with \textit{Aetherium Gem Cell} expanded above the signal-chain and power-contention networks. \\
-    Runtime deployment & Deploy \texttt{aetherium\_gem\_cell.yaml} to \texttt{device\_cpp\_01}; capture the deployment acknowledgement and selected automaton. \\
-    Runtime monitor & Run the Gem Cell with \texttt{operator\_enable=true}; capture the state list around \texttt{RequestBus}, \texttt{AcquireBus}, and \texttt{ReplayCheckpoint}, including variables \texttt{phase}, \texttt{tdd\_step}, \texttt{demand\_bus}, and \texttt{replay\_marker}. \\
-    Fault injection & Enable a drop or delay fault against the Gem Cell boundary; capture the Gateway fault profile and the monitor showing \texttt{FaultInjected} or \texttt{DelayCompensation}. \\
-    Time travel & Rewind to the \texttt{ReplayCheckpoint} marker; capture the trace timeline with the selected event and reconstructed state. \\
+    Network panel & Open the backend capabilities tour; capture the project tree with \textit{Aetherium Gem Cell} expanded above the signal-chain and power-contention networks. \\
+    Runtime deployment & Deploy the Gem Cell automaton to the demo C++ device; capture the deployment acknowledgement and selected automaton. \\
+    Runtime monitor & Run the Gem Cell with the operator enabled; capture the state list around request, acquire, and replay phases, including phase, TDD, demand, and replay variables. \\
+    Fault injection & Enable a drop or delay fault against the Gem Cell boundary; capture the Gateway fault profile and the monitor showing fault or compensation behavior. \\
+    Time travel & Rewind to the replay checkpoint marker; capture the trace timeline with the selected event and reconstructed state. \\
     Petri net & Open the Petri Net panel for the Gem Cell plus Power Contention Ring; capture the shared bus/resource place and contention report. \\
     Analyzer & Capture a report where the analyzer shows the Gem Cell black-box ports, emitted events, and shared-resource metadata. \\
     Hardware variant & Optional: capture ESP32 or MCXN947 connected through serial to show the same IDE workflow with a physical target. \\

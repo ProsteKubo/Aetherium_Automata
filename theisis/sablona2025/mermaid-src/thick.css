@@ -1,13 +1,63 @@
-.flowchart-link {
-    stroke-width: 4px !important;
-    stroke: #333333 !important;
+.node rect,
+.node polygon,
+.node circle,
+.node ellipse,
+.node path {
+    stroke: #6f42c1 !important;
+    stroke-width: 2.5px !important;
 }
-.arrowMarkerPath {
-    stroke-width: 1px !important;
-    fill: #333333 !important;
-    stroke: #333333 !important;
+
+.node .label,
+.edgeLabel,
+.messageText,
+.noteText,
+.stateLabel,
+.actor,
+.label {
+    color: #111111 !important;
+    fill: #111111 !important;
+    font-family: Helvetica, Arial, sans-serif !important;
 }
-.marker {
-    fill: #333333 !important;
-    stroke: #333333 !important;
+
+.flowchart-link,
+.messageLine0,
+.messageLine1,
+.stateDiagram .transition,
+.edgePath .path {
+    stroke-width: 3px !important;
+    stroke: #111111 !important;
+    fill: none !important;
+}
+
+.arrowMarkerPath,
+.marker,
+marker path {
+    fill: #111111 !important;
+    stroke: #111111 !important;
+}
+
+.cluster rect {
+    fill: #fff2b8 !important;
+    stroke: #111111 !important;
+    stroke-width: 2.5px !important;
+}
+
+.cluster-label,
+.cluster-label span,
+.cluster span {
+    color: #111111 !important;
+    fill: #111111 !important;
+    font-weight: 700 !important;
+}
+
+.actor {
+    stroke: #6f42c1 !important;
+    fill: #f4efff !important;
+    stroke-width: 2.5px !important;
+}
+
+.note {
+    fill: #fff2b8 !important;
+    stroke: #111111 !important;
+    stroke-width: 2.5px !important;
 }

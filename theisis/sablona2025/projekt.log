@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  12 MAY 2026 21:21
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  12 MAY 2026 22:29
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -990,32 +990,32 @@ sty
 Package: letltxmacro 2019/12/03 v1.6 Let assignment for LaTeX macros (HO)
 ))
 \enitdp@checklist=\count390
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 21
-1.
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 22
+8.
  (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 (./projekt.aux)
 \openout1 = `projekt.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 211.
-LaTeX Font Info:    ... okay on input line 211.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 228.
+LaTeX Font Info:    ... okay on input line 228.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mki
 i
@@ -1053,13 +1053,13 @@ e
 \c@mv@tabular=\count397
 \c@mv@boldtabular=\count398
 \c@lstlisting=\count399
-Package hyperref Info: Link coloring ON on input line 211.
+Package hyperref Info: Link coloring ON on input line 228.
  (./projekt.out) (./projekt.out)
 \@outlinefile=\write4
 \openout4 = `projekt.out'.
 
-LaTeX Font Info:    Trying to load font information for T1+qhv on input line 21
-7.
+LaTeX Font Info:    Trying to load font information for T1+qhv on input line 23
+4.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tex-gyre/t1qhv.fd
 File: t1qhv.fd 2009/09/25 v1.2 font definition file for T1/qhv
@@ -1070,69 +1070,59 @@ File: t1qhv.fd 2009/09/25 v1.2 font definition file for T1/qhv
 \@sirkartext=\skip91
 \@vyskaobr=\skip92
 \@sirkaobr=\skip93
-<template-fig/VUT_symbol_barevne_CMYK_CZ.pdf, id=293, 167.13641pt x 165.87971pt
+<template-fig/VUT_symbol_barevne_CMYK_CZ.pdf, id=349, 167.13641pt x 165.87971pt
 >
 File: template-fig/VUT_symbol_barevne_CMYK_CZ.pdf Graphic file (type pdf)
 <use template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>
 Package pdftex.def Info: template-fig/VUT_symbol_barevne_CMYK_CZ.pdf  used on i
-nput line 217.
+nput line 234.
 (pdftex.def)             Requested size: 116.65646pt x 115.17995pt.
 LaTeX Font Info:    Trying to load font information for T1+opensans-TLF on inpu
-t line 217.
+t line 234.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/opensans/T1opensans-TLF.
 fd
 File: T1opensans-TLF.fd 2019/06/24 Font definitions for T1/opensans-TLF.
 )
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 18.0pt on input line 217.
+(Font)              scaled to size 18.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 18.0pt on input line 217.
+(Font)              scaled to size 18.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 11.0pt on input line 217.
+(Font)              scaled to size 11.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 11.0pt on input line 217.
+(Font)              scaled to size 11.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 14.0pt on input line 217.
+(Font)              scaled to size 14.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 14.0pt on input line 217.
+(Font)              scaled to size 14.0pt on input line 234.
 
-Overfull \hbox (6.6202pt too wide) in paragraph at lines 217--217
-\T1/opensans-TLF/b/n/18 AN EN-VI-RON-MENT FOR THE VI-SUAL DE-SIGN, MON-
+Underfull \hbox (badness 4132) in paragraph at lines 234--234
+\T1/opensans-TLF/b/n/18 AN EN-VI-RON-MENT FOR THE VI-SUAL DE-SIGN,
  []
 
 
-Overfull \hbox (24.00795pt too wide) in paragraph at lines 217--217
-\T1/opensans-TLF/b/n/18 I-TOR-ING, AND MAN-AGE-MENT OF DIS-TRIBUTED CON-
+Overfull \hbox (20.60208pt too wide) in paragraph at lines 234--234
+\T1/opensans-TLF/b/n/18 MON-I-TOR-ING, AND MAN-AGE-MENT OF DIS-TRIBUTED
  []
 
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 10.0pt on input line 217.
+(Font)              scaled to size 10.0pt on input line 234.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 10.0pt on input line 217.
+(Font)              scaled to size 10.0pt on input line 234.
 
-Overfull \hbox (11.6018pt too wide) in paragraph at lines 217--217
+Underfull \hbox (badness 3049) in paragraph at lines 234--234
 \T1/opensans-TLF/b/n/10 PROSTêEDÕ PRO VIZU¡LNÕ N¡VRH, MON-I-TOROV¡NÕ A SPR¡VU D
-IS-TRIBUO-VAN›CH êÕDICÕCH
+IS-TRIBUO-VAN›CH
  []
 
 [1
 
 {/home/jakito/.local/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
 {/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/opensans/a_jg4h6q.
-enc} <./template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>]
-Overfull \hbox (8.94518pt too wide) in paragraph at lines 217--217
-\T1/lmr/m/n/10.95 au-tomaty. Plat-forma sa sklad· z prenos-nÈho run-time jadra 
-v jazyku C++17, br·ny postavenej
- []
-
-[2{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
-Overfull \hbox (2.3108pt too wide) in paragraph at lines 217--217
-[]\T1/lmr/m/n/10.95 DÙle∫it˝m princÌpom pr·ce je Reality-in-the-Loop. Testo-van
-ie nepou∫Ìva odd-e-len˝ model
- []
-
-[3] [4] (./projekt.toc<<ot1.cmap>>
+enc} <./template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>] [2{/home/jakito/.local/te
+xlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}] [3] [4] (./projekt.toc<<ot
+1.cmap>>
 LaTeX Font Info:    Trying to load font information for U+msa on input line 3.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/amsfonts/umsa.fd
@@ -1147,206 +1137,151 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.68 ...and Communication Protocol}{36}{chapter.7}
+l.68 ...nd Time-Travel Debugging}{33}{section.6.6}
                                                   % [1
 
 
-])
-\tf@toc=\write5
-\openout5 = `projekt.toc'.
-
-
+]
 pdfTeX warning (ext4): destination with the same identifier (name{page.2}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.229   {\hypersetup{hidelinks}\listoffigures
-                                             } [2] (./projekt.lof
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
-2.
-
-(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
-File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-)
-Overfull \hbox (19.04323pt too wide) in paragraph at lines 12--12
- \T1/lmr/m/n/10.95 (de-vice $\OMS/cmsy/m/n/10.95 !$ \T1/lmr/m/n/10.95 server). 
-All prob-a-bilis-tic de-ci-sions draw from a seeded \T1/lmtt/m/n/10.95 IRandomS
-ource\T1/lmr/m/n/10.95 , 
- []
-
-)
-\tf@lof=\write6
-\openout6 = `projekt.lof'.
+l.125 ...line {12.3}Limitations}{66}{section.12.3}
+                                                  % [2])
+\tf@toc=\write5
+\openout5 = `projekt.toc'.
 
 
 pdfTeX warning (ext4): destination with the same identifier (name{page.3}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.230 
-       [3
+l.246   {\hypersetup{hidelinks}\listoffigures
+                                             } [3] (./projekt.lof
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 1
+3.
 
-] (./projekt-01-kapitoly-chapters-en.tex
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
+File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
+)
 pdfTeX warning (ext4): destination with the same identifier (name{page.4}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.28 \chapter
-             {Introduction} [4]
+l.27 ...ile on the demo device.}}{60}{figure.11.4}
+                                                  % [4
+
+])
+\tf@lof=\write6
+\openout6 = `projekt.lof'.
+
+
+(./projekt-01-kapitoly-chapters-en.tex [5]
 Chapter 1.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 3
 8.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [5
+) [6
 
-{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
-Overfull \hbox (6.7979pt too wide) in paragraph at lines 57--58
-[]\T1/lmr/bx/n/10.95 Probabilistic and stochas-tic tran-si-tions. \T1/lmr/m/n/1
-0.95 Rare real-world events --- sen-sor dropout,
- []
-
-[6]
-Overfull \hbox (7.06908pt too wide) in paragraph at lines 96--97
-\T1/lmr/m/n/10.95 Section [][]1.1[][] above in-tro-duces the two guid-ing prin-
-ci-ples (Reality-in-the-Loop and Deployment-
- []
-
-[7] [8]
-Chapter 2.
-[9
-
+{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}] [7
 ]
-Overfull \hbox (5.5164pt too wide) in paragraph at lines 156--157
-[]\T1/lmr/m/n/10.95 This struc-ture cor-re-sponds to a Moore/Mealy hy-brid: \T1
-/lmtt/m/n/10.95 on_enter \T1/lmr/m/n/10.95 pro-vides state-dependent
+Underfull \hbox (badness 2103) in paragraph at lines 96--97
+\T1/lmr/m/n/10.95 Section [][]1.1[][] above in-tro-duces the two guid-ing prin-
+ci-ples (Reality-in-the-Loop and
  []
 
-[10] [11]
-Chapter 3.
-[12
+[8] [9]
+Chapter 2.
+[10
 
-] [13] [14] [15]
-Overfull \hbox (3.22745pt too wide) in paragraph at lines 364--365
+] [11] [12] [13]
+Chapter 3.
+[14
+
+] [15] [16] [17]
+Overfull \hbox (3.22745pt too wide) in paragraph at lines 377--378
 []\T1/lmr/m/n/10.95 The run-time en-gine must com-pile and ex-e-cute on desk-to
 p Linux/macOS,
  []
 
-[16] [17]
+[18] [19]
 Chapter 4.
-<obrazky-figures/arch.pdf, id=627, 602.25pt x 245.9589pt>
+<obrazky-figures/arch.pdf, id=711, 602.25pt x 252.945pt>
 File: obrazky-figures/arch.pdf Graphic file (type pdf)
 <use obrazky-figures/arch.pdf>
-Package pdftex.def Info: obrazky-figures/arch.pdf  used on input line 391.
-(pdftex.def)             Requested size: 410.85638pt x 167.80151pt.
-[18
+Package pdftex.def Info: obrazky-figures/arch.pdf  used on input line 404.
+(pdftex.def)             Requested size: 397.89975pt x 167.11789pt.
+[20
 
- <./obrazky-figures/arch.pdf>]
-Overfull \hbox (4.5452pt too wide) in paragraph at lines 412--413
- []\T1/lmr/bx/n/10.95 Preemptive schedul-ing and through-put.[] \T1/lmr/m/n/10.
-95 BEAM uses a pre-emp-tive reduction-counting
- []
-
-[19]
+ <./obrazky-figures/arch.pdf>] [21]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 434.
-
-Overfull \hbox (63.99855pt too wide) in paragraph at lines 434--435
-[]\T1/lmr/m/n/10.95 Monotonic time source. The desk-top im-ple-men-ta-tion del-
-e-gates to \T1/lmtt/m/n/10.95 std::chrono::steady_clock\T1/lmr/m/n/10.95 .
- []
-
-
-Overfull \hbox (58.00491pt too wide) in paragraph at lines 435--436
-[]\T1/lmr/m/n/10.95 Pseudorandom num-ber gen-er-a-tor. The desk-top im-ple-men-
-ta-tion uses \T1/lmtt/m/n/10.95 std::mt19937_64
- []
-
-
-Overfull \hbox (21.07983pt too wide) in paragraph at lines 436--437
-\T1/lmr/m/n/10.95 pro-vid-ing full script-ing ca-pa-bil-ity. Em-bed-ded im-ple-
-men-ta-tions can sub-sti-tute a lightweight
- []
-
-[20] [21] [22]
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 447.
+ [22] [23] [24]
 Chapter 5.
-[23
+[25
 
-] [24]
+] [26]
 Package hyperref Info: bookmark level for unknown algorithm defaults to 0 on in
-put line 590.
- [25] [26]
+put line 603.
+ [27]
+<obrazky-figures/black_box_contract.pdf, id=816, 602.25pt x 374.3586pt>
+File: obrazky-figures/black_box_contract.pdf Graphic file (type pdf)
+<use obrazky-figures/black_box_contract.pdf>
+Package pdftex.def Info: obrazky-figures/black_box_contract.pdf  used on input 
+line 651.
+(pdftex.def)             Requested size: 397.89975pt x 247.33449pt.
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 711.
- [27] [28]
+nput line 663.
+ [28 <./obrazky-figures/black_box_contract.pdf>] [29] [30]
 Chapter 6.
-<obrazky-figures/tick_cycle.pdf, id=794, 413.62529pt x 874.22606pt>
+<obrazky-figures/tick_cycle.pdf, id=898, 400.37581pt x 788.9475pt>
 File: obrazky-figures/tick_cycle.pdf Graphic file (type pdf)
 <use obrazky-figures/tick_cycle.pdf>
-Package pdftex.def Info: obrazky-figures/tick_cycle.pdf  used on input line 789
+Package pdftex.def Info: obrazky-figures/tick_cycle.pdf  used on input line 741
 .
-(pdftex.def)             Requested size: 181.64156pt x 383.91364pt.
-[29
-
-]
-<obrazky-figures/platform_abstraction.pdf, id=800, 602.25pt x 248.8497pt>
+(pdftex.def)             Requested size: 159.40826pt x 314.11676pt.
+<obrazky-figures/platform_abstraction.pdf, id=900, 602.25pt x 243.79079pt>
 File: obrazky-figures/platform_abstraction.pdf Graphic file (type pdf)
 <use obrazky-figures/platform_abstraction.pdf>
 Package pdftex.def Info: obrazky-figures/platform_abstraction.pdf  used on inpu
-t line 801.
-(pdftex.def)             Requested size: 410.85638pt x 169.77373pt.
- [30 <./obrazky-figures/tick_cycle.pdf>]
-Overfull \hbox (6.5896pt too wide) in paragraph at lines 806--807
-\T1/lmr/m/n/10.95 for re-pro-ducible fault in-jec-tion and prob-a-bilis-tic tra
-n-si-tions), and \T1/lmr/bx/n/10.95 IS-criptEngine \T1/lmr/m/n/10.95 (Lua 5.4 [
-[]]
- []
+t line 753.
+(pdftex.def)             Requested size: 397.89975pt x 161.06981pt.
+[31
 
-
-Overfull \hbox (2.11157pt too wide) in paragraph at lines 806--807
-\T1/lmr/m/n/10.95 CMake build tar-gets se-lect the con-crete im-ple-men-ta-tion
-s at com-pile time via RapidYAML [[]]
- []
-
-[31 <./obrazky-figures/platform_abstraction.pdf>]
-<obrazky-figures/fault_injection_pipeline.pdf, id=832, 533.1117pt x 761.96669pt
+ <./obrazky-figures/tick_cycle.pdf>] [32 <./obrazky-figures/platform_abstractio
+n.pdf>]
+<obrazky-figures/fault_injection_pipeline.pdf, id=939, 533.1117pt x 761.96669pt
 >
 File: obrazky-figures/fault_injection_pipeline.pdf Graphic file (type pdf)
 <use obrazky-figures/fault_injection_pipeline.pdf>
 Package pdftex.def Info: obrazky-figures/fault_injection_pipeline.pdf  used on 
-input line 857.
-(pdftex.def)             Requested size: 432.4818pt x 618.15466pt.
- [32]
-Overfull \vbox (30.27045pt too high) has occurred while \output is active []
-
-
-[33 <./obrazky-figures/fault_injection_pipeline.pdf>]
+input line 809.
+(pdftex.def)             Requested size: 219.773pt x 314.11748pt.
+ [33] [34 <./obrazky-figures/fault_injection_pipeline.pdf>]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 877.
-<obrazky-figures/time_travel_flow.pdf, id=860, 602.25pt x 593.3367pt>
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 829.
+<obrazky-figures/time_travel_flow.pdf, id=969, 602.25pt x 593.3367pt>
 File: obrazky-figures/time_travel_flow.pdf Graphic file (type pdf)
 <use obrazky-figures/time_travel_flow.pdf>
 Package pdftex.def Info: obrazky-figures/time_travel_flow.pdf  used on input li
-ne 916.
-(pdftex.def)             Requested size: 410.85638pt x 404.7945pt.
- [34] [35 <./obrazky-figures/time_travel_flow.pdf>]
+ne 868.
+(pdftex.def)             Requested size: 318.84177pt x 314.12291pt.
+ [35]
+[36 <./obrazky-figures/time_travel_flow.pdf>]
 Chapter 7.
-[36
+[37
 
 ]
-<obrazky-figures/msgflow.pdf, id=890, 602.25pt x 659.5842pt>
+<obrazky-figures/msgflow.pdf, id=1002, 602.25pt x 659.5842pt>
 File: obrazky-figures/msgflow.pdf Graphic file (type pdf)
 <use obrazky-figures/msgflow.pdf>
-Package pdftex.def Info: obrazky-figures/msgflow.pdf  used on input line 979.
-(pdftex.def)             Requested size: 328.64705pt x 359.93425pt.
- [37] [38 <./obrazky-figures/msgflow.pdf>]
+Package pdftex.def Info: obrazky-figures/msgflow.pdf  used on input line 931.
+(pdftex.def)             Requested size: 286.81607pt x 314.12096pt.
+ [38] [39 <./obrazky-figures/msgflow.pdf>] [40]
 Chapter 8.
-[39
 
-] [40]
-Chapter 9.
-
-Overfull \hbox (2.95271pt too wide) in paragraph at lines 1046--1048
+Overfull \hbox (2.95271pt too wide) in paragraph at lines 996--998
  []\T1/lmr/bx/n/10.95 Automaton.[] \T1/lmr/m/n/10.95 An Ae-the-rium au-toma-ton
  is a tu-ple $\OMS/cmsy/m/n/10.95 A[] \OT1/cmr/m/n/10.95 = (\OML/cmm/m/it/10.95
  S[];  s[];  T[];  V[];  G[];  [][];  \OT1/cmr/m/n/10.95 ^^F[]\OML/cmm/m/it/10.
@@ -1356,42 +1291,36 @@ Overfull \hbox (2.95271pt too wide) in paragraph at lines 1046--1048
 [41
 
 ]
-<obrazky-figures/petri_lifting.pdf, id=935, 536.96606pt x 500.83109pt>
+<obrazky-figures/petri_lifting.pdf, id=1052, 515.04419pt x 473.85028pt>
 File: obrazky-figures/petri_lifting.pdf Graphic file (type pdf)
 <use obrazky-figures/petri_lifting.pdf>
 Package pdftex.def Info: obrazky-figures/petri_lifting.pdf  used on input line 
-1087.
-(pdftex.def)             Requested size: 311.38742pt x 290.44402pt.
- [42 <./obrazky-figures/petri_lifting.pdf>] [43]
-Overfull \hbox (35.9942pt too wide) in paragraph at lines 1153--1154
-[]\T1/lmr/m/n/10.95 The an-a-lyzer iden-ti-fies three con-tend-ing pairs (charg
-er+axis, charger+allocator, axis+allocator)
- []
-
-[44]
-Chapter 10.
-
-Overfull \hbox (5.65382pt too wide) in paragraph at lines 1198--1199
-[]\T1/lmr/bx/n/10.95 TDD check-points\T1/lmr/m/n/10.95 : the \T1/lmtt/m/n/10.95
- SelfTestArrange\T1/lmr/m/n/10.95 , \T1/lmtt/m/n/10.95 SelfTestAct\T1/lmr/m/n/1
-0.95 , and \T1/lmtt/m/n/10.95 SelfTestAssert \T1/lmr/m/n/10.95 states
- []
-
-[45
+1037.
+(pdftex.def)             Requested size: 341.42342pt x 314.11592pt.
+ [42] [43 <./obrazky-figures/petri_lifting.pdf>] [44] [45]
+Chapter 9.
+[46
 
 ]
-Overfull \hbox (67.86682pt too wide) in paragraph at lines 1220--1221
-[]\T1/lmr/m/n/10.95 The cor-re-spond-ing IDE project is \T1/lmtt/m/n/10.95 exam
-ple/ide_demo_projects/backend-capabilities-tour.aeth\T1/lmr/m/n/10.95 .
- []
-
-<obrazky-figures/watchdog.pdf, id=977, 327.14218pt x 408.56638pt>
+<obrazky-figures/watchdog.pdf, id=1103, 294.13892pt x 392.42609pt>
 File: obrazky-figures/watchdog.pdf Graphic file (type pdf)
 <use obrazky-figures/watchdog.pdf>
-Package pdftex.def Info: obrazky-figures/watchdog.pdf  used on input line 1240.
+Package pdftex.def Info: obrazky-figures/watchdog.pdf  used on input line 1190.
 
-(pdftex.def)             Requested size: 337.33527pt x 421.31433pt.
-[46] [47 <./obrazky-figures/watchdog.pdf>]
+(pdftex.def)             Requested size: 235.45058pt x 314.12692pt.
+ [47] [48 <./obrazky-figures/watchdog.pdf>] [49]
+Chapter 10.
+<obrazky-figures/testing_validation_coverage.pdf, id=1144, 602.25pt x 364.48169
+pt>
+File: obrazky-figures/testing_validation_coverage.pdf Graphic file (type pdf)
+<use obrazky-figures/testing_validation_coverage.pdf>
+Package pdftex.def Info: obrazky-figures/testing_validation_coverage.pdf  used 
+on input line 1239.
+(pdftex.def)             Requested size: 397.89975pt x 240.80891pt.
+[50
+
+] [51 <./obrazky-figures/testing_validation_coverage.pdf>] [52] [53]
+[54] [55] [56]
 Chapter 11.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
@@ -1402,150 +1331,36 @@ File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
-[48
-
-]
-<obrazky-figures/ide_network_panel.pdf, id=1019, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_network_panel.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_network_panel.pdf>
-Package pdftex.def Info: obrazky-figures/ide_network_panel.pdf  used on input l
-ine 1319.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
-<obrazky-figures/ide_runtime_deploy.pdf, id=1020, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_runtime_deploy.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_runtime_deploy.pdf>
-Package pdftex.def Info: obrazky-figures/ide_runtime_deploy.pdf  used on input 
-line 1345.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
- [49 <./obrazky-figures/ide_network_panel.pdf>]
-<obrazky-figures/ide_runtime_monitor.pdf, id=1029, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_runtime_monitor.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_runtime_monitor.pdf>
-Package pdftex.def Info: obrazky-figures/ide_runtime_monitor.pdf  used on input
- line 1381.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
- [50 <./obrazky-figures/ide_runtime_deploy.pdf>]
-Overfull \hbox (1.89433pt too wide) in paragraph at lines 1419--1424
-[]\T1/lmr/m/n/10.95 Figure [][]11.4[][] shows the Gate-way panel with a \T1/lmt
-t/m/n/10.95 delay \T1/lmr/m/n/10.95 fault pro-file ac-tive on \T1/lmtt/m/n/10.9
-5 device_cpp_01\T1/lmr/m/n/10.95 .
- []
-
-<obrazky-figures/ide_fault_injection.pdf, id=1037, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_fault_injection.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_fault_injection.pdf>
-Package pdftex.def Info: obrazky-figures/ide_fault_injection.pdf  used on input
- line 1429.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
-[51 <./obrazky-figures/ide_runtime_monitor.pdf>]
-<obrazky-figures/ide_time_travel.pdf, id=1046, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_time_travel.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_time_travel.pdf>
-Package pdftex.def Info: obrazky-figures/ide_time_travel.pdf  used on input lin
-e 1473.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
- [52 <./obrazky-figures/ide_fault_injection.pdf>]
-<obrazky-figures/ide_petri_net.pdf, id=1060, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_petri_net.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_petri_net.pdf>
-Package pdftex.def Info: obrazky-figures/ide_petri_net.pdf  used on input line 
-1505.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
- [53 <./obrazky-figures/ide_time_travel.pdf>] [54 <./obrazky-figures/ide_petri_
-net.pdf>]
-<obrazky-figures/ide_analyzer.pdf, id=1075, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_analyzer.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_analyzer.pdf>
-Package pdftex.def Info: obrazky-figures/ide_analyzer.pdf  used on input line 1
-562.
-(pdftex.def)             Requested size: 397.88245pt x 223.5172pt.
- [55 <./obrazky-figures/ide_analyzer.pdf>] [56]
-Chapter 12.
 [57
 
-]) (./projekt.bbl [58] [59
+] [58] [59] [60] [61] [62] [63]
+Chapter 12.
+[64
+
+] [65] [66]) (./projekt.bbl [67] [68
 
 ])
 \c@ttl@toc@chapters=\count400
- (./projekt-30-prilohy-appendices-en.tex
-[60] [61]
+
+(./projekt-30-prilohy-appendices-en.tex [69] [70]
 Appendix A.
-[62
+[71
 
 ]
 Appendix B.
-[63
+[72
 
 ]
 Appendix C.
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 Desktop
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 x86-64 /
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 WebSocket
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 Lightweight /
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 Arduino +
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 Raspberry Pi
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 ARM Cortex-
- []
-
-
-Underfull \hbox (badness 10000) in paragraph at lines 104--104
-[]|\T1/lmr/m/n/10.95 ARM Cortex-
- []
-
-[64
+[73
 
 ]
 Appendix D.
-
-Underfull \hbox (badness 7907) in paragraph at lines 130--130
-[]|\T1/lmr/m/n/10.95 Run the Gem Cell with \T1/lmtt/m/n/10.95 operator_enable=t
-rue\T1/lmr/m/n/10.95 ; cap-
- []
-
-
-Underfull \hbox (badness 2237) in paragraph at lines 130--130
-\T1/lmr/m/n/10.95 ture the state list around \T1/lmtt/m/n/10.95 RequestBus\T1/l
-mr/m/n/10.95 , \T1/lmtt/m/n/10.95 AcquireBus\T1/lmr/m/n/10.95 , and
- []
-
-
-Underfull \hbox (badness 6396) in paragraph at lines 130--130
-\T1/lmtt/m/n/10.95 ReplayCheckpoint\T1/lmr/m/n/10.95 , in-clud-ing vari-ables \
-T1/lmtt/m/n/10.95 phase\T1/lmr/m/n/10.95 , \T1/lmtt/m/n/10.95 tdd_step\T1/lmr/m
-/n/10.95 ,
- []
-
 )
 \tf@ptc=\write7
 \openout7 = `projekt.ptc'.
 
- [65
+ [74
 
 ] (./projekt.aux)
  ***********
@@ -1553,16 +1368,16 @@ LaTeX2e <2025-11-01>
 L3 programming layer <2021/03/21>
  ***********
 Package rerunfilecheck Info: File `projekt.out' has not changed.
-(rerunfilecheck)             Checksum: 8EFC2B6B630BCF8E409C29EE2D870E13;11263.
+(rerunfilecheck)             Checksum: 4CB721F4319347DAB72E7BEBF3F16A7D;14001.
  ) 
 Here is how much of TeX's memory you used:
- 29169 strings out of 468830
- 537362 string characters out of 5450632
- 1403505 words of memory out of 5000000
- 57047 multiletter control sequences out of 15000+600000
- 739504 words of font info for 129 fonts, out of 8000000 for 9000
+ 28961 strings out of 468830
+ 531844 string characters out of 5450632
+ 1400499 words of memory out of 5000000
+ 56798 multiletter control sequences out of 15000+600000
+ 736509 words of font info for 128 fonts, out of 8000000 for 9000
  320 hyphenation exceptions out of 8191
- 88i,12n,96p,1209b,1313s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 88i,12n,96p,1273b,2174s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/ascender/opensans/Op
 enSans-Bold.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public
 /amsfonts/cm/cmbx10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type
@@ -1588,10 +1403,10 @@ pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtk10.p
 fb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt10.pf
 b></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symb
 ols/msbm10.pfb>
-Output written on projekt.pdf (69 pages, 1091389 bytes).
+Output written on projekt.pdf (78 pages, 1214128 bytes).
 PDF statistics:
- 1335 PDF objects out of 1440 (max. 8388607)
- 1167 compressed objects within 12 object streams
- 349 named destinations out of 1000 (max. 500000)
- 675 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1518 PDF objects out of 1728 (max. 8388607)
+ 1326 compressed objects within 14 object streams
+ 391 named destinations out of 1000 (max. 500000)
+ 762 words of extra memory for PDF output out of 10000 (max. 10000000)
 

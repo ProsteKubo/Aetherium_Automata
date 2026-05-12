@@ -1,4 +1,4 @@
-%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#333333', 'fontSize': '14px', 'primaryColor': '#edeaf8', 'primaryBorderColor': '#6654b0', 'secondaryColor': '#fffde7', 'tertiaryColor': '#fffde7'}}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#f4efff", "primaryTextColor": "#111111", "primaryBorderColor": "#6f42c1", "lineColor": "#111111", "secondaryColor": "#fff2b8", "secondaryBorderColor": "#111111", "tertiaryColor": "#fff9dc", "tertiaryBorderColor": "#111111", "clusterBkg": "#fff2b8", "clusterBorder": "#111111", "actorBkg": "#f4efff", "actorBorder": "#6f42c1", "actorTextColor": "#111111", "noteBkgColor": "#fff2b8", "noteBorderColor": "#111111", "activationBkgColor": "#f4efff", "activationBorderColor": "#6f42c1"}}}%%
 flowchart TB
     SRV(["Server\nbinary frame"])
 
@@ -35,11 +35,11 @@ flowchart TB
     DEV --> EGR
     EGR --> SRV_IN
 
-    classDef decision stroke-width:2.5px,stroke:#6654b0
-    classDef action stroke-width:2.5px,stroke:#6654b0
-    classDef endpoint stroke-width:2px,stroke:#6654b0
+    classDef decision fill:#fff2b8,stroke-width:2.5px,stroke:#111111,color:#111111
+    classDef action fill:#f4efff,stroke-width:2.5px,stroke:#6f42c1,color:#111111
+    classDef endpoint fill:#fff9dc,stroke-width:2.5px,stroke:#111111,color:#111111
     class ID1,ID2,ED1,ED2 decision
     class ID3,ED3 action
     class ID0,ED0,SRV,DEV,SRV_IN endpoint
 
-    linkStyle default stroke-width:3px,stroke:#333333
+    linkStyle default stroke-width:3px,stroke:#111111

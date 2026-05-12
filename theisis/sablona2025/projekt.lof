@@ -3,30 +3,31 @@
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {4.1}{\ignorespaces High-level component architecture of Aetherium Automata.}}{18}{figure.4.1}%
+\contentsline {figure}{\numberline {4.1}{\ignorespaces High-level component architecture of Aetherium Automata.}}{20}{figure.4.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {5.1}{\ignorespaces Black-box contract boundary. The visible contract layer exposes named input/output ports, observable states, and emitted events to the external environment. The internal implementation --- states, variables, and transitions --- is opaque.}}{26}{figure.5.1}%
+\contentsline {figure}{\numberline {5.1}{\ignorespaces Black-box contract boundary. The visible contract layer exposes named input/output ports, observable states, and emitted events to the external environment. The internal implementation --- states, variables, and transitions --- is opaque.}}{28}{figure.5.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {6.1}{\ignorespaces Engine execution tick cycle. A transition fires at most once per tick per automaton.}}{30}{figure.6.1}%
-\contentsline {figure}{\numberline {6.2}{\ignorespaces Platform abstraction layer. The runtime core depends only on the three interfaces; concrete implementations are selected at link time.}}{31}{figure.6.2}%
-\contentsline {figure}{\numberline {6.3}{\ignorespaces FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded \texttt {IRandomSource}, making fault scenarios fully reproducible.}}{33}{figure.6.3}%
-\contentsline {figure}{\numberline {6.4}{\ignorespaces Time-travel rewind sequence. The IDE dispatches \texttt {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt {replay\_state\_at} and delivers a \texttt {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}}{35}{figure.6.4}%
+\contentsline {figure}{\numberline {6.1}{\ignorespaces Engine execution tick cycle. A transition fires at most once per tick per automaton.}}{31}{figure.6.1}%
+\contentsline {figure}{\numberline {6.2}{\ignorespaces Platform abstraction layer. The runtime core depends only on the three interfaces; concrete implementations are selected at link time.}}{32}{figure.6.2}%
+\contentsline {figure}{\numberline {6.3}{\ignorespaces FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible.}}{34}{figure.6.3}%
+\contentsline {figure}{\numberline {6.4}{\ignorespaces Time-travel rewind sequence. The IDE dispatches \texttt {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt {replay\_state\_at} and delivers a \texttt {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}}{36}{figure.6.4}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {7.1}{\ignorespaces Binary message envelope. The 2-byte platform tag \texttt {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}}{36}{figure.7.1}%
-\contentsline {figure}{\numberline {7.2}{\ignorespaces End-to-end message sequence for deploy, start, and runtime I/O exchange.}}{38}{figure.7.2}%
+\contentsline {figure}{\numberline {7.1}{\ignorespaces Binary message envelope. The 2-byte platform tag \texttt {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}}{37}{figure.7.1}%
+\contentsline {figure}{\numberline {7.2}{\ignorespaces End-to-end message sequence for deploy, start, and runtime I/O exchange.}}{39}{figure.7.2}%
 \addvspace {10\p@ }
+\contentsline {figure}{\numberline {8.1}{\ignorespaces Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}}{43}{figure.8.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {9.1}{\ignorespaces Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}}{42}{figure.9.1}%
+\contentsline {figure}{\numberline {9.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink.}}{48}{figure.9.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {10.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink.}}{47}{figure.10.1}%
+\contentsline {figure}{\numberline {10.1}{\ignorespaces Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows.}}{51}{figure.10.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {11.1}{\ignorespaces Network panel showing the demo project with one connected device.}}{49}{figure.11.1}%
-\contentsline {figure}{\numberline {11.2}{\ignorespaces Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt {device\_cpp\_01}.}}{50}{figure.11.2}%
-\contentsline {figure}{\numberline {11.3}{\ignorespaces Runtime Monitor panel displaying live state and variable values for the deployed automaton.}}{51}{figure.11.3}%
-\contentsline {figure}{\numberline {11.4}{\ignorespaces Gateway panel with an active delay fault profile on the demo device.}}{52}{figure.11.4}%
-\contentsline {figure}{\numberline {11.5}{\ignorespaces Execution trace replay timeline in the Runtime Monitor panel.}}{53}{figure.11.5}%
-\contentsline {figure}{\numberline {11.6}{\ignorespaces Petri Net panel showing token flow for the power-contention scenario.}}{54}{figure.11.6}%
-\contentsline {figure}{\numberline {11.7}{\ignorespaces Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}}{55}{figure.11.7}%
+\contentsline {figure}{\numberline {11.1}{\ignorespaces Network panel showing the demo project with one connected device.}}{58}{figure.11.1}%
+\contentsline {figure}{\numberline {11.2}{\ignorespaces Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt {device\_cpp\_01}.}}{58}{figure.11.2}%
+\contentsline {figure}{\numberline {11.3}{\ignorespaces Runtime Monitor panel displaying live state and variable values for the deployed automaton.}}{59}{figure.11.3}%
+\contentsline {figure}{\numberline {11.4}{\ignorespaces Gateway panel with an active delay fault profile on the demo device.}}{60}{figure.11.4}%
+\contentsline {figure}{\numberline {11.5}{\ignorespaces Execution trace replay timeline in the Runtime Monitor panel.}}{61}{figure.11.5}%
+\contentsline {figure}{\numberline {11.6}{\ignorespaces Petri Net panel showing token flow for the power-contention scenario.}}{61}{figure.11.6}%
+\contentsline {figure}{\numberline {11.7}{\ignorespaces Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}}{62}{figure.11.7}%
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }

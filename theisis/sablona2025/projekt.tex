@@ -54,6 +54,23 @@
 \usetikzlibrary{arrows.meta,bending,calc,shapes.geometric}
 \definecolor{aethpurple}{HTML}{6654b0}
 \hyphenation{Ae-the-ri-um}
+\setlength{\emergencystretch}{2em}
+\setlength{\textfloatsep}{10pt plus 2pt minus 2pt}
+\setlength{\floatsep}{10pt plus 2pt minus 2pt}
+\setlength{\intextsep}{10pt plus 2pt minus 2pt}
+
+\newcommand{\aethscreenshotplaceholder}[2]{%
+  \begingroup
+  \setlength{\fboxsep}{10pt}%
+  \fcolorbox{aethpurple}{aethpurple!4}{%
+    \begin{minipage}[c][0.16\textheight][c]{0.84\textwidth}
+      \centering
+      {\bfseries #1}\\[0.45em]
+      {\small #2}
+    \end{minipage}%
+  }%
+  \endgroup
+}
 
 
 % Pro seznam zkratek lze využít balíček Glossaries - nutno odkomentovat i níže a při kompilaci z konzoly i v Makefile (plnou verzi pro Perl, nebo lite)
@@ -206,7 +223,7 @@ Výsledok je demonštrovaný katalógom ukážkových automatov a projektom Aeth
 % \usepackage{subfiles}
 
 % Nechcete-li, aby se u oboustranného tisku roztahovaly mezery pro zaplnění stránky, odkomentujte následující řádek / If you do not want enlarged spacing for filling of the pages in case of duplex printing, uncomment the following line
-% \raggedbottom
+\raggedbottom
 
 \begin{document}
   % Vysazeni titulnich stran / Typesetting of the title pages

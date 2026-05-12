@@ -1,117 +1,134 @@
 \babel@toc {english}{}\relax 
-\contentsline {chapter}{\numberline {1}Introduction}{5}{chapter.1}%
-\contentsline {section}{\numberline {1.1}Design Philosophy}{6}{section.1.1}%
-\contentsline {paragraph}{Reality-in-the-Loop.}{6}{section*.3}%
-\contentsline {paragraph}{Deployment-Aware Development.}{6}{section*.4}%
-\contentsline {section}{\numberline {1.2}Goals}{7}{section.1.2}%
-\contentsline {section}{\numberline {1.3}Thesis Structure}{7}{section.1.3}%
-\contentsline {chapter}{\numberline {2}Background}{9}{chapter.2}%
-\contentsline {section}{\numberline {2.1}Finite State Machines}{9}{section.2.1}%
-\contentsline {section}{\numberline {2.2}Extended Finite State Machines}{9}{section.2.2}%
-\contentsline {section}{\numberline {2.3}Petri Nets}{10}{section.2.3}%
-\contentsline {section}{\numberline {2.4}Record-and-Replay Debugging}{11}{section.2.4}%
-\contentsline {chapter}{\numberline {3}Analysis of Existing Solutions}{12}{chapter.3}%
-\contentsline {section}{\numberline {3.1}Node-RED}{12}{section.3.1}%
-\contentsline {subsection}{\numberline {3.1.1}Overview}{12}{subsection.3.1.1}%
-\contentsline {subsection}{\numberline {3.1.2}Programming Model}{12}{subsection.3.1.2}%
-\contentsline {subsection}{\numberline {3.1.3}State Management}{13}{subsection.3.1.3}%
-\contentsline {subsection}{\numberline {3.1.4}Embedded Targets and Observability}{13}{subsection.3.1.4}%
-\contentsline {subsection}{\numberline {3.1.5}Summary}{13}{subsection.3.1.5}%
-\contentsline {section}{\numberline {3.2}Eclipse 4diac}{13}{section.3.2}%
-\contentsline {subsection}{\numberline {3.2.1}Overview}{13}{subsection.3.2.1}%
-\contentsline {subsection}{\numberline {3.2.2}IEC 61499 and Function Blocks}{13}{subsection.3.2.2}%
-\contentsline {subsection}{\numberline {3.2.3}4diac IDE and FORTE Runtime}{14}{subsection.3.2.3}%
-\contentsline {subsection}{\numberline {3.2.4}Limitations Relevant to this Thesis}{14}{subsection.3.2.4}%
-\contentsline {section}{\numberline {3.3}Comparison}{15}{section.3.3}%
-\contentsline {paragraph}{Programmer's mental model.}{15}{section*.5}%
-\contentsline {section}{\numberline {3.4}Requirements}{16}{section.3.4}%
-\contentsline {chapter}{\numberline {4}System Architecture}{18}{chapter.4}%
-\contentsline {section}{\numberline {4.1}Technology Selection Rationale}{18}{section.4.1}%
-\contentsline {subsection}{\numberline {4.1.1}Elixir and the BEAM for the Server and Gateway}{19}{subsection.4.1.1}%
-\contentsline {paragraph}{Process-per-device isolation.}{19}{section*.6}%
-\contentsline {paragraph}{OTP supervision trees and let-it-crash.}{19}{section*.7}%
-\contentsline {paragraph}{Preemptive scheduling and throughput.}{19}{section*.8}%
-\contentsline {paragraph}{Hot code reloading.}{19}{section*.9}%
-\contentsline {subsection}{\numberline {4.1.2}C++ for the Engine}{19}{subsection.4.1.2}%
-\contentsline {paragraph}{Engine-as-library design.}{19}{section*.10}%
-\contentsline {paragraph}{Abstract platform interfaces.}{20}{section*.11}%
-\contentsline {paragraph}{CMake build target selection.}{20}{section*.12}%
-\contentsline {section}{\numberline {4.2}Component Responsibilities}{20}{section.4.2}%
-\contentsline {subsection}{\numberline {4.2.1}Engine}{20}{subsection.4.2.1}%
-\contentsline {subsection}{\numberline {4.2.2}Server}{21}{subsection.4.2.2}%
-\contentsline {subsection}{\numberline {4.2.3}Gateway}{21}{subsection.4.2.3}%
-\contentsline {subsection}{\numberline {4.2.4}IDE}{21}{subsection.4.2.4}%
-\contentsline {section}{\numberline {4.3}Component Interaction and Data Flow}{21}{section.4.3}%
-\contentsline {section}{\numberline {4.4}Deployment Model}{22}{section.4.4}%
-\contentsline {chapter}{\numberline {5}Automata Model and DSL}{23}{chapter.5}%
-\contentsline {section}{\numberline {5.1}Model Overview}{23}{section.5.1}%
-\contentsline {section}{\numberline {5.2}States}{23}{section.5.2}%
-\contentsline {section}{\numberline {5.3}Variables}{23}{section.5.3}%
-\contentsline {section}{\numberline {5.4}Transition Types}{24}{section.5.4}%
-\contentsline {subsection}{\numberline {5.4.1}Classic}{24}{subsection.5.4.1}%
-\contentsline {subsection}{\numberline {5.4.2}Timed}{24}{subsection.5.4.2}%
-\contentsline {subsection}{\numberline {5.4.3}Event}{24}{subsection.5.4.3}%
-\contentsline {subsection}{\numberline {5.4.4}Probabilistic}{25}{subsection.5.4.4}%
-\contentsline {subsection}{\numberline {5.4.5}Immediate (Epsilon)}{25}{subsection.5.4.5}%
-\contentsline {section}{\numberline {5.5}Transition Resolution Algorithm}{25}{section.5.5}%
-\contentsline {section}{\numberline {5.6}Black-Box Contract}{26}{section.5.6}%
-\contentsline {section}{\numberline {5.7}YAML Domain-Specific Language}{27}{section.5.7}%
-\contentsline {subsection}{\numberline {5.7.1}Layout Types}{28}{subsection.5.7.1}%
-\contentsline {subsection}{\numberline {5.7.2}Validation Rules}{28}{subsection.5.7.2}%
-\contentsline {chapter}{\numberline {6}Runtime Engine}{29}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Execution Tick Cycle}{29}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Platform Abstraction}{30}{section.6.2}%
-\contentsline {section}{\numberline {6.3}Lua Scripting}{31}{section.6.3}%
-\contentsline {section}{\numberline {6.4}Timer Management}{32}{section.6.4}%
-\contentsline {section}{\numberline {6.5}Fault Injection}{32}{section.6.5}%
-\contentsline {section}{\numberline {6.6}Execution Trace and Time-Travel Debugging}{34}{section.6.6}%
-\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{36}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{36}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Phoenix Gateway}{37}{section.7.2}%
+\contentsline {chapter}{\numberline {1}Introduction}{6}{chapter.1}%
+\contentsline {section}{\numberline {1.1}Design Philosophy}{7}{section.1.1}%
+\contentsline {paragraph}{Reality-in-the-Loop.}{7}{section*.3}%
+\contentsline {paragraph}{Deployment-Aware Development.}{7}{section*.4}%
+\contentsline {section}{\numberline {1.2}Goals}{8}{section.1.2}%
+\contentsline {section}{\numberline {1.3}Thesis Structure}{8}{section.1.3}%
+\contentsline {chapter}{\numberline {2}Background}{10}{chapter.2}%
+\contentsline {section}{\numberline {2.1}Finite State Machines}{10}{section.2.1}%
+\contentsline {section}{\numberline {2.2}Extended Finite State Machines}{10}{section.2.2}%
+\contentsline {section}{\numberline {2.3}Petri Nets}{11}{section.2.3}%
+\contentsline {section}{\numberline {2.4}Record-and-Replay Debugging}{12}{section.2.4}%
+\contentsline {section}{\numberline {2.5}Implications for an IoT Toolchain}{13}{section.2.5}%
+\contentsline {chapter}{\numberline {3}Analysis of Existing Solutions}{14}{chapter.3}%
+\contentsline {section}{\numberline {3.1}Node-RED}{14}{section.3.1}%
+\contentsline {subsection}{\numberline {3.1.1}Overview}{14}{subsection.3.1.1}%
+\contentsline {subsection}{\numberline {3.1.2}Programming Model}{14}{subsection.3.1.2}%
+\contentsline {subsection}{\numberline {3.1.3}State Management}{15}{subsection.3.1.3}%
+\contentsline {subsection}{\numberline {3.1.4}Embedded Targets and Observability}{15}{subsection.3.1.4}%
+\contentsline {subsection}{\numberline {3.1.5}Summary}{15}{subsection.3.1.5}%
+\contentsline {section}{\numberline {3.2}Eclipse 4diac}{15}{section.3.2}%
+\contentsline {subsection}{\numberline {3.2.1}Overview}{15}{subsection.3.2.1}%
+\contentsline {subsection}{\numberline {3.2.2}IEC 61499 and Function Blocks}{15}{subsection.3.2.2}%
+\contentsline {subsection}{\numberline {3.2.3}4diac IDE and FORTE Runtime}{16}{subsection.3.2.3}%
+\contentsline {subsection}{\numberline {3.2.4}Limitations Relevant to this Thesis}{16}{subsection.3.2.4}%
+\contentsline {section}{\numberline {3.3}Comparison}{17}{section.3.3}%
+\contentsline {paragraph}{Programmer's mental model.}{17}{section*.5}%
+\contentsline {section}{\numberline {3.4}Requirements}{18}{section.3.4}%
+\contentsline {chapter}{\numberline {4}System Architecture}{20}{chapter.4}%
+\contentsline {section}{\numberline {4.1}Technology Selection Rationale}{20}{section.4.1}%
+\contentsline {subsection}{\numberline {4.1.1}Elixir and the BEAM for the Server and Gateway}{21}{subsection.4.1.1}%
+\contentsline {paragraph}{Process-per-device isolation.}{21}{section*.6}%
+\contentsline {paragraph}{OTP supervision trees and let-it-crash.}{21}{section*.7}%
+\contentsline {paragraph}{Preemptive scheduling and throughput.}{21}{section*.8}%
+\contentsline {paragraph}{Hot code reloading.}{21}{section*.9}%
+\contentsline {subsection}{\numberline {4.1.2}C++ for the Engine}{21}{subsection.4.1.2}%
+\contentsline {paragraph}{Engine-as-library design.}{21}{section*.10}%
+\contentsline {paragraph}{Abstract platform interfaces.}{22}{section*.11}%
+\contentsline {paragraph}{CMake build target selection.}{22}{section*.12}%
+\contentsline {section}{\numberline {4.2}Component Responsibilities}{22}{section.4.2}%
+\contentsline {subsection}{\numberline {4.2.1}Engine}{22}{subsection.4.2.1}%
+\contentsline {subsection}{\numberline {4.2.2}Server}{23}{subsection.4.2.2}%
+\contentsline {subsection}{\numberline {4.2.3}Gateway}{23}{subsection.4.2.3}%
+\contentsline {subsection}{\numberline {4.2.4}IDE}{23}{subsection.4.2.4}%
+\contentsline {section}{\numberline {4.3}Component Interaction and Data Flow}{23}{section.4.3}%
+\contentsline {section}{\numberline {4.4}Deployment Model}{24}{section.4.4}%
+\contentsline {chapter}{\numberline {5}Automata Model and DSL}{25}{chapter.5}%
+\contentsline {section}{\numberline {5.1}Model Overview}{25}{section.5.1}%
+\contentsline {section}{\numberline {5.2}States}{25}{section.5.2}%
+\contentsline {section}{\numberline {5.3}Variables}{25}{section.5.3}%
+\contentsline {section}{\numberline {5.4}Transition Types}{26}{section.5.4}%
+\contentsline {subsection}{\numberline {5.4.1}Classic}{26}{subsection.5.4.1}%
+\contentsline {subsection}{\numberline {5.4.2}Timed}{26}{subsection.5.4.2}%
+\contentsline {subsection}{\numberline {5.4.3}Event}{26}{subsection.5.4.3}%
+\contentsline {subsection}{\numberline {5.4.4}Probabilistic}{27}{subsection.5.4.4}%
+\contentsline {subsection}{\numberline {5.4.5}Immediate (Epsilon)}{27}{subsection.5.4.5}%
+\contentsline {section}{\numberline {5.5}Transition Resolution Algorithm}{27}{section.5.5}%
+\contentsline {section}{\numberline {5.6}Black-Box Contract}{28}{section.5.6}%
+\contentsline {section}{\numberline {5.7}YAML Domain-Specific Language}{28}{section.5.7}%
+\contentsline {subsection}{\numberline {5.7.1}Layout Types}{30}{subsection.5.7.1}%
+\contentsline {subsection}{\numberline {5.7.2}Validation Rules}{30}{subsection.5.7.2}%
+\contentsline {chapter}{\numberline {6}Runtime Engine}{31}{chapter.6}%
+\contentsline {section}{\numberline {6.1}Execution Tick Cycle}{31}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Platform Abstraction}{32}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Lua Scripting}{32}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Timer Management}{33}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Fault Injection}{33}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Execution Trace and Time-Travel Debugging}{33}{section.6.6}%
+\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{37}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{37}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Phoenix Gateway}{38}{section.7.2}%
 \contentsline {section}{\numberline {7.3}End-to-End Message Flow}{38}{section.7.3}%
-\contentsline {chapter}{\numberline {8}Integrated Development Environment}{39}{chapter.8}%
-\contentsline {section}{\numberline {8.1}Architecture}{39}{section.8.1}%
-\contentsline {section}{\numberline {8.2}Phoenix Gateway Service}{39}{section.8.2}%
-\contentsline {section}{\numberline {8.3}Panels}{39}{section.8.3}%
-\contentsline {chapter}{\numberline {9}Petri Net Analysis}{41}{chapter.9}%
-\contentsline {section}{\numberline {9.1}Formal Definitions}{41}{section.9.1}%
+\contentsline {section}{\numberline {7.4}Integrated Development Environment}{38}{section.7.4}%
+\contentsline {subsection}{\numberline {7.4.1}IDE Architecture}{38}{subsection.7.4.1}%
+\contentsline {subsection}{\numberline {7.4.2}Phoenix Gateway Service}{38}{subsection.7.4.2}%
+\contentsline {subsection}{\numberline {7.4.3}Operator Panels}{40}{subsection.7.4.3}%
+\contentsline {chapter}{\numberline {8}Petri Net Analysis}{41}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Formal Definitions}{41}{section.8.1}%
 \contentsline {paragraph}{Automaton.}{41}{section*.14}%
 \contentsline {paragraph}{P/T net.}{41}{section*.15}%
-\contentsline {section}{\numberline {9.2}Lifting a Single Automaton}{41}{section.9.2}%
+\contentsline {section}{\numberline {8.2}Lifting a Single Automaton}{41}{section.8.2}%
 \contentsline {paragraph}{Places.}{42}{section*.16}%
 \contentsline {paragraph}{Transitions and arcs.}{42}{section*.17}%
 \contentsline {paragraph}{Initial marking.}{42}{section*.18}%
-\contentsline {section}{\numberline {9.3}Network Composition}{43}{section.9.3}%
-\contentsline {section}{\numberline {9.4}Analysis Operations}{43}{section.9.4}%
-\contentsline {subsection}{\numberline {9.4.1}Reachability and Deadlock Detection}{43}{subsection.9.4.1}%
-\contentsline {subsection}{\numberline {9.4.2}Boundedness}{43}{subsection.9.4.2}%
-\contentsline {subsection}{\numberline {9.4.3}P-Invariant Analysis}{43}{subsection.9.4.3}%
-\contentsline {subsection}{\numberline {9.4.4}Contention Analysis}{44}{subsection.9.4.4}%
-\contentsline {section}{\numberline {9.5}Showcase Scenarios}{44}{section.9.5}%
-\contentsline {subsection}{\numberline {9.5.1}Showcase 13 --- Petri Signal Chain}{44}{subsection.9.5.1}%
-\contentsline {subsection}{\numberline {9.5.2}Showcase 14 --- Petri Contention}{44}{subsection.9.5.2}%
-\contentsline {chapter}{\numberline {10}Showcase Catalog}{45}{chapter.10}%
-\contentsline {section}{\numberline {10.1}Flagship Showcase: Aetherium Gem Cell (15)}{45}{section.10.1}%
-\contentsline {section}{\numberline {10.2}Selected Showcase: Quality Router (03)}{46}{section.10.2}%
-\contentsline {section}{\numberline {10.3}Selected Showcase: Sensor Watchdog Recovery (04)}{47}{section.10.3}%
-\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{48}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Infrastructure Setup}{48}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Opening the Demo Project}{49}{section.11.2}%
-\contentsline {section}{\numberline {11.3}Deploying Automata}{49}{section.11.3}%
-\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{50}{section.11.4}%
-\contentsline {section}{\numberline {11.5}Injecting Faults}{51}{section.11.5}%
-\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{52}{section.11.6}%
-\contentsline {section}{\numberline {11.7}Petri Net Analysis}{53}{section.11.7}%
-\contentsline {section}{\numberline {11.8}Analyzer Panel}{54}{section.11.8}%
-\contentsline {section}{\numberline {11.9}Black-Box Devices}{55}{section.11.9}%
-\contentsline {section}{\numberline {11.10}Demonstration Summary}{56}{section.11.10}%
-\contentsline {chapter}{\numberline {12}Conclusion}{57}{chapter.12}%
-\contentsline {section}{\numberline {12.1}Summary}{57}{section.12.1}%
-\contentsline {section}{\numberline {12.2}Future Work}{58}{section.12.2}%
-\contentsline {chapter}{Bibliography}{59}{chapter*.19}%
+\contentsline {section}{\numberline {8.3}Network Composition}{42}{section.8.3}%
+\contentsline {section}{\numberline {8.4}Analysis Operations}{42}{section.8.4}%
+\contentsline {subsection}{\numberline {8.4.1}Reachability and Deadlock Detection}{42}{subsection.8.4.1}%
+\contentsline {subsection}{\numberline {8.4.2}Boundedness}{44}{subsection.8.4.2}%
+\contentsline {subsection}{\numberline {8.4.3}P-Invariant Analysis}{44}{subsection.8.4.3}%
+\contentsline {subsection}{\numberline {8.4.4}Contention Analysis}{44}{subsection.8.4.4}%
+\contentsline {section}{\numberline {8.5}Showcase Scenarios}{44}{section.8.5}%
+\contentsline {subsection}{\numberline {8.5.1}Showcase 13 --- Petri Signal Chain}{44}{subsection.8.5.1}%
+\contentsline {subsection}{\numberline {8.5.2}Showcase 14 --- Petri Contention}{45}{subsection.8.5.2}%
+\contentsline {chapter}{\numberline {9}Showcase Catalog}{46}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Flagship Showcase: Aetherium Gem Cell (15)}{46}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Selected Showcase: Quality Router (03)}{47}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Selected Showcase: Sensor Watchdog Recovery (04)}{48}{section.9.3}%
+\contentsline {section}{\numberline {9.4}Catalog as a Validation Corpus}{48}{section.9.4}%
+\contentsline {section}{\numberline {9.5}Demonstration Selection Criteria}{49}{section.9.5}%
+\contentsline {chapter}{\numberline {10}Testing and Validation}{50}{chapter.10}%
+\contentsline {section}{\numberline {10.1}Validation Scope}{50}{section.10.1}%
+\contentsline {section}{\numberline {10.2}Requirement Traceability}{51}{section.10.2}%
+\contentsline {section}{\numberline {10.3}Unit and Component Tests}{51}{section.10.3}%
+\contentsline {section}{\numberline {10.4}Coverage by Component}{53}{section.10.4}%
+\contentsline {section}{\numberline {10.5}End-to-End Tests}{53}{section.10.5}%
+\contentsline {section}{\numberline {10.6}Fault Injection and Replay Validation}{54}{section.10.6}%
+\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{54}{section.10.7}%
+\contentsline {section}{\numberline {10.8}Manual Validation Protocol}{55}{section.10.8}%
+\contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{55}{section.10.9}%
+\contentsline {section}{\numberline {10.10}Validation Limits}{56}{section.10.10}%
+\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{57}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Infrastructure Setup}{57}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Opening the Demo Project}{58}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Deploying Automata}{58}{section.11.3}%
+\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{59}{section.11.4}%
+\contentsline {section}{\numberline {11.5}Injecting Faults}{59}{section.11.5}%
+\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{60}{section.11.6}%
+\contentsline {section}{\numberline {11.7}Petri Net Analysis}{61}{section.11.7}%
+\contentsline {section}{\numberline {11.8}Analyzer Panel}{62}{section.11.8}%
+\contentsline {section}{\numberline {11.9}Black-Box Devices}{63}{section.11.9}%
+\contentsline {section}{\numberline {11.10}Demonstration Summary}{63}{section.11.10}%
+\contentsline {chapter}{\numberline {12}Conclusion}{64}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Summary}{64}{section.12.1}%
+\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{65}{section.12.2}%
+\contentsline {section}{\numberline {12.3}Limitations}{66}{section.12.3}%
+\contentsline {section}{\numberline {12.4}Practical Impact}{66}{section.12.4}%
+\contentsline {section}{\numberline {12.5}Future Work}{67}{section.12.5}%
+\contentsline {chapter}{Bibliography}{68}{chapter*.19}%
 \ttl@starttoc {chapters@1}
-\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{62}{appendix.A}%
-\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{63}{appendix.B}%
-\contentsline {chapter}{\numberline {C}Supported Platform Targets}{64}{appendix.C}%
-\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{65}{appendix.D}%
+\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{71}{appendix.A}%
+\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{72}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Supported Platform Targets}{73}{appendix.C}%
+\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{74}{appendix.D}%
 \contentsfinish 

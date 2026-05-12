@@ -1,0 +1,47 @@
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#f4efff", "primaryTextColor": "#111111", "primaryBorderColor": "#6f42c1", "lineColor": "#111111", "secondaryColor": "#fff2b8", "secondaryBorderColor": "#111111", "tertiaryColor": "#fff9dc", "tertiaryBorderColor": "#111111", "clusterBkg": "#fff2b8", "clusterBorder": "#111111", "actorBkg": "#f4efff", "actorBorder": "#6f42c1", "actorTextColor": "#111111", "noteBkgColor": "#fff2b8", "noteBorderColor": "#111111", "activationBkgColor": "#f4efff", "activationBorderColor": "#6f42c1"}}}%%
+flowchart TB
+  thesis["Thesis Claims\nEFSM design, deployment,\nobservation, fault injection,\nreplay, Petri analysis"]
+
+  subgraph manual["Manual Validation"]
+    ide["IDE workflow\neditor, gateway, monitor,\nfault panel, replay, Petri"]
+    hardware["Hardware smoke\nESP32, MCXN947,\nserial transport"]
+  end
+
+  subgraph e2e["End-to-End Validation"]
+    stack["Docker stack\nmake up"]
+    blackbox["Black-box profile\nmake smoke-blackbox"]
+    timetravel["Replay workflow\nscripts/test_time_travel.py"]
+    influx["Time-series profile\nmake test-ts"]
+  end
+
+  subgraph integration["Component Integration"]
+    gateway["Gateway ExUnit\nchannels, auth,\nprotocol, transfer"]
+    server["Server ExUnit\nruntime, compiler,\ndevice manager"]
+    analyzer["Analyzer tests\nprojection, backlog,\nfault correlation"]
+    timeseries["Time-series tests\nsnapshots, replay,\nInflux fallback"]
+  end
+
+  subgraph unit["Unit and Static Checks"]
+    engine["C++ engine build\ncommand smoke"]
+    pytest["Python CLI tests\nargument and YAML validation"]
+    catalog["Showcase catalog\ncurated YAML corpus"]
+    ideunit["IDE TypeScript tests\nclient logic"]
+  end
+
+  unit --> integration
+  integration --> e2e
+  e2e --> manual
+  manual --> thesis
+
+  engine --> stack
+  catalog --> stack
+  timeseries --> timetravel
+  gateway --> timetravel
+  server --> timetravel
+  analyzer --> ide
+  blackbox --> ide
+
+  classDef layer fill:#f4efff,stroke:#6f42c1,stroke-width:2.5px,color:#111111;
+  classDef claim fill:#fff2b8,stroke:#111111,stroke-width:2.5px,color:#111111;
+  class thesis claim;
+  class engine,pytest,catalog,ideunit,gateway,server,analyzer,timeseries,stack,blackbox,timetravel,influx,ide,hardware layer;

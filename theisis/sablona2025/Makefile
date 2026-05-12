@@ -6,10 +6,16 @@
 #===========================================
 # asi budete chtit prejmenovat / you will probably rename:
 CO=projekt
+NORM_FILES=$(CO)-01-kapitoly-chapters-en.tex
 
 all: $(CO).pdf
 
 pdf: $(CO).pdf
+
+diagrams:
+	for f in mermaid-src/*.mmd; do \
+		mmdc -i $$f -o obrazky-figures/$$(basename $$f .mmd).pdf -b transparent -C mermaid-src/thick.css -f; \
+	done
 
 $(CO).ps: $(CO).dvi
 	dvips $(CO)
@@ -56,5 +62,4 @@ vlna:
 
 # Spocita normostrany / Count of standard pages
 normostrany:
-	echo "scale=2; `detex -n $(CO)-[01]*.tex | sed s/"^ *"/""/ | sed s/"^	*"/""/ | wc -c`/1800;" | bc
-
+	detex -n $(NORM_FILES) | sed s/"^ *"/""/ | sed s/"^	*"/""/ | wc -c | awk '{ printf "%.2f\n", $$1 / 1800 }'

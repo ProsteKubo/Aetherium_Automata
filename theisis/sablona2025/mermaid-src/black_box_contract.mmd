@@ -1,4 +1,4 @@
-%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#333333', 'fontSize': '14px', 'primaryColor': '#edeaf8', 'primaryBorderColor': '#6654b0', 'secondaryColor': '#fffde7', 'tertiaryColor': '#fffde7'}}}%%
+%%{init: {"theme": "base", "themeVariables": {"fontFamily": "Helvetica, Arial, sans-serif", "fontSize": "14px", "primaryColor": "#f4efff", "primaryTextColor": "#111111", "primaryBorderColor": "#6f42c1", "lineColor": "#111111", "secondaryColor": "#fff2b8", "secondaryBorderColor": "#111111", "tertiaryColor": "#fff9dc", "tertiaryBorderColor": "#111111", "clusterBkg": "#fff2b8", "clusterBorder": "#111111", "actorBkg": "#f4efff", "actorBorder": "#6f42c1", "actorTextColor": "#111111", "noteBkgColor": "#fff2b8", "noteBorderColor": "#111111", "activationBkgColor": "#f4efff", "activationBorderColor": "#6f42c1"}}}%%
 flowchart LR
     subgraph ENV_IN["External Environment"]
         direction TB
@@ -38,11 +38,11 @@ flowchart LR
     CONTRACT -.->|"write"| HIDDEN
     HIDDEN -.->|"observe / expose"| CONTRACT
 
-    classDef portBox stroke-width:2.5px,stroke:#6654b0
-    classDef stateCircle stroke-width:2.5px,stroke:#6654b0
-    classDef sigNode stroke-width:2px,stroke:#6654b0
+    classDef portBox fill:#f4efff,stroke-width:2.5px,stroke:#6f42c1,color:#111111
+    classDef stateCircle fill:#f4efff,stroke-width:2.5px,stroke:#6f42c1,color:#111111
+    classDef sigNode fill:#fff2b8,stroke-width:2.5px,stroke:#111111,color:#111111
     class ip,op,obs,ev portBox
     class Off,On,Err stateCircle
     class sig1,sig2,out1,out2,iv sigNode
 
-    linkStyle default stroke-width:3px,stroke:#333333
+    linkStyle default stroke-width:3px,stroke:#111111
