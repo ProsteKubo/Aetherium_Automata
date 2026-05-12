@@ -1,0 +1,30 @@
+flowchart LR
+    subgraph Operator["Operator Desktop"]
+        IDE["Electron IDE\n(React / Zustand)"]
+    end
+
+    subgraph GW_BOX["Gateway (single entry-point)"]
+        GW["Phoenix Gateway\n(Elixir / Phoenix)"]
+    end
+
+    subgraph Servers["Aetherium Servers"]
+        SRV1["Server 1\n(Elixir / OTP)"]
+        SRV2["Server 2\n(Elixir / OTP)"]
+        SRV3["Server 3\n(Elixir / OTP)"]
+    end
+
+    subgraph Devices["Device Layer"]
+        D1["Desktop Runner\n(C++17 Engine)"]
+        D2["ESP32\n(Arduino / C++)"]
+        D3["ARM MCU\n(MCXN947 / Pico)"]
+        D4["Black-Box\n(external system)"]
+    end
+
+    IDE <-->|"WebSocket\n(Phoenix Channel)"| GW
+    GW <-->|"WebSocket"| SRV1
+    GW <-->|"WebSocket"| SRV2
+    GW <-->|"WebSocket"| SRV3
+    SRV1 <-->|"WebSocket"| D1
+    SRV2 <-->|"UART / Serial"| D2
+    SRV2 <-->|"UART / Serial"| D3
+    SRV3 <-->|"WebSocket"| D4

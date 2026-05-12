@@ -1,0 +1,9 @@
+stateDiagram-v2
+    [*] --> monitoring
+
+    monitoring --> alarming : timeout [sensor silent]
+    alarming --> recovering : immediate
+    recovering --> monitoring : guard [sensor_ok == true]
+    recovering --> alarming : after [retries remaining]
+    recovering --> failed : guard [retries exhausted]
+    failed --> [*]

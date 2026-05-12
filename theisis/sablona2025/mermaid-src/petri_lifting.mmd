@@ -1,0 +1,15 @@
+flowchart TB
+    subgraph A_net["Automaton A"]
+        PA_idle(("idle ●")) --> TA_start["start"] --> PA_active(("active")) --> TA_done["done"]
+        TA_done --> PA_idle
+    end
+
+    P_ch(("ch_signal\nshared place"))
+
+    subgraph B_net["Automaton B"]
+        PB_wait(("waiting ●")) --> TB_recv["receive"] --> PB_proc(("processing")) --> TB_finish["finish"]
+        TB_finish --> PB_wait
+    end
+
+    A_net -->|"emit"| P_ch
+    P_ch -->|"consume"| B_net

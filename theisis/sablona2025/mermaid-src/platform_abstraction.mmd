@@ -1,0 +1,35 @@
+flowchart TB
+    subgraph CORE["Runtime Core (platform-independent)"]
+        RT["Runtime\ntick loop + transition resolution"]
+        LUA["Lua Engine\nguards, actions, hooks"]
+        TR["Execution Trace\nTraceRecord log"]
+        RT --> LUA
+        RT --> TR
+    end
+
+    CLK["IClock"]
+    RNG["IRandomSource"]
+    SCR["IScriptEngine"]
+
+    RT --> CLK
+    RT --> RNG
+    LUA --> SCR
+
+    subgraph DT["Desktop  (Linux / macOS)"]
+        DC["std::chrono"]
+        DR["std::mt19937_64"]
+        DS["Lua 5.4 + Sol2"]
+    end
+
+    subgraph EM["Embedded  (ESP32 / Pico / MCU)"]
+        EC["Hardware timer"]
+        ER["Hardware RNG / LFSR"]
+        ES["Lightweight eval\nor no-op stub"]
+    end
+
+    CLK -.-> DC
+    RNG -.-> DR
+    SCR -.-> DS
+    CLK -.-> EC
+    RNG -.-> ER
+    SCR -.-> ES

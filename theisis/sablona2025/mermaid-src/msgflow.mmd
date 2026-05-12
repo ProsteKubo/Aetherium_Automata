@@ -1,0 +1,29 @@
+sequenceDiagram
+    participant IDE as Electron IDE
+    participant GW as Phoenix Gateway
+    participant SRV as Aetherium Server
+    participant DEV as C++ Engine
+
+    IDE->>GW: deploy(yaml, device_id)
+    GW->>SRV: forward deploy
+    SRV->>DEV: LOAD (binary artifact)
+    DEV-->>SRV: LOAD_ACK
+    SRV-->>GW: deploy_ok
+    GW-->>IDE: deploy_ok
+
+    IDE->>GW: start(run_id)
+    GW->>SRV: forward start
+    SRV->>DEV: START
+    DEV-->>SRV: RUNNING
+    SRV-->>GW: running
+    GW-->>IDE: running
+
+    loop Runtime telemetry
+        DEV->>SRV: STATE_CHANGE / OUTPUT
+        SRV->>GW: push event
+        GW->>IDE: channel push
+    end
+
+    IDE->>GW: set_input(name, value)
+    GW->>SRV: forward input
+    SRV->>DEV: INPUT

@@ -58,7 +58,7 @@ The primary goals of this thesis are:
 
 \section{Thesis Structure}
 
-Chapter~\ref{chap:background} introduces the theoretical background: Finite State Machines, Extended Finite State Machines, and Petri nets. Chapter~\ref{chap:analysis} discusses related tools and analyses requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine internals. Chapter~\ref{chap:gateway} describes the gateway and communication protocol. Chapter~\ref{chap:ide} covers the IDE. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:conclusion} concludes with results and future work.
+Chapter~\ref{chap:background} introduces the theoretical background: Finite State Machines, Extended Finite State Machines, and Petri nets. Chapter~\ref{chap:analysis} discusses related tools and analyses requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine internals. Chapter~\ref{chap:gateway} describes the gateway and communication protocol. Chapter~\ref{chap:ide} covers the IDE. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:demonstration} walks through an end-to-end demonstration of the running system. Chapter~\ref{chap:conclusion} concludes with results and future work.
 
 % ============================================================
 \chapter{Background}
@@ -175,7 +175,7 @@ Three kinds of built-in nodes are provided:
 \begin{description}
   \item[Input nodes] Inject messages into the flow from external sources --- timers, MQTT brokers, HTTP endpoints, or hardware GPIO.
   \item[Processing nodes] Transform, filter, or route messages --- function nodes accept arbitrary JavaScript code, switch nodes branch on message properties.
-  \item[Output nodes] Send messages to external sinks --- MQTT publish, HTTP response, database write.
+  \item[Output nodes] Forward messages to external sinks: MQTT, HTTP, or database.
 \end{description}
 
 A community ecosystem of over 5\,000 third-party nodes extends the platform with protocol adapters, UI widgets, and cloud service integrations.
@@ -184,7 +184,7 @@ A community ecosystem of over 5\,000 third-party nodes extends the platform with
 
 Node-RED has no built-in concept of a state machine. Application-level state must be managed explicitly using \textit{context storage}: node context (local to one node), flow context (shared within a flow tab), or global context (shared across all flows). Accessing and mutating context from within function nodes requires manual bookkeeping and is untyped.
 
-Several community packages attempt to address this gap by adding FSM nodes (e.g.\ \texttt{node-red-contrib-finite-statemachine}, \texttt{node-red-contrib-xstate-machine}), but these are third-party add-ons with no native IDE integration, no visual state graph, and no support for timed or probabilistic transitions. Representing complex stateful logic natively in Node-RED leads to large, hard-to-navigate flow graphs in which control flow and data flow are interleaved.
+Several community packages attempt to address this gap by adding FSM nodes (e.g.\ \texttt{node-red-contrib-\allowbreak{}finite-statemachine}), but these are third-party add-ons with no native IDE integration, no visual state graph, and no support for timed or probabilistic transitions. Representing complex stateful logic natively in Node-RED leads to large, hard-to-navigate flow graphs in which control flow and data flow are interleaved.
 
 \subsection{Embedded Targets and Observability}
 
@@ -203,7 +203,7 @@ Node-RED excels at rapid prototyping and data routing in environments where stat
 
 \subsection{Overview}
 
-Eclipse 4diac~\cite{Eclipse4diac} (originally named 4DIAC --- Framework for Distributed Industrial Automation and Control) is an open-source development environment and runtime for distributed control systems based on the IEC~61499 standard. It was first presented by Strasser, Rooker, Zoitl et al.\ in 2008~\cite{Strasser2008} and later became an Eclipse Foundation project. Its primary reference text is the book by Zoitl and Strasser~\cite{Zoitl2017}.
+Eclipse 4diac~\cite{Eclipse4diac} is an open-source IDE and runtime for IEC~61499-based distributed control. First presented by Strasser et al.~\cite{Strasser2008}, it is now an Eclipse Foundation project with a dedicated reference text~\cite{Zoitl2017}.
 
 \subsection{IEC 61499 and Function Blocks}
 
@@ -249,25 +249,24 @@ Table~\ref{tab:comparison} summarises the key characteristics of both analysed p
   \caption{Feature comparison of Node-RED, Eclipse 4diac, and Aetherium Automata.}
   \label{tab:comparison}
   \vskip6pt
-  \begin{tabular}{llll}
+  \begin{tabularx}{\textwidth}{l>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X>{\raggedright\arraybackslash}X}
     \toprule
     Feature & Node-RED & 4diac & Aetherium \\
     \midrule
-    Explicit state model      & No               & Yes (ECC)             & Yes (EFSM) \\
-    Transition types          & N/A              & Event + guard         & Classic, Timed, Event, \\
-                              &                  &                       & Probabilistic, Immediate \\
-    Scripting language        & JavaScript       & Structured Text       & Lua 5.4 \\
-    Visual editor             & Browser (Node.js)& Eclipse IDE           & Electron desktop \\
-    Embedded runtime          & No               & Yes (FORTE, C++)       & Yes (C++17) \\
-    Embedded targets          & Raspberry Pi+    & 16/32-bit MCUs        & ESP32, Pico, MCXN947 \\
-    Flow/program format       & JSON             & XML (FBT files)       & YAML \\
-    Typed variables           & No (JavaScript)  & Yes (IEC 61131-3)     & Yes (7 types) \\
-    Fault injection           & No               & No                    & Yes \\
-    Time-travel debugging     & No               & No                    & Yes \\
-    Structural analysis       & No               & No                    & Petri net analysis \\
-    Target domain             & General IoT      & Industrial automation & General IoT + embedded \\
+    Explicit state model  & No               & Yes (ECC)             & Yes (EFSM) \\
+    Transition types      & N/A              & Event + guard         & Classic, Timed, Event, Probabilistic, Immediate \\
+    Scripting language    & JavaScript       & Structured Text       & Lua 5.4 \\
+    Visual editor         & Browser (Node.js)& Eclipse IDE           & Electron desktop \\
+    Embedded runtime      & No               & Yes (FORTE, C++)      & Yes (C++17) \\
+    Embedded targets      & Raspberry Pi+    & 16/32-bit MCUs        & ESP32, Pico, MCXN947 \\
+    Program format        & JSON             & XML (FBT)             & YAML \\
+    Typed variables       & No (JavaScript)  & Yes (IEC 61131-3)     & Yes (7 types) \\
+    Fault injection       & No               & No                    & Yes \\
+    Time-travel debugging & No               & No                    & Yes \\
+    Structural analysis   & No               & No                    & Petri net \\
+    Target domain         & General IoT      & Industrial            & IoT + embedded \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 The analysis reveals that neither platform simultaneously satisfies all of the requirements identified in Section~\ref{sec:requirements}. Node-RED lacks explicit state modelling entirely and cannot run on bare-metal embedded targets. 4diac provides formal state machines through the ECC but restricts transitions to an event-driven model and provides no fault injection or replay capability. Aetherium Automata addresses these gaps by combining a five-type EFSM model, a portable C++ runtime, deterministic fault injection, and execution trace replay within a single unified toolchain.
@@ -306,15 +305,9 @@ The Aetherium Automata platform is composed of four major components that form a
 
 Figure~\ref{fig:arch} shows the high-level component topology.
 
-% TODO: insert actual architecture diagram
 \begin{figure}[H]
   \centering
-  % \includegraphics[width=0.85\textwidth]{obrazky-figures/architecture.pdf}
-  \fbox{\parbox{0.85\textwidth}{\centering\vspace{2cm}
-    % TODO: replace with actual architecture diagram
-    Architecture diagram placeholder\\[0.5em]
-    IDE (Electron) $\leftrightarrow$ Gateway (Phoenix) $\leftrightarrow$ Server (Elixir) $\leftrightarrow$ Devices (C++ Engine)
-  \vspace{2cm}}}
+  \includegraphics[width=0.95\textwidth]{obrazky-figures/arch}
   \caption{High-level component architecture of Aetherium Automata.}
   \label{fig:arch}
 \end{figure}
@@ -362,6 +355,7 @@ Devices are deployed using Docker Compose for local multi-service orchestration.
 % ============================================================
 
 \section{Model Overview}
+\label{sec:model-overview}
 
 An \textit{automaton} in Aetherium is a named, versioned EFSM definition. At the top level it contains:
 \begin{itemize}
@@ -372,7 +366,7 @@ An \textit{automaton} in Aetherium is a named, versioned EFSM definition. At the
 
 \section{States}
 
-Each state $q \in Q$ is identified by a string \texttt{StateId} matching the pattern \texttt{\^{}[A-Za-z\_][A-Za-z0-9\_]*\$}. States carry three optional Lua code hooks:
+Each state $q \in Q$ is identified by a string \texttt{StateId}: a letter or underscore followed by zero or more alphanumeric characters or underscores. States carry three optional Lua code hooks:
 
 \begin{description}
   \item[\texttt{on\_enter}] Executed once when the machine transitions into this state.
@@ -453,29 +447,39 @@ An immediate transition is always enabled and is resolved before transitions of 
 \section{Transition Resolution Algorithm}
 \label{sec:resolution}
 
-On each execution tick the engine resolves which transition, if any, fires from the current state. The algorithm is:
+On each execution tick the engine resolves which transition, if any, fires from the current state. Algorithm~\ref{alg:tick} gives the full procedure.
 
-\begin{enumerate}
-  \item Collect all outgoing transitions $T_\mathit{out}$ from the current state $q$.
-  \item Evaluate each transition for enablement according to its type (Section~\ref{sec:transitions}).
-  \item Let $E \subseteq T_\mathit{out}$ be the set of enabled transitions.
-  \item If $E = \emptyset$: remain in $q$, execute \texttt{body}, terminate tick.
-  \item Sort $E$ by priority value (ascending integer; lower value = higher priority).
-  \item Let $G \subseteq E$ be the subset with the minimum (highest) priority value.
-  \item Select a transition $t^* \in G$:
-    \begin{enumerate}
-      \item If $|G| = 1$: $t^* \gets$ the single element.
-      \item If all members of $G$ have weight $> 0$: apply Equation~\eqref{eq:roulette}.
-      \item Otherwise: $t^* \gets$ the first element in declaration order (deterministic fallback).
-    \end{enumerate}
-  \item Fire $t^*$:
-    \begin{enumerate}
-      \item Execute \texttt{on\_exit} of $q$.
-      \item Execute the transition \texttt{body} hook of $t^*$.
-      \item Move to target state $q' = \delta_E(q, t^*)$.
-      \item Execute \texttt{on\_enter} of $q'$.
-    \end{enumerate}
-\end{enumerate}
+\begin{algorithm}[H]
+  \caption{Transition resolution on a single execution tick.}
+  \label{alg:tick}
+  \begin{algorithmic}[1]
+    \Procedure{Tick}{$q$, $\mathit{vars}$}
+      \State $T_\mathit{out} \gets$ all outgoing transitions from state $q$
+      \State $E \gets \{ t \in T_\mathit{out} \mid \textsc{Enabled}(t, \mathit{vars}) \}$
+        \Comment{evaluate guards, timers, events}
+      \If{$E = \emptyset$}
+        \State execute \texttt{body} hook of $q$
+        \State \textbf{return}
+      \EndIf
+      \State $p^* \gets \min_{t \in E}\, t.\mathit{priority}$
+      \State $G \gets \{ t \in E \mid t.\mathit{priority} = p^* \}$
+        \Comment{top-priority group}
+      \If{$|G| = 1$}
+        \State $t^* \gets$ the sole element of $G$
+      \ElsIf{$\forall t \in G:\, t.\mathit{weight} > 0$}
+        \State $t^* \gets \textsc{WeightedSample}(G)$
+          \Comment{Eq.~\eqref{eq:roulette}}
+      \Else
+        \State $t^* \gets$ first element of $G$ in declaration order
+      \EndIf
+      \State execute \texttt{on\_exit} hook of $q$
+      \State execute \texttt{body} hook of $t^*$
+      \State $q' \gets \delta_E(q, t^*)$
+      \State execute \texttt{on\_enter} hook of $q'$
+      \State \textbf{return} $q'$
+    \EndProcedure
+  \end{algorithmic}
+\end{algorithm}
 
 Priority establishes a total deterministic order; probabilistic selection applies only within a single priority group. This cleanly separates intentional non-determinism from deterministic control flow.
 
@@ -556,8 +560,8 @@ The \texttt{inline} layout places all state and transition Lua code directly ins
 
 The parser enforces the following constraints:
 \begin{itemize}
-  \item All state and transition identifiers must match \texttt{\^{}[A-Za-z\_][A-Za-z0-9\_]*\$}.
-  \item Every transition endpoint (\texttt{from}, \texttt{to}) must reference a state defined in \texttt{automata.states}.
+  \item All state and transition identifiers must follow the identifier naming convention (letter-or-underscore start, alphanumeric continuation).
+  \item Every \texttt{from}/\texttt{to} endpoint must name a state defined in \texttt{automata.states}.
   \item Variable names must be unique within an automaton.
   \item Exactly one state must be designated \texttt{initial\_state}.
   \item The \texttt{timed.mode} field determines which time parameters are required.
@@ -568,24 +572,31 @@ The parser enforces the following constraints:
 \label{chap:engine}
 % ============================================================
 
-\section{Engine Architecture}
+\section{Execution Tick Cycle}
+\label{sec:tick}
 
-The engine is structured as a set of cooperating modules within a single C++17 static library (\texttt{aetherium\_runtime\_core}). The principal modules are:
+The engine runs a continuous tick loop. On each tick it advances timers, evaluates transition guards, selects and fires at most one transition per automaton, and emits telemetry. Figure~\ref{fig:tick} shows the full cycle.
 
-\begin{description}
-  \item[\texttt{model.hpp}] Data types: \texttt{State}, \texttt{Transition}, \texttt{Automata}, \texttt{CodeBlock}, and per-type transition configuration structs (\texttt{ClassicConfig}, \texttt{TimedConfig}, \texttt{EventConfig}, \texttt{ProbabilisticConfig}).
-  \item[\texttt{variable.hpp}] \texttt{Value} (a type-safe variant over \texttt{bool}, \texttt{int32\_t}, \texttt{int64\_t}, \texttt{float}, \texttt{double}, \texttt{string}, \texttt{vector<uint8\_t>}), \texttt{VariableSpec}, \texttt{Variable} (runtime instance with \texttt{changed()} flag and timestamp), \texttt{VariableStore}.
-  \item[\texttt{types.hpp}] Enumerations (\texttt{ValueType}, \texttt{TransitionType}, \texttt{TimedMode}, \texttt{EventTrigger}, \texttt{CompareOp}, \texttt{ExecutionState}), ID types (\texttt{StateId}, \texttt{TransitionId}, \texttt{VariableId}), and a \texttt{Result<T>} monad for error propagation.
-  \item[\texttt{parser.hpp/cpp}] YAML~\cite{YAML122} deserialization via RapidYAML~\cite{RapidYAML} (\texttt{ryml}). Produces a validated \texttt{Automata} model.
-  \item[\texttt{runtime.hpp/cpp}] The execution loop. Drives the tick cycle, manages per-transition timer entries, and dispatches the transition resolution algorithm.
-  \item[\texttt{engine.cpp/hpp}] The top-level orchestrator. Receives commands from the transport layer, dispatches to the runtime, and produces telemetry events.
-  \item[\texttt{lua\_engine.cpp/hpp}] Lua~5.4~\cite{LuaManual54} scripting host via Sol2~\cite{Sol2}. Exposes the engine API to scripts (Section~\ref{sec:lua}).
-  \item[\texttt{transport.hpp}] Abstract \texttt{ITransport} interface. \texttt{WebSocketTransport} implements it via IXWebSocket~\cite{IXWebSocket}.
-  \item[\texttt{protocol.cpp/hpp}] Binary wire format serialization and deserialization.
-  \item[\texttt{execution\_trace.hpp}] \texttt{TraceRecord} (per-event structured record), \texttt{FaultProfile} (injection parameters), \texttt{DeploymentDescriptor} (device metadata).
-  \item[\texttt{telemetry\_log\_hub.cpp/hpp}] Structured log event capture and streaming callbacks.
-  \item[\texttt{artifact.hpp/cpp}] Binary container format for deployable automata.
-\end{description}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.42\textwidth, keepaspectratio]{obrazky-figures/tick_cycle}
+  \caption{Engine execution tick cycle. A transition fires at most once per tick per automaton.}
+  \label{fig:tick}
+\end{figure}
+
+\section{Platform Abstraction}
+\label{sec:platform}
+
+All platform-specific behavior is isolated behind three abstract interfaces, allowing the same runtime core to compile on desktop Linux and bare-metal microcontrollers without \texttt{\#ifdef} sprawl. Figure~\ref{fig:platform} shows the two-layer structure.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth, keepaspectratio]{obrazky-figures/platform_abstraction}
+  \caption{Platform abstraction layer. The runtime core depends only on the three interfaces; concrete implementations are selected at link time.}
+  \label{fig:platform}
+\end{figure}
+
+The interfaces are: \textbf{IClock} (monotonic time source), \textbf{IRandomSource} (seeded PRNG for reproducible fault injection and probabilistic transitions), and \textbf{IScriptEngine} (Lua~5.4~\cite{LuaManual54} via Sol2~\cite{Sol2} on desktop; a lightweight evaluator or no-op stub on constrained targets). CMake build targets select the concrete implementations at compile time via RapidYAML~\cite{RapidYAML} and IXWebSocket~\cite{IXWebSocket} as the only external dependencies on desktop.
 
 \section{Lua Scripting}
 \label{sec:lua}
@@ -629,7 +640,7 @@ Fault injection is a proven technique for testing the resilience of distributed 
     \end{itemize}
   \item[Egress faults] The same parameters applied to outgoing messages.
   \item[Disconnect simulation] Periodic forced disconnection windows of configurable duration.
-  \item[Battery drain] Per-tick and per-message energy consumption, combined with a \texttt{BatteryProfile} that models charge state and cutoff voltage.
+  \item[Battery drain] Per-tick and per-message energy consumption, combined with a battery profile that models charge state and cutoff voltage.
 \end{description}
 
 All random decisions within the fault injector use the platform \texttt{IRandomSource} seeded from a field in the \texttt{FaultProfile}, ensuring deterministic and reproducible fault scenarios across runs.
@@ -655,16 +666,24 @@ The trace is exported to newline-delimited JSON (JSON Lines) for post-mortem too
 % ============================================================
 
 \section{Binary Wire Protocol}
+\label{sec:wire}
 
-All messages between the engine and the server use a compact binary envelope:
+All messages between the engine and the server use a compact binary envelope shown in Figure~\ref{fig:wire}.
 
-\begin{equation}
-  \underbrace{\texttt{0xAE01}}_{\text{magic}} \;
-  \underbrace{\texttt{0x01}}_{\text{version}} \;
-  \underbrace{\texttt{type}}_{\text{1 byte}} \;
-  \underbrace{\texttt{length}}_{\text{4 bytes}} \;
-  \underbrace{\texttt{payload}}_{\text{N bytes}}
-\end{equation}
+\begin{figure}[H]
+  \centering
+  \vspace{0.5em}
+  \[
+    \underbrace{\texttt{0xAE01}}_{\substack{\text{platform tag} \\ \text{(AE Automata v1)}}} \;
+    \underbrace{\texttt{0x01}}_{\substack{\text{protocol} \\ \text{version}}} \;
+    \underbrace{\texttt{type}}_{\text{1 byte}} \;
+    \underbrace{\texttt{length}}_{\text{4 bytes}} \;
+    \underbrace{\texttt{payload}}_{\text{N bytes}}
+  \]
+  \vspace{0.5em}
+  \caption{Binary message envelope. The 2-byte platform tag \texttt{0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}
+  \label{fig:wire}
+\end{figure}
 
 Messages are organized into three categories:
 
@@ -697,16 +716,8 @@ Snapshot caching reduces reconnection latency: when the IDE reconnects, it recei
 
 \begin{figure}[H]
   \centering
-  % TODO: replace with a proper sequence diagram figure
-  \fbox{\parbox{0.85\textwidth}{\small\ttfamily
-    IDE $\xrightarrow{\text{DEPLOY(yaml)}}$ Gateway $\xrightarrow{\text{LOAD(bytes)}}$ Device \\[4pt]
-    IDE $\xleftarrow{\text{DEPLOY\_OK}}$ Gateway $\xleftarrow{\text{LOAD\_ACK}}$ Device \\[8pt]
-    IDE $\xrightarrow{\text{START(runId)}}$ Gateway $\xrightarrow{\text{START}}$ Device \\[4pt]
-    IDE $\xleftarrow{\text{RUNNING}}$ Gateway $\xleftarrow{\text{RUNNING}}$ Device \\[8pt]
-    IDE $\xrightarrow{\text{SET\_INPUT(x=5)}}$ Gateway $\xrightarrow{\text{INPUT}}$ Device \\[4pt]
-    IDE $\xleftarrow{\text{OUTPUT(y=10)}}$ Gateway $\xleftarrow{\text{OUTPUT}}$ Device
-  }}
-  \caption{Simplified end-to-end message flow for deploy, start, and I/O exchange.}
+  \includegraphics[width=0.80\textwidth, height=0.55\textheight, keepaspectratio]{obrazky-figures/msgflow}
+  \caption{End-to-end message sequence for deploy, start, and runtime I/O exchange.}
   \label{fig:msgflow}
 \end{figure}
 
@@ -767,10 +778,18 @@ The IDE UI is organized into panels:
 % ============================================================
 
 \section{Lifting Automata to Petri Nets}
+\label{sec:petri-lifting}
 
 A network of communicating automata can be analyzed structurally by lifting it to a Petri net representation. Each automaton's current state contributes a token to a corresponding place. The communication channels between automata are modeled as arcs connecting output transitions of one automaton's places to input places of another.
 
-This lifting is performed statically from the YAML definitions, without requiring execution: the analyzer reads all automata in the project, maps each state to a place, maps each transition to a Petri net transition, and wires inter-automaton signal connections as shared places.
+This lifting is performed statically from the YAML definitions, without requiring execution: the analyzer reads all automata in the project, maps each state to a place, maps each transition to a Petri net transition, and wires inter-automaton signal connections as shared places. Figure~\ref{fig:petri-lifting} illustrates the construction for two automata that communicate through a single named channel.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.72\textwidth, keepaspectratio]{obrazky-figures/petri_lifting}
+  \caption{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt{ch\_signal} connects the output of automaton~A to the input of automaton~B.}
+  \label{fig:petri-lifting}
+\end{figure}
 
 \section{Analysis Operations}
 
@@ -796,33 +815,33 @@ Two showcase categories directly exercise the Petri net analysis:
 \label{chap:showcase}
 % ============================================================
 
-The system is validated by a catalog of 18 showcase automata organized into 14 categories. All definitions reside in \texttt{example/automata/showcase/} and are verified by \texttt{example/automata/showcase/CATALOG.txt}.
+The system is validated by a catalog of 18 showcase automata organized into 14 categories. All definitions reside under \texttt{example/automata/showcase/}.
 
 \begin{table}[H]
   \centering
   \caption{Showcase automata catalog.}
   \label{tab:catalog}
   \vskip6pt
-  \begin{tabular}{lll}
+  \begin{tabularx}{\textwidth}{llX}
     \toprule
     \# & Category & Key concepts demonstrated \\
     \midrule
-    01 & Basics & Timed and classic transitions, manual override input \\
-    02 & Control & Event threshold triggers, pump state control \\
-    03 & Probabilistic & Weighted 3-lane quality routing \\
-    04 & Resilience & Watchdog timer, fault detection, retry with backoff \\
-    05 & Energy & Load prediction, peak shaving scheduler \\
-    06 & Pipeline & Multi-stage line buffer dispatcher \\
-    07 & Folderized & Folder-based code layout, door safety controller \\
-    08 & ESP32 & PWM, LED, OLED, thermostat, production line (8 automata) \\
-    09 & MCXN947 & ARM Cortex-M7: GPIO, buttons, touch, temperature (4 automata) \\
-    10 & Guarded Cell & 6-automata safety supervision network \\
-    11 & Bidirectional Loop & 4 automata with bidirectional signal wiring \\
-    12 & Black Box & Docker-sandboxed probe, external system wrapping \\
-    13 & Petri Signal Chain & Command router $\to$ safety gate $\to$ drive unit $\to$ telemetry \\
+    01 & Basics           & Timed and classic transitions, manual override input \\
+    02 & Control          & Event threshold triggers, pump state control \\
+    03 & Probabilistic    & Weighted 3-lane quality routing \\
+    04 & Resilience       & Watchdog timer, fault detection, retry with backoff \\
+    05 & Energy           & Load prediction, peak shaving scheduler \\
+    06 & Pipeline         & Multi-stage line buffer dispatcher \\
+    07 & Folderized       & Folder-based code layout, door safety controller \\
+    08 & ESP32            & PWM, LED, OLED, thermostat, production line (8 automata) \\
+    09 & MCXN947          & GPIO, buttons, touch, temperature on ARM Cortex-M7 (4 automata) \\
+    10 & Guarded Cell     & 6-automata safety supervision network \\
+    11 & Bidir.\ Loop     & 4 automata with bidirectional signal wiring \\
+    12 & Black Box        & Docker-sandboxed probe, external system wrapping \\
+    13 & Petri Sig.\ Chain & Command router $\to$ safety gate $\to$ drive unit $\to$ telemetry \\
     14 & Petri Contention & Charger, motion axis, power allocator competing for resources \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 % TODO: expand each showcase with a short description, diagram, and YAML snippet for the most illustrative cases.
@@ -841,14 +860,390 @@ On each tick the transition resolver applies Equation~\eqref{eq:roulette} to sel
 
 \section{Selected Showcase: Sensor Watchdog Recovery (04)}
 
-The watchdog demonstrates timed transitions combined with classic guarded recovery. The automaton cycles through:
+The watchdog demonstrates timed transitions combined with classic guarded recovery. Figure~\ref{fig:watchdog} shows the full state machine.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{obrazky-figures/watchdog}
+  \caption{Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt{failed} state is a terminal escalation sink.}
+  \label{fig:watchdog}
+\end{figure}
+
+The automaton uses three transition types together: a \textit{timed/timeout} transition detects sensor silence, \textit{immediate} transitions chain states without observable intermediate steps, and \textit{classic} guards check the \texttt{retry\_count} variable to decide between another attempt and escalation to \texttt{failed}. This pattern recurs in many real-world IoT deployments: detect device failure, raise an alarm, attempt structured recovery, and escalate definitively if recovery is exhausted.
+
+% ============================================================
+\chapter{End-to-End Demonstration}
+\label{chap:demonstration}
+% ============================================================
+
+This chapter demonstrates Aetherium Automata as a running system.
+The walkthrough follows the complete operator workflow: start the infrastructure,
+open the IDE, load the demo project, deploy automata to a device, observe live
+behavior, inject a fault, replay execution history, and inspect the Petri net
+projection. All steps are executed against the reference Docker Compose stack
+that ships with the repository.
+
+% ── Section 1 ────────────────────────────────────────────────────────────────
+\section{Infrastructure Setup}
+\label{sec:demo-setup}
+
+The reference deployment runs all backend services as Docker containers defined in \texttt{src/\allowbreak{}docker-compose.yaml}. The core development stack comprises three services:
+
+\begin{description}
+  \item[\texttt{gateway}] The Elixir/Phoenix gateway, exposed on
+    \texttt{localhost:8080}. All IDE and device connections route through this
+    service.
+  \item[\texttt{server3}] An Aetherium server instance
+    (\texttt{SERVER\_ID=svr\_03}) that manages automata lifecycle and owns the
+    execution trace store for the showcase device.
+  \item[\texttt{device1}] A C++17 engine process running in a container,
+    pre-registered with \texttt{server3} and identified as
+    \texttt{device\_cpp\_01}.
+\end{description}
+
+\noindent Starting the stack requires a single command from the \texttt{src/}
+directory:
+
+\begin{lstlisting}[language=bash, caption={Starting the development stack.}]
+make up          # equivalent to: docker compose up -d gateway server3 device1
+\end{lstlisting}
+
+\noindent The Makefile wraps \texttt{docker compose} for convenience and
+supports additional profiles for time-series monitoring (\texttt{make up-ts}),
+black-box devices (\texttt{make up-blackbox}), and ROS2 bridging
+(\texttt{make up-ros2}).
+
+Once all containers report as healthy, the IDE can be launched:
+
+\begin{lstlisting}[language=bash, caption={Launching the Electron IDE.}]
+cd src/ide
+npm run dev      # starts electron-vite dev server + Electron window
+\end{lstlisting}
+
+\noindent The IDE connects to the gateway at \texttt{ws://localhost:8080}
+using the operator token configured in the Docker environment
+(\texttt{GATEWAY\_OPERATOR\_TOKEN=dev\_secret\_token}). Connection status is
+displayed in the Gateway panel and the header status indicator.
+
+% ── Section 2 ────────────────────────────────────────────────────────────────
+\section{Opening the Demo Project}
+\label{sec:demo-project}
+
+The repository ships a ready-made demonstration project,
+\texttt{NewProject.aeth}, located in the repository root. The \texttt{.aeth}
+format is a JSON document that encodes all networks, devices, and their
+associated YAML automata paths, as described in Section~\ref{sec:model-overview}.
+
+Opening the file via \textit{File~\textrightarrow~Open Project} loads all
+networks into the Network panel. Each network card shows its name, the number
+of devices it contains, and whether any of those devices are currently connected
+through the gateway. Figure~\ref{fig:ide-network} shows the Network panel
+with the demo project loaded and \texttt{device\_cpp\_01} online.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot (PNG or PDF)
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_network_panel}
+  \caption{Network panel showing the demo project with one connected device.}
+  \label{fig:ide-network}
+\end{figure}
+
+The Explorer panel on the left lists the automata YAML files that belong to the
+project. Selecting a file opens it in the Monaco-based editor, where the YAML
+source can be inspected and edited directly. Changes are saved back to disk and
+can be re-deployed without restarting the stack.
+
+% ── Section 3 ────────────────────────────────────────────────────────────────
+\section{Deploying Automata}
+\label{sec:demo-deploy}
+
+Deploying an automaton to a device is an explicit operator action performed from
+the Runtime Monitor panel. The operator selects a target device from the device
+list, chooses one or more automata definitions, and clicks \textit{Deploy}.
+The IDE sends a \texttt{deploy} message over the Phoenix channel, the server
+validates the YAML, compiles the EFSM model, and delivers the binary payload to
+the device engine. A deployment acknowledgement appears in the Runtime Monitor
+panel within a few hundred milliseconds on a local network.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_runtime_deploy}
+  \caption{Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt{device\_cpp\_01}.}
+  \label{fig:ide-deploy}
+\end{figure}
+
+Once deployed, the automaton begins executing immediately. The engine sends
+periodic state snapshots — containing current state, all variable values, and
+the last fired transition — to the server, which forwards them to any subscribed
+IDE clients over the Phoenix channel.
+
+% ── Section 4 ────────────────────────────────────────────────────────────────
+\section{Live Runtime Monitoring}
+\label{sec:demo-monitor}
+
+The Runtime Monitor panel (Figure~\ref{fig:ide-monitor}) provides a
+per-device, per-automaton view of live execution. For each deployed automaton
+it shows:
+
+\begin{itemize}
+  \item the \textbf{current state} name, highlighted in the state list,
+  \item \textbf{all variable values} with their types and current readings,
+  \item \textbf{last transition} that fired, including its type and timestamp,
+  \item a running \textbf{tick counter} showing how many evaluation cycles have
+    completed.
+\end{itemize}
+
+\noindent The update rate is determined by the engine's tick interval
+(configurable per deployment, default 100~ms) and the Phoenix channel push
+rate. Because the gateway maintains persistent WebSocket connections in both
+directions, state updates arrive in the IDE within one to two tick cycles of
+firing.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_runtime_monitor}
+  \caption{Runtime Monitor panel displaying live state and variable values for the deployed automaton.}
+  \label{fig:ide-monitor}
+\end{figure}
+
+The monitor is read-only but supports two direct actions available via the
+panel toolbar: \textit{Start} and \textit{Stop} send lifecycle commands to the
+device engine, transitioning the automaton between its active and idle lifecycle
+states without un-deploying it.
+
+% ── Section 5 ────────────────────────────────────────────────────────────────
+\section{Injecting Faults}
+\label{sec:demo-fault}
+
+The fault injection subsystem is accessed from the Gateway panel. The operator
+selects a target device and chooses from six fault profiles:
+
+\begin{description}
+  \item[\texttt{delay}] Adds a configurable latency (milliseconds) to every
+    outbound message from the device.
+  \item[\texttt{jitter}] Applies a random perturbation within a specified range
+    to message delivery timing.
+  \item[\texttt{drop}] Drops a fraction of outbound messages, simulating packet
+    loss.
+  \item[\texttt{disconnect}] Closes the device's WebSocket connection entirely
+    for a specified duration, simulating a network outage.
+  \item[\texttt{battery\_drain}] Injects a battery-level variable override to
+    simulate low-power conditions.
+  \item[\texttt{none}] Clears all active fault profiles and restores normal
+    operation.
+\end{description}
+
+\noindent Each profile accepts a \textit{seed} value that initializes the
+random number generator used internally, making fault injection runs fully
+reproducible. The same seed applied to the same automaton always produces the
+same sequence of dropped or delayed messages, which is essential for debugging
+timing-dependent failures.
+
+Figure~\ref{fig:ide-fault} shows the Gateway panel with a \texttt{delay} fault
+profile active on \texttt{device\_cpp\_01}. The Runtime Monitor simultaneously
+shows the automaton continuing to execute normally despite the injected latency,
+demonstrating that the engine's internal timing is decoupled from transport
+delays.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_fault_injection}
+  \caption{Gateway panel with an active delay fault profile on the demo device.}
+  \label{fig:ide-fault}
+\end{figure}
+
+% ── Section 6 ────────────────────────────────────────────────────────────────
+\section{Time-Travel Debugging}
+\label{sec:demo-replay}
+
+Every transition and variable change is recorded by the engine into an
+\textit{execution trace} — an append-only log of \texttt{TraceRecord} entries.
+The trace is stored on the device and periodically flushed to the server, which
+persists it as a JSON Lines file.
+
+The time-travel workflow proceeds as follows:
+
 \begin{enumerate}
-  \item \texttt{monitoring} --- waiting for sensor data with a timeout transition.
-  \item \texttt{alarming} --- entered when the timeout fires (sensor silent), emitting an alert output.
-  \item \texttt{recovering} --- attempting to restart the sensor, with a timed retry and a maximum retry count tracked in an internal variable.
+  \item The operator clicks \textit{Request Snapshot} in the Runtime Monitor
+    panel. The server responds with the current trace as a JSON Lines payload.
+  \item The IDE loads the trace into the replay engine. The execution timeline
+    appears as a scrollable list of events showing state, variable deltas, and
+    timestamps.
+  \item The operator scrubs the playhead to any point in the past. The IDE
+    reconstructs the automaton's complete state at that moment by replaying all
+    preceding events from the trace.
+  \item Any point can be \textit{rewound} by selecting it and clicking
+    \textit{Rewind to Here}. The server instructs the device to restore its
+    internal state to the snapshot, after which execution resumes from that
+    point forward.
 \end{enumerate}
 
-This pattern is a common real-world requirement: detect device failure, raise an alarm, attempt structured recovery, and escalate if recovery fails.
+\noindent Figure~\ref{fig:ide-replay} shows the replay timeline with 47 recorded
+events for the sensor watchdog automaton. The selected event at offset
+\texttt{+12.4~s} shows the automaton entering the \texttt{alarming} state and
+the \texttt{alarm\_count} variable incrementing from 0 to 1.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_time_travel}
+  \caption{Execution trace replay timeline in the Runtime Monitor panel.}
+  \label{fig:ide-replay}
+\end{figure}
+
+The ability to inspect historical state is particularly useful in combination
+with fault injection: the operator injects a fault, lets the system run for
+several seconds, then rewinds to the moment immediately before the fault
+manifested to examine exactly which variable values and state transitions
+preceded the failure.
+
+% ── Section 7 ────────────────────────────────────────────────────────────────
+\section{Petri Net Analysis}
+\label{sec:demo-petri}
+
+The Petri Net panel takes the deployed network as input and applies the lifting
+procedure described in Section~\ref{sec:petri-lifting}. Each automaton becomes a
+Petri net subnet; shared output/input channel pairs become the connecting arcs
+between subnets. The IDE renders the resulting net as an interactive graph.
+
+Figure~\ref{fig:ide-petri} shows the Petri net projection for the
+\textit{Petri Contention} showcase (Showcase~14): three automata (charger node,
+motion axis, power allocator) share a single power-budget channel. The Petri net
+makes the contention explicit: the power-budget place has three input arcs and
+one output arc, which the structural analysis immediately flags as a potential
+bottleneck.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_petri_net}
+  \caption{Petri Net panel showing token flow for the power-contention scenario.}
+  \label{fig:ide-petri}
+\end{figure}
+
+The four analysis operations available through the panel are:
+
+\begin{description}
+  \item[Reachability check] Determines whether every automaton can eventually
+    reach its terminal state (if any is defined) from the initial marking.
+  \item[Deadlock detection] Identifies markings from which no transition is
+    enabled, indicating that the network could reach a permanently stuck
+    configuration.
+  \item[Bottleneck detection] Flags places with a high ratio of input arcs to
+    output arcs, which are structural candidates for throughput-limiting
+    resources.
+  \item[Contention report] Lists pairs of automata that compete for the same
+    resource place, providing the operator with the information needed to add
+    arbitration logic.
+\end{description}
+
+\noindent The analysis results are displayed inline in the panel as a structured
+report beneath the net graph.
+
+% ── Section 8 ────────────────────────────────────────────────────────────────
+\section{Analyzer Panel}
+\label{sec:demo-analyzer}
+
+The Analyzer panel complements the Petri net view with a higher-level
+projection over the live deployment. It queries the server for the current
+analyzer report, which the server computes from the registered automata
+metadata and recent transition history.
+
+The report contains three sections:
+
+\begin{itemize}
+  \item \textbf{Device summary} --- for each connected device: uptime, number
+    of deployed automata, tick rate, and number of transitions fired since
+    deployment.
+  \item \textbf{Channel activity} --- for each named output/input pair: message
+    count, last value, and whether the channel is currently saturated (output
+    producing faster than input is consuming).
+  \item \textbf{Anomaly log} --- entries flagged by the server's anomaly
+    detector, such as a device going silent, a variable exceeding a configured
+    threshold, or an automaton spending an unusually long time in a single
+    state.
+\end{itemize}
+
+\noindent Figure~\ref{fig:ide-analyzer} shows the Analyzer panel during a
+deployment of the Petri Signal Chain showcase (Showcase~13), where the safety
+gate automaton is identified as processing commands at a lower rate than the
+command router is emitting them.
+
+\begin{figure}[H]
+  \centering
+  % TODO: replace with actual screenshot
+  % TODO: replace with actual screenshot
+  \includegraphics[width=0.92\textwidth]{obrazky-figures/ide_analyzer}
+  \caption{Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}
+  \label{fig:ide-analyzer}
+\end{figure}
+
+% ── Section 9 ────────────────────────────────────────────────────────────────
+\section{Black-Box Devices}
+\label{sec:demo-blackbox}
+
+The black-box feature allows external systems that cannot be instrumented with the Aetherium engine to participate in the same orchestration layer. A black-box device exposes only a named signal contract; its internal implementation is opaque to the IDE.
+
+The reference deployment includes a black-box container (\texttt{blackbox1}) that wraps a C++ engine running the Docker black-box probe automaton from showcase~12. Starting this stack variant:
+
+\begin{lstlisting}[language=bash,
+  caption={Starting the black-box demonstration stack.}]
+make up-blackbox   # gateway + server3 + blackbox1
+make smoke-blackbox
+\end{lstlisting}
+
+\noindent The smoke test deploys the probe automaton, sends a sequence of
+activation messages, and verifies that the expected output messages arrive within
+the configured timeout. All interactions are visible in the Runtime Monitor
+panel under the \texttt{black\_box\_01} device entry, but the panel only shows
+the contract (inputs and outputs) — not the internal state of the automaton, in
+keeping with the black-box semantics.
+
+% ── Section 10 ───────────────────────────────────────────────────────────────
+\section{Demonstration Summary}
+\label{sec:demo-summary}
+
+The end-to-end walkthrough demonstrates all primary platform capabilities on a
+single machine without any physical hardware. Table~\ref{tab:demo-coverage}
+maps each demonstrated capability to the platform component responsible for it.
+
+\begin{table}[H]
+  \centering
+  \caption{Demonstration coverage summary.}
+  \label{tab:demo-coverage}
+  \vskip6pt
+  \begin{tabular}{lll}
+    \toprule
+    Capability & Platform component & Demo section \\
+    \midrule
+    Stack startup         & Docker Compose / Makefile    & \S\ref{sec:demo-setup} \\
+    Project file open     & IDE file handler             & \S\ref{sec:demo-project} \\
+    Automaton deployment  & Server + engine deploy API   & \S\ref{sec:demo-deploy} \\
+    Live state monitoring & Runtime Monitor panel        & \S\ref{sec:demo-monitor} \\
+    Fault injection       & Gateway fault service        & \S\ref{sec:demo-fault} \\
+    Time-travel debugging & Execution trace + replay     & \S\ref{sec:demo-replay} \\
+    Petri net analysis    & Petri Net panel + lifting    & \S\ref{sec:demo-petri} \\
+    Anomaly reporting     & Analyzer panel               & \S\ref{sec:demo-analyzer} \\
+    Black-box contract    & Black-box device type        & \S\ref{sec:demo-blackbox} \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+The hardware-in-the-loop variants (ESP32, MCXN947, Raspberry Pi Pico) follow
+the same IDE workflow; the only difference is that \texttt{make up-gateway}
+replaces the full Docker stack and the server runs on the host machine with a
+serial transport connector. This confirms that the platform's layered
+architecture — described in Chapter~\ref{chap:architecture} — successfully
+isolates the operator-facing workflow from the physical transport.
 
 % ============================================================
 \chapter{Conclusion}

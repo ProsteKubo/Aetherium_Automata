@@ -1,0 +1,15 @@
+flowchart TD
+    START(["Tick start"])
+    PREP["Collect variable change flags\nAdvance armed timer entries"]
+    GUARD["Evaluate guards for all\noutgoing transitions from current state"]
+    ENABLED{Any enabled\ntransitions?}
+    BODY["Run state body hook"]
+    PRIO["Group by priority\nWeighted roulette within top group"]
+    FIRE["Fire: on_exit → action λ → on_enter\nAppend TraceRecord"]
+    EMIT["Emit telemetry\nif variables changed"]
+    END(["Tick end"])
+
+    START --> PREP --> GUARD --> ENABLED
+    ENABLED -->|No| BODY --> EMIT
+    ENABLED -->|Yes| PRIO --> FIRE --> EMIT
+    EMIT --> END

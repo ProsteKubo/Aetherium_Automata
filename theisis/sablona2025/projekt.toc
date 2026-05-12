@@ -43,31 +43,43 @@
 \contentsline {subsection}{\numberline {5.7.1}Layout Types}{21}{subsection.5.7.1}%
 \contentsline {subsection}{\numberline {5.7.2}Validation Rules}{21}{subsection.5.7.2}%
 \contentsline {chapter}{\numberline {6}Runtime Engine}{22}{chapter.6}%
-\contentsline {section}{\numberline {6.1}Engine Architecture}{22}{section.6.1}%
-\contentsline {section}{\numberline {6.2}Lua Scripting}{23}{section.6.2}%
-\contentsline {section}{\numberline {6.3}Timer Management}{23}{section.6.3}%
-\contentsline {section}{\numberline {6.4}Fault Injection}{23}{section.6.4}%
-\contentsline {section}{\numberline {6.5}Execution Trace and Time-Travel Debugging}{24}{section.6.5}%
-\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{25}{chapter.7}%
-\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{25}{section.7.1}%
-\contentsline {section}{\numberline {7.2}Phoenix Gateway}{25}{section.7.2}%
-\contentsline {section}{\numberline {7.3}End-to-End Message Flow}{26}{section.7.3}%
-\contentsline {chapter}{\numberline {8}Integrated Development Environment}{27}{chapter.8}%
-\contentsline {section}{\numberline {8.1}Architecture}{27}{section.8.1}%
-\contentsline {section}{\numberline {8.2}Phoenix Gateway Service}{27}{section.8.2}%
-\contentsline {section}{\numberline {8.3}Panels}{27}{section.8.3}%
-\contentsline {chapter}{\numberline {9}Petri Net Analysis}{29}{chapter.9}%
-\contentsline {section}{\numberline {9.1}Lifting Automata to Petri Nets}{29}{section.9.1}%
-\contentsline {section}{\numberline {9.2}Analysis Operations}{29}{section.9.2}%
-\contentsline {section}{\numberline {9.3}Showcase Scenarios}{29}{section.9.3}%
-\contentsline {chapter}{\numberline {10}Showcase Catalog}{31}{chapter.10}%
-\contentsline {section}{\numberline {10.1}Selected Showcase: Quality Router (03)}{31}{section.10.1}%
-\contentsline {section}{\numberline {10.2}Selected Showcase: Sensor Watchdog Recovery (04)}{32}{section.10.2}%
-\contentsline {chapter}{\numberline {11}Conclusion}{33}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Summary}{33}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Future Work}{33}{section.11.2}%
-\contentsline {chapter}{Bibliography}{35}{chapter*.3}%
-\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{37}{appendix.A}%
-\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{38}{appendix.B}%
-\contentsline {chapter}{\numberline {C}Supported Platform Targets}{39}{appendix.C}%
+\contentsline {section}{\numberline {6.1}Execution Tick Cycle}{22}{section.6.1}%
+\contentsline {section}{\numberline {6.2}Platform Abstraction}{23}{section.6.2}%
+\contentsline {section}{\numberline {6.3}Lua Scripting}{24}{section.6.3}%
+\contentsline {section}{\numberline {6.4}Timer Management}{25}{section.6.4}%
+\contentsline {section}{\numberline {6.5}Fault Injection}{25}{section.6.5}%
+\contentsline {section}{\numberline {6.6}Execution Trace and Time-Travel Debugging}{25}{section.6.6}%
+\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{27}{chapter.7}%
+\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{27}{section.7.1}%
+\contentsline {section}{\numberline {7.2}Phoenix Gateway}{27}{section.7.2}%
+\contentsline {section}{\numberline {7.3}End-to-End Message Flow}{28}{section.7.3}%
+\contentsline {chapter}{\numberline {8}Integrated Development Environment}{29}{chapter.8}%
+\contentsline {section}{\numberline {8.1}Architecture}{29}{section.8.1}%
+\contentsline {section}{\numberline {8.2}Phoenix Gateway Service}{29}{section.8.2}%
+\contentsline {section}{\numberline {8.3}Panels}{29}{section.8.3}%
+\contentsline {chapter}{\numberline {9}Petri Net Analysis}{31}{chapter.9}%
+\contentsline {section}{\numberline {9.1}Lifting Automata to Petri Nets}{31}{section.9.1}%
+\contentsline {section}{\numberline {9.2}Analysis Operations}{32}{section.9.2}%
+\contentsline {section}{\numberline {9.3}Showcase Scenarios}{32}{section.9.3}%
+\contentsline {chapter}{\numberline {10}Showcase Catalog}{34}{chapter.10}%
+\contentsline {section}{\numberline {10.1}Selected Showcase: Quality Router (03)}{34}{section.10.1}%
+\contentsline {section}{\numberline {10.2}Selected Showcase: Sensor Watchdog Recovery (04)}{35}{section.10.2}%
+\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{37}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Infrastructure Setup}{37}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Opening the Demo Project}{38}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Deploying Automata}{38}{section.11.3}%
+\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{39}{section.11.4}%
+\contentsline {section}{\numberline {11.5}Injecting Faults}{40}{section.11.5}%
+\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{41}{section.11.6}%
+\contentsline {section}{\numberline {11.7}Petri Net Analysis}{42}{section.11.7}%
+\contentsline {section}{\numberline {11.8}Analyzer Panel}{43}{section.11.8}%
+\contentsline {section}{\numberline {11.9}Black-Box Devices}{44}{section.11.9}%
+\contentsline {section}{\numberline {11.10}Demonstration Summary}{45}{section.11.10}%
+\contentsline {chapter}{\numberline {12}Conclusion}{46}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Summary}{46}{section.12.1}%
+\contentsline {section}{\numberline {12.2}Future Work}{46}{section.12.2}%
+\contentsline {chapter}{Bibliography}{48}{chapter*.3}%
+\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{50}{appendix.A}%
+\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{51}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Supported Platform Targets}{52}{appendix.C}%
 \contentsfinish 

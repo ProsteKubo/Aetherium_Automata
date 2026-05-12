@@ -26,62 +26,62 @@ The included storage medium contains the following items:
 \chapter{YAML DSL Schema Reference}
 \label{app:schema}
 
-% TODO: consider generating a formal JSON Schema or RelaxNG schema from the parser
-%       and including it here, or provide a compact BNF grammar.
-
 The complete field reference for the YAML domain-specific language is given below.
 Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional.
 
 \begin{table}[H]
   \centering
   \caption{Top-level YAML fields.}
+  \label{tab:app-toplevel}
   \vskip6pt
-  \begin{tabular}{lll}
+  \begin{tabularx}{\textwidth}{llX}
     \toprule
-    Field & Required & Description \\
+    Field & Req. & Description \\
     \midrule
-    \texttt{version} & R & Schema version (currently \texttt{0.0.1}) \\
-    \texttt{config} & R & Automaton metadata block \\
+    \texttt{version}   & R & Schema version (currently \texttt{0.0.1}) \\
+    \texttt{config}    & R & Automaton metadata block \\
     \texttt{variables} & O & List of variable definitions \\
-    \texttt{automata} & R & EFSM body \\
+    \texttt{automata}  & R & EFSM body \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \begin{table}[H]
   \centering
   \caption{\texttt{config} block fields.}
+  \label{tab:app-config}
   \vskip6pt
-  \begin{tabular}{lll}
+  \begin{tabularx}{\textwidth}{llX}
     \toprule
-    Field & Required & Description \\
+    Field & Req. & Description \\
     \midrule
-    \texttt{name} & R & Human-readable automaton name \\
-    \texttt{type} & R & \texttt{inline} or \texttt{folder} \\
-    \texttt{location} & R if \texttt{folder} & Path to folder containing code files \\
-    \texttt{language} & O & Scripting language; default \texttt{lua} \\
-    \texttt{description} & O & Free-text description \\
-    \texttt{author} & O & Author name \\
-    \texttt{tags} & O & List of string tags for discovery \\
+    \texttt{name}        & R             & Human-readable automaton name \\
+    \texttt{type}        & R             & \texttt{inline} or \texttt{folder} \\
+    \texttt{location}    & R if folder   & Path to the folder containing code files \\
+    \texttt{language}    & O             & Scripting language; default \texttt{lua} \\
+    \texttt{description} & O             & Free-text description \\
+    \texttt{author}      & O             & Author name \\
+    \texttt{tags}        & O             & List of string tags for discovery \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \begin{table}[H]
   \centering
   \caption{Transition type-specific fields.}
+  \label{tab:app-transitions}
   \vskip6pt
-  \begin{tabular}{lll}
+  \begin{tabularx}{\textwidth}{lXX}
     \toprule
     Type & Required fields & Optional fields \\
     \midrule
-    \texttt{classic}       & \texttt{condition}                    & \texttt{priority}, \texttt{weight} \\
-    \texttt{timed}         & \texttt{timed.mode}, \texttt{timed.after} (mode-dependent) & \texttt{timed.jitter}, \texttt{priority} \\
-    \texttt{event}         & \texttt{event.triggers}               & \texttt{event.require\_all}, \texttt{priority} \\
-    \texttt{probabilistic} & \texttt{weight}                       & \texttt{priority} \\
-    \texttt{immediate}     & ---                                   & \texttt{priority} \\
+    \texttt{classic}       & \texttt{condition}      & \texttt{priority}, \texttt{weight} \\
+    \texttt{timed}         & \texttt{timed.mode}; timing field depends on mode (\texttt{after}, \texttt{every}, \ldots) & \texttt{timed.jitter}, \texttt{priority} \\
+    \texttt{event}         & \texttt{event.triggers} & \texttt{event.require\_all}, \texttt{priority} \\
+    \texttt{probabilistic} & \texttt{weight}         & \texttt{priority} \\
+    \texttt{immediate}     & ---                     & \texttt{priority} \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
 
 \chapter{Supported Platform Targets}
@@ -90,15 +90,16 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
 \begin{table}[H]
   \centering
   \caption{Engine platform targets and their capability profiles.}
+  \label{tab:app-platforms}
   \vskip6pt
-  \begin{tabular}{lllll}
+  \begin{tabularx}{\textwidth}{XXXXX}
     \toprule
-    Target & Architecture & Script engine & Transport & Build system \\
+    Target & Architecture & Script engine & Transport & Build \\
     \midrule
-    Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 (Sol2) & IXWebSocket & CMake \\
-    ESP32 & Xtensa LX6 & Lightweight / no-op & Serial / MQTT & Arduino/CMake \\
-    Raspberry Pi Pico & ARM Cortex-M0+ & No-op stub & Serial & CMake \\
-    MCXN947 & ARM Cortex-M7 & Lightweight & Serial & CMake \\
+    Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 (Sol2)      & WebSocket (IXWebSocket) & CMake \\
+    ESP32               & Xtensa LX6     & Lightweight / no-op & Serial / MQTT           & Arduino + CMake \\
+    Raspberry Pi Pico   & ARM Cortex-M0+ & No-op stub          & Serial (UART)           & CMake \\
+    MCXN947             & ARM Cortex-M7  & Lightweight         & Serial (UART)           & CMake \\
     \bottomrule
-  \end{tabular}
+  \end{tabularx}
 \end{table}
