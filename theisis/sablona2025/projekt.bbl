@@ -2,6 +2,12 @@
 \makeatother
 \begin{thebibliography}{10}
 
+\bibitem{Armstrong2007}
+{\sc\bgroup}Armstrong{\egroup}, J.
+\newblock {\em Programming Erlang: Software for a Concurrent World}.
+\newblock Raleigh, NC: Pragmatic Bookshelf, 2007.
+\newblock ISBN 978-1-934356-00-5.
+
 \bibitem{Beilharz2022}
 {\sc\bgroup}Beilharz{\egroup}, J.; {\sc\bgroup}Wiesner{\egroup}, P.;
   {\sc\bgroup}Boockmeyer{\egroup}, A.; {\sc\bgroup}Friedenberger{\egroup}, D.;
@@ -27,6 +33,13 @@
 \newblock 2024.
 \newblock Available at: ~{\small\url{https://eclipse.dev/4diac/}}.
 \newblock [cit. 2025-05-11].
+
+\bibitem{Engblom2012}
+{\sc\bgroup}Engblom{\egroup}, J.
+\newblock A Review of Reverse Debugging.
+\newblock In:~{\em 2012 System, Software, {SoC} and Silicon Debug Conference
+  ({S4D})}.
+\newblock IEEE, 2012, p.~1--6.
 
 \bibitem{Geels2006}
 {\sc\bgroup}Geels{\egroup}, D.; {\sc\bgroup}Altekar{\egroup}, G.;
@@ -71,6 +84,14 @@
 \newblock ISSN 1097-024X.
 \newblock Available at:
   ~{\small\url{https://doi.org/10.1002/(SICI)1097-024X(199606)26:6<635::AID-SPE26>3.0.CO;2-P}}.
+
+\bibitem{LeBlanc1987}
+{\sc\bgroup}LeBlanc{\egroup}, T.~J. and~{\sc\bgroup}Mellor Crummey{\egroup},
+  J.~M.
+\newblock Debugging Parallel Programs with Instant Replay.
+\newblock {\em {IEEE} Transactions on Computers}.
+\newblock IEEE, 1987, vol.~36, no.~4, p.~471--482.
+\newblock ISSN 0018-9340.
 
 \bibitem{IXWebSocket}
 {\sc\bgroup}{Machine Zone, Inc.}{\egroup}.

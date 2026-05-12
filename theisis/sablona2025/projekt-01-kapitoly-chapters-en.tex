@@ -42,23 +42,58 @@ This thesis addresses that problem by presenting \textit{Aetherium Automata}, a 
   \item structural analysis using Petri net formalism for deadlock and bottleneck detection across multi-automata networks.
 \end{itemize}
 
-\section{Goals}
+\section{Design Philosophy}
+\label{sec:philosophy}
 
-% TODO: align with the official assignment wording from IS VUT
+Two overarching principles shaped every design decision in Aetherium Automata, from the choice of transition types to the structure of the Petri net analysis layer. They are stated here because understanding them makes the architectural choices in later chapters self-evident rather than arbitrary.
+
+\paragraph{Reality-in-the-Loop.}
+\label{par:ritl}
+Distributed IoT systems exhibit failure modes that are invisible to unit tests: timing races between devices, cascading state-machine anomalies triggered by intermittent connections, recovery paths that are never exercised under nominal conditions. Traditional testing approaches are insufficient because the bugs live in the \emph{interactions} between components, not inside any single unit.
+
+\textit{Reality-in-the-Loop} (RitL) is the principle that testing and production share the same execution substrate. The production automaton runs on the real (or emulated) hardware; a fault injection layer perturbs the communication boundary at configurable probability. Three features of Aetherium together close the loop:
+
+\begin{enumerate}
+  \item \textbf{Probabilistic and stochastic transitions.} Rare real-world events --- sensor dropout, power glitch, packet burst --- are modelled as transitions with configurable probability weights. A transition that fires $0.1\%$ of the time in production can be promoted to $100\%$ for a stress run without touching the automaton definition. Events that may never occur in a real deployment can be reliably induced in the lab.
+
+  \item \textbf{Black-box contracts.} The interface under test is formally stated: input ports, output ports, observable states, emitted events. The fault injector operates at this boundary, not inside the implementation. This means external devices and third-party subsystems can be subjected to the same testing discipline as first-party automata.
+
+  \item \textbf{Time-travel debugging.} When an injected fault reveals a misbehaviour, the developer does not need to reproduce it from scratch. The execution trace is rewound to the exact state preceding the anomaly; from there, forward steps can be taken under full variable inspection. The fault is observed, not just logged.
+\end{enumerate}
+
+Together these features form a test-debug cycle that is not possible in toolchains where the state machine is implicit and the communication layer is opaque.
+
+\paragraph{Deployment-Aware Development.}
+\label{par:dad}
+In most IoT toolchains, the developer writes logic and deploys it into a communication layer they do not own. Optimisation is retrospective: instrument the deployment, collect logs, correlate events across devices. The developer must infer what the network is doing.
+
+\textit{Deployment-Aware Development} (DAD) inverts this relationship. Because Aetherium owns the communication layer end-to-end --- binary wire protocol, custom gateway, structured telemetry --- every deployed automaton is accompanied by live metadata: round-trip time, connection type, battery level, wake-up timer intervals. This information is not scraped from logs; it appears in the same IDE panel as the running state machine. The developer can therefore make quantified, deliberate trade-offs:
+
+\begin{itemize}
+  \item A measured RTT of 350\,ms informs the choice of timer-transition intervals.
+  \item A battery reading of 12\,\% can trigger an immediate transition to a low-power mode before the device disconnects.
+  \item A known-intermittent connection can be reproduced via the fault injector to verify recovery behavior before it occurs in production.
+\end{itemize}
+
+The Petri net analysis layer is the highest expression of this principle. Lifting individual automata to a Petri net and composing them produces a single structural model of the entire network. Where the device view shows each automaton in isolation, the Petri net view reveals the properties that emerge from their interaction: where tokens (resources, messages, control signals) accumulate into bottlenecks, which state combinations lead to deadlock, which transitions compete for shared resources. This is analogous to acquiring a third spatial dimension: structural properties that are invisible when inspecting automata one at a time become immediately evident when the full network is projected onto a Petri net.
+
+\section{Goals}
 
 The primary goals of this thesis are:
 
 \begin{enumerate}
-  \item Design and implement an EFSM model expressive enough to cover the control logic of real-world IoT devices, including time-driven, event-driven, and probabilistic behavior.
+  \item Design and implement an EFSM model expressive enough to cover the control logic of real-world IoT devices, including time-driven, event-driven, and probabilistic behaviour --- the latter being essential for Reality-in-the-Loop testing.
   \item Implement a portable C++ runtime engine capable of executing the model on both desktop and constrained embedded platforms.
   \item Design a YAML domain-specific language for authoring automata definitions.
-  \item Implement a real-time gateway and IDE that allow an operator to deploy, monitor, and debug automata across a network of heterogeneous devices.
+  \item Implement a real-time gateway and IDE that allow an operator to deploy, monitor, and debug automata across a network of heterogeneous devices, with full deployment metadata available to the developer.
+  \item Provide a fault injection subsystem and execution trace replay (time-travel debugging) to support Reality-in-the-Loop testing.
+  \item Provide a Petri net analysis layer that lifts the multi-automata network to a higher structural plane, enabling Deployment-Aware reasoning about the system as a whole.
   \item Validate the system with a catalog of representative IoT showcase automata.
 \end{enumerate}
 
 \section{Thesis Structure}
 
-Chapter~\ref{chap:background} introduces the theoretical background: Finite State Machines, Extended Finite State Machines, and Petri nets. Chapter~\ref{chap:analysis} discusses related tools and analyses requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine internals. Chapter~\ref{chap:gateway} describes the gateway and communication protocol. Chapter~\ref{chap:ide} covers the IDE. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:demonstration} walks through an end-to-end demonstration of the running system. Chapter~\ref{chap:conclusion} concludes with results and future work.
+Section~\ref{sec:philosophy} above introduces the two guiding principles (Reality-in-the-Loop and Deployment-Aware Development) that inform all subsequent design decisions. Chapter~\ref{chap:background} establishes the theoretical background: Finite State Machines, Extended Finite State Machines, Petri nets, and Record-and-Replay Debugging. Chapter~\ref{chap:analysis} analyses existing tools (Node-RED, Eclipse 4diac), compares programmer mental models, and derives requirements. Chapter~\ref{chap:architecture} describes the overall system architecture. Chapter~\ref{chap:model} specifies the automata model and the YAML DSL. Chapter~\ref{chap:engine} covers the C++ runtime engine, including fault injection and execution trace recording. Chapter~\ref{chap:gateway} describes the gateway and binary wire protocol. Chapter~\ref{chap:ide} covers the IDE panels. Chapter~\ref{chap:petri} describes the Petri net analysis layer. Chapter~\ref{chap:showcase} presents the showcase catalog. Chapter~\ref{chap:demonstration} walks through an end-to-end demonstration. Chapter~\ref{chap:conclusion} concludes with results and future work.
 
 % ============================================================
 \chapter{Background}
@@ -307,22 +342,32 @@ Table~\ref{tab:comparison} summarises the key characteristics of both analysed p
 
 The analysis reveals that neither platform simultaneously satisfies all of the requirements identified in Section~\ref{sec:requirements}. Node-RED lacks explicit state modelling entirely and cannot run on bare-metal embedded targets. 4diac provides formal state machines through the ECC but restricts transitions to an event-driven model and provides no fault injection or replay capability. Aetherium Automata addresses these gaps by combining a five-type EFSM model, a portable C++ runtime, deterministic fault injection, and execution trace replay within a single unified toolchain.
 
+\paragraph{Programmer's mental model.}
+Beyond feature checklists, the three platforms differ fundamentally in \emph{what the programmer sees and reasons about}.
+
+In \textbf{Node-RED} the primary abstraction is the \emph{data flow}: messages travel between processing nodes along wires. The programmer thinks in terms of message routing --- what arrives, what is transformed, where it is forwarded. State is implicit and must be maintained manually in untyped context storage. There is no structural view of the system; the graph \emph{is} the program, and scaling it produces a graph that grows in visual complexity without gaining analytical leverage.
+
+In \textbf{Eclipse 4diac} the programmer works at the level of \emph{function block composition}: components are wired together at design time, and the per-component behaviour is written as Structured Text algorithms attached to an ECC. The perspective is closer to traditional software engineering --- the ECC is a design aid, but the live system is code executing inside a runtime that is largely opaque to the developer.
+
+In \textbf{Aetherium} the programmer operates at three complementary levels simultaneously. At the \emph{behavioural level}, each device runs a named state machine whose current state, variable values, and pending transitions are live-visible in the IDE. At the \emph{network level}, the IDE aggregates all connected devices and their signal exchanges into a single monitoring view. At the \emph{structural level}, the Petri net panel lifts the entire multi-automata system into a higher-dimensional representation where deadlocks, bottlenecks, and resource contention are computed and annotated rather than guessed. This progression --- from single-automaton behaviour, through live network state, to structural network analysis --- directly realises the Deployment-Aware Development philosophy introduced in Section~\ref{sec:philosophy}.
+
 % ─────────────────────────────────────────────────────────────
 \section{Requirements}
 \label{sec:requirements}
 % ─────────────────────────────────────────────────────────────
 
-Based on the analysis above and the thesis goals, the following requirements were identified:
+Based on the analysis above, the thesis goals, and the two design principles introduced in Section~\ref{sec:philosophy}, the following requirements were identified. Requirements R1--R4 form the foundational model and runtime; R5--R7 realise Reality-in-the-Loop; R8--R9 realise Deployment-Aware Development.
 
 \begin{description}
-  \item[R1 -- EFSM expressiveness] The model must support guarded transitions, time-driven transitions, event/signal-driven transitions, probabilistic transitions, and unconditional (epsilon) transitions.
+  \item[R1 -- EFSM expressiveness] The model must support guarded transitions, time-driven transitions, event/signal-driven transitions, probabilistic transitions, and unconditional (epsilon) transitions. Probabilistic transitions are essential for RitL: rare real-world events must be expressible and their frequency tunable without changing the automaton definition.
   \item[R2 -- Scripting] Guards and actions must be expressible as scripts evaluated against the current variable store. Lua is chosen as the scripting language.
   \item[R3 -- Portability] The runtime engine must compile and execute on desktop Linux/macOS, ESP32 (Arduino/FreeRTOS), Raspberry Pi Pico, and ARM Cortex-M (MCXN947).
   \item[R4 -- DSL] Automata definitions must be authored in a human-readable format. YAML is chosen.
-  \item[R5 -- Real-time monitoring] The IDE must display the current state and variable values of running automata with low latency.
-  \item[R6 -- Fault injection] The system must support deterministic fault injection (delay, jitter, drop, disconnect) for testing.
-  \item[R7 -- Time-travel debugging] Execution traces must be recorded and replayable step-by-step in the IDE.
-  \item[R8 -- Structural analysis] The system must detect deadlocks and bottlenecks in multi-automata networks using Petri net analysis.
+  \item[R5 -- Real-time monitoring] The IDE must display the current state, variable values, and connection metadata (RTT, battery, connection type) of running automata with low latency. \emph{(DAD)}
+  \item[R6 -- Fault injection] The system must support configurable fault injection (delay, jitter, drop, disconnect) at the communication boundary to enable controlled RitL testing. \emph{(RitL)}
+  \item[R7 -- Time-travel debugging] Execution traces must be recorded on the server and replayable step-by-step in the IDE, closing the observe-debug loop for injected faults. \emph{(RitL)}
+  \item[R8 -- Structural analysis] The system must lift multi-automata networks to Petri nets and detect deadlocks, bottlenecks, and resource contention, giving the developer a network-level analytical view. \emph{(DAD)}
+  \item[R9 -- Black-box contracts] Automata must be able to declare a formal interface contract (ports, observable states, events) that is visible to monitors and to the fault injector without exposing internal implementation. \emph{(RitL + DAD)}
 \end{description}
 
 % ============================================================
@@ -348,42 +393,98 @@ Figure~\ref{fig:arch} shows the high-level component topology.
   \label{fig:arch}
 \end{figure}
 
+\section{Technology Selection Rationale}
+\label{sec:tech-rationale}
+
+Every major technology choice in Aetherium is a direct consequence of the two design principles introduced in Section~\ref{sec:philosophy}. This section explains why each component uses the language and runtime that it does.
+
+\subsection{Elixir and the BEAM for the Server and Gateway}
+
+The server and gateway are written in Elixir, which compiles to bytecode for the BEAM virtual machine --- the same runtime that underpins Erlang~\cite{Armstrong2007}. The choice is deliberate and has concrete implications for a fleet-management backend.
+
+\paragraph{Process-per-device isolation.}
+BEAM processes are not OS threads; they are extremely lightweight green threads managed by the VM. A freshly spawned process consumes approximately 2--4\,KB of heap. In practice this means that each connected device can be represented by its own process (a GenServer holding that device's state), and the fleet can scale to thousands of devices on a single server node without the shared-memory overhead or lock contention that would accompany the same design in a thread-per-device model.
+
+\paragraph{OTP supervision trees and let-it-crash.}
+The Open Telecom Platform (OTP) provides a set of behavioral abstractions --- GenServer, Supervisor, Registry --- that impose a structured message-passing discipline on concurrent code. Every device process is supervised: if a device handler encounters an unexpected message or a protocol violation, it crashes and is restarted in isolation by its supervisor. The remaining devices are unaffected. This \textit{let-it-crash} philosophy replaces defensive \texttt{try/catch} blocks with a structurally enforced recovery path, making the server resilient to individual device misbehavior by construction~\cite{Armstrong2007}.
+
+\paragraph{Preemptive scheduling and throughput.}
+BEAM uses a preemptive reduction-counting scheduler: each process is allotted a fixed number of reductions (roughly equivalent to function calls) before it is descheduled. A single misbehaving handler cannot starve other processes, which is essential when one slow device must not delay telemetry from fifty healthy ones. The scheduler's cooperative multitasking analogue in most IoT backends is the event loop, where a blocking call freezes the entire server. BEAM makes blocking impossible by design.
+
+\paragraph{Hot code reloading.}
+BEAM supports atomic module replacement at runtime: a new version of the gateway code can be loaded while WebSocket connections are live, and all new message arrivals are dispatched to the new code without dropping any in-flight state. For a production fleet-management system this is critical; for a development-phase system it is convenient. Either way it removes the need for a restart-based deploy cycle.
+
+\subsection{C++ for the Engine}
+
+The engine is the component that runs on devices, which span an extreme range: from a quad-core Linux desktop down to a dual-core Cortex-M0+ microcontroller (Raspberry Pi Pico) or a dual-core Xtensa LX6 (ESP32). This range rules out languages with managed runtimes or non-trivial standard library footprints. C++17 with disciplined allocator usage is the only mainstream language that can target all of these platforms with a single source tree.
+
+\paragraph{Engine-as-library design.}
+The engine is packaged as a static library rather than an application. The consuming project provides \texttt{main()}, hardware initialization, and the platform-specific implementations of three abstract interfaces. The engine itself contains no \texttt{main()}, no global state beyond what the application registers, and no compile-time assumption about the OS or threading model. This means the same engine code can be linked into:
+
+\begin{itemize}
+  \item a desktop process that opens a WebSocket connection and runs the tick loop in a thread,
+  \item an ESP32 Arduino sketch that calls \texttt{engine.tick()} from its FreeRTOS task,
+  \item a Raspberry Pi Pico application that drives the tick loop from a hardware timer interrupt.
+\end{itemize}
+
+\paragraph{Abstract platform interfaces.}
+The three interfaces that isolate platform-specific behavior are:
+
+\begin{description}
+  \item[\texttt{IClock}] Monotonic time source. The desktop implementation delegates to \texttt{std::chrono::steady\_clock}. Embedded implementations read a hardware timer peripheral. The interface returns a 64-bit microsecond count; the engine uses this for timed-transition deadlines and fault injection timing.
+  \item[\texttt{IRandomSource}] Pseudorandom number generator. The desktop implementation uses \texttt{std::mt19937\_64} seeded from \texttt{/dev/urandom}. Embedded implementations use the hardware RNG peripheral when available, or a software LFSR. Probabilistic transitions draw from this source on every evaluation.
+  \item[\texttt{IScriptEngine}] Script evaluation. The desktop implementation uses Lua~5.4 via Sol2~\cite{Sol2}, providing full scripting capability. Embedded implementations can substitute a lightweight expression evaluator or a no-op stub. When the no-op is used, guards reduce to the static values defined in the YAML, and the resulting binary is approximately 64\,KB.
+\end{description}
+
+\paragraph{CMake build target selection.}
+The top-level \texttt{CMakeLists.txt} defines two interface targets: \texttt{aetherium\_engine\_desktop} and \texttt{aetherium\_engine\_embedded}. Linking against the former pulls in the Lua, IXWebSocket~\cite{IXWebSocket}, and RapidYAML~\cite{RapidYAML} dependencies. Linking against the latter pulls in only the embedded stubs. Platform-selection variables (\texttt{AETHERIUM\_TARGET=esp32}, \texttt{AETHERIUM\_TARGET=pico}, \texttt{AETHERIUM\_TARGET=desktop}) configure the right target automatically.
+
 \section{Component Responsibilities}
+\label{sec:components}
 
 \subsection{Engine}
 
-The engine is the core library. It is written in C++17 with no dynamic dependencies beyond the platform-specific backends (Lua~5.4~\cite{LuaManual54} on desktop, IXWebSocket~\cite{IXWebSocket} for transport). It is responsible for:
+The engine is the core library. It is written in C++17 with no dynamic dependencies beyond the platform-specific backends (see Section~\ref{sec:tech-rationale}). It is responsible for:
 \begin{itemize}
   \item parsing automata definitions from YAML~\cite{YAML122} (via RapidYAML~\cite{RapidYAML}),
   \item maintaining the variable store and evaluating Lua guards and actions (via Sol2~\cite{Sol2}),
   \item resolving and firing transitions on each execution tick,
-  \item transmitting telemetry and receiving commands over a pluggable transport interface.
+  \item recording the execution trace for time-travel debugging,
+  \item transmitting telemetry and receiving commands over the pluggable transport interface.
 \end{itemize}
-
-Three abstract interfaces isolate all platform-specific behavior:
-\begin{description}
-  \item[\texttt{IClock}] Monotonic time source. Desktop: \texttt{std::chrono}. Embedded: hardware timer peripheral.
-  \item[\texttt{IRandomSource}] Pseudorandom number generator. Desktop: \texttt{std::mt19937\_64}. Embedded: hardware RNG.
-  \item[\texttt{IScriptEngine}] Script evaluation. Desktop: Lua~5.4 via Sol2. Embedded: lightweight evaluator or no-op stub.
-\end{description}
-
-CMake build targets select the appropriate implementations at compile time.
 
 \subsection{Server}
 
-The server is an Elixir/OTP application. It manages the registry of connected devices, buffers messages, routes inputs to devices and outputs to subscribers, and handles deployment commands. It communicates with devices over WebSocket as the primary transport; a transport-plugin interface allows additional backends to be registered without changing the core.
+The server is an Elixir/OTP application structured around a supervised process tree. It maintains the device registry as an OTP Registry, where each entry maps a device identifier to the PID of its dedicated GenServer process. The device GenServer holds the last-known state snapshot, a buffer of unacknowledged outbound messages, and the device's connection metadata (transport type, RTT, battery level). When a device disconnects, its GenServer is not immediately terminated; it enters a reconnection-wait state so that deployment state survives transient network interruptions.
+
+The server exposes an internal API consumed by the gateway. Incoming IDE commands (deploy, start, stop, set input, inject fault) are translated into GenServer calls. Outgoing telemetry events are forwarded to a Phoenix PubSub topic to which the gateway subscribes.
 
 \subsection{Gateway}
 
-The gateway is an Elixir/Phoenix application that exposes a \textit{Phoenix Channel} endpoint. The IDE connects to this endpoint over a persistent WebSocket. The gateway translates IDE commands (deploy, start, stop, set input) into server calls, and streams device events (state changes, variable updates, telemetry) back to the IDE in real time.
+The gateway is an Elixir/Phoenix application that exposes a single \textit{Phoenix Channel} endpoint at \texttt{/socket/websocket}. The IDE connects to this endpoint over a persistent WebSocket. The gateway acts as a protocol translator: it maps the IDE's JSON-over-WebSocket commands to internal server calls, and it relays the PubSub telemetry stream back to the IDE as structured channel events. The separation between server (domain logic) and gateway (transport/protocol) means that a REST API or CLI tool could consume the same server without touching the gateway.
 
 \subsection{IDE}
 
-The IDE is an Electron desktop application. The main process handles native file system access. The renderer process is a React single-page application with Zustand-based state management. The IDE communicates with the gateway exclusively via Phoenix Channels.
+The IDE is an Electron desktop application. The main process handles native file system access and exposes file I/O via IPC channels. The renderer process is a React single-page application with Zustand-based state management. Communication with the gateway occurs exclusively through a \texttt{PhoenixGatewayService} singleton that manages connection lifecycle, channel joins, and automatic reconnection.
+
+\section{Component Interaction and Data Flow}
+\label{sec:dataflow}
+
+Figure~\ref{fig:arch} shows the static topology; the dynamic interaction sequence is as follows.
+
+\begin{enumerate}
+  \item The IDE loads a project file and the developer clicks \textit{Deploy}. The IDE serializes the YAML automaton definitions and sends them as a \texttt{deploy} channel event to the gateway.
+  \item The gateway forwards the payload to the server, which stores the definitions in the target device's GenServer and pushes a binary \texttt{DEPLOY} frame to the device over its WebSocket connection.
+  \item The engine on the device receives the frame, parses the definitions, and enters the \textit{running} state. On every tick it evaluates transitions and emits a \texttt{TELEMETRY} frame containing the current state, variable values, and timing metadata.
+  \item The server receives the telemetry frame, updates the device GenServer, and publishes the event to the PubSub topic.
+  \item The gateway relays the event to all subscribed IDE channel sessions. The IDE updates the relevant Zustand store slice; connected React panels re-render automatically.
+\end{enumerate}
+
+This pipeline is entirely event-driven: no polling occurs anywhere in the stack. The BEAM scheduler ensures that a burst of telemetry from one device does not delay messages for others.
 
 \section{Deployment Model}
 
-Devices are deployed using Docker Compose for local multi-service orchestration. A typical local stack consists of the gateway service, the server service, one or more device emulator services (running the engine on desktop), and optionally a black-box probe container for sandboxed external systems.
+Devices are deployed using Docker Compose for local multi-service orchestration. A typical local stack consists of the gateway service, the server service, one or more device emulator services (each running the engine as a desktop binary), and optionally a black-box probe container for sandboxed external systems. Real embedded targets (ESP32, Pico) connect to the same gateway over the network; from the server's perspective a real device and an emulated one are indistinguishable---both speak the same binary wire protocol over WebSocket.
 
 % ============================================================
 \chapter{Automata Model and DSL}
@@ -936,38 +1037,120 @@ The IDE UI is organized into panels:
 \label{chap:petri}
 % ============================================================
 
-\section{Lifting Automata to Petri Nets}
+Petri nets~\cite{Murata1989} are a well-studied formalism for modeling and analyzing concurrent systems with shared resources. Their graphical nature and formal semantics make them well-suited as a structural analysis layer above a network of communicating automata. This chapter describes how Aetherium lifts an automata network to a Place/Transition (P/T) net, how individual nets are composed into a single model of the full system, what analysis operations the IDE exposes, and how two showcase scenarios exercise these capabilities.
+
+\section{Formal Definitions}
+\label{sec:petri-formal}
+
+\paragraph{Automaton.}
+An Aetherium automaton is a tuple $\mathcal{A}_i = (S_i,\, s^0_i,\, T_i,\, V_i,\, G_i,\, \mathit{Act}_i,\, \Sigma^{\mathrm{out}}_i,\, \Sigma^{\mathrm{in}}_i)$ where:
+\begin{itemize}
+  \item $S_i$ is a finite set of states, $s^0_i \in S_i$ is the initial state,
+  \item $T_i \subseteq S_i \times S_i$ is the set of transitions,
+  \item $V_i$ is the variable store (typed name--value pairs),
+  \item $G_i : T_i \to \mathit{Bool}$ is the guard function evaluated by the script engine,
+  \item $\mathit{Act}_i : T_i \to \mathit{Void}$ is the action function executed on firing,
+  \item $\Sigma^{\mathrm{out}}_i$ is the set of named output signal channels this automaton writes to,
+  \item $\Sigma^{\mathrm{in}}_i$ is the set of named input signal channels this automaton reads from.
+\end{itemize}
+
+\paragraph{P/T net.}
+A Place/Transition net is a tuple $\mathcal{N} = (P,\, T,\, F,\, W,\, M^0)$ where $P$ and $T$ are disjoint finite sets of \textit{places} and \textit{transitions}, $F \subseteq (P \times T) \cup (T \times P)$ is the flow relation, $W : F \to \mathbb{N}_{>0}$ assigns arc weights, and $M^0 : P \to \mathbb{N}_{\geq 0}$ is the initial marking.
+
+A transition $t \in T$ is \textit{enabled} under marking $M$ iff for every pre-place $p$ with $(p,t) \in F$: $M(p) \geq W(p,t)$. Firing $t$ produces marking $M'$ where $M'(p) = M(p) - W(p,t) + W(t,p)$, with $W$ extended to return~0 for non-existent arcs.
+
+\section{Lifting a Single Automaton}
 \label{sec:petri-lifting}
 
-A network of communicating automata can be analyzed structurally by lifting it to a Petri net representation. Each automaton's current state contributes a token to a corresponding place. The communication channels between automata are modeled as arcs connecting output transitions of one automaton's places to input places of another.
+The \textit{lifting} of automaton $\mathcal{A}_i$ to a subnet $\mathcal{N}_i = (P_i,\, T'_i,\, F_i,\, W_i,\, M^0_i)$ is defined as follows.
 
-This lifting is performed statically from the YAML definitions, without requiring execution: the analyzer reads all automata in the project, maps each state to a place, maps each transition to a Petri net transition, and wires inter-automaton signal connections as shared places. Figure~\ref{fig:petri-lifting} illustrates the construction for two automata that communicate through a single named channel.
+\paragraph{Places.}
+Each state $s \in S_i$ becomes a place: $P_i = S_i$. Additionally, each output channel $\sigma \in \Sigma^{\mathrm{out}}_i$ yields a dedicated \textit{channel place} $p_\sigma$. The channel places are shared with the subnets of automata that list $\sigma$ in their $\Sigma^{\mathrm{in}}$.
+
+\paragraph{Transitions and arcs.}
+Each automaton transition $(s_a, s_b) \in T_i$ yields a Petri net transition $t_{ab}$ with:
+\begin{itemize}
+  \item a pre-arc $(p_{s_a},\, t_{ab})$ consuming the token from the source state place,
+  \item a post-arc $(t_{ab},\, p_{s_b})$ depositing a token in the target state place.
+\end{itemize}
+If the automaton transition also writes to a signal channel $\sigma \in \Sigma^{\mathrm{out}}_i$, an additional post-arc $(t_{ab},\, p_\sigma)$ is added. If the transition guard requires a token on an input channel $\sigma \in \Sigma^{\mathrm{in}}_i$, an additional pre-arc $(p_\sigma,\, t_{ab})$ is added and the token is consumed when the transition fires.
+
+All arc weights are~1 in this basic lifting. Bounded-capacity resources (declared in black-box contracts) are represented by mutual-exclusion places with initial marking equal to the resource capacity.
+
+\paragraph{Initial marking.}
+$M^0_i(s^0_i) = 1$ for the initial state; $M^0_i(s) = 0$ for all other state places; $M^0_i(p_\sigma) = 0$ for all channel places (channels start empty).
+
+Figure~\ref{fig:petri-lifting} illustrates the construction for two automata communicating through a single named channel.
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.72\textwidth, keepaspectratio]{obrazky-figures/petri_lifting}
-  \caption{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt{ch\_signal} connects the output of automaton~A to the input of automaton~B.}
+  \caption{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt{ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}
   \label{fig:petri-lifting}
 \end{figure}
 
+\section{Network Composition}
+\label{sec:petri-composition}
+
+Given a project containing automata $\mathcal{A}_1, \ldots, \mathcal{A}_n$, the composed network net $\mathcal{N}$ is constructed by taking the disjoint union of all subnets and identifying shared channel places:
+
+\[
+  \mathcal{N} = \Bigl(\bigcup_i P_i \cup C,\;\; \bigcup_i T'_i,\;\; \bigcup_i F_i,\;\; W,\;\; M^0\Bigr)
+\]
+
+where $C = \bigcup_i \Sigma^{\mathrm{out}}_i$ is the set of channel places (each appearing once regardless of how many automata reference it), and $M^0$ is the union of the individual initial markings.
+
+The composition is purely \textit{structural}: it requires no execution trace, only the static YAML definitions. This means the analyzer can report structural hazards before any device is connected.
+
 \section{Analysis Operations}
+\label{sec:petri-analysis}
 
-The analyzer performs the following checks:
+The analyzer implements four structural checks on the composed net $\mathcal{N}$.
 
-\begin{description}
-  \item[Deadlock detection] A marking $M$ is a deadlock if no transition in the Petri net is enabled under $M$. The analyzer reports states of the automata network from which no further progress is possible.
-  \item[Unbounded place detection] A place is unbounded if tokens can accumulate without limit. In an automata network this corresponds to an output channel that is written faster than it is consumed---a~queue overflow risk.
-  \item[Bottleneck identification] Places that are persistently marked across the reachability graph indicate points of sustained contention or backpressure.
-  \item[Contention analysis] Resources declared in black-box contracts (Section~\ref{sec:blackbox}) are modeled as bounded-capacity places. The analyzer identifies pairs of automata that may simultaneously request the same exclusive resource and reports potential mutual exclusion violations.
-\end{description}
+\subsection{Reachability and Deadlock Detection}
+
+The analyzer performs a bounded BFS/DFS over the reachability graph $\mathcal{R}(\mathcal{N}, M^0)$. A marking $M \in \mathcal{R}$ is reported as a \textit{deadlock} if no transition in $\mathcal{N}$ is enabled under $M$. In an automata network, a deadlock marking corresponds to a tuple of states $(s_1, \ldots, s_n)$ from which the system cannot make further progress regardless of input. The analyzer reports both the deadlock marking and the shortest path from $M^0$ that leads to it.
+
+Because the reachability graph can grow exponentially with the number of automata, the analyzer applies a configurable depth bound. For typical showcase networks (up to~6 automata, up to~8 states each) full enumeration is tractable.
+
+\subsection{Boundedness}
+
+A place $p$ is $k$-bounded if $M(p) \leq k$ for all reachable markings. A place is unbounded if no finite $k$ exists. In the automata context, unbounded state places are structurally impossible (exactly one token circulates within each automaton's state places). Unboundedness can only arise in channel places: if automaton~A writes to $p_\sigma$ on every tick and automaton~B reads from $p_\sigma$ only occasionally, tokens accumulate. An unbounded channel place indicates a producer-consumer rate mismatch that will eventually overflow the device's event queue.
+
+\subsection{P-Invariant Analysis}
+
+A \textit{P-invariant} (place invariant) is a non-negative integer vector $\mathbf{x}$ such that $\mathbf{x}^{\top} \cdot \mathbf{W} = \mathbf{0}$, where $\mathbf{W}$ is the incidence matrix. For any reachable marking $M$: $\mathbf{x}^{\top} \cdot M = \mathbf{x}^{\top} \cdot M^0$ (conserved quantity). The lifting construction guarantees that each automaton $\mathcal{A}_i$ contributes a P-invariant $\mathbf{x}_i$ with $x_i(s) = 1$ for all $s \in S_i$ and zero elsewhere, reflecting the fact that exactly one token (the current state) circulates within each automaton. Verifying that these invariants are present in the composed net serves as a correctness check on the lifting.
+
+\subsection{Contention Analysis}
+
+Resources declared in black-box contracts (Section~\ref{sec:blackbox}) are modeled as mutual-exclusion places initialized with a token count equal to the resource capacity (1 for an exclusive resource). Two automata $\mathcal{A}_i$ and $\mathcal{A}_j$ \textit{contend} on resource $r$ if there exists a reachable marking from which both can reach a state that requires $r$. The analyzer identifies all contending automaton pairs and reports the resource and the states involved, enabling the developer to add explicit arbitration logic (e.g., a third automaton acting as a token-passing mutex).
 
 \section{Showcase Scenarios}
+\label{sec:petri-showcase}
 
-Two showcase categories directly exercise the Petri net analysis:
-\begin{description}
-  \item[Showcase 13 -- Petri Signal Chain] A four-automaton pipeline: command router $\to$ safety gate $\to$ drive unit $\to$ telemetry observer. The analyzer visualizes the token flow and identifies whether the safety gate can become a bottleneck under high command rates.
-  \item[Showcase 14 -- Petri Contention] Three automata (charger node, motion axis, power allocator) competing for a shared power budget. The analyzer detects the potential contention and reports which automata pairs require arbitration.
-\end{description}
+Two showcase categories directly exercise the Petri net analysis.
+
+\subsection{Showcase 13 --- Petri Signal Chain}
+
+The signal chain consists of four automata arranged as a linear pipeline:
+
+\[
+  \textit{CommandRouter} \;\longrightarrow\; \textit{SafetyGate} \;\longrightarrow\; \textit{DriveUnit} \;\longrightarrow\; \textit{TelemetryObserver}
+\]
+
+Each automaton reads from one channel place and writes to the next. After lifting and composition, the analyzer produces a four-subnet net with three channel places. P-invariant analysis confirms that one token circulates in each subnet. Reachability analysis reveals that the safety gate has a \textit{locked} state from which it does not emit to the drive unit; under sustained command injection this state causes the channel place between gate and drive unit to grow unbounded, flagging a potential queue overflow. The showcase is designed so that this bottleneck is structurally visible from the Petri net without requiring fault injection.
+
+\subsection{Showcase 14 --- Petri Contention}
+
+Three automata compete for a shared power budget modeled as a resource place with capacity~2 (two power units available):
+
+\begin{itemize}
+  \item \textbf{ChargerNode} requests~1 unit when active,
+  \item \textbf{MotionAxis} requests~1 unit when moving,
+  \item \textbf{PowerAllocator} requests~1 unit during peak arbitration.
+\end{itemize}
+
+The analyzer identifies three contending pairs (charger+axis, charger+allocator, axis+allocator) and reports that the worst-case demand of~3 units exceeds the capacity of~2. The analysis output names the states from which simultaneous requests are possible, providing the developer with precise targets for adding priority or mutual-exclusion transitions to the power allocator automaton.
 
 % ============================================================
 \chapter{Showcase Catalog}
@@ -1415,16 +1598,20 @@ isolates the operator-facing workflow from the physical transport.
 
 \section{Summary}
 
-This thesis presented Aetherium Automata, a platform for the visual design, deployment, and monitoring of distributed IoT control systems modeled as Extended Finite State Machines. The system was designed around the principle that stateful control logic is better expressed explicitly as a state machine than embedded in ad-hoc scripts or workflow engines.
+This thesis presented Aetherium Automata, a platform for the visual design, deployment, and monitoring of distributed IoT control systems modeled as Extended Finite State Machines. The system was designed around two interrelated principles introduced in Section~\ref{sec:philosophy}.
 
-The key contributions are:
+\textit{Reality-in-the-Loop} holds that production code and testing infrastructure must share the same execution substrate. Rather than maintaining a separate test harness, Aetherium lets developers run the actual automaton on actual (or emulated) hardware while the fault injection layer perturbs the communication boundary at configurable rates. Probabilistic transitions make rare real-world events reliably inducible; black-box contracts define the formal interface under test; and time-travel debugging closes the loop by allowing the developer to rewind to the exact state sequence that preceded any observed anomaly. Events that would otherwise require weeks of field observation can be forced, observed, and diagnosed in a single development session.
+
+\textit{Deployment-Aware Development} holds that the developer should never be blind to the network their automata run on. Because Aetherium owns the communication layer end-to-end, every deployed device is accompanied by live telemetry --- RTT, connection type, battery level, wake-up timer intervals --- available in the same IDE panel as the state machine. Developers can make quantified, deliberate trade-offs instead of guessing at network conditions. The Petri net analysis layer extends this to the structural level: lifting all automata in the network to a single Petri net makes bottlenecks, deadlocks, and resource contention computable and visualizable, giving the developer a vantage point that is inaccessible when inspecting each device in isolation.
+
+The concrete contributions that realise these principles are:
 \begin{enumerate}
-  \item A formal EFSM model supporting five transition types (classic, timed, event, probabilistic, immediate), typed variables with reactive change detection, and Lua-scripted guards and actions.
+  \item A formal EFSM model supporting five transition types (classic, timed, event, probabilistic, immediate), typed variables with reactive change detection, and Lua-scripted guards and actions. The probabilistic type is the engine of RitL.
   \item A YAML domain-specific language for authoring automata in both inline and folder layouts, with a parser that validates structure and identifier correctness.
   \item A portable C++17 runtime engine that executes the model on desktop Linux and embedded platforms (ESP32, Raspberry Pi Pico, MCXN947) via three abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}).
-  \item A binary wire protocol and Elixir/Phoenix gateway for real-time, bidirectional IDE-to-device communication.
-  \item An Electron IDE with live state monitoring, variable inspection, fault injection, and time-travel debugging via execution trace replay.
-  \item A Petri net analysis layer that detects deadlocks, bottlenecks, and resource contention in multi-automata networks.
+  \item A binary wire protocol inspired by MQTT's lightweight publish/subscribe model but reimplemented to support server-side sequence numbering and execution trace recording --- the technical foundation of time-travel debugging.
+  \item An Electron IDE providing live state monitoring, variable inspection, fault injection, time-travel debugging, and Petri net analysis --- the single surface at which both RitL and DAD are exercised.
+  \item A Petri net analysis layer that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
   \item A catalog of 18 showcase automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, and multi-device coordination.
 \end{enumerate}
 

@@ -9,12 +9,15 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Database file #1: projekt-20-literatura-bibliography.bib
+Warning--empty edition in Armstrong2007
 Warning--empty editor and organization in Beilharz2022
 Warning--empty isbn and issn in Beilharz2022
 Warning--"{" isn't a brace-balanced string for entry RapidYAML
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Eclipse4diac
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty editor and organization in Engblom2012
+Warning--empty isbn and issn in Engblom2012
 Warning--empty editor and organization in Geels2006
 Warning--empty isbn and issn in Geels2006
 Warning--empty edition in Harel1987
@@ -23,6 +26,9 @@ while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Lua1996
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Lua1996
+Warning--"{" isn't a brace-balanced string for entry LeBlanc1987
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in LeBlanc1987
 Warning--"{" isn't a brace-balanced string for entry IXWebSocket
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry React
@@ -49,45 +55,45 @@ while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry YAML122
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Zoitl2017
-You've used 22 entries,
+You've used 25 entries,
             3768 wiz_defined-function locations,
-            940 strings with 9248 characters,
-and the built_in function-call counts, 10347 in all, are:
-= -- 860
-> -- 342
-< -- 33
-+ -- 120
-- -- 98
-* -- 617
-:= -- 1346
-add.period$ -- 91
-call.type$ -- 22
-change.case$ -- 178
-chr.to.int$ -- 24
-cite$ -- 34
-duplicate$ -- 598
-empty$ -- 1299
-format.name$ -- 98
-if$ -- 2487
+            965 strings with 9741 characters,
+and the built_in function-call counts, 11670 in all, are:
+= -- 963
+> -- 377
+< -- 37
++ -- 132
+- -- 106
+* -- 696
+:= -- 1521
+add.period$ -- 101
+call.type$ -- 25
+change.case$ -- 196
+chr.to.int$ -- 30
+cite$ -- 41
+duplicate$ -- 683
+empty$ -- 1477
+format.name$ -- 106
+if$ -- 2801
 int.to.chr$ -- 0
-int.to.str$ -- 22
+int.to.str$ -- 25
 missing$ -- 0
-newline$ -- 162
-num.names$ -- 44
-pop$ -- 286
+newline$ -- 181
+num.names$ -- 50
+pop$ -- 315
 preamble$ -- 1
-purify$ -- 102
+purify$ -- 113
 quote$ -- 0
-skip$ -- 432
+skip$ -- 485
 stack$ -- 0
-substring$ -- 438
-swap$ -- 126
-text.length$ -- 33
+substring$ -- 517
+swap$ -- 143
+text.length$ -- 34
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 45
-warning$ -- 12
-while$ -- 65
-width$ -- 24
-write$ -- 308
-(There were 26 warnings)
+type$ -- 51
+warning$ -- 16
+while$ -- 77
+width$ -- 27
+write$ -- 343
+(There were 31 warnings)
