@@ -4,7 +4,7 @@
 
 ## 1. Project Overview
 
-Aetherium Automata is a distributed IoT orchestration platform built around **Extended Finite State Machines (EFSMs)** as the primary modeling abstraction. The system provides a complete toolchain: a visual IDE for designing state machines, a portable C++ runtime engine that runs on both desktop and embedded targets (ESP32, Pico, ARM Cortex-M), a real-time gateway layer, and an observability stack with replay-capable tracing.
+Aetherium Automata is a distributed IoT orchestration platform built around **Extended Finite State Machines (EFSMs)** as the primary modeling abstraction. The system provides a complete toolchain: a visual IDE for designing state machines, a portable C++ runtime engine that runs on desktop and documented embedded targets (ESP32 and FRDM-MCXN947), a real-time gateway layer, and an observability stack with replay-capable tracing.
 
 The core thesis: most IoT control logic is inherently stateful, and representing that logic explicitly as state machines—rather than ad-hoc scripts or workflow DAGs—improves correctness, testability, and observability. Lua acts as a guest language for guards and side-effect code, subordinate to the EFSM structure.
 
@@ -136,15 +136,15 @@ Priority is a total order; probability is only invoked within a same-priority gr
 │  Real-time bridge, device registry,        │
 │  command routing, event streaming          │
 └──────────────────┬─────────────────────────┘
-                   │ WebSocket / MQTT
+                   │ WebSocket / connector protocol
 ┌──────────────────▼─────────────────────────┐
 │  Server  (Elixir / OTP)                    │
 │  Device management, message buffering,     │
 │  state aggregation, deployment             │
 └────────┬─────────┬────────────┬────────────┘
-         │ WS      │ MQTT       │ Serial/USB
+         │ WS      │ ROS2       │ Serial/USB
     ┌────▼──┐ ┌────▼──┐   ┌────▼──┐
-    │Device │ │ ESP32 │   │ Pico  │
+    │Device │ │ ESP32 │   │MCXN947│
     │Engine │ │Engine │   │Engine │
     └───────┘ └───────┘   └───────┘
 ```
@@ -168,7 +168,6 @@ The engine is a portable C++17 library with platform-specific backends plugged i
 Platform interfaces allow the same engine core to compile for:
 - Desktop (full C++17 + Lua 5.4)
 - ESP32 (Arduino + FreeRTOS + lightweight Lua or simple script engine)
-- Pico (bare-metal or RTOS, minimal scripting)
 - MCXN947 ARM Cortex-M7
 
 ### 3.3 YAML DSL
@@ -292,20 +291,20 @@ CMake selects implementations at build time per target. The YAML parser and mode
 | YAML parsing | RapidYAML (ryml) | Automata definition parsing |
 | WebSocket client | IXWebSocket | Engine↔Server transport |
 | Gateway | Elixir + Phoenix | Real-time channel broker |
-| Server | Elixir + OTP | Device management, MQTT routing |
+| Server | Elixir + OTP | Device management, connectors, deployment state, replay |
 | IDE shell | Electron | Desktop application wrapper |
 | IDE UI | TypeScript + React | Visual editor and monitoring |
 | State management | Zustand | Frontend store architecture |
 | Build system | CMake 3.18+ | Multi-target C++ builds |
 | Container orchestration | Docker Compose | Multi-service local deployment |
 | Metrics (optional) | InfluxDB + Grafana | Time-series dashboards |
-| Target platforms | ESP32, Pico, MCXN947 | Embedded deployment |
+| Target platforms | ESP32, MCXN947; Pico as target direction | Embedded deployment |
 
 ---
 
 ## 7. Showcase Catalog Summary
 
-18 curated examples across 14 categories demonstrate the full capability surface:
+The showcase set contains 39 YAML automata across 15 categories. The curated validation catalog contains 16 desktop-runnable files:
 
 | # | Category | Key Concepts Demonstrated |
 |---|---|---|
@@ -323,6 +322,7 @@ CMake selects implementations at build time per target. The YAML parser and mode
 | 12 | Black Box | Docker-sandboxed probe, external system wrapping |
 | 13 | Petri Signal Chain | 4-automata chain: command router → safety gate → drive → telemetry |
 | 14 | Petri Contention | 3-automata resource contention: charger, motion axis, power allocator |
+| 15 | Aetherium Gem | TDD checkpoints, high state churn, fault injection, replay markers, black-box contract, Petri-liftable resource demand |
 
 ---
 

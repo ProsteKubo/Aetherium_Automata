@@ -18,7 +18,7 @@
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {9.1}{\ignorespaces Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}}{42}{figure.9.1}%
 \addvspace {10\p@ }
-\contentsline {figure}{\numberline {10.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink.}}{46}{figure.10.1}%
+\contentsline {figure}{\numberline {10.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink.}}{47}{figure.10.1}%
 \addvspace {10\p@ }
 \contentsline {figure}{\numberline {11.1}{\ignorespaces Network panel showing the demo project with one connected device.}}{49}{figure.11.1}%
 \contentsline {figure}{\numberline {11.2}{\ignorespaces Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt {device\_cpp\_01}.}}{50}{figure.11.2}%
@@ -27,6 +27,7 @@
 \contentsline {figure}{\numberline {11.5}{\ignorespaces Execution trace replay timeline in the Runtime Monitor panel.}}{53}{figure.11.5}%
 \contentsline {figure}{\numberline {11.6}{\ignorespaces Petri Net panel showing token flow for the power-contention scenario.}}{54}{figure.11.6}%
 \contentsline {figure}{\numberline {11.7}{\ignorespaces Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}}{55}{figure.11.7}%
+\addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }
 \addvspace {10\p@ }

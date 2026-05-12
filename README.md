@@ -1,277 +1,196 @@
 # Aetherium Automata
-A focused IoT IDE orchestrator for distributed EFSM networks. The package centers on state-heavy automata, Lua as a supporting language, named channels, deployment-aware runtime monitoring, black-box integration, fault injection, time-travel replay, and analyzer/Petri-net insight.
 
-# Aetherium Automata: Distributed EFSM Orchestrator
-<p align="center">
-  <img src="https://img.shields.io/badge/status-in%20development-blue" alt="Project Status">
-</p>
+Aetherium Automata is a state-centric toolchain for designing, deploying, observing, fault-testing, replaying, and analyzing distributed IoT control systems modeled as Extended Finite State Machines (EFSMs).
 
-## Canonical Product Slice
+The current canonical product slice is:
 
-Current focus:
-- keep the current `gateway + server + engine + IDE` architecture
-- tighten one canonical workflow: design → bind → deploy → observe → fault → rewind → analyze
-- prioritize host/docker runtime and desktop runners as the acceptance environment
-- use EFSM state structure as the primary behavior model, with Lua in a supporting role
-- prefer product convergence over breadth and do not preserve backward compatibility during this phase
+- a portable C++17 automata engine,
+- an Elixir/Phoenix gateway and server path,
+- an Electron/React IDE,
+- YAML-authored automata with Lua guards/actions,
+- black-box contracts for external or opaque devices,
+- deterministic fault injection and execution traces,
+- Petri-net and analyzer views for contention, bottlenecks, and structural insight,
+- one flagship IDE project that demonstrates the full workflow.
 
-## Non-goals during convergence
-- broad plugin-platform expansion as a primary objective
-- ROS2-first storytelling or robotics-specific demos in the default path
-- preserving parallel legacy paths purely for compatibility
-- shipping many fragmented showcases instead of one flagship package
+## Quick Start
 
-## Core Problem
-Distributed IoT systems need one coherent tool for visual design, orchestration, deployment-aware observability, replay-driven debugging, and structural analysis. This repository is being converged toward that single product story.
-
----
-
-## Product Objectives
-1. Build a **state-centric EFSM orchestration environment** for distributed device networks.
-2. Provide **named channel binding** across automata, devices, servers, and black boxes.
-3. Make **fault injection, time-travel replay, and runtime observability** part of the normal workflow.
-4. Expose **deployment-aware analyzer and Petri-net views** for bottlenecks, contention, and architecture insight.
-5. Deliver one **desktop/docker flagship showcase** that demonstrates the full package end to end.
----
-
-## Documentation
-- Automata YAML format: see `docs/Automata_YAML_Spec.md` for the current spec, examples (inline and folder layouts), and validation rules.
-- Lua Runtime API: see `docs/Lua_Runtime_API.md` for available helpers (`check`, `value`, `setVal`, etc.) and valid script entry points.
-
----
-
-## Docker Development Workflow (Fast Iteration)
-
-All commands below assume:
+From the repository root:
 
 ```bash
-cd /Users/administratorik/dev/Aetherium_Automata/src
-```
+cmake -S . -B build
+cmake --build build -j4
 
-Important naming note:
-- `docker compose` uses **service names** from compose file: `gateway`, `server3`, `device1`, `blackbox1`.
-- `docker ps` shows **container names**: `elixir-gateway`, `elixir-server-3`, `cpp-device-1`, `cpp-blackbox-1`.
-- For compose commands, use service names, not container names.
-
-ESP32 + Docker on macOS:
-- Docker Desktop on macOS does not reliably expose host USB serial devices (`/dev/cu.*`) to Linux containers.
-- For real ESP32 serial testing, run the server on the host (not in Docker): `cd src && make esp-server`.
-- You can still keep gateway/IDE in Docker if desired.
-
-### Recommended (short) commands
-
-Use the helper Makefile:
-
-```bash
-make help
-make u          # up
-make ug         # gateway only (hybrid mode)
-make ubb        # gateway + server3 + blackbox1
-make r          # restart gateway+server3+device1
-make l0         # fresh logs only
-make rb-device  # rebuild/recreate device only
-make rbb        # rebuild/recreate blackbox1 only
-make esp-flash  # compile + upload ESP32 sketch
-make esp-server # run host server with ESP32 serial connector
-make esp-demo   # run host ESP32 time-travel demo
-```
-
-For host-server + docker-gateway hybrid mode, `make esp-*` defaults to:
-- `GATEWAY_WS_URL=ws://localhost:8080/socket/websocket`
-- override if needed: `make esp-server ESP_GATEWAY_WS_URL=ws://localhost:4000/socket/websocket`
-
-### Raw compose equivalents
-
-First start:
-
-```bash
-docker compose up -d gateway server3 device1
-docker compose logs -f --tail=100 gateway server3 device1
-```
-
-Black-box sandbox stack:
-
-```bash
-docker compose up -d gateway server3 blackbox1
-docker compose logs -f --tail=100 gateway server3 blackbox1
-docker compose exec -T server3 sh -lc "cd /app && mix aetherium.black_box.smoke --gateway-url ws://172.20.0.10:4000/socket/websocket --device-id black_box_01 --server-id svr_03"
-```
-
-Sample deployable contract:
-
-`example/automata/showcase/12_black_box/docker_black_box_probe.yaml`
-
-Fast loop by component:
-
-1. Gateway (Elixir code changes):
-```bash
-docker compose restart gateway
-```
-
-2. Server (Elixir code changes):
-```bash
-docker compose restart server3
-```
-
-3. Device/Engine (C++ changes):
-```bash
-docker compose build device1
-docker compose up -d --no-deps --force-recreate device1
-```
-
-Clean restart + fresh logs:
-
-```bash
-docker compose restart gateway server3 device1
-docker compose logs -f --tail=0 gateway server3 device1
-```
-
-### ROS2 Connector Modes (Docker)
-
-From `src/`:
-
-1. Actual device mode (bridge only):
-```bash
-make up-ros2
-make logs-ros2
-```
-
-2. Full demo mode (bridge + emulator + sensor):
-```bash
-make up-ros2-demo
-make logs-ros2-demo
-```
-
-Reference runbook: `docs/dev/ros2_connector_demo.md`
-
-### Time-Series Mode (Docker, InfluxDB)
-
-From `src/`:
-
-```bash
-make up-ts
-make logs-ts
-make test-ts
-```
-
-This starts `gateway + server3 + device1 + influxdb` and enables server-side Influx timeline streaming (`ENABLE_TIME_SERIES_INFLUX=1`) for time-travel data export.
-Grafana is also exposed on `http://localhost:3000` with the preprovisioned Aetherium dashboards.
-
-### Showcase Automata Catalog
-
-A curated, categorized set of demo/test automata is available in:
-
-`example/automata/showcase`
-
-Quick commands:
-
-```bash
 scripts/validate_showcase_automata.sh list
 scripts/validate_showcase_automata.sh validate
 ```
 
-Catalog docs:
-
-`example/automata/showcase/README.md`
-
-### When to use full reset
-
-Use only if environment/state is broken:
+The validator uses `build/aetherium_engine` by default. Override it with:
 
 ```bash
-docker compose down
-docker compose up -d gateway server3 device1
+AETHERIUM_ENGINE_BIN=/abs/path/to/aetherium_engine scripts/validate_showcase_automata.sh validate
 ```
 
-Use this only when you explicitly want to wipe cached deps/build volumes (slow next start):
+## Flagship Showcase
+
+Open this project in the IDE:
+
+```text
+example/ide_demo_projects/backend-capabilities-tour.aeth
+```
+
+The same project is also copied to:
+
+```text
+NewProject.aeth
+```
+
+It contains the current canonical demo networks:
+
+- `Aetherium Gem Cell`: the thesis/demo gem. A single state-heavy automaton covering TDD checkpoints, high state churn, fault injection controls, replay markers, a black-box contract, and Petri-liftable shared-resource demand.
+- `Signal Chain Backbone`: command router, safety gate, black-box drive unit, and telemetry observer.
+- `Guarded Cell Cluster`: host and embedded-style guarded actuation flow.
+- `Power Contention Ring`: charger, motion axis, and allocator competing for a shared bus.
+- `Resilience Watchdog`: heartbeat loss, retries, backoff, failure, and reset.
+
+Regenerate the IDE project after changing showcase YAML:
 
 ```bash
-docker compose down -v
-docker compose up -d gateway server3 device1
+node scripts/generate_ide_demo_projects.cjs
 ```
 
----
+## Local Docker Workflow
 
-## Milestones
+Most runtime demos start from `src/`:
 
-### Milestone 1: Core Automata Engine
-**Goal**: Build the foundational automata execution engine with fuzzy-probabilistic transitions.  
-**Technical Steps**:
-- Implement hybrid state machines with fuzzy guards and probabilistic transitions.
-- Support nested automata (automata-in-automata) for hierarchical behavior and black box with right inputs and outputs.
-- Create YAML schema for automata serialization and versioning.  
-**Outcome**: High-performance automata runtime with nested composition support.
+```bash
+cd src
+make help
+make up      # gateway + server3 + device1
+make logs0   # fresh logs for the core stack
+```
 
----
+Useful stack variants:
 
-### Milestone 2: Visual TDD Environment
-**Goal**: Real-time visual automata designer.
-**Technical Steps**:
-- Build drag-and-drop automata designer with visual state flow.
-- Implement **live testing** with state replay and coverage visualization.
-- Add **network topology view** showing device relationships and data flows.
-- Enable **time-travel debugging** with state history navigation.  
-**Outcome**: Full-featured IDE for automata development with TDD workflow.
+```bash
+make up-blackbox
+make smoke-blackbox
 
----
+make up-ts
+make test-ts
 
-### Milestone 3: Plugin Extensibility Framework
-**Goal**: Modular architecture for hardware, communication, and middleware extensions.  
-**Technical Steps**:
-- Design **plugin API** for communication protocols (MQTT, CoAP, LoRaWAN, Zigbee).
-- Create **hardware abstraction layer** for sensors, actuators, and embedded systems.
-- Implement **middleware plugin system** for data processing and filtering.
-- Add **ROS2 communication bridge** for robotics integration.  
-- Possible extension, communication between each other without server that is locally
-**Outcome**: Extensible ecosystem supporting diverse IoT hardware and protocols.
+make up-ros2
+make up-ros2-demo
+```
 
----
+Compose service names are `gateway`, `server3`, `device1`, and `blackbox1`. Container names shown by Docker may differ.
 
-### Milestone 4: Remote Deployment & Orchestration
-**Goal**: Cloud-native deployment pipeline for distributed automata networks.  
-**Technical Steps**:
-- Build **containerized deployment** with orchestration support.
-- Implement **over-the-air updates** for remote automata modification.
-- Create **network discovery** and **auto-configuration** for new devices.
-- Add **distributed monitoring** with real-time health dashboards.  
-- After update automat continues from state it was in with variables, inputs and outputs **in tact**
-**Outcome**: Production-ready deployment system for IoT automata networks.
+## IDE
 
----
+Run the Electron IDE:
 
-### Milestone 5: Guardian Demonstration (Showcase)
-**Goal**: Demonstrate framework capabilities with self-healing network showcase.  
-**Technical Steps**:
-- Implement consensus-based guardian automata using the core engine.
-- Show attack detection and recovery using existing framework features.
-- Simulate IoT threats with visual monitoring.  
-- **Comparison** with 4diac Node Red
+```bash
+cd src/ide
+npm install
+npm run dev
+```
 
-**Outcome**: Reference implementation showcasing framework's self-healing potential.
+Use the Gateway settings in the IDE to connect to the running gateway. The development Docker stack exposes the gateway through the compose configuration; host hardware loops use `ws://localhost:8080/socket/websocket` by default in the Makefile helpers.
 
----
+## Hardware Loops
 
-## Key Innovations
-1. **Visual TDD for Automata**: Live testing with state coverage and time-travel debugging.
-2. **Nested Automata Architecture**: Hierarchical composition for complex behavior modeling.
-3. **Universal Plugin System**: Hardware, protocol, and middleware extensibility.
-4. **ROS2 Integration**: Seamless robotics ecosystem compatibility.
-5. **Remote Deployment Pipeline**: Cloud-native IoT network management.
+For real USB serial hardware on macOS, run the server on the host instead of inside Docker because Docker Desktop does not reliably expose `/dev/cu.*` devices to Linux containers.
 
----
+ESP32:
 
-## Expected Results
-1. **Visual automata development** with 80% faster design cycles via TDD.
-2. **Universal IoT compatibility** through plugin ecosystem.
-3. **Production-ready deployment** with remote management capabilities.
-4. **ROS2 ecosystem integration** for robotics applications.
-5. **Open-source framework** for next-generation IoT automation.
+```bash
+cd src
+make esp-deps
+make esp-flash ESP_PORT=/dev/cu.usbserial-...
+make esp-server ESP_PORT=/dev/cu.usbserial-...
+make esp-smoke
+```
 
+FRDM-MCXN947:
 
-## Possible improvements and extensions
-1. Formal verification
-2. Complexity index
-3. Learning automata
-4. Parallel execution
-5. Petri net
-6. WFST
+```bash
+cd src
+make mcxn947-configure
+make mcxn947-build
+make mcxn947-flash MCXN947_PORT=/dev/cu.usbmodem...
+make mcxn947-server MCXN947_PORT=/dev/cu.usbmodem...
+make mcxn947-smoke
+```
+
+Generic serial host:
+
+```bash
+cd src
+make ports
+make serial-server SERIAL_PORTS=/dev/cu.foo,/dev/cu.bar
+make serial-smoke
+```
+
+## Testing
+
+Core checks:
+
+```bash
+scripts/validate_showcase_automata.sh validate
+pytest
+
+cd src/gateway/aetherium_gateway && mix test
+cd src/server/aetherium_server && mix test
+cd src/ide && npm test
+```
+
+Targeted checks:
+
+```bash
+cd src/server/aetherium_server
+mix test test/showcase_catalog_test.exs
+
+cd ../aetherium_gateway
+mix test test/protocol_test.exs
+```
+
+The helper script still exists for component-level runs:
+
+```bash
+./scripts/test.sh gateway
+./scripts/test.sh server
+./scripts/test.sh protocol
+./scripts/test.sh ide
+```
+
+## Documentation Map
+
+- YAML DSL: `docs/Automata_YAML_Spec.md`
+- Lua runtime helpers: `docs/Lua_Runtime_API.md`
+- Testing guide: `docs/TESTING_GUIDE.md`
+- Engine usage: `docs/engine/usage.md`
+- Engine command test plan: `docs/engine/quick-command-test-plan.md`
+- Architecture overview: `docs/architecture/overview.md`
+- System architecture details: `docs/architecture/SYSTEM_ARCHITECTURE.md`
+- Black-box contract: `docs/architecture/BLACK_BOX_IMPLEMENTATION.md`
+- Analyzer demo: `docs/architecture/ANALYZER_DEMONSTRATION.md`
+- ROS2 demo: `docs/dev/ros2_connector_demo.md`
+- Showcase catalog: `example/automata/showcase/README.md`
+- IDE demo project: `example/ide_demo_projects/README.md`
+
+## Repository Layout
+
+```text
+src/engine/                  C++17 runtime and embedded platform code
+src/gateway/aetherium_gateway Elixir/Phoenix gateway
+src/server/aetherium_server   Elixir server, deployment, connectors, traces
+src/ide/                      Electron/React IDE
+example/automata/showcase/    curated showcase automata
+example/ide_demo_projects/    canonical IDE project file
+docs/                         technical documentation
+theisis/sablona2025/          thesis LaTeX source and compiled PDF
+```
+
+## Current Direction
+
+The project is intentionally converging on a single product story: design an explicit state model, bind it into a distributed deployment, run it through the gateway/server/engine stack, observe live state, inject faults, rewind execution, and inspect analyzer/Petri findings. New demos and docs should reinforce that path unless they are clearly marked as experimental.

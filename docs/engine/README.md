@@ -2,50 +2,54 @@
 title: Engine Overview
 ---
 
-# Engine — Scope, Guarantees, and Non‑Goals
+# Engine Overview
 
-The Engine executes YAML‑defined automata deterministically on MCU‑class devices and PCs. It provides a small, portable runtime with a narrow messaging surface.
+The engine executes YAML-defined EFSM automata on host and embedded targets. In the current product slice it is exercised as a local validator, a Docker desktop runtime, a Docker black-box runtime, and a shared runtime core for ESP32/FRDM-MCXN947 firmware.
 
 ## Scope
 
-- Parse/validate automata YAML (see docs/Automata_YAML_Spec.md)
-- Deterministic scheduler (tick/step) and executor
-- I/O abstraction via a HAL (time, digital/analog I/O, timers, storage)
-- Minimal message pump for control/telemetry, transport‑agnostic
-- Lifecycle: initialize, load, start, pause/resume, stop/reset
-- Observability: state changes, metrics, logs, events
+- Parse and validate automata YAML.
+- Execute state hooks and transition logic with Lua support on host-class targets.
+- Provide deterministic scheduling, seeded randomness, and trace-friendly execution.
+- Expose lifecycle commands: load, start, pause, resume, stop, reset, status.
+- Emit snapshots, transition records, telemetry, and black-box contract metadata.
+- Isolate platform concerns behind clock, random source, script engine, and transport/platform adapters.
 
 ## Guarantees
 
-- Deterministic step execution within a configurable tick budget
-- Bounded memory/stack targets; static allocation mode for MCU
-- Atomic transition semantics and guarded actions
-- Transport‑agnostic via adapter interface (serial/UDP/WebSocket)
+- Atomic transition semantics and guarded actions.
+- Deterministic probabilistic choices when seeded.
+- Validation catches dangling state references and malformed core structure before deployment.
+- The same automata model is used by the desktop, Docker, and embedded paths.
 
 ## Non‑Goals
 
-- UI/IDE, network orchestration, discovery, or fleet management
-- Long‑term persistence beyond optional host‑provided KV
-- Security policy beyond transport‑level auth hooks
-- Firmware update or provisioning workflows (hooks only)
+- Visual editing and project management; this belongs to the IDE.
+- Fleet orchestration and durable trace storage; this belongs to server/gateway services.
+- Long-term analytics dashboards; this belongs to the optional InfluxDB/Grafana stack.
+- Firmware flashing/provisioning policy; board Makefile targets and host connectors handle that workflow.
 
 ## Key Concepts
 
-- Automata: States, transitions, guards, actions, timers, I/O bindings
-- Runtime: Loader, Validator, Scheduler, Executor
-- HAL: Implementations for timebase, I/O, timers, storage, randomness
-- Transport: RX/TX queues with backpressure; pluggable adapters
+- Automata: states, transitions, guards, actions, timers, variables, and I/O bindings.
+- Transition types: classic, timed, event, probabilistic, and immediate.
+- Runtime: loader, validator, scheduler, executor, trace metadata.
+- Black-box contract: public ports, observable states, emitted events, and resources.
+- Transport/platform layer: host WebSocket/Docker, serial hardware paths, and embedded board adapters.
 
 ## Portability Targets
 
-- Host (PC): POSIX/Windows with steady_clock timebase
-- MCU: Bare‑metal/RTOS via HAL; optional static allocation profile
+- Host desktop/Docker runtime.
+- ESP32 Arduino runtime path.
+- FRDM-MCXN947 serial runtime path.
+- Raspberry Pi Pico remains a target direction, but the current documented hardware smoke paths are ESP32 and MCXN947.
 
 ## Observability
 
-- Metrics: tick duration, queue depths, transitions/s, drops, heap watermark
-- Logs: leveled, structured categories
-- Events: state_enter/exit, guard_fail, action_error, io_fault
+- Current state and variable snapshots.
+- Transition-fired records.
+- Deployment metadata such as placement, transport, battery, and latency annotations.
+- Fault actions applied at communication boundaries.
+- Black-box contract records for opaque participants.
 
 See docs/engine/usage.md for build and runtime usage.
-

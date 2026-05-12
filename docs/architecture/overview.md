@@ -2,54 +2,90 @@
 title: Architecture Overview
 ---
 
-# Aetherium Automata — Architecture Overview
+# Architecture Overview
 
-This document describes the high‑level system, roles, and data flows. It clarifies boundaries so each component can evolve independently.
+Aetherium Automata is organized around one workflow:
+
+```text
+design EFSM -> bind channels -> deploy -> observe -> inject faults -> rewind -> analyze
+```
 
 ## Components
 
-- Engine (Device/Host): Executes automata definitions deterministically on MCU or PC. Exposes a minimal control/telemetry interface.
-- Servers (Core/Edge): Manage fleets, route commands, buffer telemetry, and maintain durable state as needed.
-- Controller (Gateway): The only externally reachable node. Performs discovery, provisioning, flashing, upgrades, and bridges authenticated access for tools/IDE.
-- IDE (Browser): React app for authoring, simulation, deployment, and monitoring.
+| Component | Path | Responsibility |
+|---|---|---|
+| Engine | `src/engine/` | Validate and execute EFSM automata; emit snapshots, transitions, traces, and black-box metadata. |
+| Server | `src/server/aetherium_server/` | Manage devices, deployments, connectors, target profiles, time-series data, replay, and analyzer inputs. |
+| Gateway | `src/gateway/aetherium_gateway/` | Phoenix channel broker between IDE/operators and servers/devices. Handles authenticated real-time messaging. |
+| IDE | `src/ide/` | Electron/React application for authoring, project loading, runtime monitoring, fault injection, time travel, Petri view, and analyzer view. |
+| Showcase | `example/automata/showcase/` | YAML automata used for demos, validation, and thesis figures. |
 
-## Data Planes
+## Runtime Topology
 
-- Control Plane: Discovery, capabilities, provisioning, lifecycle (load/start/stop/reset), configuration, health.
-- Data Plane: Telemetry (metrics/logs/events), state snapshots, optional streamed diagnostics.
+```text
+IDE (Electron)
+    |
+    | Phoenix/WebSocket
+    v
+Gateway
+    |
+    | server/device channels
+    v
+Server
+    |
+    | WebSocket, serial, ROS2 bridge, host runtime
+    v
+Engine instances / black boxes / board devices
+```
 
-## Identity and Versioning
+The default Docker stack starts:
 
-- Device ID (stable, provisioned by Controller)
-- Instance ID (per engine process on a device)
-- Run ID (per automata load)
-- Versions: Engine ABI, YAML spec, Automata model
+```text
+gateway + server3 + device1
+```
 
-## Reliability & Backpressure
+The black-box stack starts:
 
-- Control plane: At‑least‑once with idempotent commands using version/run IDs
-- Data plane: Batching with window control and retry‑after hints; local FIFO buffers when feasible on device
+```text
+gateway + server3 + blackbox1
+```
 
-## Security Model
+## Data Flow
 
-- Controller is the sole external ingress; devices initiate outbound where possible
-- Pluggable transport auth: PSK (MCU), mTLS (host), token‑based (WS)
-- Key rotation and time sync via Controller
+- **Deployment flow**: IDE sends deploy request through the gateway; server validates/compiles/loads the automaton; the engine acknowledges and begins execution.
+- **Runtime flow**: engine emits state snapshots, variable values, transition events, and deployment metadata; server stores/forwards these records; IDE renders them live.
+- **Fault flow**: gateway/server apply deterministic fault profiles at communication boundaries, not inside arbitrary implementation code.
+- **Replay flow**: time-series records reconstruct a past state; server dispatches restore/resume commands so a device can continue from that point.
+- **Analyzer/Petri flow**: automata definitions and contracts are lifted into structural models for resource contention, bottlenecks, and deadlock-style findings.
 
-## Transport Abstraction
+## Identity
 
-The protocol is transport‑agnostic. Typical transports:
+Common identifiers:
 
-- Serial (CBOR/MsgPack)
-- UDP (CBOR/JSON)
-- WebSocket (JSON)
+- `device_id`: runtime device or black-box participant.
+- `server_id`: server instance managing the deployment.
+- `automata_id`: automaton definition identity.
+- `deployment_id`: loaded runtime instance.
+- `instance_id`: trace/deployment label used in local runs and metadata.
 
-## Responsibilities and Boundaries
+## Current Transport Set
 
-- Engine: Deterministic execution, minimal messaging, HAL abstraction. Non‑goals: discovery, orchestration, long‑term storage.
-- Servers: Registry, routing, policies, durable telemetry, automation (rollouts/rollbacks).
-- Controller: Discovery, provisioning, flashing, authenticated bridge to IDE. No real‑time guarantees.
-- IDE: Authoring, visualization, ops workflows via Controller/Servers APIs.
+- WebSocket for host/docker devices.
+- Serial for ESP32 and FRDM-MCXN947 hardware loops.
+- ROS2 bridge through the connector demo stack.
+- Local host runtime for smoke/demo flows.
 
-See also: docs/engine/README.md, docs/protocol/overview.md, docs/controller/README.md, docs/servers/README.md.
+## Source of Truth
 
+- Automata model: YAML files under `example/automata/` and project-loaded IDE automata.
+- IDE project: `example/ide_demo_projects/backend-capabilities-tour.aeth`.
+- Curated validation catalog: `example/automata/showcase/CATALOG.txt`.
+- Runtime commands: `src/Makefile`.
+
+## Related Docs
+
+- `docs/engine/README.md`
+- `docs/engine/usage.md`
+- `docs/protocol/PROTOCOL_SPEC.md`
+- `docs/architecture/BLACK_BOX_IMPLEMENTATION.md`
+- `docs/architecture/ANALYZER_DEMONSTRATION.md`

@@ -18,7 +18,7 @@
 %   projekt-30-prilohy-appendices-en.tex - přílohy v angličtině / appendices in English
 %==============================================================================
 %\documentclass[]{fitthesis} % bez zadání - pro začátek práce, aby nebyl problém s překladem
-\documentclass[english]{fitthesis} % without assignment - for the work start to avoid compilation problem
+\documentclass[english,enslovak]{fitthesis} % without assignment - for the work start to avoid compilation problem
 %\documentclass[zadani]{fitthesis} % odevzdani do IS VUT a/nebo tisk s barevnými odkazy - odkazy jsou barevné
 %\documentclass[english,zadani]{fitthesis} % for submission to the IS VUT and/or print with color links - links are color
 %\documentclass[zadani,print]{fitthesis} % pro černobílý tisk - odkazy jsou černé
@@ -136,7 +136,7 @@
   title.en={An environment for the visual design, monitoring, and management of distributed control systems and IoT networks},
   %Autor / Author
   author.name={Jakub},
-  author.surname={Kapitulcin},
+  author.surname={Kapitulčín},
   %Ustav / Department
   % TODO: verify department abbreviation from your assignment sheet (UPSY/UIFS/UITS/UPGM)
   department={UITS},
@@ -151,17 +151,15 @@
   specialist.title.p={},
   specialist.title.a={},
   % Klíčová slova / keywords
-  % TODO: translate keywords to Czech for the cs field
-  keywords.cs={rozšířený konečný automat, Petriho síť, IoT, distribuované řídicí systémy, stavový stroj, Lua, vestavěné systémy, vizuální IDE, vstřikování chyb, ladění s přetáčením času},
+  keywords.cs={rozšírený konečný automat, Petriho sieť, IoT, distribuované riadiace systémy, stavový automat, Lua, vstavané systémy, vizuálne IDE, vkladanie chýb, ladenie s návratom v čase},
   keywords.en={extended finite state machine, Petri net, IoT, distributed control systems, state machine, Lua, embedded systems, visual IDE, fault injection, time-travel debugging},
   % Abstrakt / Abstract
-  % TODO: translate abstract to Czech for the cs field
-  abstract.cs={Tato práce představuje platformu Aetherium Automata pro vizuální návrh, nasazení a monitorování distribuovaných řídicích systémů IoT modelovaných jako rozšířené konečné automaty. Platforma se skládá z přenositelného runtime jádra v jazyce C++17, brány v Elixiru a Phoenix, a vizuálního vývojového prostředí postaveného na technologii Electron. Model automatu podporuje pět typů přechodů a doménově specifický jazyk v YAML. Jádro je spustitelné na stolních počítačích i na vestavěných platformách jako ESP32 a Raspberry Pi Pico. IDE umožňuje živé monitorování, inspekci proměnných a ladění s přetáčením času. Strukturální analýza pomocí Petriho sítí umožňuje detekci deadlocků a identifikaci úzkých hrdel v sítích automatů.},
-  abstract.en={This thesis presents Aetherium Automata, a platform for the visual design, deployment, and monitoring of distributed IoT control systems modeled as Extended Finite State Machines (EFSMs). The platform consists of a portable C++17 runtime engine, a real-time Elixir/Phoenix gateway, and an Electron-based visual IDE. The EFSM model supports five transition types---classic guarded, timed, event-driven, probabilistic, and immediate---expressed in a YAML-based domain-specific language. The engine executes Lua scripts for guards and state actions and targets heterogeneous hardware including desktop systems, ESP32, and Raspberry Pi Pico. The IDE provides live state monitoring, variable inspection, and time-travel debugging via execution trace replay. Structural analysis using Petri net formalism enables deadlock detection and bottleneck identification across multi-automata networks. The system is demonstrated through a catalog of 18 showcase automata covering a range of real-world IoT scenarios.},
+  abstract.cs={Táto práca predstavuje platformu Aetherium Automata na vizuálny návrh, nasadenie a monitorovanie distribuovaných riadiacich systémov IoT modelovaných ako rozšírené konečné automaty. Platforma sa skladá z prenosného runtime jadra v jazyku C++17, brány postavenej na Elixir/Phoenix a vizuálneho vývojového prostredia založeného na Electrone. Model automatu podporuje päť typov prechodov vyjadrených v doménovo špecifickom jazyku YAML. Jadro spúšťa skripty Lua pre stráže a akcie stavov a cieli na heterogénny hardvér vrátane desktopových systémov, ESP32 a Raspberry Pi Pico. IDE poskytuje živé monitorovanie stavu, kontrolu premenných, vkladanie chýb a ladenie s návratom v čase pomocou prehrávania vykonávacej stopy. Štrukturálna analýza pomocou formalizmu Petriho sietí umožňuje detekciu uviaznutí a identifikáciu úzkych miest v sieťach automatov.},
+  abstract.en={This thesis presents Aetherium Automata, a platform for the visual design, deployment, and monitoring of distributed IoT control systems modeled as Extended Finite State Machines (EFSMs). The platform consists of a portable C++17 runtime engine, a real-time Elixir/Phoenix gateway, and an Electron-based visual IDE. The EFSM model supports five transition types---classic guarded, timed, event-driven, probabilistic, and immediate---expressed in a YAML-based domain-specific language. The engine executes Lua scripts for guards and state actions and targets heterogeneous hardware including desktop systems, ESP32, and Raspberry Pi Pico. The IDE provides live state monitoring, variable inspection, fault injection, and time-travel debugging via execution trace replay. Structural analysis using Petri net formalism enables deadlock detection and bottleneck identification across multi-automata networks. The system is demonstrated through a showcase catalog and a dedicated Aetherium Gem Cell project that combines TDD checkpoints, fault paths, Petri-liftable resource demand, black-box contracts, and high state churn in one readable scenario.},
   % Declaration
   declaration={I hereby declare that this Bachelor's thesis was prepared as an original work by the author under the supervision of doc.~Ing.~Vladimír Janoušek, Ph.D.
 I have listed all the literary sources, publications, and other sources which were used during the preparation of this thesis.
-I used Claude Code (an AI programming assistant by Anthropic) for code assistance and documentation generation during the development of the implemented system.},
+I used OpenAI Codex for source-code assistance, test design, refactoring suggestions, and thesis text refinement. I used GitHub Copilot for inline code completion during implementation. I used Google Stitch for early user-interface layout exploration and visual design ideation. All generated suggestions were reviewed, edited, and integrated by the author.},
   % Poděkování / Acknowledgement
   % TODO: fill in acknowledgements
   acknowledgment={I would like to thank doc.~Ing.~Vladimír Janoušek, Ph.D. for his guidance throughout the work on this thesis.},
@@ -174,7 +172,15 @@ I used Claude Code (an AI programming assistant by Anthropic) for code assistanc
 }
 
 % Rozšířený abstrakt (cca 3 normostrany) - lze definovat zde nebo výše / Extended abstract (approximately 3 standard pages) - can be defined here or above
-%\extendedabstract{Do tohoto odstavce bude zapsán výtah (abstrakt) práce v českém (slovenském) jazyce.}
+\extendedabstract{Táto práca sa zaoberá návrhom a implementáciou platformy Aetherium Automata, ktorej cieľom je zjednodušiť tvorbu, nasadzovanie, monitorovanie a ladenie distribuovaných riadiacich systémov pre IoT. Východiskovým problémom je skutočnosť, že riadiaca logika v podobných systémoch je často rozptýlená v skriptoch, spätných volaniach alebo konfiguračných tokoch. Stav systému síce existuje, no nie je explicitným prvkom návrhu. Pri poruche potom vývojár rekonštruuje správanie z logov, sieťových udalostí a čiastkových pohľadov na jednotlivé zariadenia. Aetherium preto kladie stavový model do stredu vývojového procesu: každé zariadenie alebo logický uzol je opísaný ako rozšírený konečný automat s pomenovanými stavmi, typovanými premennými, strážami a akciami.
+
+Platforma pozostáva z prenosného runtime jadra v C++17, serverovej a bránovej vrstvy postavenej na Elixir/Phoenix a vizuálneho IDE vytvoreného v Electron/React. Automaty sa opisujú v YAML jazyku, ktorý podporuje klasické strážené prechody, časované prechody, udalostné prechody, pravdepodobnostné prechody a okamžité prechody. Stavové akcie a stráže sú zapísané v Lua, čo umožňuje udržať samotnú štruktúru automatu čitateľnú a zároveň pridať výpočtovú logiku tam, kde je potrebná. Runtime jadro je oddelené od konkrétnej platformy pomocou abstrakcií pre čas, náhodnosť a skriptovanie, takže rovnaký model môže bežať na desktopovom hostiteľovi aj na vstavaných cieľoch.
+
+Dôležitým princípom práce je Reality-in-the-Loop. Testovanie nepoužíva oddelený model systému, ale ten istý automat, ktorý sa nasadzuje do cieľového prostredia. Brána a runtime podporujú vkladanie chýb na komunikačnej hranici, napríklad oneskorenie, stratu správ alebo odpojenie zariadenia. Vďaka tomu možno v laboratórnych podmienkach vyvolať zriedkavé poruchy, ktoré by sa inak objavili až v prevádzke. Vykonávacia stopa ukladá zmeny stavov, hodnôt premenných a komunikačné udalosti, čo umožňuje návrat v čase a opakované preskúmanie presného bodu, v ktorom sa systém dostal do nežiaduceho stavu.
+
+Druhým princípom je vývoj uvedomujúci si nasadenie. IDE nezobrazuje iba zdrojový kód automatu, ale aj živý stav zariadení, hodnoty premenných, sieťové metadáta, priebeh nasadenia a analytické pohľady. Viaceré automaty možno zdvihnúť do Petriho siete, v ktorej sú viditeľné štrukturálne vlastnosti celej siete: zdieľané zdroje, potenciálne uviaznutia, úzke miesta a súperenie o kapacitu. Táto vrstva dopĺňa lokálny pohľad na jednotlivé automaty o globálny model ich interakcie.
+
+Výsledok je demonštrovaný katalógom ukážkových automatov a projektom Aetherium Gem Cell. Tento projekt spája kontrolné body vývoja riadeného testami, časté prepínanie stavov, rozhrania pre vkladanie chýb, značky pre ladenie s návratom v čase, black-box kontrakt a zdieľaný zdroj vhodný na Petriho analýzu. Scenár je zámerne navrhnutý tak, aby väčšina významu bola viditeľná v stavoch a prechodoch, zatiaľ čo kód v stavoch slúži najmä na nastavovanie pozorovateľných premenných. Ukazuje tak, že platforma má praktický zmysel nielen ako editor diagramov, ale ako ucelené vývojové prostredie pre stavové, distribuované a testovateľné riadiace systémy.}
 % Začít rozšířený abstrakt na liché stránce? / Should extended abstract start on the odd page?
 %\extabstractodd{true}
 

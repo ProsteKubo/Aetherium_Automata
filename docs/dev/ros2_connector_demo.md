@@ -11,7 +11,7 @@ This runbook provides two ROS2 operation modes:
 - Workspace root:
 
 ```bash
-cd /Users/administratorik/dev/Aetherium_Automata/src
+cd src
 ```
 
 ## Mode A: Actual ROS2 Device

@@ -2,7 +2,7 @@
 
 This document defines the wire protocol for communication between Aetherium components.
 
-> Implementation note (prototype phase): the engine now includes a versioned `ProtocolCodecV2`
+> Implementation note: the engine includes a versioned `ProtocolCodecV2`
 > (`src/engine/core/protocol_v2.hpp`) with extensible frame metadata, explicit outcomes (`ACK`/`NAK`/`ERROR`/`STATUS`),
 > and per-message extension blocks. v1 remains documented here for compatibility/reference.
 
@@ -11,7 +11,7 @@ This document defines the wire protocol for communication between Aetherium comp
 The protocol is designed to be:
 - **Compact**: Minimal overhead for embedded devices
 - **Extensible**: Version and vendor fields for future growth
-- **Transport-agnostic**: Works over Serial, MQTT, WebSocket
+- **Transport-agnostic**: used over WebSocket and serial today; MQTT-style bindings remain a protocol design option
 - **Self-describing**: Type + length prefix for easy parsing
 
 ## Wire Format
@@ -124,7 +124,7 @@ Device announces its presence to the server.
 |-------|------|
 | 0x01 | Desktop |
 | 0x02 | ESP32 |
-| 0x03 | Pico |
+| 0x03 | Raspberry Pi Pico (reserved/target direction) |
 | 0x04 | Raspberry Pi |
 | 0x05 | Arduino |
 | 0x10 | Server |
@@ -344,7 +344,7 @@ Each section has:
 
 ## Transport Bindings
 
-### MQTT
+### MQTT-Style Binding (Design Option)
 
 **Topics**:
 - `aeth/{server_id}/devices/{device_id}/in` - Messages to device
@@ -410,7 +410,7 @@ JSON encoding for gateway communication:
 
 | Transport | Auth Method |
 |-----------|-------------|
-| MQTT | TLS + username/password or client cert |
+| MQTT-style binding | TLS + username/password or client cert |
 | Serial | N/A (physical security) |
 | WebSocket | TLS + token auth |
 

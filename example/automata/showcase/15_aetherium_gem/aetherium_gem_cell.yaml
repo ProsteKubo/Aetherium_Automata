@@ -1,0 +1,424 @@
+version: 0.0.1
+
+config:
+  name: Aetherium Gem Cell
+  type: inline
+  description: State-heavy flagship cell that exercises TDD checkpoints, fault injection, replay markers, black-box boundaries, and Petri-liftable shared-resource demand.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - flagship
+    - gem
+    - tdd
+    - fault-injection
+    - petri
+    - time-travel
+
+variables:
+  - name: operator_enable
+    type: bool
+    direction: input
+    default: false
+  - name: sensor_ok
+    type: bool
+    direction: input
+    default: true
+  - name: petri_bus_grant
+    type: bool
+    direction: input
+    default: true
+  - name: quality_score
+    type: int
+    direction: input
+    default: 82
+  - name: fault_inject_drop
+    type: bool
+    direction: input
+    default: false
+  - name: fault_inject_delay
+    type: bool
+    direction: input
+    default: false
+  - name: reset_fault
+    type: bool
+    direction: input
+    default: false
+  - name: phase
+    type: string
+    direction: output
+    default: boot
+  - name: demand_bus
+    type: bool
+    direction: output
+    default: false
+  - name: heartbeat
+    type: bool
+    direction: output
+    default: false
+  - name: black_box_probe
+    type: bool
+    direction: output
+    default: false
+  - name: tdd_step
+    type: int
+    direction: output
+    default: 0
+  - name: tdd_assertion_passed
+    type: bool
+    direction: output
+    default: false
+  - name: replay_marker
+    type: string
+    direction: output
+    default: boot
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+  - name: fault_latched
+    type: bool
+    direction: output
+    default: false
+
+black_box:
+  ports:
+    - name: operator_enable
+      direction: input
+      type: bool
+      observable: true
+      fault_injectable: true
+    - name: fault_inject_drop
+      direction: input
+      type: bool
+      observable: true
+      fault_injectable: true
+    - name: demand_bus
+      direction: output
+      type: bool
+      observable: true
+    - name: phase
+      direction: output
+      type: string
+      observable: true
+    - name: fault_latched
+      direction: output
+      type: bool
+      observable: true
+  observable_states:
+    - Idle
+    - RequestBus
+    - ProcessAlpha
+    - ProcessBeta
+    - FaultInjected
+    - ReplayCheckpoint
+  emitted_events:
+    - tdd_assertion_passed
+    - fault_latched
+    - replay_checkpoint
+  resources:
+    - name: gem_workcell_bus
+      kind: shared-control-channel
+      capacity: 1
+      shared: true
+      latency_sensitive: true
+
+automata:
+  initial_state: Boot
+
+  states:
+    Boot:
+      on_enter: |
+        setVal("phase", "boot")
+        setVal("demand_bus", false)
+        setVal("heartbeat", false)
+        setVal("black_box_probe", false)
+        setVal("tdd_step", 0)
+        setVal("tdd_assertion_passed", false)
+        setVal("replay_marker", "boot")
+        setVal("fault_latched", false)
+
+    SelfTestArrange:
+      on_enter: |
+        setVal("phase", "tdd_arrange")
+        setVal("tdd_step", 1)
+        setVal("replay_marker", "arrange")
+
+    SelfTestAct:
+      on_enter: |
+        setVal("phase", "tdd_act")
+        setVal("tdd_step", 2)
+        setVal("heartbeat", true)
+
+    SelfTestAssert:
+      on_enter: |
+        setVal("phase", "tdd_assert")
+        setVal("tdd_step", 3)
+        setVal("tdd_assertion_passed", value("sensor_ok") == true)
+
+    Idle:
+      on_enter: |
+        setVal("phase", "idle")
+        setVal("demand_bus", false)
+        setVal("black_box_probe", false)
+        setVal("heartbeat", false)
+        setVal("replay_marker", "idle")
+
+    RequestBus:
+      on_enter: |
+        setVal("phase", "request_bus")
+        setVal("demand_bus", true)
+        setVal("heartbeat", true)
+        setVal("black_box_probe", true)
+        setVal("replay_marker", "bus_requested")
+
+    AwaitGrant:
+      on_enter: |
+        setVal("phase", "await_grant")
+        setVal("demand_bus", true)
+        setVal("heartbeat", true)
+
+    AcquireBus:
+      on_enter: |
+        setVal("phase", "acquire_bus")
+        setVal("demand_bus", true)
+        setVal("cycle_count", value("cycle_count") + 1)
+        setVal("replay_marker", "cycle_" .. tostring(value("cycle_count")))
+
+    ProcessAlpha:
+      on_enter: |
+        setVal("phase", "process_alpha")
+        setVal("heartbeat", true)
+
+    ProcessBeta:
+      on_enter: |
+        setVal("phase", "process_beta")
+        setVal("heartbeat", true)
+
+    DelayCompensation:
+      on_enter: |
+        setVal("phase", "delay_compensation")
+        setVal("heartbeat", true)
+
+    QualityGate:
+      on_enter: |
+        setVal("phase", "quality_gate")
+        setVal("black_box_probe", false)
+
+    NominalCommit:
+      on_enter: |
+        setVal("phase", "nominal_commit")
+        setVal("replay_marker", "commit")
+
+    MinorRework:
+      on_enter: |
+        setVal("phase", "minor_rework")
+        setVal("replay_marker", "rework")
+
+    FaultInjected:
+      on_enter: |
+        setVal("phase", "fault_injected")
+        setVal("demand_bus", false)
+        setVal("heartbeat", false)
+        setVal("fault_latched", true)
+        setVal("replay_marker", "fault_injected")
+
+    Isolate:
+      on_enter: |
+        setVal("phase", "isolate")
+        setVal("demand_bus", false)
+        setVal("black_box_probe", false)
+
+    ReplayCheckpoint:
+      on_enter: |
+        setVal("phase", "replay_checkpoint")
+        setVal("replay_marker", "checkpoint")
+
+    ReleaseBus:
+      on_enter: |
+        setVal("phase", "release_bus")
+        setVal("demand_bus", false)
+        setVal("heartbeat", false)
+
+    Done:
+      on_enter: |
+        setVal("phase", "done")
+        setVal("demand_bus", false)
+        setVal("heartbeat", false)
+
+  transitions:
+    boot_to_arrange:
+      from: Boot
+      to: SelfTestArrange
+      type: timed
+      after: 100
+
+    arrange_to_act:
+      from: SelfTestArrange
+      to: SelfTestAct
+      type: immediate
+
+    act_to_assert:
+      from: SelfTestAct
+      to: SelfTestAssert
+      type: timed
+      after: 100
+
+    assert_to_idle:
+      from: SelfTestAssert
+      to: Idle
+      type: classic
+      condition: value("tdd_assertion_passed") == true
+
+    assert_to_fault:
+      from: SelfTestAssert
+      to: FaultInjected
+      type: classic
+      priority: 0
+      condition: value("tdd_assertion_passed") == false
+
+    idle_to_request:
+      from: Idle
+      to: RequestBus
+      type: event
+      event:
+        triggers:
+          - signal: operator_enable
+            trigger: on_rise
+
+    request_fault_drop:
+      from: RequestBus
+      to: FaultInjected
+      type: classic
+      priority: 0
+      condition: value("fault_inject_drop") == true or value("sensor_ok") == false
+
+    request_to_await:
+      from: RequestBus
+      to: AwaitGrant
+      type: timed
+      priority: 1
+      after: 120
+
+    await_to_acquire:
+      from: AwaitGrant
+      to: AcquireBus
+      type: classic
+      priority: 0
+      condition: value("petri_bus_grant") == true
+
+    await_timeout_to_fault:
+      from: AwaitGrant
+      to: FaultInjected
+      type: timed
+      priority: 1
+      after: 1500
+
+    acquire_to_alpha:
+      from: AcquireBus
+      to: ProcessAlpha
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 60
+
+    acquire_to_beta:
+      from: AcquireBus
+      to: ProcessBeta
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 40
+
+    alpha_delay_fault:
+      from: ProcessAlpha
+      to: DelayCompensation
+      type: classic
+      priority: 0
+      condition: value("fault_inject_delay") == true
+
+    alpha_to_quality:
+      from: ProcessAlpha
+      to: QualityGate
+      type: timed
+      priority: 1
+      after: 200
+
+    beta_delay_fault:
+      from: ProcessBeta
+      to: DelayCompensation
+      type: classic
+      priority: 0
+      condition: value("fault_inject_delay") == true
+
+    beta_to_quality:
+      from: ProcessBeta
+      to: QualityGate
+      type: timed
+      priority: 1
+      after: 260
+
+    delay_to_quality:
+      from: DelayCompensation
+      to: QualityGate
+      type: timed
+      after: 500
+
+    quality_to_commit:
+      from: QualityGate
+      to: NominalCommit
+      type: classic
+      priority: 0
+      condition: value("quality_score") >= 70
+
+    quality_to_rework:
+      from: QualityGate
+      to: MinorRework
+      type: classic
+      priority: 1
+      condition: value("quality_score") < 70
+
+    rework_to_request:
+      from: MinorRework
+      to: RequestBus
+      type: timed
+      after: 400
+
+    commit_to_checkpoint:
+      from: NominalCommit
+      to: ReplayCheckpoint
+      type: immediate
+
+    checkpoint_to_release:
+      from: ReplayCheckpoint
+      to: ReleaseBus
+      type: timed
+      after: 150
+
+    release_continue:
+      from: ReleaseBus
+      to: Idle
+      type: classic
+      priority: 0
+      condition: value("operator_enable") == true and value("cycle_count") < 4
+
+    release_done:
+      from: ReleaseBus
+      to: Done
+      type: classic
+      priority: 1
+      condition: value("operator_enable") == false or value("cycle_count") >= 4
+
+    fault_to_isolate:
+      from: FaultInjected
+      to: Isolate
+      type: timed
+      after: 250
+
+    isolate_to_boot:
+      from: Isolate
+      to: Boot
+      type: event
+      event:
+        triggers:
+          - signal: reset_fault
+            trigger: on_rise

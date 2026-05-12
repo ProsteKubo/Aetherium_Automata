@@ -1,5 +1,5 @@
 % Thesis content -- Aetherium Automata
-% Author: Jakub Kapitulcin
+% Author: Jakub Kapitulčín
 % Supervisor: doc. Ing. Vladimír Janoušek, Ph.D.
 % Note: amsmath, amssymb, listings, xcolor, booktabs, float are loaded in fitthesis.cls or projekt.tex preamble.
 
@@ -1157,7 +1157,7 @@ The analyzer identifies three contending pairs (charger+axis, charger+allocator,
 \label{chap:showcase}
 % ============================================================
 
-The system is validated by a catalog of 18 showcase automata organized into 14 categories. All definitions reside under \texttt{example/automata/showcase/}.
+The system is validated by a showcase set of 39 YAML automata organized into 15 categories. A curated validation catalog lists the desktop-runnable scenarios used for regression checks. All definitions reside under \texttt{example/automata/showcase/}.
 
 \begin{table}[H]
   \centering
@@ -1182,11 +1182,42 @@ The system is validated by a catalog of 18 showcase automata organized into 14 c
     12 & Black Box        & Docker-sandboxed probe, external system wrapping \\
     13 & Petri Sig.\ Chain & Command router $\to$ safety gate $\to$ drive unit $\to$ telemetry \\
     14 & Petri Contention & Charger, motion axis, power allocator competing for resources \\
+    15 & Aetherium Gem    & TDD checkpoints, high state churn, fault injection, replay markers, black-box contract, Petri-liftable resource demand \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-% TODO: expand each showcase with a short description, diagram, and YAML snippet for the most illustrative cases.
+\section{Flagship Showcase: Aetherium Gem Cell (15)}
+\label{sec:gem-showcase}
+
+The Aetherium Gem Cell is the primary thesis demonstration project. It is intentionally state-heavy: the scenario contains boot, test, request, grant, processing, quality, rework, fault, isolation, replay, release, and completion phases. Most states execute only short assignments to observable variables such as \texttt{phase}, \texttt{demand\_bus}, \texttt{heartbeat}, \texttt{tdd\_step}, and \texttt{replay\_marker}. This keeps behavior visible in the automaton structure rather than hiding it in long scripts.
+
+The showcase combines the main platform abilities in one readable model:
+
+\begin{itemize}
+  \item \textbf{TDD checkpoints}: the \texttt{SelfTestArrange}, \texttt{SelfTestAct}, and \texttt{SelfTestAssert} states encode an arrange-act-assert flow and expose \texttt{tdd\_assertion\_passed} for automated validation.
+  \item \textbf{Fault injection}: \texttt{fault\_inject\_drop} and \texttt{fault\_inject\_delay} drive explicit fault and compensation paths, so the Gateway panel can perturb the same boundary that production uses.
+  \item \textbf{Petri lift}: the \texttt{gem\_workcell\_bus} black-box resource and \texttt{demand\_bus} output create a shared-resource place when the automaton is lifted into the Petri net view.
+  \item \textbf{Time-travel debugging}: each major phase writes a \texttt{replay\_marker}, making the execution trace easy to inspect and rewind during demonstrations.
+  \item \textbf{Black-box contract}: the model declares observable ports, emitted events, and resource metadata so the analyzer can reason about the boundary even if the internal implementation is hidden.
+\end{itemize}
+
+\begin{lstlisting}[language=yaml, caption={Excerpt from the Aetherium Gem Cell showcase.}]
+SelfTestAssert:
+  on_enter: |
+    setVal("phase", "tdd_assert")
+    setVal("tdd_step", 3)
+    setVal("tdd_assertion_passed", value("sensor_ok") == true)
+
+request_fault_drop:
+  from: RequestBus
+  to: FaultInjected
+  type: classic
+  priority: 0
+  condition: value("fault_inject_drop") == true or value("sensor_ok") == false
+\end{lstlisting}
+
+The corresponding IDE project is \texttt{example/ide\_demo\_projects/backend-capabilities-tour.aeth}. It places the Gem Cell first, followed by the signal-chain, guarded-cell, power-contention, and watchdog networks. This ordering makes the project suitable for demonstrations: start with one comprehensive automaton, then show how the same ideas scale to a multi-automata network.
 
 \section{Selected Showcase: Quality Router (03)}
 
@@ -1612,7 +1643,7 @@ The concrete contributions that realise these principles are:
   \item A binary wire protocol inspired by MQTT's lightweight publish/subscribe model but reimplemented to support server-side sequence numbering and execution trace recording --- the technical foundation of time-travel debugging.
   \item An Electron IDE providing live state monitoring, variable inspection, fault injection, time-travel debugging, and Petri net analysis --- the single surface at which both RitL and DAD are exercised.
   \item A Petri net analysis layer that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
-  \item A catalog of 18 showcase automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, and multi-device coordination.
+  \item A showcase set of 39 YAML automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, multi-device coordination, and the dedicated Aetherium Gem Cell project.
 \end{enumerate}
 
 \section{Future Work}

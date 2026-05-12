@@ -281,7 +281,7 @@ Currently does not support remote event injection or remote force-state executio
 
 Not implemented yet.
 
-Board-specific follow-up work should be tracked in [BOARD_IMPLEMENTATION_TODO.md](/home/jakito/dev/Aetherium_Automata/BOARD_IMPLEMENTATION_TODO.md).
+Board-specific follow-up work should be tracked in `BOARD_IMPLEMENTATION_TODO.md`.
 
 ## Practical Definition
 

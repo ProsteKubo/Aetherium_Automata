@@ -10,8 +10,14 @@ defmodule AetheriumServer.ShowcaseCatalog do
       id: "flagship_desktop",
       name: "Flagship Desktop Showcase",
       description:
-        "Canonical desktop-runnable bundle spanning signal chain, guarded cell host orchestration, power contention, resilience, and one docker black-box participant.",
+        "Canonical desktop-runnable bundle spanning the Aetherium gem cell, signal chain, guarded cell host orchestration, power contention, resilience, and one docker black-box participant.",
       members: [
+        %{
+          relative_path:
+            "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml",
+          network: "Aetherium Gem Cell",
+          device_role: "host"
+        },
         %{
           relative_path:
             "example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml",

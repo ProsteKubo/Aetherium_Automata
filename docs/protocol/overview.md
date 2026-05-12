@@ -2,62 +2,53 @@
 title: Protocol Overview
 ---
 
-# Engine Protocol Overview
+# Protocol Overview
 
-The protocol defines a minimal, transport‑agnostic control/telemetry interface for Engine instances. It is predictable on MCUs and extensible on hosts.
+Aetherium uses protocol messages to connect the IDE, gateway, server, engines, serial devices, and black-box participants. The implementation has both gateway/server channel payloads and C++ engine protocol codecs; this page is the practical orientation, not a byte-level replacement for `PROTOCOL_SPEC.md`.
 
-## Transports
+## Message Families
 
-- Serial: CBOR/MsgPack framing
-- UDP: CBOR or JSON
-- WebSocket: JSON
+- **Identity/liveness**: hello, hello acknowledgement, ping/pong, goodbye.
+- **Lifecycle**: load automata, load acknowledgement, start, stop, pause, resume, reset, status.
+- **Runtime data**: input updates, output updates, variable updates, state changes, telemetry, transition-fired records.
+- **Deployment/replay**: deployment metadata, trace records, restore state, rewind requests.
+- **Diagnostics**: ACK, NAK, error, debug/vendor messages.
 
-## Envelope
+## Current Transports
 
-Each message carries an envelope to support correlation and routing:
+- Phoenix/WebSocket channels between IDE, gateway, and server.
+- WebSocket between host/docker engine runtimes and server-facing services.
+- Serial for ESP32 and FRDM-MCXN947 host hardware loops.
+- TCP bridge for the ROS2 connector demo.
 
+## Engine Protocol
+
+The C++ engine command bus is exercised by:
+
+```bash
+./build/aetherium_engine_command_smoke
 ```
-{
-  "msg_id": "uuid-or-counter",
-  "type": "hello|discover|provision|load_automata|start|stop|reset|config_set|get|ping|health|telemetry|state_snapshot|event_inject|command",
-  "source": { "device_id": "...", "instance_id": "..." },
-  "target": { "device_id": "..." },
-  "ts": 0, // monotonic or synchronized time
-  "in_reply_to": "optional-msg-id",
-  "payload": { /* type-specific */ },
-  "vendor_extensions": { /* optional */ }
-}
+
+The command smoke covers the main lifecycle and data commands and should print:
+
+```text
+engine_command_smoke: PASS
 ```
 
-## Control Plane Types
+## Trace Metadata
 
-- hello: announce presence, versions, capabilities, limits
-- discover: controller/servers request presence
-- provision: set identity, keys, labels, time sync
-- load_automata: push model blob or reference; returns run_id
-- start/stop/reset: lifecycle control
-- config_set/get: runtime parameters
-- ping/health: liveness, metrics snapshot
+Trace records may include:
 
-## Data Plane Types
+- deployment instance and placement;
+- transport;
+- control-plane peer;
+- fault profile and applied fault actions;
+- battery metadata;
+- latency metadata;
+- black-box contract and observable state annotations.
 
-- telemetry: metrics/logs/events (batched)
-- state_snapshot: current state(s), timers, variables
-- event_inject: external event injection
-- command: device I/O command requests/responses
+This metadata is what enables the IDE runtime monitor, time-travel view, and analyzer to reason about deployed behavior rather than raw logs only.
 
-## Reliability & Flow Control
+## Byte-Level Reference
 
-- At‑least‑once delivery with idempotent operations using run_id and versions
-- Windowing and retry‑after hints for backpressure
-- Local FIFO buffers on device where feasible
-
-## Security
-
-- Transport‑level auth: PSK (MCU), mTLS (host), token‑based (WS)
-- Optional message signatures/MACs; nonce/clock sync support
-
-## Extensibility
-
-- `vendor_extensions` with namespaced keys to avoid collisions
-
+See `docs/protocol/PROTOCOL_SPEC.md` for the binary frame reference and message ID tables.

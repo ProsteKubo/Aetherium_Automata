@@ -4,71 +4,140 @@ title: Engine Usage
 
 # Engine Usage
 
-This guide covers building and running the Engine on host and MCU targets, runtime configuration, lifecycle, and error handling.
+The C++ engine validates and executes Aetherium automata definitions. In the current repository it is used in three ways:
 
-## Build Targets
+- as a local CLI validator;
+- as a Docker-hosted runtime device (`device1`, `blackbox1`);
+- as an embedded runtime library for ESP32 and FRDM-MCXN947 hardware paths.
 
-- Host (PC): Build a CLI runner that loads a YAML automata file and executes it locally. Useful for simulation, testing, and integration with the IDE.
-- MCU: Link the Engine library into firmware. Provide HAL and transport implementations appropriate for the target board/RTOS.
+## Build
 
-## Configuration
+From the repository root:
 
-- Tick Rate: 1–1000 Hz depending on workload and timing requirements
-- Resource Limits: max states, transitions, timers, message size and queues
-- Logging: off/minimal/verbose; category filters
-- Transports: select and configure (serial baud, UDP ports, WS URL)
+```bash
+cmake -S . -B build
+cmake --build build -j4
+```
 
-## Lifecycle
+Main binaries:
 
-1) Initialize: Create an Engine instance with HAL, transport(s), and limits
-2) Load: Supply validated YAML or a precompiled model; receive a run_id
-3) Start: Begin execution; scheduler activates initial state(s)
-4) Control: pause/resume, inject events, set variables, request snapshot
-5) Stop/Reset: Graceful stop; optional wipe for re‑provisioning
+- `build/aetherium_engine`
+- `build/aetherium_engine_command_smoke`
 
-## Using on PC
+## CLI Validation
 
-- Provide the path to an automata YAML file (see docs/Automata_YAML_Spec.md)
-- Optionally enable a local WebSocket or UDP transport for control/telemetry
-- Observe logs/metrics/state in the console or via tools/IDE
+```bash
+./build/aetherium_engine --validate example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml
+```
 
-### CLI Modes
+Curated showcase validation:
 
-- `--run <file>`: load and start immediately in detached mode.
-- `--mode network --run <file>`: connect to server and run an initial automata.
-- `--mode network` with no `--run`: start command server loop and wait for network load/start commands.
-- `--validate <file>`: parse/validate only, no execution.
+```bash
+scripts/validate_showcase_automata.sh validate
+```
 
-### Command Surface (Engine Runtime)
+If the engine binary lives elsewhere:
 
-The engine command bus accepts and routes all protocol command IDs:
+```bash
+AETHERIUM_ENGINE_BIN=/abs/path/to/aetherium_engine scripts/validate_showcase_automata.sh validate
+```
 
-- Control: `HELLO`, `HELLO_ACK`, `DISCOVER`, `PING`, `PONG`, `PROVISION`, `GOODBYE`
-- Automata: `LOAD_AUTOMATA`, `LOAD_ACK`, `START`, `STOP`, `RESET`, `STATUS`, `PAUSE`, `RESUME`
-- Data: `INPUT`, `OUTPUT`, `VARIABLE`, `STATE_CHANGE`, `TELEMETRY`, `TRANSITION_FIRED`
-- Extended: `VENDOR`, `DEBUG`, `ERROR`, `ACK`, `NAK`
+## CLI Options
 
-Execution semantics are idempotent for lifecycle operations. Responses include `ACK`/`NAK` and status snapshots.
+Run:
 
-## Using on MCU
+```bash
+./build/aetherium_engine --help
+```
 
-- Implement HAL for time, I/O, storage, and chosen transport
-- Provide automata model as an embedded blob or stream from Controller
-- Configure minimal logging and telemetry sampling to meet real‑time constraints
+Common options:
 
-## Error Handling
+- `--validate <file>`: parse and validate one YAML automaton.
+- `--run <file|->`: run an automaton or wait for network deployment when `-` is used.
+- `--mode detached|network`: select local detached execution or network mode.
+- `--max-ticks <N>` and `--max-transitions <N>`: cap local execution.
+- `--trace-file <path>`: write execution trace JSONL.
+- `--fault-*`: configure deterministic fault profiles for local/network traces.
+- `--battery-*` and `--latency-*`: annotate deployment metadata and trace records.
 
-- Loader/Validator errors: schema violations, dangling states, resource limits, missing I/O bindings
-- Runtime errors: fatal vs recoverable with structured codes and context
-- Telemetry includes error events; controller and servers can aggregate
+Some build profiles are validation-focused and may report that the runtime-core build does not include a file/YAML loader for `--run`. Use `--validate` for portable CLI checks and Docker/server workflows for end-to-end runtime demos.
 
-## Versioning
+## Command Smoke
 
-- Engine ABI version, YAML spec version, automata model version
-- Compatibility is checked during load and at handshake on the control plane
+```bash
+./build/aetherium_engine_command_smoke
+```
+
+Expected output:
+
+```text
+engine_command_smoke: PASS
+```
+
+## Docker Runtime
+
+From `src/`:
+
+```bash
+make up
+make logs0
+```
+
+This starts `gateway + server3 + device1`. The `device1` container runs the C++ engine as the reference desktop runtime.
+
+Black-box runtime:
+
+```bash
+make up-blackbox
+make smoke-blackbox
+```
+
+The black-box smoke path uses:
+
+```text
+example/automata/showcase/12_black_box/docker_black_box_probe.yaml
+```
+
+## Embedded Targets
+
+ESP32 and FRDM-MCXN947 builds link the runtime core into board-specific firmware and communicate through serial connectors managed by the host server.
+
+ESP32:
+
+```bash
+cd src
+make esp-deps
+make esp-compile
+make esp-flash ESP_PORT=/dev/cu.usbserial-...
+make esp-server ESP_PORT=/dev/cu.usbserial-...
+```
+
+FRDM-MCXN947:
+
+```bash
+cd src
+make mcxn947-configure
+make mcxn947-build
+make mcxn947-flash MCXN947_PORT=/dev/cu.usbmodem...
+make mcxn947-server MCXN947_PORT=/dev/cu.usbmodem...
+```
+
+## Lifecycle Semantics
+
+The engine command bus supports:
+
+- load/start/stop/reset;
+- pause/resume;
+- input and variable updates;
+- status snapshots;
+- telemetry, transition, and state-change records;
+- ACK/NAK/error reporting.
+
+Lifecycle operations are intended to be idempotent where possible. Runtime state is exposed through snapshots and trace records so the IDE can monitor, fault, and rewind deployments.
 
 ## Safety Notes
 
-- Keep actions short and non‑blocking; use timeouts
-- Use guards to validate inputs before side effects
-- Prefer periodic telemetry snapshots to verbose logging on MCU
+- Keep Lua state and transition hooks short and non-blocking.
+- Put control meaning in explicit states and transitions; use Lua for guards and small side effects.
+- Prefer deterministic seeds for fault-injection demos.
+- Validate YAML before deploying to hardware.

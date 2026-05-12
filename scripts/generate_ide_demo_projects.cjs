@@ -42,6 +42,18 @@ const FLAGSHIP_PROJECTS = [
     },
     networks: [
       {
+        id: 'network_aetherium_gem',
+        name: 'Aetherium Gem Cell',
+        description:
+          'Single flagship cell for thesis demos: TDD checkpoints, high state churn, fault-injection controls, replay markers, black-box boundary metadata, and a Petri-liftable shared bus demand.',
+        relativePath: 'networks/aetherium-gem-cell',
+        color: '#2563eb',
+        icon: 'spark',
+        automataPaths: [
+          'example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml',
+        ],
+      },
+      {
         id: 'network_signal_chain',
         name: 'Signal Chain Backbone',
         description:

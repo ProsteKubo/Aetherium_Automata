@@ -31,9 +31,24 @@ defmodule AetheriumServer.ShowcaseCatalogTest do
     assert {:ok, bundle} = ShowcaseCatalog.load_bundle("flagship_desktop")
 
     assert bundle.id == "flagship_desktop"
-    assert length(bundle.members) == 12
+    assert length(bundle.members) == 13
+    assert Enum.any?(bundle.members, &(&1.network == "Aetherium Gem Cell"))
     assert Enum.any?(bundle.members, &(&1.network == "Signal Chain Backbone"))
     assert Enum.any?(bundle.members, &(&1.device_role == "black_box"))
+  end
+
+  test "load_automata parses Aetherium gem showcase contract and state-heavy workflow" do
+    assert {:ok, %{automata: automata}} =
+             ShowcaseCatalog.load_automata(
+               "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml"
+             )
+
+    assert automata["name"] == "Aetherium Gem Cell"
+    assert automata["initial_state"] == "Boot"
+    assert map_size(automata["states"]) >= 15
+    assert is_map(automata["transitions"])
+    assert get_in(automata, ["black_box", "resources", Access.at(0), "name"]) ==
+             "gem_workcell_bus"
   end
 
   test "load_automata preserves black-box contracts for docker probes" do

@@ -2,28 +2,57 @@
 title: Servers
 ---
 
-# Servers — Fleet Management and Orchestration
+# Server Role
 
-Servers coordinate fleets of Engine instances, enforce policies, and provide durability for telemetry and audit.
+The server manages runtime devices and deployments behind the gateway. The current implementation lives in:
+
+```text
+src/server/aetherium_server/
+```
 
 ## Responsibilities
 
-- Device Registry: identities, capabilities, labels, versions
-- Routing: fan‑out commands; fan‑in telemetry with buffering and retries
-- Observability: dashboards, logs, alerts; export to external systems
-- Automation: scheduled commands, staged/blue‑green deployments, rollbacks
+- Device and connector registry.
+- Deployment lifecycle and target-profile preparation.
+- Host runtime, WebSocket, serial, and ROS2 connector coordination.
+- Time-series event/snapshot storage for replay and time travel.
+- Black-box contract loading and metadata propagation.
+- Analyzer inputs from automata, deployments, bindings, resources, and trace evidence.
+- Optional InfluxDB/Grafana export for long-running metrics.
 
 ## Interfaces
 
-- Northbound: APIs for Controller and IDE
-- Southbound: device protocol terminators/relays via supported transports
+- Northbound: gateway-facing channels and server events.
+- Southbound: device connector sessions and engine protocol messages.
+- Local tasks: smoke tests and demo tasks under `lib/mix/tasks/`.
 
 ## Scaling Model
 
-- Stateless gateways in front; durable queue+store backends
-- Horizontal scale for routing; sharding by device/tenant as needed
+- The development stack runs one `server3` container.
+- Host hardware loops can run the server directly on the host to access serial devices.
+- Persistence is currently local development storage plus optional InfluxDB integration.
 
 ## Non‑Goals
 
-- Real‑time, on‑device execution semantics; that remains within the Engine
+- Real-time EFSM execution semantics; that remains in the engine.
+- Visual editing; that belongs to the IDE.
+- Gateway authentication/channel brokering; that belongs to the Phoenix gateway.
 
+## Common Commands
+
+```bash
+cd src/server/aetherium_server
+mix test
+mix test test/showcase_catalog_test.exs
+```
+
+Docker smoke:
+
+```bash
+cd src
+make up
+make up-blackbox
+make smoke-blackbox
+make up-ts
+make test-ts
+```

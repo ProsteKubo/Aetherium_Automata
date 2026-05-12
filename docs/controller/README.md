@@ -1,31 +1,45 @@
 ---
-title: Controller
+title: Gateway
 ---
 
-# Controller — Role and Interfaces
+# Gateway Role
 
-The Controller is the only externally reachable component. It discovers devices, provisions them, deploys firmware/automata, and exposes authenticated APIs for the IDE and tools.
+Older notes used the name "Controller" for the externally reachable component. In the current codebase that role is implemented by the Phoenix gateway in:
+
+```text
+src/gateway/aetherium_gateway/
+```
 
 ## Responsibilities
 
-- Discovery: scan transports, collect `hello`, maintain a live registry
-- Provisioning: assign device IDs, install keys/certs, labels, time sync
-- Deployments: flash firmware, load automata, pin engine/YAML versions
-- Bridge: expose HTTP/WS API for IDE and tooling; translate to device protocol
-- Aggregation: collect metrics/logs/state; forward upstream to Servers if present
+- Accept IDE/operator WebSocket connections.
+- Authenticate real-time channel traffic using configured development tokens.
+- Broker messages between IDE clients, servers, and device-facing workflows.
+- Surface deployment, device, runtime, and fault-injection events to the IDE.
+- Keep the operator-facing API stable while server and device connectors evolve.
 
-## Non‑Goals
+## Non-Goals
 
-- Real‑time runtime control beyond orchestrated commands
-- Durable, long‑term storage beyond cache/buffer
+- EFSM execution belongs to the C++ engine.
+- Durable trace/time-series storage belongs to the server and optional InfluxDB stack.
+- Board flashing is handled by host Makefile targets and board-specific tools.
+- Structural analysis is computed from IDE/server metadata, not by the gateway itself.
 
-## External APIs (to IDE/Tools)
+## Local Usage
 
-- REST/WS: list devices, capabilities, deploy automata, observe state, inject events
-- Auth: user authentication and RBAC (distinct from device auth)
+Docker gateway:
 
-## Internal Interfaces (to Devices/Servers)
+```bash
+cd src
+make up
+make logs0
+```
 
-- Devices: speak the Engine protocol over configured transports
-- Servers: optional northbound APIs for fleet management and durability
+Gateway-only hybrid mode for host hardware/server loops:
 
+```bash
+cd src
+make up-gateway
+```
+
+See `src/Makefile` for current ports, tokens, and stack variants.

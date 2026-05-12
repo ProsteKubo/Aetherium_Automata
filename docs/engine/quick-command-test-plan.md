@@ -1,94 +1,68 @@
 # Engine Quick Command Test Plan
 
-This is the shortest path to verify command handling before moving on.
+This is the shortest command-line pass for checking engine command handling and YAML validation.
 
-## 1) Build
+## 1. Build
 
 ```bash
-cmake -S /Users/administratorik/dev/Aetherium_Automata -B /Users/administratorik/dev/Aetherium_Automata/build
-cmake --build /Users/administratorik/dev/Aetherium_Automata/build -j4
+cmake -S . -B build
+cmake --build build -j4
 ```
 
-## 2) Run command smoke (single command)
+## 2. Command Smoke
 
 ```bash
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine_command_smoke
+./build/aetherium_engine_command_smoke
 ```
 
 Expected output:
-- `engine_command_smoke: PASS`
 
-What it covers:
-- `STATUS`, `START` (NAK before load)
-- `LOAD_AUTOMATA` + `LOAD_ACK`
+```text
+engine_command_smoke: PASS
+```
+
+Covered behavior:
+
+- `STATUS`
+- `START` before load returns `NAK`
+- `LOAD_AUTOMATA` and `LOAD_ACK`
 - `START`, `PAUSE`, `RESUME`, `STOP`, `RESET`
-- `INPUT`, `VARIABLE`
-- `VENDOR`, `GOODBYE`
-- unsupported command path -> `NAK`
+- `INPUT` and `VARIABLE`
+- `VENDOR` and `GOODBYE`
+- unsupported command path returns `NAK`
 - status snapshots and transition progression
 
-## 3) Validate all example automata
+## 3. Validate Curated Showcase
 
 ```bash
-for f in $(find /Users/administratorik/dev/Aetherium_Automata/example/automata -type f | grep -E '\\.ya?ml$' | sort); do
-  /Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine --validate "$f" || exit 1
-done
+scripts/validate_showcase_automata.sh validate
 ```
 
-### Optional: validate curated showcase suite only
+This validates the curated desktop-runnable showcase list in `example/automata/showcase/CATALOG.txt`.
+
+## 4. Validate All Example YAML
 
 ```bash
-/Users/administratorik/dev/Aetherium_Automata/scripts/validate_showcase_automata.sh validate
+find example/automata -type f -name '*.yaml' -print0 |
+  sort -z |
+  xargs -0 -n1 ./build/aetherium_engine --validate
 ```
 
-## 4) Run the harder stress automata
+## 5. Stress and Edge Examples
 
 ```bash
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/production-line-stress.yaml \
-  --max-transitions 20 --max-ticks 5000 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/production-line-stress-seconds.yaml \
-  --max-ticks 120 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/command-event-gate.yaml \
-  --max-ticks 200 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/reactor-folder/reactor.yaml \
-  --max-transitions 12 --max-ticks 5000 --verbose
+./build/aetherium_engine --validate example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml
+./build/aetherium_engine --validate example/automata/automata-yaml-examples/production-line-stress.yaml
+./build/aetherium_engine --validate example/automata/automata-yaml-examples/high-churn-immediate.yaml
+./build/aetherium_engine --validate example/automata/automata-yaml-examples/event-threshold-runtime.yaml
+./build/aetherium_engine --validate example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml
 ```
 
-## 5) Run edge-case pack
+Some builds of `aetherium_engine` are validation-only because the runtime-core build may not include the file/YAML loader for `--run`. Treat `--validate` as the portable acceptance command and use Docker/server smoke tests for full deployment workflows.
 
-```bash
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/timed-seconds-modes.yaml \
-  --max-ticks 120 --verbose
+## Pass Criteria
 
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/timeout-vs-classic.yaml \
-  --max-ticks 80 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/high-churn-immediate.yaml \
-  --max-ticks 30 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/event-threshold-runtime.yaml \
-  --max-ticks 120 --verbose
-
-/Users/administratorik/dev/Aetherium_Automata/build/aetherium_engine \
-  --run /Users/administratorik/dev/Aetherium_Automata/example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml \
-  --max-ticks 200 --verbose
-```
-
-## 6) Pass criteria
-
-- command smoke returns `PASS`
-- all YAML files validate
-- each stress run exits without runtime errors
-- transition count is non-zero for `production-line-stress` and `reactor-folder`
-- edge-case pack runs without parser/runtime errors
+- command smoke prints `PASS`;
+- curated showcase validation succeeds;
+- all example YAML files validate;
+- no command path crashes or hangs.

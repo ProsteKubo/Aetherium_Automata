@@ -91,8 +91,9 @@
 \contentsline {subsection}{\numberline {9.5.1}Showcase 13 --- Petri Signal Chain}{44}{subsection.9.5.1}%
 \contentsline {subsection}{\numberline {9.5.2}Showcase 14 --- Petri Contention}{44}{subsection.9.5.2}%
 \contentsline {chapter}{\numberline {10}Showcase Catalog}{45}{chapter.10}%
-\contentsline {section}{\numberline {10.1}Selected Showcase: Quality Router (03)}{45}{section.10.1}%
-\contentsline {section}{\numberline {10.2}Selected Showcase: Sensor Watchdog Recovery (04)}{46}{section.10.2}%
+\contentsline {section}{\numberline {10.1}Flagship Showcase: Aetherium Gem Cell (15)}{45}{section.10.1}%
+\contentsline {section}{\numberline {10.2}Selected Showcase: Quality Router (03)}{46}{section.10.2}%
+\contentsline {section}{\numberline {10.3}Selected Showcase: Sensor Watchdog Recovery (04)}{47}{section.10.3}%
 \contentsline {chapter}{\numberline {11}End-to-End Demonstration}{48}{chapter.11}%
 \contentsline {section}{\numberline {11.1}Infrastructure Setup}{48}{section.11.1}%
 \contentsline {section}{\numberline {11.2}Opening the Demo Project}{49}{section.11.2}%
@@ -111,4 +112,5 @@
 \contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{62}{appendix.A}%
 \contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{63}{appendix.B}%
 \contentsline {chapter}{\numberline {C}Supported Platform Targets}{64}{appendix.C}%
+\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{65}{appendix.D}%
 \contentsfinish 
