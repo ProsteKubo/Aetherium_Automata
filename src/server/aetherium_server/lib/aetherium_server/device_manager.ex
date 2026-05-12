@@ -832,6 +832,31 @@ defmodule AetheriumServer.DeviceManager do
               "rewound_to" => timestamp_ms
             })
 
+            # Send RestoreState to the physical device if connected
+            device_send_result =
+              with target_state when is_binary(target_state) <- replay_state["current_state"],
+                   {:ok, protocol_id, session_ref} <-
+                     DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+                DeviceTransport.send_message(session_ref, :restore_state, %{
+                  target_id: protocol_id,
+                  run_id: deployment.run_id || 0,
+                  state: target_state,
+                  variables: replay_state["variables"] || %{}
+                })
+              else
+                nil -> {:error, :no_target_state}
+                err -> err
+              end
+
+            Logger.info("time_travel rewind #{deployment_id} to #{timestamp_ms}: device_send=#{inspect(device_send_result)}")
+
+            device_restore_json =
+              case device_send_result do
+                {:ok, message_id} -> %{ok: true, message_id: message_id}
+                {:error, reason} -> %{ok: false, error: to_string(reason)}
+                other -> %{ok: false, error: inspect(other)}
+              end
+
             {:reply,
              {:ok,
               %{
@@ -840,7 +865,8 @@ defmodule AetheriumServer.DeviceManager do
                 state: replay_state,
                 events_replayed: replay["events_replayed"] || 0,
                 source: replay["source"],
-                backend_error: replay["backend_error"]
+                backend_error: replay["backend_error"],
+                device_restore: device_restore_json
               }}, new_state}
 
           {:error, reason} ->

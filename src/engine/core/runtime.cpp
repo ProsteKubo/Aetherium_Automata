@@ -540,6 +540,40 @@ Result<void> Runtime::reset() {
     return Result<void>::ok();
 }
 
+Result<void> Runtime::restoreState(const std::string& stateName,
+                                    const std::vector<std::pair<std::string, Value>>& variables) {
+    if (!isLoaded()) {
+        return Result<void>::error("No automata loaded");
+    }
+    if (ctx_.state == ExecutionState::Unloaded || ctx_.state == ExecutionState::Stopped) {
+        return Result<void>::error("Cannot restore state: automata not running or paused");
+    }
+
+    const State* targetState = automata_->getStateByName(stateName);
+    if (!targetState) {
+        return Result<void>::error("Unknown state: " + stateName);
+    }
+
+    bool wasPaused = (ctx_.state == ExecutionState::Paused);
+    if (!wasPaused) {
+        pause();
+    }
+
+    ctx_.currentState = targetState->id;
+    ctx_.stateEntryTime = clock_->now();
+    timers_->cancelAll();
+
+    for (const auto& [name, value] : variables) {
+        ctx_.variables.setValue(name, value);
+    }
+
+    if (!wasPaused) {
+        ctx_.state = ExecutionState::Paused;
+    }
+
+    return Result<void>::ok();
+}
+
 void Runtime::unload() {
     if (isRunning()) {
         stop();

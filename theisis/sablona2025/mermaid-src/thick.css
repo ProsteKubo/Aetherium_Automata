@@ -1,0 +1,13 @@
+.flowchart-link {
+    stroke-width: 4px !important;
+    stroke: #333333 !important;
+}
+.arrowMarkerPath {
+    stroke-width: 1px !important;
+    fill: #333333 !important;
+    stroke: #333333 !important;
+}
+.marker {
+    fill: #333333 !important;
+    stroke: #333333 !important;
+}

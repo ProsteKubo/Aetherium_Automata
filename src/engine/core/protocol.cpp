@@ -1077,6 +1077,56 @@ std::optional<VariableMessage> VariableMessage::deserialize(const uint8_t* data,
 }
 
 // ============================================================================
+// RestoreState Message
+// ============================================================================
+
+std::vector<uint8_t> RestoreStateMessage::serialize() const {
+    ByteWriter w;
+    w.writeU16(header.magic);
+    w.writeU8(header.version);
+    w.writeU8(static_cast<uint8_t>(MessageType::RestoreState));
+
+    size_t lengthPos = w.size();
+    w.writeU16(0);
+
+    w.writeU32(messageId);
+    w.writeU32(sourceId);
+    w.writeU32(targetId);
+    w.writeU32(runId);
+    w.writeString(targetState);
+    writeNamedValueSnapshot(w, variables);
+
+    auto result = w.finish();
+    uint16_t length = static_cast<uint16_t>(result.size() - HEADER_SIZE);
+    result[lengthPos] = static_cast<uint8_t>(length >> 8);
+    result[lengthPos + 1] = static_cast<uint8_t>(length & 0xFF);
+    return result;
+}
+
+std::optional<RestoreStateMessage> RestoreStateMessage::deserialize(const uint8_t* data, size_t len) {
+    ByteReader r(data, len);
+    r.readU16(); r.readU8(); r.readU8(); r.readU16();
+
+    auto msgId   = r.readU32();
+    auto srcId   = r.readU32();
+    auto tgtId   = r.readU32();
+    auto runId   = r.readU32();
+    auto state   = r.readString();
+    auto vars    = readNamedValueSnapshot(r);
+
+    if (!msgId || !srcId || !tgtId || !runId || !state || !vars) return std::nullopt;
+
+    RestoreStateMessage msg;
+    msg.messageId   = *msgId;
+    msg.sourceId    = *srcId;
+    msg.targetId    = *tgtId;
+    msg.runId       = *runId;
+    msg.targetState = std::move(*state);
+    msg.variables   = std::move(*vars);
+    return msg;
+}
+
+// ============================================================================
 // StateChange Message
 // ============================================================================
 
@@ -1615,6 +1665,11 @@ std::unique_ptr<Message> MessageFactory::deserialize(const uint8_t* data, size_t
         case MessageType::Resume: {
             auto msg = ResumeMessage::deserialize(data, len);
             if (msg) return std::make_unique<ResumeMessage>(std::move(*msg));
+            break;
+        }
+        case MessageType::RestoreState: {
+            auto msg = RestoreStateMessage::deserialize(data, len);
+            if (msg) return std::make_unique<RestoreStateMessage>(std::move(*msg));
             break;
         }
         case MessageType::Input: {

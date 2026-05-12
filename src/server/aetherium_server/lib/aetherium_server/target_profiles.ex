@@ -38,10 +38,10 @@ defmodule AetheriumServer.TargetProfiles do
   def desktop_v1 do
     %{
       id: "desktop_v1",
-      compile_formats: ["yaml_v1"],
+      compile_formats: ["aeth_ir_v1"],
       feature_flags: ["lua_full", "timed", "telemetry_full"],
       limits: %{},
-      runtime_mode: :legacy_yaml
+      runtime_mode: :compiled_ir
     }
   end
 

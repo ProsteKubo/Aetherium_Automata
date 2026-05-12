@@ -1289,6 +1289,8 @@ std::optional<RunId> Engine::extractRunId(const protocol::Message& message) {
             return static_cast<const protocol::TelemetryMessage&>(message).runId;
         case protocol::MessageType::TransitionFired:
             return static_cast<const protocol::TransitionFiredMessage&>(message).runId;
+        case protocol::MessageType::RestoreState:
+            return static_cast<const protocol::RestoreStateMessage&>(message).runId;
         default:
             return std::nullopt;
     }
@@ -1481,6 +1483,25 @@ void Engine::registerCommandHandlers() {
             return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), result.error());
         }
         return engine.ackWithStatus(request, "resumed");
+    });
+
+    commandBus_.registerHandler(protocol::MessageType::RestoreState, [](Engine& engine, const protocol::Message& request) {
+        if (!engine.isLoaded()) {
+            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::NotLoaded), "no automata loaded");
+        }
+        const auto& msg = static_cast<const protocol::RestoreStateMessage&>(request);
+        std::vector<std::pair<std::string, Value>> vars;
+        vars.reserve(msg.variables.size());
+        for (const auto& entry : msg.variables) {
+            vars.emplace_back(entry.variableName, entry.value);
+        }
+        auto result = engine.runtime_.restoreState(msg.targetState, vars);
+        if (result.isError()) {
+            return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidState), result.error());
+        }
+        engine.traceRuntimeEvent("restore_state", "time_travel",
+                                 "restored to " + msg.targetState, engine.activeRunId_);
+        return engine.ackWithStatus(request, "state_restored");
     });
 
     commandBus_.registerHandler(protocol::MessageType::Input, [](Engine& engine, const protocol::Message& request) {

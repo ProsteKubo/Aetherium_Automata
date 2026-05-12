@@ -55,6 +55,7 @@ defmodule AetheriumServer.EngineProtocol do
   @mt_state_change 0x83
   @mt_telemetry 0x84
   @mt_transition_fired 0x85
+  @mt_restore_state 0x48
   @mt_error 0xE0
   @mt_debug 0xD0
   @mt_ack 0xF0
@@ -180,6 +181,27 @@ defmodule AetheriumServer.EngineProtocol do
         name::binary, value_type::8, value_bin::binary>>
 
     {:ok, frame(@mt_input, payload)}
+  end
+
+  def encode(:restore_state, %{
+        message_id: message_id,
+        target_id: target_id,
+        run_id: run_id,
+        state: state_name,
+        variables: variables
+      })
+      when is_binary(state_name) and is_map(variables) do
+    state_bin = <<byte_size(state_name)::16, state_name::binary>>
+    var_count = map_size(variables)
+
+    vars_bin =
+      Enum.reduce(variables, <<var_count::16>>, fn {name, value}, acc ->
+        {vtype, vbin} = encode_value(value)
+        acc <> <<byte_size(name)::16, name::binary, vtype::8, vbin::binary>>
+      end)
+
+    payload = <<message_id::32, 0::32, target_id::32, run_id::32, state_bin::binary, vars_bin::binary>>
+    {:ok, frame(@mt_restore_state, payload)}
   end
 
   def encode(_type, _payload), do: {:error, :unsupported}

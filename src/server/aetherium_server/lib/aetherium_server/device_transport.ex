@@ -43,6 +43,9 @@ defmodule AetheriumServer.DeviceTransport do
         :status ->
           EngineProtocol.encode(:status, Map.merge(payload, %{message_id: message_id}))
 
+        :restore_state ->
+          EngineProtocol.encode(:restore_state, Map.merge(payload, %{message_id: message_id}))
+
         _ ->
           {:error, {:unsupported_message_type, message_type}}
       end

@@ -1,0 +1,26 @@
+sequenceDiagram
+    participant IDE as IDE
+    participant GW as Gateway
+    participant SRV as Server
+    participant DEV as Device (C++)
+
+    Note over IDE: Operator selects<br/>timestamp T in timeline
+    IDE->>GW: rewind_deployment(T)
+    GW->>SRV: rewind_deployment command<br/>(async dispatch)
+    GW-->>IDE: ACK: sent
+
+    SRV->>SRV: replay_state_at(T)
+    Note over SRV: Find nearest snapshot ≤ T<br/>Replay events up to T<br/>→ state S, variables V
+
+    SRV-->>GW: deployment_status broadcast
+    GW-->>IDE: state_changed event (preview)
+
+    SRV->>DEV: RestoreState(0x48)<br/>target_state=S, variables=V
+    Note over DEV: Pause tick loop<br/>Set currentState ← S<br/>Set variables ← V<br/>Cancel all timers
+    DEV-->>SRV: Ack(state_restored)
+
+    SRV->>DEV: Resume
+    Note over DEV: Execute from S<br/>with variables V
+
+    SRV-->>GW: command_outcome ACK
+    GW-->>IDE: command_outcome broadcast

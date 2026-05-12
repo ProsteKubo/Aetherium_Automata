@@ -388,6 +388,19 @@ public:
     }
 
     // ========================================================================
+    // Time-Travel / State Restoration
+    // ========================================================================
+
+    /**
+     * Restore the automaton to an arbitrary past state without firing any
+     * callbacks or hooks.  Must be called while Paused or Running; the engine
+     * will be left Paused after the call so the caller can resume explicitly.
+     * Returns an error if the automata is not loaded or the state is unknown.
+     */
+    Result<void> restoreState(const std::string& stateName,
+                              const std::vector<std::pair<std::string, Value>>& variables);
+
+    // ========================================================================
     // Callbacks
     // ========================================================================
 

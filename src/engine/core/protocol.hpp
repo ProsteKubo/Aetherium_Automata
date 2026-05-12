@@ -51,6 +51,7 @@ enum class MessageType : uint8_t {
     Status = 0x45,
     Pause = 0x46,
     Resume = 0x47,
+    RestoreState = 0x48,
 
     // Data Plane (0x80-0xBF)
     Input = 0x80,
@@ -349,6 +350,16 @@ struct ResumeMessage : Message {
     MessageType type() const override { return MessageType::Resume; }
     std::vector<uint8_t> serialize() const override;
     static std::optional<ResumeMessage> deserialize(const uint8_t* data, size_t len);
+};
+
+struct RestoreStateMessage : Message {
+    RunId runId = 0;
+    std::string targetState;  // state name (looked up by the engine)
+    std::vector<NamedValueSnapshotEntry> variables;
+
+    MessageType type() const override { return MessageType::RestoreState; }
+    std::vector<uint8_t> serialize() const override;
+    static std::optional<RestoreStateMessage> deserialize(const uint8_t* data, size_t len);
 };
 
 // ============================================================================

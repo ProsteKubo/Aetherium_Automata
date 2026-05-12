@@ -151,6 +151,42 @@ Petri nets provide the foundation for several analysis problems relevant to IoT 
 
 In Aetherium, the Petri net formalism is applied at the \textit{network level}: each automaton's current state contributes a conceptual token, and the combined network of automata is analyzed for deadlocks, bottlenecks, and resource contention. This is described in detail in Chapter~\ref{chap:petri}.
 
+\section{Record-and-Replay Debugging}
+\label{sec:rr-background}
+
+Record-and-replay is a debugging strategy in which program execution is first
+\textit{recorded} --- capturing non-deterministic inputs, scheduling decisions, and event
+orderings --- and then \textit{replayed} deterministically from the recorded log to
+reproduce the original execution.  The technique was formalised by LeBlanc and
+Mellor-Crummey~\cite{LeBlanc1987}, who applied it to shared-memory parallel programs by
+logging synchronisation events; their system, \textit{Instant Replay}, demonstrated that
+deterministic replay is practical even when the original execution involved data races.
+
+Engblom surveys the broader landscape of reverse execution and debugging
+tools~\cite{Engblom2012}, distinguishing three levels of granularity:
+\begin{description}
+  \item[Instruction-level] Every CPU instruction is recorded; used by full-system
+    simulators.  Provides complete fidelity but imposes significant execution overhead.
+  \item[System-call-level] Only OS interactions are recorded; sufficient for most
+    user-space bugs and used by tools such as Mozilla \texttt{rr}.
+    Typically $1$--$2\times$ overhead on x86.
+  \item[Application-level] Only domain-relevant events are recorded (messages, state
+    transitions, variable updates).  Lowest overhead; fidelity is limited to the recorded
+    abstraction.
+\end{description}
+
+Geels et al.\ apply application-level replay to distributed systems~\cite{Geels2006}:
+messages between components are logged at each replica, and replay re-injects them in the
+same order, reproducing failures that would otherwise require weeks of manual investigation.
+
+Aetherium adopts an application-level strategy tailored to EFSM networks.  Every state
+transition, variable update, and inter-device message is recorded as a structured
+\texttt{TraceRecord}.  The IDE can step backward and forward through this trace.  Beyond
+offline replay, Aetherium implements \textit{live rewind}: the server reconstructs the
+automaton state at any past timestamp and dispatches a \texttt{RestoreState} command to
+the physical device, resetting it to that historical state without stopping the
+orchestration layer.  This mechanism is described in detail in Section~\ref{sec:trace}.
+
 % ============================================================
 \chapter{Analysis of Existing Solutions}
 \label{chap:analysis}
@@ -335,7 +371,7 @@ CMake build targets select the appropriate implementations at compile time.
 
 \subsection{Server}
 
-The server is an Elixir/OTP application. It manages the registry of connected devices, buffers messages, routes inputs to devices and outputs to subscribers, and handles deployment commands. It communicates with devices over WebSocket, MQTT, or Serial/USB depending on the device type.
+The server is an Elixir/OTP application. It manages the registry of connected devices, buffers messages, routes inputs to devices and outputs to subscribers, and handles deployment commands. It communicates with devices over WebSocket as the primary transport; a transport-plugin interface allows additional backends to be registered without changing the core.
 
 \subsection{Gateway}
 
@@ -496,6 +532,76 @@ An automaton may optionally declare a \textit{black-box contract} --- a formal i
 
 Black-box contracts are used by the structural analysis layer (Chapter~\ref{chap:petri}) and by the fault injection subsystem.
 
+\begin{figure}[H]
+\centering
+\begin{tikzpicture}[
+  font=\small, >=Stealth,
+  box/.style={draw=aethpurple, fill=aethpurple!5, rectangle, rounded corners=3pt,
+              minimum width=2.9cm, minimum height=1.0cm, inner sep=3pt, align=center,
+              line width=0.6pt},
+  sig/.style={draw=aethpurple, fill=aethpurple!5, ellipse, minimum width=1.65cm,
+              minimum height=0.6cm, align=center, line width=0.6pt},
+  stc/.style={draw=aethpurple, fill=aethpurple!5, circle, minimum size=0.55cm,
+              inner sep=0pt, font=\scriptsize, line width=0.6pt},
+  arr/.style ={->, line width=0.6pt},
+  darr/.style={->, dashed, line width=0.6pt}
+]
+% ── bounding boxes (drawn first so nodes render on top) ────────────
+% Left env box
+\draw[draw=gray!50,fill=gray!5,rounded corners=4pt,line width=0.5pt]
+    (-1.7,0.25) rectangle (1.7,3.2);
+\node[font=\scriptsize,text=gray!70] at (0,3.42) {External Environment};
+% Contract box
+\draw[draw=aethpurple!60,fill=aethpurple!3,rounded corners=5pt,line width=0.7pt]
+    (2.4,-2.8) rectangle (5.8,2.9);
+\node[font=\small\bfseries] at (4.1,3.12) {Black-Box Contract};
+% Right env box
+\draw[draw=gray!50,fill=gray!5,rounded corners=4pt,line width=0.5pt]
+    (6.5,-0.55) rectangle (9.1,2.0);
+\node[font=\scriptsize,text=gray!70] at (7.8,2.22) {External Environment};
+% Hidden box — top at -4.4 creates 1.6cm gap so dashed labels clear the title
+\draw[draw=gray!60,fill=gray!5,rounded corners=5pt,line width=0.7pt]
+    (0.3,-6.7) rectangle (7.6,-4.4);
+% Title inside box, anchored to top edge so it hangs inward
+\node[font=\small\bfseries, anchor=north, align=center] at (3.95,-4.4)
+    {Internal Implementation (opaque)};
+% ── input signals ──────────────────────────────────────────────────
+\node[sig] (s1) at (0, 2.5) {\texttt{force\_on}\\bool};
+\node[sig] (s2) at (0, 1.15) {\texttt{reset\_cmd}\\bool};
+% ── contract ports ─────────────────────────────────────────────────
+\node[box] (ip)  at (4.1,  2.2) {Input Ports\\{\scriptsize force\_on $\cdot$ reset\_cmd}};
+\node[box] (op)  at (4.1,  0.8) {Output Ports\\{\scriptsize led\_on $\cdot$ alarm}};
+\node[box] (obs) at (4.1, -0.6) {Observable States\\{\scriptsize Running $\cdot$ Alarming}};
+\node[box] (ev)  at (4.1, -2.1) {Events\\{\scriptsize alarm\_triggered}};
+% ── output signals — 1.25cm apart so two-line ellipses don't touch ─
+\node[sig] (o1) at (7.8, 1.35) {\texttt{led\_on}\\bool};
+\node[sig] (o2) at (7.8, 0.1) {\texttt{alarm}\\bool};
+% ── state machine circles (lowered to give top-area breathing room) ─
+\node[stc] (off) at (1.5, -5.6) {Off};
+\node[stc] (on)  at (3.95,-5.6) {On};
+\node[stc] (err) at (6.4, -5.6) {Error};
+% ── solid arrows ───────────────────────────────────────────────────
+\draw[arr] (s1.east) -- (ip.west);
+\draw[arr] (s2.east) -- (ip.west);
+\draw[arr] (op.east) -- (o1.west);
+\draw[arr] (op.east) -- (o2.west);
+% ── state machine transitions ──────────────────────────────────────
+\draw[arr,bend left=22] (off) to node[above,font=\scriptsize]{after 700ms} (on);
+\draw[arr,bend left=22] (on)  to node[below,font=\scriptsize]{after 700ms} (off);
+\draw[arr] (on) -- node[above,font=\scriptsize]{fault} (err);
+% Reset: rectangular path BELOW circles — keeps top area free for title
+\draw[arr] (err.south) -- (6.4,-6.35) -- (1.5,-6.35) -- (off.south);
+\node[below,font=\scriptsize] at (3.95,-6.35) {reset};
+% ── dashed arrows in the 1.6cm gap — labels sit well clear of both boxes
+\draw[darr] (3.2,-2.8) -- node[left,font=\scriptsize]{write} (3.2,-4.4);
+\draw[darr] (5.0,-4.4) -- node[right,font=\scriptsize]{observe / expose} (5.0,-2.8);
+\end{tikzpicture}
+\caption{Black-box contract boundary. The visible contract layer exposes named input/output
+  ports, observable states, and emitted events to the external environment. The internal
+  implementation --- states, variables, and transitions --- is opaque.}
+\label{fig:blackbox-contract}
+\end{figure}
+
 \section{YAML Domain-Specific Language}
 \label{sec:yaml}
 
@@ -645,6 +751,13 @@ Fault injection is a proven technique for testing the resilience of distributed 
 
 All random decisions within the fault injector use the platform \texttt{IRandomSource} seeded from a field in the \texttt{FaultProfile}, ensuring deterministic and reproducible fault scenarios across runs.
 
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{obrazky-figures/fault_injection_pipeline.pdf}
+  \caption{FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to$~device) and egress (device~$\to$~server). All probabilistic decisions draw from a seeded \texttt{IRandomSource}, making fault scenarios fully reproducible.}
+  \label{fig:fault-pipeline}
+\end{figure}
+
 \section{Execution Trace and Time-Travel Debugging}
 \label{sec:trace}
 
@@ -659,6 +772,50 @@ Record-and-replay is a well-established strategy for debugging distributed syste
 \end{itemize}
 
 The trace is exported to newline-delimited JSON (JSON Lines) for post-mortem tooling. The IDE's runtime view panel can load a trace and step forward and backward through it, reconstructing the exact variable and state values at each recorded instant. This enables deterministic replay of timing-sensitive bugs in distributed systems without requiring hardware reproduction of the fault.
+
+\subsection*{Server-Side State Reconstruction and \texttt{RestoreState}}
+\label{sec:restore-state}
+
+Stepping back in time in the IDE triggers a \textbf{full rewind} of the physical device, not merely a visual replay. The implementation spans three layers:
+
+\begin{enumerate}
+  \item \textbf{Server-side time series.} An observability module records
+    every \texttt{state\_changed} and \texttt{variable\_updated} event forwarded
+    from the device into a per-deployment time series, together with periodic
+    full-state snapshots.  The \texttt{replay\_state\_at} function
+    reconstructs the complete automaton state at any past timestamp by finding
+    the nearest earlier snapshot and replaying the events that follow it.
+
+  \item \textbf{\texttt{RestoreState} protocol message (\texttt{0x48}).} A new message type
+    was added to the Automata Plane of the binary wire protocol
+    (range \texttt{0x40}--\texttt{0x7F}).  The message carries the target state name and a
+    snapshot of all variable values as a compact TLV-encoded list.  On the Elixir side,
+    \texttt{EngineProtocol.encode(:restore\_state, \%\{...\})} encodes the frame;
+    \texttt{DeviceTransport.send\_message/3} delivers it over the existing WebSocket
+    transport.
+
+  \item \textbf{\texttt{Runtime::restoreState} in the C++ engine.} Upon receiving a
+    \texttt{RestoreState} frame the engine handler pauses the tick loop, directly sets
+    \texttt{ctx\_.currentState} and applies the variable snapshot via
+    \texttt{ctx\_.variables.setValue}, cancels all pending timers, and leaves the engine in
+    \texttt{Paused} state awaiting a \texttt{Resume} command.  No \texttt{onEnter} hooks are
+    fired — the state is restored atomically without side-effects.
+\end{enumerate}
+
+\noindent The gateway channel \texttt{rewind\_deployment} event orchestrates the flow: the
+server reconstructs the state at the requested timestamp, broadcasts a
+\texttt{deployment\_status} update to connected IDE clients, then dispatches
+\texttt{RestoreState} to the physical device.  End-to-end testing confirms that
+after a \texttt{rewind\_deployment} call the device restarts execution from the correct
+historical state, as evidenced by the first transition fired being the one consistent
+with the reconstructed variable values.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{obrazky-figures/time_travel_flow.pdf}
+  \caption{Time-travel rewind sequence. The IDE dispatches \texttt{rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt{replay\_state\_at} and delivers a \texttt{RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}
+  \label{fig:time-travel-seq}
+\end{figure}
 
 % ============================================================
 \chapter{Gateway and Communication Protocol}
@@ -684,6 +841,8 @@ All messages between the engine and the server use a compact binary envelope sho
   \caption{Binary message envelope. The 2-byte platform tag \texttt{0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}
   \label{fig:wire}
 \end{figure}
+
+The protocol is inspired by MQTT's lightweight, topic-structured publish/subscribe model, but is implemented as a custom binary format rather than using the MQTT standard directly. The custom wire format was necessary to provide structured support for time-travel debugging: the server tags each message with a monotonic sequence number and stores a full execution trace, enabling deterministic replay and \texttt{RestoreState} rewinding --- capabilities that a generic MQTT broker cannot provide without external instrumentation.
 
 Messages are organized into three categories:
 
@@ -909,9 +1068,8 @@ make up          # equivalent to: docker compose up -d gateway server3 device1
 \end{lstlisting}
 
 \noindent The Makefile wraps \texttt{docker compose} for convenience and
-supports additional profiles for time-series monitoring (\texttt{make up-ts}),
-black-box devices (\texttt{make up-blackbox}), and ROS2 bridging
-(\texttt{make up-ros2}).
+supports additional profiles for time-series monitoring (\texttt{make up-ts})
+and black-box devices (\texttt{make up-blackbox}).
 
 Once all containers report as healthy, the IDE can be launched:
 
@@ -1063,32 +1221,36 @@ delays.
 \section{Time-Travel Debugging}
 \label{sec:demo-replay}
 
-Every transition and variable change is recorded by the engine into an
-\textit{execution trace} — an append-only log of \texttt{TraceRecord} entries.
-The trace is stored on the device and periodically flushed to the server, which
-persists it as a JSON Lines file.
+Every state transition and variable change forwarded from the device is
+persisted server-side in a per-deployment time series.  Periodic full-state
+snapshots are interleaved with the event stream so that any past instant can be
+reconstructed without replaying the entire history from the beginning.
 
 The time-travel workflow proceeds as follows:
 
 \begin{enumerate}
-  \item The operator clicks \textit{Request Snapshot} in the Runtime Monitor
-    panel. The server responds with the current trace as a JSON Lines payload.
-  \item The IDE loads the trace into the replay engine. The execution timeline
-    appears as a scrollable list of events showing state, variable deltas, and
-    timestamps.
-  \item The operator scrubs the playhead to any point in the past. The IDE
-    reconstructs the automaton's complete state at that moment by replaying all
-    preceding events from the trace.
-  \item Any point can be \textit{rewound} by selecting it and clicking
-    \textit{Rewind to Here}. The server instructs the device to restore its
-    internal state to the snapshot, after which execution resumes from that
-    point forward.
+  \item The operator opens the Runtime Monitor panel.  The panel shows the
+    live execution timeline as a scrollable list of events: state transitions,
+    variable deltas, and wall-clock timestamps.
+  \item The operator selects any event in the past and clicks
+    \textit{Rewind to Here}.  The IDE sends a \texttt{rewind\_deployment}
+    WebSocket command to the gateway, carrying the target timestamp in
+    milliseconds.
+  \item The server calls \texttt{TimeSeriesQuery.replay\_state\_at} to
+    reconstruct the complete automaton state (active state name and all
+    variable values) at the requested timestamp.
+  \item The server dispatches a \texttt{RestoreState} binary protocol message
+    (\texttt{0x48}) to the physical device.  The C++ engine pauses, applies
+    the state snapshot atomically — setting \texttt{ctx\_.currentState} and
+    all variable values without firing any hooks — and waits in
+    \texttt{Paused} state.
+  \item A \texttt{Resume} command is sent automatically, returning the device
+    to \texttt{Running} from the restored historical state.
 \end{enumerate}
 
-\noindent Figure~\ref{fig:ide-replay} shows the replay timeline with 47 recorded
-events for the sensor watchdog automaton. The selected event at offset
-\texttt{+12.4~s} shows the automaton entering the \texttt{alarming} state and
-the \texttt{alarm\_count} variable incrementing from 0 to 1.
+\noindent Figure~\ref{fig:ide-replay} shows the replay timeline for the sensor
+watchdog automaton.  The selected event shows the automaton entering the
+\texttt{alarming} state and the \texttt{alarm\_count} variable incrementing.
 
 \begin{figure}[H]
   \centering
@@ -1099,11 +1261,12 @@ the \texttt{alarm\_count} variable incrementing from 0 to 1.
   \label{fig:ide-replay}
 \end{figure}
 
-The ability to inspect historical state is particularly useful in combination
-with fault injection: the operator injects a fault, lets the system run for
-several seconds, then rewinds to the moment immediately before the fault
-manifested to examine exactly which variable values and state transitions
-preceded the failure.
+The rewind is a true device-level operation, not a visual simulation: after
+\texttt{RestoreState} the device immediately fires the first transition
+consistent with the restored variable values, reproducing the same execution
+path that followed the selected event during the original run.  This makes
+time-travel debugging effective even for timing-sensitive faults that cannot be
+reproduced by simply restarting the automaton.
 
 % ── Section 7 ────────────────────────────────────────────────────────────────
 \section{Petri Net Analysis}
@@ -1273,7 +1436,8 @@ The following directions are identified for future development:
 \begin{itemize}
   \item Full Petri net reachability analysis (currently the analyzer performs structural checks; complete reachability graph construction is pending).
   \item Bytecode compilation of Lua scripts into a compact \texttt{EngineBytecodeProgram} format for deployment to the most constrained targets.
-  \item Hierarchical (nested) automata to support modular composition of complex behaviors.
+  \item Hierarchical and abstract automata --- template (parameterized) automata instantiated at compose time, with Petri net lifting extended to hierarchical networks, moving the system toward a full DEVS-style coupled-model composition.
+  \item Third-party device interoperability via black-box adapters: the black-box contract architecture (Section~\ref{sec:blackbox}) makes it straightforward to wrap external subsystems --- ROS2 nodes, Zigbee gateways, WiFi relays --- with a thin protocol adapter that exposes only the signal contract, without modifying the core engine or gateway.
   \item Extended IDE canvas: undo/redo history, multi-select, copy-paste of states and transitions.
   \item Integration with InfluxDB and Grafana for long-running time-series metrics dashboards.
 \end{itemize}

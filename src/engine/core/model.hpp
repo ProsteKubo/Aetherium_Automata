@@ -279,6 +279,7 @@ public:
     [[nodiscard]] State* getState(StateId id);
     [[nodiscard]] const State* getState(StateId id) const;
     [[nodiscard]] State* getStateByName(const std::string& name);
+    [[nodiscard]] const State* getStateByName(const std::string& name) const;
 
     [[nodiscard]] Transition* getTransition(TransitionId id);
     [[nodiscard]] const Transition* getTransition(TransitionId id) const;
@@ -335,6 +336,13 @@ inline const State* Automata::getState(StateId id) const {
 
 inline State* Automata::getStateByName(const std::string& name) {
     for (auto& [id, state] : states) {
+        if (state.name == name) return &state;
+    }
+    return nullptr;
+}
+
+inline const State* Automata::getStateByName(const std::string& name) const {
+    for (const auto& [id, state] : states) {
         if (state.name == name) return &state;
     }
     return nullptr;

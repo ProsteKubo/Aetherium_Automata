@@ -1,0 +1,45 @@
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#333333', 'fontSize': '14px', 'primaryColor': '#edeaf8', 'primaryBorderColor': '#6654b0', 'secondaryColor': '#fffde7', 'tertiaryColor': '#fffde7'}}}%%
+flowchart TB
+    SRV(["Server\nbinary frame"])
+
+    subgraph ING["Ingress  (Server → Device)"]
+        direction LR
+        ID1{"drop?\nU < p_d"}
+        ID2{"dup?\nU < p_dup"}
+        ID3["delay + jitter"]
+        ID0(["⊘ discard"])
+        ID1 -- yes --> ID0
+        ID1 -- no --> ID2
+        ID2 -- clone --> ID3
+        ID2 -- pass --> ID3
+    end
+
+    DEV(["Device Engine"])
+
+    subgraph EGR["Egress  (Device → Server)"]
+        direction LR
+        ED1{"drop?\nU < p_d"}
+        ED2{"dup?\nU < p_dup"}
+        ED3["delay + jitter"]
+        ED0(["⊘ discard"])
+        ED1 -- yes --> ED0
+        ED1 -- no --> ED2
+        ED2 -- clone --> ED3
+        ED2 -- pass --> ED3
+    end
+
+    SRV_IN(["Server\ningress"])
+
+    SRV --> ING
+    ING --> DEV
+    DEV --> EGR
+    EGR --> SRV_IN
+
+    classDef decision stroke-width:2.5px,stroke:#6654b0
+    classDef action stroke-width:2.5px,stroke:#6654b0
+    classDef endpoint stroke-width:2px,stroke:#6654b0
+    class ID1,ID2,ED1,ED2 decision
+    class ID3,ED3 action
+    class ID0,ED0,SRV,DEV,SRV_IN endpoint
+
+    linkStyle default stroke-width:3px,stroke:#333333

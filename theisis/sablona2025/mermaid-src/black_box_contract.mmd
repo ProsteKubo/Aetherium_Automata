@@ -1,0 +1,48 @@
+%%{init: {'theme': 'base', 'themeVariables': {'lineColor': '#333333', 'fontSize': '14px', 'primaryColor': '#edeaf8', 'primaryBorderColor': '#6654b0', 'secondaryColor': '#fffde7', 'tertiaryColor': '#fffde7'}}}%%
+flowchart LR
+    subgraph ENV_IN["External Environment"]
+        direction TB
+        sig1(["force_on\nbool"])
+        sig2(["reset_cmd\nbool"])
+    end
+
+    subgraph CONTRACT["Black-Box Contract (visible)"]
+        direction TB
+        ip["Input Ports\nforce_on · reset_cmd"]
+        op["Output Ports\nled_on · alarm"]
+        obs["Observable States\nRunning · Alarming"]
+        ev["Events\nalarm_triggered"]
+        ip --> op --> obs --> ev
+    end
+
+    subgraph HIDDEN["Internal Implementation (opaque)"]
+        direction TB
+        Off(("Off")) -->|"after 700ms"| On(("On"))
+        On -->|"after 700ms"| Off
+        On -->|"fault"| Err(("Error"))
+        Err -->|"reset"| Off
+        iv["count: int\nlast_err: str"]
+    end
+
+    subgraph ENV_OUT["External Environment"]
+        direction TB
+        out1(["led_on\nbool"])
+        out2(["alarm\nbool"])
+    end
+
+    sig1 --> ip
+    sig2 --> ip
+    op --> out1
+    op --> out2
+
+    CONTRACT -.->|"write"| HIDDEN
+    HIDDEN -.->|"observe / expose"| CONTRACT
+
+    classDef portBox stroke-width:2.5px,stroke:#6654b0
+    classDef stateCircle stroke-width:2.5px,stroke:#6654b0
+    classDef sigNode stroke-width:2px,stroke:#6654b0
+    class ip,op,obs,ev portBox
+    class Off,On,Err stateCircle
+    class sig1,sig2,out1,out2,iv sigNode
+
+    linkStyle default stroke-width:3px,stroke:#333333
