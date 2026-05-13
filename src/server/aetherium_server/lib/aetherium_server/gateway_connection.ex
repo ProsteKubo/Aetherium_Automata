@@ -949,9 +949,13 @@ defmodule AetheriumServer.GatewayConnection do
   defp find_device_for_payload(payload) when is_map(payload) do
     case payload["device_id"] do
       device_id when is_binary(device_id) and device_id != "" ->
-        case AetheriumServer.DeviceManager.get_device(device_id) do
-          {:ok, device} -> device
-          _ -> nil
+        try do
+          case AetheriumServer.DeviceManager.get_device(device_id) do
+            {:ok, device} -> device
+            _ -> nil
+          end
+        catch
+          :exit, _ -> nil
         end
 
       _ ->
@@ -965,8 +969,15 @@ defmodule AetheriumServer.GatewayConnection do
 
     deployments =
       case device do
-        %{id: device_id} -> AetheriumServer.DeviceManager.get_device_deployments(device_id)
-        _ -> []
+        %{id: device_id} ->
+          try do
+            AetheriumServer.DeviceManager.get_device_deployments(device_id)
+          catch
+            :exit, _ -> []
+          end
+
+        _ ->
+          []
       end
 
     Enum.find(deployments, fn deployment ->

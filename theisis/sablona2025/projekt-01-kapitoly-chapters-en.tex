@@ -1053,7 +1053,7 @@ Snapshot caching reduces reconnection latency: when the IDE reconnects, it recei
 
 \subsection{IDE Architecture}
 
-The IDE is built on Electron~\cite{Electron}, which embeds a Node.js main process and a Chromium-based renderer process. The main process exposes native file system access and IPC bridges. The renderer process is a React~\cite{React} single-page application. The current editor surface intentionally uses native React controls and project-specific inspectors rather than a heavyweight embedded editor component; YAML remains directly editable, but the primary operator workflow is driven by the graph canvas, property panels, gateway controls, and runtime monitor.
+The IDE is built on Electron~\cite{Electron}, which embeds a Node.js main process and a Chromium-based renderer process. The main process handles native file system access and IPC bridges. The renderer is a React~\cite{React} single-page application. The editor uses project-specific panels rather than a heavyweight embedded editor component --- the primary operator workflow is driven by the graph canvas, property panels, gateway controls, and runtime monitor, with YAML kept directly editable for version-control-friendly changes.
 
 State management uses Zustand~\cite{Zustand}, a lightweight library that exposes individual atomic stores with direct mutation. Each store covers a narrow concern:
 
@@ -1339,7 +1339,7 @@ This selection keeps the demonstration focused. Rather than presenting all 39 au
 \label{chap:validation}
 % ============================================================
 
-The implementation was validated at several levels. The goal was not only to check individual functions but also to verify the central thesis: an EFSM-based IoT toolchain can support design, deployment, observation, fault injection, replay, and structural analysis through a single coherent model. The layered structure follows the common distinction between test levels and test processes, as in software testing standards such as ISO/IEC/IEEE~29119~\cite{ISO29119}. For that reason, the validation strategy combines unit tests, component integration tests, end-to-end stack checks, curated showcase validation, TypeScript validation for the IDE, and manual operator workflows.
+Validation covers several layers, each targeting a different failure mode. Unit and component tests confirm isolated behavior within parsers, the runtime, the protocol layer, and the stores. Integration tests verify contracts at process boundaries. End-to-end stack checks exercise the full gateway-server-device path under real conditions. The showcase catalog serves as a regression corpus for DSL and runtime features. Manual operator workflows cover the IDE and hardware paths where automated checks cannot reach.
 
 \section{Validation Scope}
 
@@ -1369,7 +1369,7 @@ Each layer targets a different risk: parser regressions, protocol incompatibilit
 
 \section{Requirement Traceability}
 
-The requirements derived in Section~\ref{sec:requirements} were mapped to validation evidence rather than treated as informal goals. Table~\ref{tab:validation-traceability} summarizes this mapping. The table is not a coverage percentage in the line-coverage sense; it is a feature-level assurance matrix showing which validation method protects each thesis requirement.
+Table~\ref{tab:validation-traceability} maps each requirement from Section~\ref{sec:requirements} to the validation evidence that covers it. This is a feature-level traceability map, not a line-coverage report.
 
 \begin{table}[!htbp]
   \centering
@@ -1408,7 +1408,7 @@ Time-series and analyzer behavior are tested separately because they support the
 
 \section{Coverage by Component}
 
-The validation suite is organized around component ownership. This avoids a common failure mode in distributed systems testing: high-level smoke tests pass while an untested internal edge case remains invisible. Each major component, therefore, has a focused set of tests:
+The validation suite is organized around component ownership so that a failing test points directly at the layer that broke. Each component has a focused set of tests:
 
 \begin{description}
   \item[Runtime engine.] Build and CLI tests cover startup, arguments, YAML validation, trace export, and command-smoke behavior. These tests establish that the lowest layer produces deterministic acceptance and rejection results before deployment is involved.
@@ -1420,7 +1420,7 @@ The validation suite is organized around component ownership. This avoids a comm
   \item[IDE.] The configured automated check is TypeScript validation via \texttt{npm run typecheck}. The remaining coverage is manual because the most important IDE behavior is visual workflow correctness across the editor, gateway, runtime monitor, analyzer, and Petri panels.
 \end{description}
 
-This component view is useful for regression work: a parser failure should fail fast in Python or engine validation; a channel schema break should fail in gateway/server tests; a TypeScript contract failure should fail in the IDE typecheck; and a visual wiring problem should be caught by the manual operator checklist. The project does not rely on one monolithic "run the demo" test to validate all behavior.
+A parser failure should fail fast in Python or engine validation; a channel schema break should fail in gateway/server tests; a TypeScript contract failure should fail in the IDE typecheck; and a visual wiring problem should be caught by the manual operator checklist. No single "run the demo" test is expected to cover all of this.
 
 \section{End-to-End Tests}
 
@@ -1927,7 +1927,7 @@ Several limitations remain. The Petri analysis is intentionally bounded and stru
 
 The IDE is functional but still a research prototype. It demonstrates visual editing, live monitoring, fault injection, replay, and Petri views, but it does not yet provide all productivity features expected from a mature modeling environment: complete undo/redo history, multi-select editing, advanced layout tools, and collaborative project management.
 
-Hardware validation is also limited to representative smoke workflows. The runtime architecture supports embedded targets, and board-specific examples exist, but the thesis does not claim long-term reliability data from multi-day hardware deployments. That kind of endurance validation would require a separate experimental setup with controlled power, network, and environmental conditions.
+Hardware validation is also limited to representative smoke workflows. The runtime architecture supports embedded targets, and board-specific examples exist, but the thesis does not claim long-term reliability data from multi-day hardware deployments. That kind of endurance validation would require a separate experimental setup with controlled power, network, and environmental conditions. During live ESP32 and FRDM-MCXN947 demonstrations, the USB serial/debug probe itself can also be a transient failure point: a port may remain visible while the firmware no longer announces itself, or a deploy may time out waiting for a serial chunk acknowledgement until the board is reset, replugged, or reflashed with a conservative deploy chunk size. This is documented as an operational recovery procedure rather than hidden as a functional limitation of the EFSM model.
 
 Finally, the current DSL uses Lua for guard and action logic. This is pragmatic and expressive, but it also means that not all behavior is statically analyzable. Future versions could introduce a restricted expression subset for safety-critical transitions while keeping Lua available for richer targets and non-critical behavior.
 

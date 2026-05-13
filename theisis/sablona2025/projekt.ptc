@@ -111,30 +111,30 @@
 \contentsline {section}{\numberline {10.2}Requirement Traceability}{54}{section.10.2}%
 \contentsline {section}{\numberline {10.3}Unit and Component Tests}{55}{section.10.3}%
 \contentsline {section}{\numberline {10.4}Coverage by Component}{56}{section.10.4}%
-\contentsline {section}{\numberline {10.5}End-to-End Tests}{57}{section.10.5}%
+\contentsline {section}{\numberline {10.5}End-to-End Tests}{56}{section.10.5}%
 \contentsline {section}{\numberline {10.6}Fault Injection and Replay Validation}{57}{section.10.6}%
-\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{58}{section.10.7}%
+\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{57}{section.10.7}%
 \contentsline {section}{\numberline {10.8}Manual Validation Protocol}{58}{section.10.8}%
 \contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{59}{section.10.9}%
 \contentsline {section}{\numberline {10.10}Validation Limits}{59}{section.10.10}%
-\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{61}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Infrastructure Setup}{61}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Opening the Demo Project}{62}{section.11.2}%
-\contentsline {section}{\numberline {11.3}Deploying Automata}{62}{section.11.3}%
-\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{63}{section.11.4}%
-\contentsline {section}{\numberline {11.5}Injecting Faults}{63}{section.11.5}%
-\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{64}{section.11.6}%
-\contentsline {section}{\numberline {11.7}Petri Net Analysis}{66}{section.11.7}%
-\contentsline {section}{\numberline {11.8}Analyzer Panel}{66}{section.11.8}%
-\contentsline {section}{\numberline {11.9}Black-Box Devices}{67}{section.11.9}%
-\contentsline {section}{\numberline {11.10}Demonstration Summary}{69}{section.11.10}%
-\contentsline {chapter}{\numberline {12}Conclusion}{70}{chapter.12}%
-\contentsline {section}{\numberline {12.1}Summary}{70}{section.12.1}%
-\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{71}{section.12.2}%
-\contentsline {section}{\numberline {12.3}Results}{72}{section.12.3}%
-\contentsline {section}{\numberline {12.4}Limitations}{73}{section.12.4}%
-\contentsline {section}{\numberline {12.5}Practical Impact}{73}{section.12.5}%
-\contentsline {section}{\numberline {12.6}Future Work}{74}{section.12.6}%
+\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{60}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Infrastructure Setup}{60}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Opening the Demo Project}{61}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Deploying Automata}{61}{section.11.3}%
+\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{62}{section.11.4}%
+\contentsline {section}{\numberline {11.5}Injecting Faults}{62}{section.11.5}%
+\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{63}{section.11.6}%
+\contentsline {section}{\numberline {11.7}Petri Net Analysis}{65}{section.11.7}%
+\contentsline {section}{\numberline {11.8}Analyzer Panel}{65}{section.11.8}%
+\contentsline {section}{\numberline {11.9}Black-Box Devices}{66}{section.11.9}%
+\contentsline {section}{\numberline {11.10}Demonstration Summary}{68}{section.11.10}%
+\contentsline {chapter}{\numberline {12}Conclusion}{69}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Summary}{69}{section.12.1}%
+\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{70}{section.12.2}%
+\contentsline {section}{\numberline {12.3}Results}{71}{section.12.3}%
+\contentsline {section}{\numberline {12.4}Limitations}{72}{section.12.4}%
+\contentsline {section}{\numberline {12.5}Practical Impact}{72}{section.12.5}%
+\contentsline {section}{\numberline {12.6}Future Work}{73}{section.12.6}%
 \contentsline {chapter}{Bibliography}{75}{chapter*.24}%
 \ttl@starttoc {chapters@1}
 \contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{79}{appendix.A}%

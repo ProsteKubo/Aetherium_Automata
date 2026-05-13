@@ -56,6 +56,8 @@ arduino-cli compile -u -p /dev/cu.usbserial-0001 \
   src/engine/embedded/arduino/examples/AetheriumEsp32Node
 ```
 
+If the ESP32 is connected but does not appear in `arduino-cli board list` or the Aetherium server, reset or replug the board, close any process owning the serial port, and rerun the smoke with `AETHERIUM_SERIAL_TRACE=1`. See [`docs/HARDWARE_LIVE_RECOVERY.md`](../../../../docs/HARDWARE_LIVE_RECOVERY.md) for the live-demo recovery checklist.
+
 UNO/AVR status:
 
 - Current shared runtime core uses C++17 STL headers (`<optional>`, `<variant>`, `<cstdint>`).

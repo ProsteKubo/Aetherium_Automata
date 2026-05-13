@@ -206,7 +206,8 @@ defmodule AetheriumServer.DeviceManager do
   def set_input(deployment_id, input_name, value, opts \\ %{}) do
     GenServer.call(
       __MODULE__,
-      {:set_input, deployment_id, input_name, value, normalize_set_input_opts(opts)}
+      {:set_input, deployment_id, input_name, value, normalize_set_input_opts(opts)},
+      30_000
     )
   end
 
@@ -864,6 +865,10 @@ defmodule AetheriumServer.DeviceManager do
                 rewound_to: timestamp_ms,
                 state: replay_state,
                 events_replayed: replay["events_replayed"] || 0,
+                requested_timestamp: replay["requested_timestamp"],
+                state_fingerprint: replay["state_fingerprint"],
+                event_cursor_start: replay["event_cursor_start"],
+                event_cursor_end: replay["event_cursor_end"],
                 source: replay["source"],
                 backend_error: replay["backend_error"],
                 device_restore: device_restore_json

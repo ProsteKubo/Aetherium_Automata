@@ -17,6 +17,7 @@ defmodule AetheriumServer.AethIrBytecode do
   @transition_timed_after 0x02
   @transition_classic 0x03
   @transition_event_signal 0x04
+  @transition_timed_timeout 0x05
 
   @event_on_change 0x01
   @event_on_rise 0x02
@@ -450,11 +451,19 @@ defmodule AetheriumServer.AethIrBytecode do
         ""
       end
 
+    kind =
+      case transition_mode do
+        mode when mode in ["after", ""] -> @transition_timed_after
+        "timeout" -> @transition_timed_timeout
+        _ -> :unsupported
+      end
+
     with {:ok, delay_ms} <- normalize_delay_ms(delay),
          true <-
-           transition_mode in ["after", ""] or
-             {:unsupported, ["Timed bytecode subset currently supports only `after` mode."]} do
-      {:ok, @transition_timed_after, delay_ms, additional_condition, %{}, []}
+           kind != :unsupported or
+             {:unsupported,
+              ["Timed bytecode subset supports `after` and `timeout` modes only."]} do
+      {:ok, kind, delay_ms, additional_condition, %{}, []}
     end
   end
 

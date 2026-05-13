@@ -1,5 +1,5 @@
 COMPOSE ?= docker compose
-DEV_SERVICES ?= gateway server3 device1
+DEV_SERVICES ?= gateway server3 device1 device2
 GATEWAY_ONLY_SERVICES ?= gateway
 ROS2_SERVICES ?= gateway server3 ros2-bridge
 ROS2_DEMO_SERVICES ?= gateway server3 ros2-bridge ros2-emulator ros2-sensor
@@ -50,8 +50,11 @@ MCXN947_PYOCD ?= pyocd
 MCXN947_TARGET ?= mcxn947vdf
 MCXN947_PROBE_UID ?=
 MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
+MCXN947_SHOWCASE ?= example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml
+MCXN947_DEVICE_ID ?= mcxn947-core0
+MCXN947_DEPLOY_CHUNK_SIZE ?= 128
 
-.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
+.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke mcxn947-demo mdemo
 
 help:
 	@echo "Aetherium src dev shortcuts"
@@ -117,6 +120,7 @@ help:
 	@echo "  make mcxn947-reset / make mreset   - reset target with pyocd"
 	@echo "  make mcxn947-server / make msrv    - run host server with FRDM serial connector"
 	@echo "  make mcxn947-smoke / make msmoke   - host serial deploy/start/stop smoke for FRDM"
+	@echo "  make mcxn947-demo / make mdemo     - deploy built-in SW2/SW3 -> red/green LED FRDM showcase"
 	@echo "    vars: MCXN947_PORT=/dev/cu.usbmodem... MCXN947_PROBE_UID=... MCXN947_TARGET=mcxn947vdf"
 	@echo ""
 	@echo "Reset:"
@@ -154,6 +158,12 @@ restart-server3 rs:
 
 restart-device rd:
 	$(COMPOSE) restart device1
+
+restart-device2 rd2:
+	$(COMPOSE) restart device2
+
+up-device2 ud2:
+	$(COMPOSE) up -d --no-deps device2
 
 build-device bd:
 	$(COMPOSE) build device1
@@ -280,3 +290,6 @@ mcxn947-server msrv:
 
 mcxn947-smoke msmoke:
 	$(MAKE) serial-smoke SERIAL_SERVER_ID=mcxn_host SERIAL_PORTS=$(MCXN947_PORT)
+
+mcxn947-demo mdemo:
+	cd $(SERVER_DIR) && SERVER_ID=mcxn_host DEVICE_PORT=4100 ENABLE_SERIAL_DEVICE_TRANSPORT=1 ENABLE_HOST_RUNTIME_DEVICE=0 SERIAL_PORTS=$(MCXN947_PORT) SERIAL_BAUD_RATE=$(SERIAL_BAUD_RATE) AETHERIUM_DEPLOY_CHUNK_SIZE=$(MCXN947_DEPLOY_CHUNK_SIZE) AETHERIUM_DEPLOY_CHUNK_ACK_TIMEOUT_MS=5000 AETHERIUM_DEPLOY_FINAL_LOAD_ACK_TIMEOUT_MS=10000 GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix aetherium.showcase.deploy --connector-type serial --device-id $(MCXN947_DEVICE_ID) --showcase $(MCXN947_SHOWCASE) --wait-ms 45000 --timeout-ms 30000 --start true

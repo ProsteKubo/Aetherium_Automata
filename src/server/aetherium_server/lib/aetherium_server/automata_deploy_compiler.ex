@@ -187,7 +187,7 @@ defmodule AetheriumServer.AutomataDeployCompiler do
 
   defp lua_full_profile?(_), do: false
 
-  defp allow_yaml_fallback?(profile), do: profile.id == "avr_uno_v1"
+  defp allow_yaml_fallback?(profile), do: profile.id in ["avr_uno_v1", "desktop_v1"]
 
   defp compile_mode_for_profile(profile) do
     if lua_full_profile?(profile), do: :full_lua, else: :subset

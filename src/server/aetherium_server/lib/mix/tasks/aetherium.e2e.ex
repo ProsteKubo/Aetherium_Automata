@@ -99,6 +99,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
     wait_for_running(
       auto_chan,
       gw_chan,
+      deployment_id,
       automata_id,
       device_id,
       Keyword.fetch!(opts, :timeout_ms)
@@ -116,6 +117,108 @@ defmodule Mix.Tasks.Aetherium.E2e do
     wait_for_state_change(auto_chan, gw_chan, device_id, Keyword.fetch!(opts, :timeout_ms))
 
     Logger.info("E2E OK")
+
+    if Keyword.get(opts, :time_travel) do
+      run_time_travel_demo(auto_chan, device_id, deployment_id, opts)
+    end
+  end
+
+  defp run_time_travel_demo(auto_chan, device_id, deployment_id, opts) do
+    Logger.info("== Time Travel Demo ==")
+    soak_ms = Keyword.get(opts, :soak_ms, 4_000)
+    Logger.info("Soaking for #{soak_ms}ms to accumulate trace events...")
+    Process.sleep(soak_ms)
+
+    timeout_ms = Keyword.fetch!(opts, :timeout_ms)
+
+    # Push time_travel_query — the immediate reply is just {"status": "sent"}.
+    # The actual timeline arrives as an async command_outcome push on automata:control.
+    {:ok, _sent} =
+      push_sync!(
+        auto_chan,
+        "time_travel_query",
+        %{"device_id" => device_id, "deployment_id" => deployment_id, "limit" => 500},
+        timeout_ms
+      )
+
+    tt_outcome = wait_for_command_outcome(auto_chan, "time_travel_query", timeout_ms)
+    timeline = get_in(tt_outcome, ["data", "timeline"]) || %{}
+    source = timeline["source"] || "unknown"
+    snapshots = timeline["snapshots"] || []
+    events = timeline["events"] || []
+
+    Logger.info(
+      "Timeline: source=#{source} snapshots=#{length(snapshots)} events=#{length(events)}"
+    )
+
+    snapshots
+    |> Enum.with_index()
+    |> Enum.each(fn {snap, i} ->
+      state = (snap["state"] || %{})["current_state"] || "?"
+      ts = snap["timestamp"] || 0
+      Logger.info("  [#{i}] t=#{ts} state=#{state}")
+    end)
+
+    rewind_snap = Enum.at(snapshots, div(max(length(snapshots) - 1, 0), 2))
+
+    if rewind_snap do
+      target_ts = rewind_snap["timestamp"]
+      target_state = (rewind_snap["state"] || %{})["current_state"] || "?"
+
+      Logger.info("Rewinding to snapshot t=#{target_ts} (state=#{target_state})...")
+
+      {:ok, _sent} =
+        push_sync!(
+          auto_chan,
+          "rewind_deployment",
+          %{
+            "device_id" => device_id,
+            "deployment_id" => deployment_id,
+            "target_timestamp" => target_ts
+          },
+          timeout_ms
+        )
+
+      rewind_outcome = wait_for_command_outcome(auto_chan, "rewind_deployment", timeout_ms)
+      rewind_data = rewind_outcome["data"] || %{}
+
+      Logger.info(
+        "Rewind result: source=#{rewind_data["source"] || "?"}" <>
+          " events_replayed=#{rewind_data["events_replayed"] || 0}" <>
+          " fingerprint=#{rewind_data["state_fingerprint"] || "?"}"
+      )
+
+      Logger.info("== Time Travel Demo PASS ==")
+    else
+      Logger.warning("No snapshots available — skipping rewind step")
+    end
+  end
+
+  defp wait_for_command_outcome(auto_chan, command_type, timeout_ms) do
+    deadline = System.monotonic_time(:millisecond) + timeout_ms
+    loop_wait_for_command_outcome(auto_chan, command_type, deadline)
+  end
+
+  defp loop_wait_for_command_outcome(auto_chan, command_type, deadline) do
+    if System.monotonic_time(:millisecond) > deadline do
+      raise "Timed out waiting for command_outcome command_type=#{command_type}"
+    end
+
+    receive do
+      %PhoenixClient.Message{event: "command_outcome", payload: payload} ->
+        if payload["command_type"] == command_type do
+          payload
+        else
+          loop_wait_for_command_outcome(auto_chan, command_type, deadline)
+        end
+
+      _other ->
+        loop_wait_for_command_outcome(auto_chan, command_type, deadline)
+    after
+      500 ->
+        PhoenixClient.Channel.push_async(auto_chan, "ping", %{})
+        loop_wait_for_command_outcome(auto_chan, command_type, deadline)
+    end
   end
 
   defp ensure_deps_started! do
@@ -145,6 +248,8 @@ defmodule Mix.Tasks.Aetherium.E2e do
           bundle: :string,
           showcase: :string,
           bytecode_smoke: :boolean,
+          time_travel: :boolean,
+          soak_ms: :integer,
           timeout_ms: :integer,
           wait_ms: :integer,
           set_input: :string
@@ -175,6 +280,8 @@ defmodule Mix.Tasks.Aetherium.E2e do
       server_id: Keyword.get(opts, :server_id),
       device_id: Keyword.get(opts, :device_id),
       bytecode_smoke: Keyword.get(opts, :bytecode_smoke, false),
+      time_travel: Keyword.get(opts, :time_travel, false),
+      soak_ms: Keyword.get(opts, :soak_ms, 4_000),
       bundle: Keyword.get(opts, :bundle, @default_bundle),
       showcase: Keyword.get(opts, :showcase),
       timeout_ms: timeout_ms,
@@ -298,7 +405,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
           "from" => "idle",
           "to" => "running",
           "type" => "classic",
-          "condition" => "enabled == true"
+          "condition" => "value(\"enabled\") == true"
         },
         "t_immediate" => %{
           "id" => "t_immediate",
@@ -522,32 +629,36 @@ defmodule Mix.Tasks.Aetherium.E2e do
     end
   end
 
-  defp wait_for_running(auto_chan, gw_chan, automata_id, device_id, timeout_ms) do
+  defp wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, timeout_ms) do
     deadline = System.monotonic_time(:millisecond) + timeout_ms
-    loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+    loop_wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, deadline)
   end
 
-  defp loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline) do
+  defp loop_wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, deadline) do
     if System.monotonic_time(:millisecond) > deadline do
-      raise "Timed out waiting for deployment to reach running for #{automata_id} on #{device_id}"
+      raise "Timed out waiting for deployment to reach running for #{deployment_id} on #{device_id}"
     end
 
     receive do
       %PhoenixClient.Message{event: "deployment_status", payload: payload} ->
-        if payload["automata_id"] == automata_id and payload["device_id"] == device_id and
-             payload["status"] == "running" do
+        deployment_match? = payload["deployment_id"] == deployment_id
+
+        automata_device_match? =
+          payload["automata_id"] == automata_id and payload["device_id"] == device_id
+
+        if (deployment_match? or automata_device_match?) and payload["status"] == "running" do
           :ok
         else
-          loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+          loop_wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, deadline)
         end
 
       _other ->
-        loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+        loop_wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, deadline)
     after
       500 ->
         PhoenixClient.Channel.push_async(gw_chan, "ping", %{})
         PhoenixClient.Channel.push_async(auto_chan, "list_deployments", %{})
-        loop_wait_for_running(auto_chan, gw_chan, automata_id, device_id, deadline)
+        loop_wait_for_running(auto_chan, gw_chan, deployment_id, automata_id, device_id, deadline)
     end
   end
 

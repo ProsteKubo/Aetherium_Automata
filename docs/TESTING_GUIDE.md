@@ -131,7 +131,10 @@ make mcxn947-build
 make mcxn947-flash MCXN947_PORT=/dev/cu.usbmodem...
 make mcxn947-server MCXN947_PORT=/dev/cu.usbmodem...
 make mcxn947-smoke
+make mcxn947-demo
 ```
+
+Hardware smoke tests depend on USB serial/debug probe state. If a board is physically connected but does not register, or if deploy stops at `chunk_ack_timeout at chunk 0` / `final_load_ack_timeout at chunk 0`, use [Hardware Live Recovery](HARDWARE_LIVE_RECOVERY.md). The normal recovery is to stop the host serial server, reset or replug the board, verify the device node/probe, then rerun the smoke with `AETHERIUM_SERIAL_TRACE=1` and a smaller deploy chunk size if necessary.
 
 ## Helper Script
 

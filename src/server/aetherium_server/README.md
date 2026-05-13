@@ -82,6 +82,8 @@ Options:
 - `--wait-ms <ms>` wait time for a serial Arduino to appear.
 - `--timeout-ms <ms>` per-stage deploy/start timeout.
 
+For live ESP32/FRDM-MCXN947 sessions, serial/debug probe state can be the failure point even when the USB cable is connected. If the device does not register, or deploy fails with a first-chunk ACK timeout, reset or replug the board and use the repository-level [Hardware Live Recovery](../../../docs/HARDWARE_LIVE_RECOVERY.md) checklist. `AETHERIUM_SERIAL_TRACE=1` is the quickest way to confirm whether the host writes deploy chunks and whether the board replies with ACK/LoadAck frames.
+
 ## ESP32 Time-Travel Demo (Real Device)
 
 With an ESP32 serial node flashed and connected:

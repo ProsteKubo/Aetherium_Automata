@@ -176,6 +176,12 @@ Result<std::unique_ptr<Automata>> automataFromEngineBytecode(const ir::EngineByt
                 tr.timedConfig.delayMs = t.delayMs;
                 tr.timedConfig.additionalCondition.source = t.conditionExpression;
                 break;
+            case ir::BytecodeTransitionKind::TimedTimeout:
+                tr.type = TransitionType::Timed;
+                tr.timedConfig.mode = TimedMode::Timeout;
+                tr.timedConfig.delayMs = t.delayMs;
+                tr.timedConfig.additionalCondition.source = t.conditionExpression;
+                break;
             case ir::BytecodeTransitionKind::ClassicCondition:
                 if (t.conditionExpression.empty()) {
                     return Result<std::unique_ptr<Automata>>::error("classic bytecode transition missing condition");

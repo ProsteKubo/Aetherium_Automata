@@ -4,7 +4,7 @@ This target runs the shared Aetherium runtime on `MCXN947 core0` over the on-boa
 
 ### Build and flash
 
-From [`/Users/administratorik/dev/Aetherium_Automata/src`](/Users/administratorik/dev/Aetherium_Automata/src):
+From the repository `src` directory:
 
 ```bash
 make mbuild
@@ -77,7 +77,7 @@ Available methods:
 - `threshold()`
 - `set_threshold(value)`
 
-The stable IDE-first path today is the simple press detector used by [`mcxn947_touch_pad_leds.yaml`](/Users/administratorik/dev/Aetherium_Automata/example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml): call `init()` once, then `pressed()` from state code. The extra telemetry methods (`raw`, `baseline`, `delta`, `threshold`) are available for deeper tuning, but only the press demo is currently promoted as a verified showcase.
+The stable IDE-first path today is the simple press detector used by [`mcxn947_touch_pad_leds.yaml`](../../../../example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml): call `init()` once, then `pressed()` from state code. The extra telemetry methods (`raw`, `baseline`, `delta`, `threshold`) are available for deeper tuning, but only the press demo is currently promoted as a verified showcase.
 
 ### Temperature component
 
@@ -96,7 +96,7 @@ Available methods:
 - `read_c()`
 - `read_milli_c()`
 
-This is intentionally a demo-only board component, not a generic bus abstraction. On MCXN947 it currently uses the chip's internal temperature path for reliability, while keeping the same IDE-facing `board_temp` API. The promoted IDE showcase is [`mcxn947_temperature_guard.yaml`](/Users/administratorik/dev/Aetherium_Automata/example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml), which publishes a direct `read_milli_c()` value and simple warm/healthy flags through automata outputs for IDE inspection.
+This is intentionally a demo-only board component, not a generic bus abstraction. On MCXN947 it currently uses the chip's internal temperature path for reliability, while keeping the same IDE-facing `board_temp` API. The promoted IDE showcase is [`mcxn947_temperature_guard.yaml`](../../../../example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml), which publishes a direct `read_milli_c()` value and simple warm/healthy flags through automata outputs for IDE inspection.
 
 ### Minimal Lua smoke
 
@@ -107,3 +107,16 @@ gpio.mode(23, "input_pullup")
 local pressed = gpio.read(23) == 0
 log("info", "sw2=" .. tostring(pressed))
 ```
+
+### Live recovery
+
+The MCU-LINK VCOM and CMSIS-DAP probe can get out of phase during repeated live demos. If `/dev/ttyACM*` or `/dev/cu.usbmodem*` is present but `mcxn947-core0` does not register, or if deploy reports `chunk_ack_timeout at chunk 0`, reset or replug the board and rerun:
+
+```bash
+cd src
+pyocd list -p -vv
+make mcxn947-flash MCXN947_PROBE_UID=23G2JL343RO3G MCXN947_TARGET=mcxn947vdf
+AETHERIUM_SERIAL_TRACE=1 make mcxn947-demo MCXN947_DEPLOY_CHUNK_SIZE=16
+```
+
+The full checklist is in [`docs/HARDWARE_LIVE_RECOVERY.md`](../../../../docs/HARDWARE_LIVE_RECOVERY.md).

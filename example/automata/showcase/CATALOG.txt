@@ -10,6 +10,7 @@ example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml
 example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml
 example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml
 example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml
+example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml
 example/automata/showcase/14_petri_contention/petri_power_allocator.yaml
 example/automata/showcase/14_petri_contention/petri_charger_node.yaml
 example/automata/showcase/14_petri_contention/petri_motion_axis.yaml

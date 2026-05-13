@@ -120,6 +120,7 @@ make mcxn947-build
 make mcxn947-flash MCXN947_PORT=/dev/cu.usbmodem...
 make mcxn947-server MCXN947_PORT=/dev/cu.usbmodem...
 make mcxn947-smoke
+make mcxn947-demo
 ```
 
 Generic serial host:
@@ -130,6 +131,8 @@ make ports
 make serial-server SERIAL_PORTS=/dev/cu.foo,/dev/cu.bar
 make serial-smoke
 ```
+
+If an ESP32 or FRDM-MCXN947 is visible on USB but does not appear in the IDE/server, or deploy fails with a first-chunk ACK timeout, follow [Hardware Live Recovery](docs/HARDWARE_LIVE_RECOVERY.md). This is an expected live-demo failure mode of USB serial/debug probes: reset or replug the board, ensure the host owns the serial port, then rerun the smoke/demo command with `AETHERIUM_SERIAL_TRACE=1` if needed.
 
 ## Testing
 

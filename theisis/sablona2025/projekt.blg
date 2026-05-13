@@ -46,8 +46,6 @@ Warning--"{" isn't a brace-balanced string for entry IEC61499
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry IEC61131
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
-Warning--"{" isn't a brace-balanced string for entry ISO29119
-while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry CMake
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry LeBlanc1987
@@ -93,45 +91,45 @@ while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry YAML122
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Zoitl2017
-You've used 45 entries,
+You've used 44 entries,
             3768 wiz_defined-function locations,
-            1083 strings with 12812 characters,
-and the built_in function-call counts, 19998 in all, are:
-= -- 1660
-> -- 598
-< -- 60
-+ -- 207
-- -- 161
-* -- 1123
-:= -- 2540
-add.period$ -- 186
-call.type$ -- 45
-change.case$ -- 348
+            1077 strings with 12560 characters,
+and the built_in function-call counts, 19589 in all, are:
+= -- 1625
+> -- 589
+< -- 59
++ -- 204
+- -- 159
+* -- 1103
+:= -- 2491
+add.period$ -- 181
+call.type$ -- 44
+change.case$ -- 340
 chr.to.int$ -- 38
-cite$ -- 63
-duplicate$ -- 1196
-empty$ -- 2613
-format.name$ -- 161
-if$ -- 4871
+cite$ -- 62
+duplicate$ -- 1170
+empty$ -- 2556
+format.name$ -- 159
+if$ -- 4769
 int.to.chr$ -- 0
-int.to.str$ -- 45
+int.to.str$ -- 44
 missing$ -- 0
-newline$ -- 326
-num.names$ -- 90
-pop$ -- 597
+newline$ -- 318
+num.names$ -- 88
+pop$ -- 583
 preamble$ -- 1
-purify$ -- 183
+purify$ -- 180
 quote$ -- 0
-skip$ -- 888
+skip$ -- 869
 stack$ -- 0
-substring$ -- 766
-swap$ -- 253
-text.length$ -- 71
+substring$ -- 754
+swap$ -- 247
+text.length$ -- 69
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 91
+type$ -- 89
 warning$ -- 18
-while$ -- 121
-width$ -- 47
-write$ -- 631
-(There were 51 warnings)
+while$ -- 119
+width$ -- 46
+write$ -- 615
+(There were 50 warnings)

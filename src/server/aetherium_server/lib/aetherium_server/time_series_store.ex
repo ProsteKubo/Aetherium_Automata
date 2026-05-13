@@ -129,7 +129,7 @@ defmodule AetheriumServer.TimeSeriesStore do
         end)
 
       next = %{state | events: events, cursor: cursor}
-      persist(next)
+      persist_async(next)
       TimeSeriesInfluxSink.append_event(entry)
       {:reply, {:ok, cursor}, next}
     else
@@ -157,7 +157,7 @@ defmodule AetheriumServer.TimeSeriesStore do
         end)
 
       next = %{state | snapshots: snapshots, snapshot_cursor: snapshot_cursor}
-      persist(next)
+      persist_async(next)
       TimeSeriesInfluxSink.append_snapshot(entry)
       {:reply, {:ok, snapshot_cursor}, next}
     else
@@ -230,6 +230,21 @@ defmodule AetheriumServer.TimeSeriesStore do
     if is_integer(value), do: value, else: 0
   end
 
+  defp persist_async(%{dir: nil}), do: :ok
+
+  defp persist_async(state) do
+    events = state.events
+    snapshots = state.snapshots
+    dir = state.dir
+
+    Task.start(fn ->
+      write_term(Path.join(dir, "events.bin"), events)
+      write_term(Path.join(dir, "snapshots.bin"), snapshots)
+    end)
+
+    :ok
+  end
+
   defp persist(%{dir: nil}), do: :ok
 
   defp persist(state) do
@@ -267,7 +282,9 @@ defmodule AetheriumServer.TimeSeriesStore do
   end
 
   defp write_term(path, value) do
-    tmp = path <> ".tmp"
+    dir = Path.dirname(path)
+    File.mkdir_p!(dir)
+    tmp = path <> ".tmp." <> Integer.to_string(System.unique_integer([:positive]))
     :ok = File.write(tmp, :erlang.term_to_binary(value, compressed: 6))
     :ok = File.rename(tmp, path)
   end

@@ -35,7 +35,8 @@ enum class BytecodeTransitionKind : uint8_t {
     Immediate = 1,
     TimedAfter = 2,
     ClassicCondition = 3,
-    EventSignal = 4
+    EventSignal = 4,
+    TimedTimeout = 5
 };
 
 struct BytecodeVariable {

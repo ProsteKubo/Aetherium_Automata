@@ -120,7 +120,10 @@ make mcxn947-configure
 make mcxn947-build
 make mcxn947-flash MCXN947_PORT=/dev/cu.usbmodem...
 make mcxn947-server MCXN947_PORT=/dev/cu.usbmodem...
+make mcxn947-demo
 ```
+
+For live hardware demos, USB serial/debug state is part of the test environment. If ESP32 or FRDM-MCXN947 is present on USB but not visible to Aetherium, or if deploy fails before the first chunk is acknowledged, use [Hardware Live Recovery](../HARDWARE_LIVE_RECOVERY.md). The recovery path is reset/replug, confirm the serial port/probe, reflash if needed, then rerun with `AETHERIUM_SERIAL_TRACE=1` and a conservative deploy chunk size.
 
 ## Lifecycle Semantics
 

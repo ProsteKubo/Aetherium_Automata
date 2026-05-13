@@ -95,6 +95,8 @@ defmodule AetheriumServer.DeviceTransports.SerialPortSession do
 
   def handle_info({:send_binary, data}, state) when is_binary(data) do
     if state.port_open? do
+      maybe_trace_outbound_frame(state.port_name, data)
+
       case Circuits.UART.write(state.uart, data) do
         :ok ->
           :ok
@@ -185,6 +187,35 @@ defmodule AetheriumServer.DeviceTransports.SerialPortSession do
         ])
 
       Logger.info("Serial frame #{port_name} #{type}: #{inspect(summary)}")
+    end
+  end
+
+  defp maybe_trace_outbound_frame(port_name, data) do
+    if serial_trace_enabled?() do
+      case EngineProtocol.decode(data) do
+        {:ok, type, payload} ->
+          summary =
+            payload
+            |> Map.take([
+              :message_id,
+              "message_id",
+              :source_id,
+              "source_id",
+              :target_id,
+              "target_id",
+              :run_id,
+              "run_id",
+              :chunk_index,
+              :total_chunks,
+              :data
+            ])
+            |> Map.update(:data, nil, &byte_size/1)
+
+          Logger.info("Serial write #{port_name} #{type}: #{inspect(summary)}")
+
+        {:error, reason} ->
+          Logger.info("Serial write #{port_name} undecoded bytes=#{byte_size(data)}: #{inspect(reason)}")
+      end
     end
   end
 

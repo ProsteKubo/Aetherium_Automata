@@ -108,7 +108,7 @@ services:
 
   influxdb:
     profiles: ["timeseries"]
-    image: influxdb:2.7
+    image: docker.io/library/influxdb:2.7
     container_name: aetherium-influxdb
     networks:
       elixir-net:
@@ -158,6 +158,23 @@ services:
         ipv4_address: 172.20.0.31
     environment:
       - DEVICE_ID=device_cpp_01
+    command: [
+      "--verbose",
+      "--run", "-",
+      "--mode", "network",
+      "--server", "ws://172.20.0.23:4000/socket/device/websocket"
+    ]
+
+  device2:
+    build:
+      context: ..
+      dockerfile: Dockerfile.cpp
+    container_name: cpp-device-2
+    networks:
+      elixir-net:
+        ipv4_address: 172.20.0.33
+    environment:
+      - DEVICE_ID=device_cpp_02
     command: [
       "--verbose",
       "--run", "-",

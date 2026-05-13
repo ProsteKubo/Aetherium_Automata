@@ -168,16 +168,6 @@
 \newblock [cit. 2025-05-12].
 \newblock IEC 61131-3 Ed.3.
 
-\bibitem{ISO29119}
-{\sc\bgroup}{ISO/IEC JTC 1/SC 7}{\egroup}.
-\newblock {\em {ISO/IEC/IEEE 29119 Series: Software and Systems Engineering ---
-  Software Testing}} online.
-\newblock 2022.
-\newblock Available at:
-  ~{\small\url{https://committee.iso.org/sites/jtc1sc7/home/projects/flagship-standards/isoiecieee-29119-series.html}}.
-\newblock [cit. 2026-05-13].
-\newblock Software testing standards series.
-
 \bibitem{CMake}
 {\sc\bgroup}{Kitware, Inc.}{\egroup}.
 \newblock {\em {CMake: The Cross-Platform Open-Source Build System}} online.
