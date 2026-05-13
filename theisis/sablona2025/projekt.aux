@@ -28,13 +28,13 @@
 \newlabel{chap:background}{{2}{10}{Background}{chapter.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {2.1}Finite State Machines}{10}{section.2.1}\protected@file@percent }
 \newlabel{sec:fsm}{{2.1}{10}{Finite State Machines}{section.2.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {2.2}Extended Finite State Machines}{10}{section.2.2}\protected@file@percent }
-\newlabel{sec:efsm}{{2.2}{10}{Extended Finite State Machines}{section.2.2}{}}
 \citation{Lua1996}
 \citation{LuaManual54}
 \citation{Lua1996}
 \citation{Petri1962}
 \citation{Murata1989}
+\@writefile{toc}{\contentsline {section}{\numberline {2.2}Extended Finite State Machines}{11}{section.2.2}\protected@file@percent }
+\newlabel{sec:efsm}{{2.2}{11}{Extended Finite State Machines}{section.2.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {2.3}Petri Nets}{11}{section.2.3}\protected@file@percent }
 \newlabel{sec:petri}{{2.3}{11}{Petri Nets}{section.2.3}{}}
 \citation{LeBlanc1987}
@@ -45,7 +45,8 @@
 \@writefile{toc}{\contentsline {section}{\numberline {2.5}Implications for an IoT Toolchain}{13}{section.2.5}\protected@file@percent }
 \newlabel{sec:background-implications}{{2.5}{13}{Implications for an IoT Toolchain}{section.2.5}{}}
 \citation{NodeRED}
-\citation{Noaman2022}
+\citation{Morrison1994}
+\citation{MQTT}
 \@writefile{toc}{\contentsline {chapter}{\numberline {3}Analysis of Existing Solutions}{14}{chapter.3}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
@@ -57,6 +58,8 @@
 \citation{Eclipse4diac}
 \citation{Strasser2008}
 \citation{Zoitl2017}
+\citation{IEC61499}
+\citation{IEC61131}
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1.3}State Management}{15}{subsection.3.1.3}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1.4}Embedded Targets and Observability}{15}{subsection.3.1.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {3.1.5}Summary}{15}{subsection.3.1.5}\protected@file@percent }
@@ -71,8 +74,12 @@
 \@writefile{lot}{\contentsline {table}{\numberline {3.1}{\ignorespaces Feature comparison of Node-RED, Eclipse 4diac, and Aetherium Automata.}}{17}{table.3.1}\protected@file@percent }
 \newlabel{tab:comparison}{{3.1}{17}{Feature comparison of Node-RED, Eclipse 4diac, and Aetherium Automata}{table.3.1}{}}
 \@writefile{toc}{\contentsline {paragraph}{Programmer's mental model.}{17}{section*.5}\protected@file@percent }
+\citation{ESP32TRM}
+\citation{Arduino}
+\citation{FreeRTOS}
 \@writefile{toc}{\contentsline {section}{\numberline {3.4}Requirements}{18}{section.3.4}\protected@file@percent }
 \newlabel{sec:requirements}{{3.4}{18}{Requirements}{section.3.4}{}}
+\citation{Elixir}
 \citation{Armstrong2007}
 \@writefile{toc}{\contentsline {chapter}{\numberline {4}System Architecture}{20}{chapter.4}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
@@ -83,19 +90,24 @@
 \@writefile{toc}{\contentsline {section}{\numberline {4.1}Technology Selection Rationale}{20}{section.4.1}\protected@file@percent }
 \newlabel{sec:tech-rationale}{{4.1}{20}{Technology Selection Rationale}{section.4.1}{}}
 \citation{Armstrong2007}
+\citation{Armstrong2007}
+\citation{ESP32TRM}
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1.1}Elixir and the BEAM for the Server and Gateway}{21}{subsection.4.1.1}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Process-per-device isolation.}{21}{section*.6}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{OTP supervision trees and let-it-crash.}{21}{section*.7}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Preemptive scheduling and throughput.}{21}{section*.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Hot code reloading.}{21}{section*.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Automata hot deployment.}{21}{section*.9}\protected@file@percent }
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.1.2}C++ for the Engine}{21}{subsection.4.1.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Engine-as-library design.}{21}{section*.10}\protected@file@percent }
+\citation{Arduino}
+\citation{FreeRTOS}
 \citation{Sol2}
+\citation{CMake}
 \citation{IXWebSocket}
 \citation{RapidYAML}
 \citation{YAML122}
 \citation{RapidYAML}
 \citation{Sol2}
+\@writefile{toc}{\contentsline {paragraph}{Engine-as-library design.}{22}{section*.10}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{Abstract platform interfaces.}{22}{section*.11}\protected@file@percent }
 \@writefile{toc}{\contentsline {paragraph}{CMake build target selection.}{22}{section*.12}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4.2}Component Responsibilities}{22}{section.4.2}\protected@file@percent }
@@ -106,6 +118,7 @@
 \@writefile{toc}{\contentsline {subsection}{\numberline {4.2.4}IDE}{23}{subsection.4.2.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {section}{\numberline {4.3}Component Interaction and Data Flow}{23}{section.4.3}\protected@file@percent }
 \newlabel{sec:dataflow}{{4.3}{23}{Component Interaction and Data Flow}{section.4.3}{}}
+\citation{Docker}
 \@writefile{toc}{\contentsline {section}{\numberline {4.4}Deployment Model}{24}{section.4.4}\protected@file@percent }
 \@writefile{toc}{\contentsline {chapter}{\numberline {5}Automata Model and DSL}{25}{chapter.5}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
@@ -158,214 +171,252 @@
 \newlabel{fig:platform}{{6.2}{32}{Platform abstraction layer. The runtime core depends only on the three interfaces; concrete implementations are selected at link time}{figure.6.2}{}}
 \@writefile{toc}{\contentsline {section}{\numberline {6.3}Lua Scripting}{32}{section.6.3}\protected@file@percent }
 \newlabel{sec:lua}{{6.3}{32}{Lua Scripting}{section.6.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3.1}Variable I/O and Control API}{32}{subsection.6.3.1}\protected@file@percent }
+\citation{ESP32TRM}
+\citation{ESP32TRM}
+\citation{ESP32TRM}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3.2}Hardware Peripheral API}{33}{subsection.6.3.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\texttt  {gpio} --- digital I/O.}{33}{section*.13}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\texttt  {pwm} --- pulse-width modulation (ESP32).}{33}{section*.14}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\texttt  {adc} --- analogue-to-digital conversion (ESP32).}{34}{section*.15}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\texttt  {dac} --- digital-to-analogue conversion (ESP32 only).}{34}{section*.16}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{\texttt  {i2c} --- two-wire bus.}{34}{section*.17}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3.3}Component System}{34}{subsection.6.3.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3.4}Network Connectivity}{35}{subsection.6.3.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3.5}Platform Capability Matrix}{35}{subsection.6.3.5}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {6.1}{\ignorespaces Lua hardware API availability by target platform.}}{35}{table.6.1}\protected@file@percent }
+\newlabel{tab:hw-matrix}{{6.1}{35}{Lua hardware API availability by target platform}{table.6.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.4}Timer Management}{35}{section.6.4}\protected@file@percent }
 \citation{Beilharz2022}
 \citation{Geels2006}
-\@writefile{toc}{\contentsline {section}{\numberline {6.4}Timer Management}{33}{section.6.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {6.5}Fault Injection}{33}{section.6.5}\protected@file@percent }
-\newlabel{sec:fault}{{6.5}{33}{Fault Injection}{section.6.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {6.6}Execution Trace and Time-Travel Debugging}{33}{section.6.6}\protected@file@percent }
-\newlabel{sec:trace}{{6.6}{33}{Execution Trace and Time-Travel Debugging}{section.6.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.3}{\ignorespaces FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible.}}{34}{figure.6.3}\protected@file@percent }
-\newlabel{fig:fault-pipeline}{{6.3}{34}{FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible}{figure.6.3}{}}
-\newlabel{sec:restore-state}{{6.6}{35}{Server-Side State Reconstruction and \texttt {RestoreState}}{section*.13}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {6.4}{\ignorespaces Time-travel rewind sequence. The IDE dispatches \texttt  {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt  {replay\_state\_at} and delivers a \texttt  {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}}{36}{figure.6.4}\protected@file@percent }
-\newlabel{fig:time-travel-seq}{{6.4}{36}{Time-travel rewind sequence. The IDE dispatches \texttt {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt {replay\_state\_at} and delivers a \texttt {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes}{figure.6.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.5}Fault Injection}{36}{section.6.5}\protected@file@percent }
+\newlabel{sec:fault}{{6.5}{36}{Fault Injection}{section.6.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {6.6}Execution Trace and Time-Travel Debugging}{36}{section.6.6}\protected@file@percent }
+\newlabel{sec:trace}{{6.6}{36}{Execution Trace and Time-Travel Debugging}{section.6.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.3}{\ignorespaces FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible.}}{37}{figure.6.3}\protected@file@percent }
+\newlabel{fig:fault-pipeline}{{6.3}{37}{FaultProfile message pipeline. Each frame passes through drop, duplicate, and delay decisions independently for ingress (server~$\to $~device) and egress (device~$\to $~server). All probabilistic decisions draw from a seeded random source, making fault scenarios fully reproducible}{figure.6.3}{}}
+\newlabel{sec:restore-state}{{6.6}{38}{Server-Side State Reconstruction and \texttt {RestoreState}}{section*.18}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6.4}{\ignorespaces Time-travel rewind sequence. The IDE dispatches \texttt  {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt  {replay\_state\_at} and delivers a \texttt  {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes.}}{39}{figure.6.4}\protected@file@percent }
+\newlabel{fig:time-travel-seq}{{6.4}{39}{Time-travel rewind sequence. The IDE dispatches \texttt {rewind\_deployment} to the gateway; the server reconstructs the automaton state at timestamp~$T$ via \texttt {replay\_state\_at} and delivers a \texttt {RestoreState(0x48)} binary command to the device, which pauses, applies the state snapshot atomically, and resumes}{figure.6.4}{}}
+\citation{MQTT}
 \citation{Elixir}
 \citation{Phoenix}
-\@writefile{toc}{\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{37}{chapter.7}\protected@file@percent }
+\citation{RFC6455}
+\@writefile{toc}{\contentsline {chapter}{\numberline {7}Gateway and Communication Protocol}{40}{chapter.7}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:gateway}{{7}{37}{Gateway and Communication Protocol}{chapter.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{37}{section.7.1}\protected@file@percent }
-\newlabel{sec:wire}{{7.1}{37}{Binary Wire Protocol}{section.7.1}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {7.1}{\ignorespaces Binary message envelope. The 2-byte platform tag \texttt  {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}}{37}{figure.7.1}\protected@file@percent }
-\newlabel{fig:wire}{{7.1}{37}{Binary message envelope. The 2-byte platform tag \texttt {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently}{figure.7.1}{}}
+\newlabel{chap:gateway}{{7}{40}{Gateway and Communication Protocol}{chapter.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7.1}Binary Wire Protocol}{40}{section.7.1}\protected@file@percent }
+\newlabel{sec:wire}{{7.1}{40}{Binary Wire Protocol}{section.7.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {7.1}{\ignorespaces Binary message envelope. The 2-byte platform tag \texttt  {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently.}}{40}{figure.7.1}\protected@file@percent }
+\newlabel{fig:wire}{{7.1}{40}{Binary message envelope. The 2-byte platform tag \texttt {0xAE01} identifies the Aetherium Automata protocol family (v1); the following protocol version byte allows the same platform to evolve its wire format independently}{figure.7.1}{}}
 \citation{Electron}
 \citation{React}
 \citation{Zustand}
-\@writefile{toc}{\contentsline {section}{\numberline {7.2}Phoenix Gateway}{38}{section.7.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.3}End-to-End Message Flow}{38}{section.7.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {7.4}Integrated Development Environment}{38}{section.7.4}\protected@file@percent }
-\newlabel{sec:ide}{{7.4}{38}{Integrated Development Environment}{section.7.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.1}IDE Architecture}{38}{subsection.7.4.1}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {7.1}{\ignorespaces Zustand stores in the IDE renderer.}}{38}{table.7.1}\protected@file@percent }
-\newlabel{tab:stores}{{7.1}{38}{Zustand stores in the IDE renderer}{table.7.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.2}Phoenix Gateway Service}{38}{subsection.7.4.2}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {7.2}{\ignorespaces End-to-end message sequence for deploy, start, and runtime I/O exchange.}}{39}{figure.7.2}\protected@file@percent }
-\newlabel{fig:msgflow}{{7.2}{39}{End-to-end message sequence for deploy, start, and runtime I/O exchange}{figure.7.2}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.3}Operator Panels}{40}{subsection.7.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.2}Phoenix Gateway}{41}{section.7.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.3}End-to-End Message Flow}{41}{section.7.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {7.4}Integrated Development Environment}{41}{section.7.4}\protected@file@percent }
+\newlabel{sec:ide}{{7.4}{41}{Integrated Development Environment}{section.7.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.1}IDE Architecture}{41}{subsection.7.4.1}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {7.1}{\ignorespaces Zustand stores in the IDE renderer.}}{41}{table.7.1}\protected@file@percent }
+\newlabel{tab:stores}{{7.1}{41}{Zustand stores in the IDE renderer}{table.7.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.2}Phoenix Gateway Service}{41}{subsection.7.4.2}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7.2}{\ignorespaces End-to-end message sequence for deploy, start, and runtime I/O exchange.}}{42}{figure.7.2}\protected@file@percent }
+\newlabel{fig:msgflow}{{7.2}{42}{End-to-end message sequence for deploy, start, and runtime I/O exchange}{figure.7.2}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {7.4.3}Operator Panels}{43}{subsection.7.4.3}\protected@file@percent }
 \citation{Murata1989}
-\@writefile{toc}{\contentsline {chapter}{\numberline {8}Petri Net Analysis}{41}{chapter.8}\protected@file@percent }
+\citation{Murata1989}
+\@writefile{toc}{\contentsline {chapter}{\numberline {8}Petri Net Analysis}{44}{chapter.8}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:petri}{{8}{41}{Petri Net Analysis}{chapter.8}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8.1}Formal Definitions}{41}{section.8.1}\protected@file@percent }
-\newlabel{sec:petri-formal}{{8.1}{41}{Formal Definitions}{section.8.1}{}}
-\@writefile{toc}{\contentsline {paragraph}{Automaton.}{41}{section*.14}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{P/T net.}{41}{section*.15}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8.2}Lifting a Single Automaton}{41}{section.8.2}\protected@file@percent }
-\newlabel{sec:petri-lifting}{{8.2}{41}{Lifting a Single Automaton}{section.8.2}{}}
-\@writefile{toc}{\contentsline {paragraph}{Places.}{42}{section*.16}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Transitions and arcs.}{42}{section*.17}\protected@file@percent }
-\@writefile{toc}{\contentsline {paragraph}{Initial marking.}{42}{section*.18}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8.3}Network Composition}{42}{section.8.3}\protected@file@percent }
-\newlabel{sec:petri-composition}{{8.3}{42}{Network Composition}{section.8.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {8.4}Analysis Operations}{42}{section.8.4}\protected@file@percent }
-\newlabel{sec:petri-analysis}{{8.4}{42}{Analysis Operations}{section.8.4}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.1}Reachability and Deadlock Detection}{42}{subsection.8.4.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {8.1}{\ignorespaces Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt  {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}}{43}{figure.8.1}\protected@file@percent }
-\newlabel{fig:petri-lifting}{{8.1}{43}{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B}{figure.8.1}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.2}Boundedness}{44}{subsection.8.4.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.3}P-Invariant Analysis}{44}{subsection.8.4.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.4}Contention Analysis}{44}{subsection.8.4.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {8.5}Showcase Scenarios}{44}{section.8.5}\protected@file@percent }
-\newlabel{sec:petri-showcase}{{8.5}{44}{Showcase Scenarios}{section.8.5}{}}
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.5.1}Showcase 13 --- Petri Signal Chain}{44}{subsection.8.5.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {subsection}{\numberline {8.5.2}Showcase 14 --- Petri Contention}{45}{subsection.8.5.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {chapter}{\numberline {9}Showcase Catalog}{46}{chapter.9}\protected@file@percent }
+\newlabel{chap:petri}{{8}{44}{Petri Net Analysis}{chapter.8}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8.1}Formal Definitions}{44}{section.8.1}\protected@file@percent }
+\newlabel{sec:petri-formal}{{8.1}{44}{Formal Definitions}{section.8.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Automaton.}{44}{section*.19}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{P/T net.}{44}{section*.20}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8.2}Lifting a Single Automaton}{44}{section.8.2}\protected@file@percent }
+\newlabel{sec:petri-lifting}{{8.2}{44}{Lifting a Single Automaton}{section.8.2}{}}
+\@writefile{toc}{\contentsline {paragraph}{Places.}{45}{section*.21}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Transitions and arcs.}{45}{section*.22}\protected@file@percent }
+\@writefile{toc}{\contentsline {paragraph}{Initial marking.}{45}{section*.23}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8.3}Network Composition}{45}{section.8.3}\protected@file@percent }
+\newlabel{sec:petri-composition}{{8.3}{45}{Network Composition}{section.8.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {8.4}Analysis Operations}{45}{section.8.4}\protected@file@percent }
+\newlabel{sec:petri-analysis}{{8.4}{45}{Analysis Operations}{section.8.4}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.1}Reachability and Deadlock Detection}{45}{subsection.8.4.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {8.1}{\ignorespaces Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt  {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B.}}{46}{figure.8.1}\protected@file@percent }
+\newlabel{fig:petri-lifting}{{8.1}{46}{Two automata (A and B) lifted to Petri net subnets. The shared channel place \texttt {ch\_signal} connects the output transition of automaton~A to an input transition of automaton~B}{figure.8.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.2}Boundedness}{47}{subsection.8.4.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.3}P-Invariant Analysis}{47}{subsection.8.4.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.4.4}Contention Analysis}{47}{subsection.8.4.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {8.5}Showcase Scenarios}{47}{section.8.5}\protected@file@percent }
+\newlabel{sec:petri-showcase}{{8.5}{47}{Showcase Scenarios}{section.8.5}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5.1}Showcase 13 --- Petri Signal Chain}{47}{subsection.8.5.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {8.5.2}Showcase 14 --- Petri Contention}{48}{subsection.8.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {9}Showcase Catalog}{49}{chapter.9}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:showcase}{{9}{46}{Showcase Catalog}{chapter.9}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {9.1}{\ignorespaces Showcase automata catalog.}}{46}{table.9.1}\protected@file@percent }
-\newlabel{tab:catalog}{{9.1}{46}{Showcase automata catalog}{table.9.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9.1}Flagship Showcase: Aetherium Gem Cell (15)}{46}{section.9.1}\protected@file@percent }
-\newlabel{sec:gem-showcase}{{9.1}{46}{Flagship Showcase: Aetherium Gem Cell (15)}{section.9.1}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {9.1}Excerpt from the Aetherium Gem Cell showcase.}{47}{lstlisting.9.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {9.2}Selected Showcase: Quality Router (03)}{47}{section.9.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {9.3}Selected Showcase: Sensor Watchdog Recovery (04)}{48}{section.9.3}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {9.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt  {failed} state is a terminal escalation sink.}}{48}{figure.9.1}\protected@file@percent }
-\newlabel{fig:watchdog}{{9.1}{48}{Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink}{figure.9.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9.4}Catalog as a Validation Corpus}{48}{section.9.4}\protected@file@percent }
-\newlabel{sec:catalog-validation-corpus}{{9.4}{48}{Catalog as a Validation Corpus}{section.9.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {9.5}Demonstration Selection Criteria}{49}{section.9.5}\protected@file@percent }
-\newlabel{sec:showcase-selection}{{9.5}{49}{Demonstration Selection Criteria}{section.9.5}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {10}Testing and Validation}{50}{chapter.10}\protected@file@percent }
+\newlabel{chap:showcase}{{9}{49}{Showcase Catalog}{chapter.9}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {9.1}{\ignorespaces Showcase automata catalog.}}{49}{table.9.1}\protected@file@percent }
+\newlabel{tab:catalog}{{9.1}{49}{Showcase automata catalog}{table.9.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9.1}Flagship Showcase: Aetherium Gem Cell (15)}{49}{section.9.1}\protected@file@percent }
+\newlabel{sec:gem-showcase}{{9.1}{49}{Flagship Showcase: Aetherium Gem Cell (15)}{section.9.1}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {9.1}Excerpt from the Aetherium Gem Cell showcase.}{50}{lstlisting.9.1}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9.2}Selected Showcase: Quality Router (03)}{50}{section.9.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {9.3}Selected Showcase: Sensor Watchdog Recovery (04)}{51}{section.9.3}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {9.1}{\ignorespaces Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt  {failed} state is a terminal escalation sink.}}{51}{figure.9.1}\protected@file@percent }
+\newlabel{fig:watchdog}{{9.1}{51}{Sensor watchdog automaton. Dashed transitions are timed; solid transitions are classic guards. The \texttt {failed} state is a terminal escalation sink}{figure.9.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9.4}Catalog as a Validation Corpus}{51}{section.9.4}\protected@file@percent }
+\newlabel{sec:catalog-validation-corpus}{{9.4}{51}{Catalog as a Validation Corpus}{section.9.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {9.5}Demonstration Selection Criteria}{52}{section.9.5}\protected@file@percent }
+\newlabel{sec:showcase-selection}{{9.5}{52}{Demonstration Selection Criteria}{section.9.5}{}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {10}Testing and Validation}{53}{chapter.10}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:validation}{{10}{50}{Testing and Validation}{chapter.10}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {10.1}Validation Scope}{50}{section.10.1}\protected@file@percent }
-\@writefile{lof}{\contentsline {figure}{\numberline {10.1}{\ignorespaces Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows.}}{51}{figure.10.1}\protected@file@percent }
-\newlabel{fig:validation-coverage}{{10.1}{51}{Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows}{figure.10.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {10.2}Requirement Traceability}{51}{section.10.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.3}Unit and Component Tests}{51}{section.10.3}\protected@file@percent }
-\@writefile{lot}{\contentsline {table}{\numberline {10.1}{\ignorespaces Requirement-to-validation traceability.}}{52}{table.10.1}\protected@file@percent }
-\newlabel{tab:validation-traceability}{{10.1}{52}{Requirement-to-validation traceability}{table.10.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {10.4}Coverage by Component}{53}{section.10.4}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.5}End-to-End Tests}{53}{section.10.5}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.6}Fault Injection and Replay Validation}{54}{section.10.6}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{54}{section.10.7}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.8}Manual Validation Protocol}{55}{section.10.8}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{55}{section.10.9}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {10.10}Validation Limits}{56}{section.10.10}\protected@file@percent }
-\@writefile{toc}{\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{57}{chapter.11}\protected@file@percent }
+\newlabel{chap:validation}{{10}{53}{Testing and Validation}{chapter.10}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {10.1}Validation Scope}{53}{section.10.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {10.1}{\ignorespaces Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows.}}{54}{figure.10.1}\protected@file@percent }
+\newlabel{fig:validation-coverage}{{10.1}{54}{Validation coverage model. Unit tests cover isolated parsing, runtime, protocol, and store behavior; integration tests cover server/gateway/device boundaries; end-to-end tests exercise deployment, fault injection, and rewind; manual validation confirms the IDE and hardware workflows}{figure.10.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {10.2}Requirement Traceability}{54}{section.10.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.3}Unit and Component Tests}{54}{section.10.3}\protected@file@percent }
+\@writefile{lot}{\contentsline {table}{\numberline {10.1}{\ignorespaces Requirement-to-validation traceability.}}{55}{table.10.1}\protected@file@percent }
+\newlabel{tab:validation-traceability}{{10.1}{55}{Requirement-to-validation traceability}{table.10.1}{}}
+\citation{Docker}
+\@writefile{toc}{\contentsline {section}{\numberline {10.4}Coverage by Component}{56}{section.10.4}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.5}End-to-End Tests}{56}{section.10.5}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.6}Fault Injection and Replay Validation}{57}{section.10.6}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{57}{section.10.7}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.8}Manual Validation Protocol}{58}{section.10.8}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{58}{section.10.9}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {10.10}Validation Limits}{59}{section.10.10}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{60}{chapter.11}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:demonstration}{{11}{57}{End-to-End Demonstration}{chapter.11}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.1}Infrastructure Setup}{57}{section.11.1}\protected@file@percent }
-\newlabel{sec:demo-setup}{{11.1}{57}{Infrastructure Setup}{section.11.1}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.1}Starting the development stack.}{57}{lstlisting.11.1}\protected@file@percent }
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.2}Launching the Electron IDE.}{57}{lstlisting.11.2}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {11.2}Opening the Demo Project}{58}{section.11.2}\protected@file@percent }
-\newlabel{sec:demo-project}{{11.2}{58}{Opening the Demo Project}{section.11.2}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.1}{\ignorespaces Network panel showing the demo project with one connected device.}}{58}{figure.11.1}\protected@file@percent }
-\newlabel{fig:ide-network}{{11.1}{58}{Network panel showing the demo project with one connected device}{figure.11.1}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.3}Deploying Automata}{58}{section.11.3}\protected@file@percent }
-\newlabel{sec:demo-deploy}{{11.3}{58}{Deploying Automata}{section.11.3}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.2}{\ignorespaces Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt  {device\_cpp\_01}.}}{58}{figure.11.2}\protected@file@percent }
-\newlabel{fig:ide-deploy}{{11.2}{58}{Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt {device\_cpp\_01}}{figure.11.2}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{59}{section.11.4}\protected@file@percent }
-\newlabel{sec:demo-monitor}{{11.4}{59}{Live Runtime Monitoring}{section.11.4}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.3}{\ignorespaces Runtime Monitor panel displaying live state and variable values for the deployed automaton.}}{59}{figure.11.3}\protected@file@percent }
-\newlabel{fig:ide-monitor}{{11.3}{59}{Runtime Monitor panel displaying live state and variable values for the deployed automaton}{figure.11.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.5}Injecting Faults}{59}{section.11.5}\protected@file@percent }
-\newlabel{sec:demo-fault}{{11.5}{59}{Injecting Faults}{section.11.5}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.4}{\ignorespaces Gateway panel with an active delay fault profile on the demo device.}}{60}{figure.11.4}\protected@file@percent }
-\newlabel{fig:ide-fault}{{11.4}{60}{Gateway panel with an active delay fault profile on the demo device}{figure.11.4}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{60}{section.11.6}\protected@file@percent }
-\newlabel{sec:demo-replay}{{11.6}{60}{Time-Travel Debugging}{section.11.6}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.5}{\ignorespaces Execution trace replay timeline in the Runtime Monitor panel.}}{61}{figure.11.5}\protected@file@percent }
-\newlabel{fig:ide-replay}{{11.5}{61}{Execution trace replay timeline in the Runtime Monitor panel}{figure.11.5}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.7}Petri Net Analysis}{61}{section.11.7}\protected@file@percent }
-\newlabel{sec:demo-petri}{{11.7}{61}{Petri Net Analysis}{section.11.7}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.6}{\ignorespaces Petri Net panel showing token flow for the power-contention scenario.}}{61}{figure.11.6}\protected@file@percent }
-\newlabel{fig:ide-petri}{{11.6}{61}{Petri Net panel showing token flow for the power-contention scenario}{figure.11.6}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.8}Analyzer Panel}{62}{section.11.8}\protected@file@percent }
-\newlabel{sec:demo-analyzer}{{11.8}{62}{Analyzer Panel}{section.11.8}{}}
-\@writefile{lof}{\contentsline {figure}{\numberline {11.7}{\ignorespaces Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}}{62}{figure.11.7}\protected@file@percent }
-\newlabel{fig:ide-analyzer}{{11.7}{62}{Analyzer panel reporting channel activity and an anomaly for the signal chain scenario}{figure.11.7}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {11.9}Black-Box Devices}{63}{section.11.9}\protected@file@percent }
-\newlabel{sec:demo-blackbox}{{11.9}{63}{Black-Box Devices}{section.11.9}{}}
-\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.3}Starting the black-box demonstration stack.}{63}{lstlisting.11.3}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {11.10}Demonstration Summary}{63}{section.11.10}\protected@file@percent }
-\newlabel{sec:demo-summary}{{11.10}{63}{Demonstration Summary}{section.11.10}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {11.1}{\ignorespaces Demonstration coverage summary.}}{63}{table.11.1}\protected@file@percent }
-\newlabel{tab:demo-coverage}{{11.1}{63}{Demonstration coverage summary}{table.11.1}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {12}Conclusion}{64}{chapter.12}\protected@file@percent }
+\newlabel{chap:demonstration}{{11}{60}{End-to-End Demonstration}{chapter.11}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.1}Infrastructure Setup}{60}{section.11.1}\protected@file@percent }
+\newlabel{sec:demo-setup}{{11.1}{60}{Infrastructure Setup}{section.11.1}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.1}Starting the development stack.}{60}{lstlisting.11.1}\protected@file@percent }
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.2}Launching the Electron IDE.}{60}{lstlisting.11.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11.2}Opening the Demo Project}{61}{section.11.2}\protected@file@percent }
+\newlabel{sec:demo-project}{{11.2}{61}{Opening the Demo Project}{section.11.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.1}{\ignorespaces Network panel showing the demo project with one connected device.}}{61}{figure.11.1}\protected@file@percent }
+\newlabel{fig:ide-network}{{11.1}{61}{Network panel showing the demo project with one connected device}{figure.11.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.3}Deploying Automata}{61}{section.11.3}\protected@file@percent }
+\newlabel{sec:demo-deploy}{{11.3}{61}{Deploying Automata}{section.11.3}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.2}{\ignorespaces Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt  {device\_cpp\_01}.}}{61}{figure.11.2}\protected@file@percent }
+\newlabel{fig:ide-deploy}{{11.2}{61}{Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt {device\_cpp\_01}}{figure.11.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{62}{section.11.4}\protected@file@percent }
+\newlabel{sec:demo-monitor}{{11.4}{62}{Live Runtime Monitoring}{section.11.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.3}{\ignorespaces Runtime Monitor panel displaying live state and variable values for the deployed automaton.}}{62}{figure.11.3}\protected@file@percent }
+\newlabel{fig:ide-monitor}{{11.3}{62}{Runtime Monitor panel displaying live state and variable values for the deployed automaton}{figure.11.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.5}Injecting Faults}{62}{section.11.5}\protected@file@percent }
+\newlabel{sec:demo-fault}{{11.5}{62}{Injecting Faults}{section.11.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.4}{\ignorespaces Gateway panel with an active delay fault profile on the demo device.}}{63}{figure.11.4}\protected@file@percent }
+\newlabel{fig:ide-fault}{{11.4}{63}{Gateway panel with an active delay fault profile on the demo device}{figure.11.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{63}{section.11.6}\protected@file@percent }
+\newlabel{sec:demo-replay}{{11.6}{63}{Time-Travel Debugging}{section.11.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.5}{\ignorespaces Execution trace replay timeline in the Runtime Monitor panel.}}{64}{figure.11.5}\protected@file@percent }
+\newlabel{fig:ide-replay}{{11.5}{64}{Execution trace replay timeline in the Runtime Monitor panel}{figure.11.5}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.7}Petri Net Analysis}{64}{section.11.7}\protected@file@percent }
+\newlabel{sec:demo-petri}{{11.7}{64}{Petri Net Analysis}{section.11.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.6}{\ignorespaces Petri Net panel showing token flow for the power-contention scenario.}}{64}{figure.11.6}\protected@file@percent }
+\newlabel{fig:ide-petri}{{11.6}{64}{Petri Net panel showing token flow for the power-contention scenario}{figure.11.6}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.8}Analyzer Panel}{65}{section.11.8}\protected@file@percent }
+\newlabel{sec:demo-analyzer}{{11.8}{65}{Analyzer Panel}{section.11.8}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11.7}{\ignorespaces Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}}{65}{figure.11.7}\protected@file@percent }
+\newlabel{fig:ide-analyzer}{{11.7}{65}{Analyzer panel reporting channel activity and an anomaly for the signal chain scenario}{figure.11.7}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {11.9}Black-Box Devices}{66}{section.11.9}\protected@file@percent }
+\newlabel{sec:demo-blackbox}{{11.9}{66}{Black-Box Devices}{section.11.9}{}}
+\@writefile{lol}{\contentsline {lstlisting}{\numberline {11.3}Starting the black-box demonstration stack.}{66}{lstlisting.11.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {11.10}Demonstration Summary}{66}{section.11.10}\protected@file@percent }
+\newlabel{sec:demo-summary}{{11.10}{66}{Demonstration Summary}{section.11.10}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {11.1}{\ignorespaces Demonstration coverage summary.}}{66}{table.11.1}\protected@file@percent }
+\newlabel{tab:demo-coverage}{{11.1}{66}{Demonstration coverage summary}{table.11.1}{}}
+\citation{Harel1987}
+\citation{Lua1996}
+\citation{YAML122}
+\citation{ESP32TRM}
+\citation{MQTT}
+\@writefile{toc}{\contentsline {chapter}{\numberline {12}Conclusion}{67}{chapter.12}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{chap:conclusion}{{12}{64}{Conclusion}{chapter.12}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {12.1}Summary}{64}{section.12.1}\protected@file@percent }
-\@writefile{toc}{\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{65}{section.12.2}\protected@file@percent }
-\newlabel{sec:goal-evaluation}{{12.2}{65}{Evaluation Against Goals}{section.12.2}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {12.3}Limitations}{66}{section.12.3}\protected@file@percent }
-\newlabel{sec:conclusion-limitations}{{12.3}{66}{Limitations}{section.12.3}{}}
-\@writefile{toc}{\contentsline {section}{\numberline {12.4}Practical Impact}{66}{section.12.4}\protected@file@percent }
-\newlabel{sec:practical-impact}{{12.4}{66}{Practical Impact}{section.12.4}{}}
+\newlabel{chap:conclusion}{{12}{67}{Conclusion}{chapter.12}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12.1}Summary}{67}{section.12.1}\protected@file@percent }
+\citation{Electron}
+\citation{Murata1989}
+\@writefile{toc}{\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{68}{section.12.2}\protected@file@percent }
+\newlabel{sec:goal-evaluation}{{12.2}{68}{Evaluation Against Goals}{section.12.2}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12.3}Results}{69}{section.12.3}\protected@file@percent }
+\newlabel{sec:results}{{12.3}{69}{Results}{section.12.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12.4}Limitations}{70}{section.12.4}\protected@file@percent }
+\newlabel{sec:conclusion-limitations}{{12.4}{70}{Limitations}{section.12.4}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {12.5}Practical Impact}{70}{section.12.5}\protected@file@percent }
+\newlabel{sec:practical-impact}{{12.5}{70}{Practical Impact}{section.12.5}{}}
 \bibstyle{bib-styles/Pysny/enplain}
 \bibdata{projekt-20-literatura-bibliography}
-\@writefile{toc}{\contentsline {section}{\numberline {12.5}Future Work}{67}{section.12.5}\protected@file@percent }
-\bibcite{Armstrong2007}{1}
-\bibcite{Beilharz2022}{2}
-\bibcite{RapidYAML}{3}
-\bibcite{Eclipse4diac}{4}
-\bibcite{Engblom2012}{5}
-\bibcite{Geels2006}{6}
-\bibcite{Harel1987}{7}
-\bibcite{Hopcroft2006}{8}
-\bibcite{LuaManual54}{9}
-\bibcite{Lua1996}{10}
-\bibcite{LeBlanc1987}{11}
-\@writefile{toc}{\contentsline {chapter}{Bibliography}{68}{chapter*.19}\protected@file@percent }
-\bibcite{IXWebSocket}{12}
-\bibcite{React}{13}
-\bibcite{Murata1989}{14}
-\bibcite{Noaman2022}{15}
-\bibcite{NodeRED}{16}
-\bibcite{Electron}{17}
-\bibcite{Petri1962}{18}
-\bibcite{Phoenix}{19}
-\bibcite{Zustand}{20}
-\bibcite{Strasser2008}{21}
-\bibcite{Sol2}{22}
-\bibcite{Elixir}{23}
-\bibcite{YAML122}{24}
-\bibcite{Zoitl2017}{25}
+\@writefile{toc}{\contentsline {section}{\numberline {12.6}Future Work}{71}{section.12.6}\protected@file@percent }
+\bibcite{FreeRTOS}{1}
+\bibcite{Arduino}{2}
+\bibcite{Armstrong2007}{3}
+\bibcite{Beilharz2022}{4}
+\bibcite{RapidYAML}{5}
+\bibcite{Docker}{6}
+\bibcite{Eclipse4diac}{7}
+\bibcite{Engblom2012}{8}
+\bibcite{ESP32TRM}{9}
+\bibcite{RFC6455}{10}
+\bibcite{Geels2006}{11}
+\bibcite{Harel1987}{12}
+\@writefile{toc}{\contentsline {chapter}{Bibliography}{72}{chapter*.24}\protected@file@percent }
+\bibcite{Hopcroft2006}{13}
+\bibcite{LuaManual54}{14}
+\bibcite{Lua1996}{15}
+\bibcite{IEC61499}{16}
+\bibcite{IEC61131}{17}
+\bibcite{CMake}{18}
+\bibcite{LeBlanc1987}{19}
+\bibcite{IXWebSocket}{20}
+\bibcite{React}{21}
+\bibcite{Morrison1994}{22}
+\bibcite{Murata1989}{23}
+\bibcite{Noaman2022}{24}
+\bibcite{MQTT}{25}
+\bibcite{NodeRED}{26}
+\bibcite{Electron}{27}
+\bibcite{Petri1962}{28}
+\bibcite{Phoenix}{29}
+\bibcite{Zustand}{30}
+\bibcite{Strasser2008}{31}
+\bibcite{Sol2}{32}
+\bibcite{Elixir}{33}
+\bibcite{YAML122}{34}
+\bibcite{Zoitl2017}{35}
 \ttl@writefile{ptc}{\ttl@starttoc{chapters@1}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{71}{appendix.A}\protected@file@percent }
+\@writefile{toc}{\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{75}{appendix.A}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{app:media}{{A}{71}{Contents of the Included Storage Media}{appendix.A}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{72}{appendix.B}\protected@file@percent }
+\newlabel{app:media}{{A}{75}{Contents of the Included Storage Media}{appendix.A}{}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{76}{appendix.B}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{app:schema}{{B}{72}{YAML DSL Schema Reference}{appendix.B}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {B.1}{\ignorespaces Top-level YAML fields.}}{72}{table.B.1}\protected@file@percent }
-\newlabel{tab:app-toplevel}{{B.1}{72}{Top-level YAML fields}{table.B.1}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {B.2}{\ignorespaces \texttt  {config} block fields.}}{72}{table.B.2}\protected@file@percent }
-\newlabel{tab:app-config}{{B.2}{72}{\texttt {config} block fields}{table.B.2}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {B.3}{\ignorespaces Transition type-specific fields.}}{72}{table.B.3}\protected@file@percent }
-\newlabel{tab:app-transitions}{{B.3}{72}{Transition type-specific fields}{table.B.3}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {C}Supported Platform Targets}{73}{appendix.C}\protected@file@percent }
+\newlabel{app:schema}{{B}{76}{YAML DSL Schema Reference}{appendix.B}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {B.1}{\ignorespaces Top-level YAML fields.}}{76}{table.B.1}\protected@file@percent }
+\newlabel{tab:app-toplevel}{{B.1}{76}{Top-level YAML fields}{table.B.1}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {B.2}{\ignorespaces \texttt  {config} block fields.}}{76}{table.B.2}\protected@file@percent }
+\newlabel{tab:app-config}{{B.2}{76}{\texttt {config} block fields}{table.B.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {B.3}{\ignorespaces Transition type-specific fields.}}{76}{table.B.3}\protected@file@percent }
+\newlabel{tab:app-transitions}{{B.3}{76}{Transition type-specific fields}{table.B.3}{}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {C}Supported Platform Targets}{77}{appendix.C}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{app:targets}{{C}{73}{Supported Platform Targets}{appendix.C}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {C.1}{\ignorespaces Engine platform targets and their capability profiles.}}{73}{table.C.1}\protected@file@percent }
-\newlabel{tab:app-platforms}{{C.1}{73}{Engine platform targets and their capability profiles}{table.C.1}{}}
-\@writefile{toc}{\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{74}{appendix.D}\protected@file@percent }
+\newlabel{app:targets}{{C}{77}{Supported Platform Targets}{appendix.C}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {C.1}{\ignorespaces Engine platform targets and their capability profiles.}}{77}{table.C.1}\protected@file@percent }
+\newlabel{tab:app-platforms}{{C.1}{77}{Engine platform targets and their capability profiles}{table.C.1}{}}
+\@writefile{toc}{\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{78}{appendix.D}\protected@file@percent }
 \@writefile{lof}{\addvspace {10\p@ }}
 \@writefile{lot}{\addvspace {10\p@ }}
-\newlabel{app:required-figures}{{D}{74}{Required Demonstration Figures}{appendix.D}{}}
-\@writefile{lot}{\contentsline {table}{\numberline {D.1}{\ignorespaces Screenshot checklist for the final thesis figures.}}{74}{table.D.1}\protected@file@percent }
-\newlabel{tab:app-figure-checklist}{{D.1}{74}{Screenshot checklist for the final thesis figures}{table.D.1}{}}
+\newlabel{app:required-figures}{{D}{78}{Required Demonstration Figures}{appendix.D}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {D.1}{\ignorespaces Screenshot checklist for the final thesis figures.}}{78}{table.D.1}\protected@file@percent }
+\newlabel{tab:app-figure-checklist}{{D.1}{78}{Screenshot checklist for the final thesis figures}{table.D.1}{}}
 \ttl@finishall
-\gdef \@abspage@last{78}
+\gdef \@abspage@last{82}

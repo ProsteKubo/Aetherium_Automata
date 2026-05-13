@@ -1,0 +1,328 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>ORCHESTRATOR - Petri Net Analysis</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "tertiary": "#ffb68a",
+                        "surface": "#121316",
+                        "on-tertiary-fixed": "#321300",
+                        "on-primary-container": "#002663",
+                        "error-container": "#93000a",
+                        "outline": "#8c90a0",
+                        "secondary-container": "#025a34",
+                        "primary-container": "#598cff",
+                        "on-tertiary-fixed-variant": "#743500",
+                        "on-primary": "#002c71",
+                        "inverse-surface": "#e3e2e6",
+                        "on-primary-fixed-variant": "#00419e",
+                        "on-primary-fixed": "#001946",
+                        "surface-tint": "#b1c5ff",
+                        "surface-dim": "#121316",
+                        "on-surface-variant": "#c2c6d6",
+                        "surface-container-low": "#1a1b1e",
+                        "on-secondary-container": "#85cf9f",
+                        "surface-container-highest": "#343538",
+                        "background": "#121316",
+                        "on-error-container": "#ffdad6",
+                        "on-secondary-fixed": "#002110",
+                        "inverse-primary": "#0057cf",
+                        "on-error": "#690005",
+                        "secondary-fixed": "#a7f3c0",
+                        "secondary-fixed-dim": "#8cd7a6",
+                        "surface-container-lowest": "#0d0e11",
+                        "on-surface": "#e3e2e6",
+                        "primary-fixed": "#dae2ff",
+                        "on-secondary": "#00391e",
+                        "tertiary-container": "#e66f00",
+                        "primary": "#b1c5ff",
+                        "surface-bright": "#38393c",
+                        "tertiary-fixed": "#ffdbc8",
+                        "outline-variant": "#424654",
+                        "on-tertiary": "#522300",
+                        "secondary": "#8cd7a6",
+                        "inverse-on-surface": "#2f3033",
+                        "surface-container": "#1f1f23",
+                        "on-secondary-fixed-variant": "#00522e",
+                        "primary-fixed-dim": "#b1c5ff",
+                        "on-background": "#e3e2e6",
+                        "tertiary-fixed-dim": "#ffb68a",
+                        "surface-container-high": "#292a2d",
+                        "surface-variant": "#343538",
+                        "error": "#ffb4ab",
+                        "on-tertiary-container": "#481e00"
+                    },
+                    fontFamily: {
+                        "headline": ["Inter"],
+                        "body": ["Inter"],
+                        "label": ["Inter"],
+                        "mono": ["JetBrains Mono"]
+                    },
+                    borderRadius: { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" },
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            font-size: 18px;
+        }
+        .petri-grid {
+            background-image: radial-gradient(#424654 0.5px, transparent 0.5px);
+            background-size: 20px 20px;
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface font-body overflow-hidden h-screen flex flex-col">
+<!-- TopNavBar -->
+<header class="bg-[#121316] text-[#3574F0] font-['JetBrains_Mono'] text-[12px] uppercase tracking-wider docked full-width top-0 flex justify-between items-center w-full px-3 h-10 border-b border-[#424654]/15">
+<div class="flex items-center gap-4">
+<span class="font-['Inter'] font-black text-[#C2C6D6] tracking-tighter text-sm">ORCHESTRATOR</span>
+<nav class="flex items-center space-x-4">
+<span class="text-[#C2C6D6] hover:bg-[#1A1B1E] transition-colors cursor-pointer px-2 py-1">Cluster_Alpha</span>
+<span class="text-[#C2C6D6] hover:bg-[#1A1B1E] transition-colors cursor-pointer px-2 py-1">Resources</span>
+</nav>
+</div>
+<div class="flex items-center space-x-3">
+<div class="bg-[#1A1B1E] px-2 py-0.5 flex items-center gap-2 border border-[#424654]/30">
+<span class="material-symbols-outlined text-[14px]">search</span>
+<input class="bg-transparent border-none focus:ring-0 text-[11px] w-48 p-0 placeholder:text-[#424654]" placeholder="Search components..." type="text"/>
+</div>
+<span class="material-symbols-outlined text-[#C2C6D6] hover:bg-[#1A1B1E] transition-colors cursor-pointer p-1">settings</span>
+<span class="material-symbols-outlined text-[#C2C6D6] hover:bg-[#1A1B1E] transition-colors cursor-pointer p-1">account_circle</span>
+</div>
+</header>
+<div class="flex flex-1 overflow-hidden">
+<!-- SideNavBar -->
+<aside class="bg-[#1A1B1E] flex flex-col items-center py-4 space-y-6 w-16 h-full border-r border-[#424654]/15 transition-all duration-150">
+<div class="flex flex-col items-center gap-6 w-full">
+<!-- Petri Net is Active -->
+<div class="group relative flex flex-col items-center w-full py-2 opacity-60 text-[#C2C6D6] hover:opacity-100 hover:bg-[#343538] transition-all cursor-pointer">
+<span class="material-symbols-outlined">hub</span>
+<span class="text-[9px] mt-1 font-medium font-['Inter']">Topology</span>
+</div>
+<div class="group relative flex flex-col items-center w-full py-2 opacity-60 text-[#C2C6D6] hover:opacity-100 hover:bg-[#343538] transition-all cursor-pointer">
+<span class="material-symbols-outlined">edit_note</span>
+<span class="text-[9px] mt-1 font-medium font-['Inter']">Editor</span>
+</div>
+<div class="group relative flex flex-col items-center w-full py-2 border-l-2 border-[#3574F0] text-[#3574F0] bg-[#121316] transition-all cursor-pointer">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="text-[9px] mt-1 font-medium font-['Inter']">Petri Net</span>
+</div>
+<div class="group relative flex flex-col items-center w-full py-2 opacity-60 text-[#C2C6D6] hover:opacity-100 hover:bg-[#343538] transition-all cursor-pointer">
+<span class="material-symbols-outlined">biotech</span>
+<span class="text-[9px] mt-1 font-medium font-['Inter']">Fault Lab</span>
+</div>
+<div class="group relative flex flex-col items-center w-full py-2 opacity-60 text-[#C2C6D6] hover:opacity-100 hover:bg-[#343538] transition-all cursor-pointer">
+<span class="material-symbols-outlined">bug_report</span>
+<span class="text-[9px] mt-1 font-medium font-['Inter']">Debugger</span>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- Secondary Toolbar -->
+<div class="h-9 bg-surface-container-low border-b border-outline-variant/15 flex items-center px-4 justify-between">
+<div class="flex items-center space-x-4">
+<div class="flex items-center gap-1 text-[11px] font-mono font-bold text-on-surface-variant">
+<span class="material-symbols-outlined text-sm">terminal</span>
+                        ANALYSIS_MODE: STATIC_LIVENESS
+                    </div>
+<div class="h-4 w-px bg-outline-variant/30"></div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px] text-secondary">play_arrow</span> Run
+                        </button>
+<button class="flex items-center gap-1 text-[11px] text-on-surface-variant hover:text-on-surface">
+<span class="material-symbols-outlined text-[16px] text-primary">refresh</span> Reset
+                        </button>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[10px] font-mono text-outline uppercase tracking-widest">Project: ALPHA_V1.0.4</span>
+</div>
+</div>
+<div class="flex flex-1 overflow-hidden">
+<!-- Petri Net Canvas -->
+<div class="flex-1 petri-grid relative overflow-hidden bg-surface-container-lowest">
+<!-- Graph Elements -->
+<div class="absolute inset-0 p-8 flex items-center justify-center">
+<svg class="max-w-4xl opacity-90" height="100%" width="100%">
+<!-- Connections -->
+<g fill="none" stroke="#424654" stroke-width="1.5">
+<path d="M100 200 L250 200" marker-end="url(#arrow)"></path>
+<path d="M300 200 L450 150" marker-end="url(#arrow)"></path>
+<path d="M300 200 L450 250" marker-end="url(#arrow)"></path>
+<path d="M500 150 L650 200" marker-end="url(#arrow)"></path>
+<path d="M500 250 L650 200" marker-end="url(#arrow)"></path>
+</g>
+<defs>
+<marker id="arrow" markerheight="6" markerwidth="6" orient="auto-start-reverse" refx="10" refy="5" viewbox="0 0 10 10">
+<path d="M 0 0 L 10 5 L 0 10 z" fill="#424654"></path>
+</marker>
+</defs>
+<!-- Place P1 -->
+<g transform="translate(100, 200)">
+<circle fill="#1A1B1E" r="24" stroke="#3574F0" stroke-width="2"></circle>
+<circle fill="#3574F0" r="6"></circle>
+<text fill="#C2C6D6" font-family="JetBrains Mono" font-size="10" text-anchor="middle" y="40">P1: INITIAL</text>
+</g>
+<!-- Transition T1 -->
+<g transform="translate(250, 180)">
+<rect fill="#1A1B1E" height="40" stroke="#C2C6D6" stroke-width="1.5" width="40"></rect>
+<text fill="#C2C6D6" font-family="JetBrains Mono" font-size="10" text-anchor="middle" x="20" y="55">T1: TRIGGER</text>
+</g>
+<!-- Place P2 -->
+<g transform="translate(450, 150)">
+<circle fill="#1A1B1E" r="24" stroke="#C2C6D6" stroke-width="1.5"></circle>
+<text fill="#C2C6D6" font-family="JetBrains Mono" font-size="10" text-anchor="middle" y="40">P2: IDLE</text>
+</g>
+<!-- Place P3 (Critical) -->
+<g transform="translate(450, 250)">
+<circle fill="#1A1B1E" r="24" stroke="#FFB4AB" stroke-width="2"></circle>
+<circle cx="-8" fill="#FFB4AB" r="4"></circle>
+<circle cx="8" fill="#FFB4AB" r="4"></circle>
+<text fill="#FFB4AB" font-family="JetBrains Mono" font-size="10" text-anchor="middle" y="40">P3: BLOCKED</text>
+</g>
+<!-- Transition T2 -->
+<g transform="translate(650, 180)">
+<rect fill="#121316" height="40" opacity="0.5" stroke="#424654" stroke-width="1.5" width="40"></rect>
+<text fill="#424654" font-family="JetBrains Mono" font-size="10" text-anchor="middle" x="20" y="55">T2: MERGE</text>
+</g>
+</svg>
+</div>
+<!-- Floating Tool Palette -->
+<div class="absolute top-4 right-4 bg-surface-variant/80 backdrop-blur-xl p-1 rounded-lg border border-outline-variant/20 flex flex-col gap-1 shadow-2xl">
+<button class="p-2 hover:bg-surface-bright rounded text-on-surface-variant"><span class="material-symbols-outlined">zoom_in</span></button>
+<button class="p-2 hover:bg-surface-bright rounded text-on-surface-variant"><span class="material-symbols-outlined">zoom_out</span></button>
+<div class="h-px bg-outline-variant/30 mx-2"></div>
+<button class="p-2 hover:bg-surface-bright rounded text-on-surface-variant"><span class="material-symbols-outlined">center_focus_strong</span></button>
+</div>
+</div>
+<!-- Analysis Sidebar -->
+<div class="w-80 bg-surface-container-low border-l border-outline-variant/15 flex flex-col">
+<!-- Critical Paths -->
+<div class="flex-1 flex flex-col min-h-0">
+<div class="px-3 py-2 bg-surface-container flex items-center justify-between border-b border-outline-variant/15">
+<span class="text-[11px] font-bold uppercase tracking-tight text-on-surface-variant">Critical Paths</span>
+<span class="material-symbols-outlined text-[14px]">unfold_more</span>
+</div>
+<div class="flex-1 overflow-y-auto font-mono text-[11px]">
+<div class="flex items-center px-3 py-1.5 hover:bg-surface-container-highest cursor-pointer border-b border-outline-variant/5">
+<span class="material-symbols-outlined text-tertiary mr-2" style="font-variation-settings: 'FILL' 1;">warning</span>
+<span class="text-on-surface">P1 -&gt; T1 -&gt; P3 (LOCKED)</span>
+<span class="ml-auto text-outline text-[10px]">42ms</span>
+</div>
+<div class="flex items-center px-3 py-1.5 hover:bg-surface-container-highest cursor-pointer border-b border-outline-variant/5 bg-surface-container-high/40">
+<span class="material-symbols-outlined text-secondary mr-2">check_circle</span>
+<span class="text-on-surface">P1 -&gt; T1 -&gt; P2 (IDLE)</span>
+<span class="ml-auto text-outline text-[10px]">12ms</span>
+</div>
+</div>
+</div>
+<!-- Deadlock Alerts (IntelliJ Style) -->
+<div class="h-64 flex flex-col border-t border-outline-variant/15">
+<div class="px-3 py-2 bg-surface-container flex items-center justify-between border-b border-outline-variant/15">
+<span class="text-[11px] font-bold uppercase tracking-tight text-on-surface-variant">Deadlock Alerts</span>
+<div class="flex gap-2">
+<span class="text-[10px] bg-error-container/20 text-error px-1.5 rounded-sm">1 Error</span>
+<span class="text-[10px] bg-tertiary-container/20 text-tertiary px-1.5 rounded-sm">1 Warn</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto">
+<table class="w-full text-[11px] font-mono border-collapse">
+<tbody><tr class="hover:bg-surface-container-highest border-b border-outline-variant/5">
+<td class="p-2 align-top"><span class="material-symbols-outlined text-error" style="font-variation-settings: 'FILL' 1;">cancel</span></td>
+<td class="py-2 pr-2">
+<div class="text-on-surface font-bold">Circular Wait Detected</div>
+<div class="text-outline text-[10px]">Cycle: P3 -&gt; T2 -&gt; P1 -&gt; T1</div>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-highest border-b border-outline-variant/5">
+<td class="p-2 align-top"><span class="material-symbols-outlined text-tertiary" style="font-variation-settings: 'FILL' 1;">warning</span></td>
+<td class="py-2 pr-2">
+<div class="text-on-surface font-bold">Unbound Buffer P2</div>
+<div class="text-outline text-[10px]">Potential overflow in stress test</div>
+</td>
+</tr>
+</tbody></table>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Console -->
+<div class="h-40 bg-[#0D0E11] border-t border-outline-variant/15 flex flex-col">
+<div class="px-4 h-8 flex items-center gap-6 border-b border-outline-variant/15">
+<div class="flex items-center gap-1 border-b-2 border-primary text-primary h-full px-2 text-[11px] font-bold">
+<span class="material-symbols-outlined text-sm">terminal</span>
+                        TOKEN_LOG
+                    </div>
+<div class="flex items-center gap-1 text-on-surface-variant/60 h-full px-2 text-[11px] hover:text-on-surface-variant cursor-pointer">
+<span class="material-symbols-outlined text-sm">analytics</span>
+                        REACHABILITY_TREE
+                    </div>
+<div class="ml-auto flex items-center gap-3">
+<span class="material-symbols-outlined text-sm text-outline hover:text-on-surface cursor-pointer">delete_sweep</span>
+<span class="material-symbols-outlined text-sm text-outline hover:text-on-surface cursor-pointer">close</span>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto p-3 font-mono text-[11px] leading-relaxed space-y-1">
+<div class="flex gap-4">
+<span class="text-outline">[12:00:01]</span>
+<span class="text-secondary">INFO</span>
+<span class="text-[#C2C6D6]">Fired Transition <span class="text-primary-container">T1</span>: Token moved from <span class="text-primary-container">P1</span> to <span class="text-primary-container">P3</span>.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-outline">[12:00:02]</span>
+<span class="text-error">CRIT</span>
+<span class="text-error">Token accumulation at <span class="font-bold underline">P3</span> exceeds threshold. Transition <span class="text-error">T2</span> is inhibited.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-outline">[12:00:02]</span>
+<span class="text-tertiary">WARN</span>
+<span class="text-[#C2C6D6]">Resource exhaustion imminent in sub-graph <span class="italic">ALPHA_OMEGA</span>.</span>
+</div>
+<div class="flex gap-4">
+<span class="text-outline">[12:00:05]</span>
+<span class="text-secondary">INFO</span>
+<span class="text-[#C2C6D6]">State snapshot saved to <span class="text-primary-container">/var/snapshots/alpha_v1.0.4.json</span></span>
+</div>
+<div class="animate-pulse flex gap-2 items-center">
+<span class="w-1.5 h-3 bg-primary"></span>
+<span class="text-outline italic">awaiting next state transition...</span>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- BottomNavBar -->
+<footer class="fixed bottom-0 left-0 w-full z-50 flex justify-start items-center px-4 space-x-6 h-6 bg-[#0D0E11] text-[#3574F0] font-['JetBrains_Mono'] text-[10px] uppercase border-t border-[#424654]/15">
+<div class="flex items-center gap-1 text-emerald-400 font-bold">
+<span class="material-symbols-outlined text-[12px]" style="font-variation-settings: 'FILL' 1;">cloud_done</span>
+            SYSTEM_ONLINE
+        </div>
+<div class="flex items-center gap-1 text-[#C2C6D6] opacity-80 hover:text-white cursor-default">
+<span class="material-symbols-outlined text-[12px]">speed</span>
+            LATENCY: 14ms
+        </div>
+<div class="flex items-center gap-1 text-[#C2C6D6] opacity-80 hover:text-white cursor-default">
+<span class="material-symbols-outlined text-[12px]">upload</span>
+            UPLINK: 450Mbps
+        </div>
+<div class="ml-auto flex items-center gap-1 text-[#C2C6D6] opacity-80 hover:text-white cursor-default">
+<span class="material-symbols-outlined text-[12px]">schedule</span>
+            12:00:00 UTC
+        </div>
+</footer>
+</body></html>

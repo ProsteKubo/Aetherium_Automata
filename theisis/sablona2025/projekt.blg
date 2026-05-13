@@ -9,15 +9,25 @@ Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Reallocated singl_function (elt_size=4) to 100 items from 50.
 Database file #1: projekt-20-literatura-bibliography.bib
+Warning--"{" isn't a brace-balanced string for entry FreeRTOS
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Arduino
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Armstrong2007
 Warning--empty editor and organization in Beilharz2022
 Warning--empty isbn and issn in Beilharz2022
 Warning--"{" isn't a brace-balanced string for entry RapidYAML
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry Docker
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Eclipse4diac
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty editor and organization in Engblom2012
 Warning--empty isbn and issn in Engblom2012
+Warning--"{" isn't a brace-balanced string for entry ESP32TRM
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry RFC6455
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty editor and organization in Geels2006
 Warning--empty isbn and issn in Geels2006
 Warning--empty edition in Harel1987
@@ -26,6 +36,12 @@ while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Lua1996
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Lua1996
+Warning--"{" isn't a brace-balanced string for entry IEC61499
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry IEC61131
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry CMake
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry LeBlanc1987
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in LeBlanc1987
@@ -33,9 +49,12 @@ Warning--"{" isn't a brace-balanced string for entry IXWebSocket
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry React
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in Morrison1994
 Warning--empty edition in Murata1989
 Warning--empty edition in Noaman2022
 Warning--empty number in Noaman2022
+Warning--"{" isn't a brace-balanced string for entry MQTT
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry NodeRED
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Electron
@@ -55,45 +74,45 @@ while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry YAML122
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Zoitl2017
-You've used 25 entries,
+You've used 35 entries,
             3768 wiz_defined-function locations,
-            965 strings with 9741 characters,
-and the built_in function-call counts, 11670 in all, are:
-= -- 963
-> -- 377
-< -- 37
-+ -- 132
-- -- 106
-* -- 696
-:= -- 1521
-add.period$ -- 101
-call.type$ -- 25
-change.case$ -- 196
+            1023 strings with 11050 characters,
+and the built_in function-call counts, 15638 in all, are:
+= -- 1298
+> -- 472
+< -- 46
++ -- 164
+- -- 128
+* -- 891
+:= -- 2003
+add.period$ -- 144
+call.type$ -- 35
+change.case$ -- 269
 chr.to.int$ -- 30
-cite$ -- 41
-duplicate$ -- 683
-empty$ -- 1477
-format.name$ -- 106
-if$ -- 2801
+cite$ -- 52
+duplicate$ -- 935
+empty$ -- 2032
+format.name$ -- 128
+if$ -- 3792
 int.to.chr$ -- 0
-int.to.str$ -- 25
+int.to.str$ -- 35
 missing$ -- 0
-newline$ -- 181
-num.names$ -- 50
-pop$ -- 315
+newline$ -- 254
+num.names$ -- 70
+pop$ -- 451
 preamble$ -- 1
-purify$ -- 113
+purify$ -- 145
 quote$ -- 0
-skip$ -- 485
+skip$ -- 681
 stack$ -- 0
-substring$ -- 517
-swap$ -- 143
-text.length$ -- 34
+substring$ -- 625
+swap$ -- 195
+text.length$ -- 52
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 51
-warning$ -- 16
-while$ -- 77
-width$ -- 27
-write$ -- 343
-(There were 31 warnings)
+type$ -- 71
+warning$ -- 17
+while$ -- 97
+width$ -- 37
+write$ -- 488
+(There were 41 warnings)

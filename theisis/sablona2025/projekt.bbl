@@ -2,6 +2,21 @@
 \makeatother
 \begin{thebibliography}{10}
 
+\bibitem{FreeRTOS}
+{\sc\bgroup}{Amazon Web Services, Inc.}{\egroup}.
+\newblock {\em {FreeRTOS: Real-Time Operating System for Microcontrollers}}
+  online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://www.freertos.org/}}.
+\newblock [cit. 2025-05-12].
+
+\bibitem{Arduino}
+{\sc\bgroup}{Arduino LLC}{\egroup}.
+\newblock {\em {Arduino: Open-Source Electronics Platform}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://www.arduino.cc/}}.
+\newblock [cit. 2025-05-12].
+
 \bibitem{Armstrong2007}
 {\sc\bgroup}Armstrong{\egroup}, J.
 \newblock {\em Programming Erlang: Software for a Concurrent World}.
@@ -26,6 +41,13 @@
 \newblock [cit. 2025-05-11].
 \newblock MIT License.
 
+\bibitem{Docker}
+{\sc\bgroup}{Docker, Inc.}{\egroup}.
+\newblock {\em {Docker: Accelerated Container Application Development}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://www.docker.com/}}.
+\newblock [cit. 2025-05-12].
+
 \bibitem{Eclipse4diac}
 {\sc\bgroup}{Eclipse Foundation}{\egroup}.
 \newblock {\em {Eclipse 4diac: Open Source Infrastructure for Distributed
@@ -40,6 +62,23 @@
 \newblock In:~{\em 2012 System, Software, {SoC} and Silicon Debug Conference
   ({S4D})}.
 \newblock IEEE, 2012, p.~1--6.
+
+\bibitem{ESP32TRM}
+{\sc\bgroup}{Espressif Systems}{\egroup}.
+\newblock {\em {ESP32 Technical Reference Manual}} online.
+\newblock 2024.
+\newblock Available at:
+  ~{\small\url{https://www.espressif.com/sites/default/files/documentation/esp32_technical_reference_manual_en.pdf}}.
+\newblock [cit. 2025-05-12].
+
+\bibitem{RFC6455}
+{\sc\bgroup}Fette{\egroup}, I. and~{\sc\bgroup}Melnikov{\egroup}, A.
+\newblock {\em {The WebSocket Protocol (RFC 6455)}} online.
+\newblock 2011.
+\newblock Available at:
+  ~{\small\url{https://datatracker.ietf.org/doc/html/rfc6455}}.
+\newblock [cit. 2025-05-12].
+\newblock IETF Proposed Standard.
 
 \bibitem{Geels2006}
 {\sc\bgroup}Geels{\egroup}, D.; {\sc\bgroup}Altekar{\egroup}, G.;
@@ -85,6 +124,33 @@
 \newblock Available at:
   ~{\small\url{https://doi.org/10.1002/(SICI)1097-024X(199606)26:6<635::AID-SPE26>3.0.CO;2-P}}.
 
+\bibitem{IEC61499}
+{\sc\bgroup}{International Electrotechnical Commission}{\egroup}.
+\newblock {\em {IEC~61499-1: Function Blocks, Part~1: Architecture, Edition~2}}
+  online.
+\newblock 2012.
+\newblock Available at:
+  ~{\small\url{https://www.iec.ch/homepage/prod/other.htm}}.
+\newblock [cit. 2025-05-12].
+\newblock IEC 61499-1 Ed.2.
+
+\bibitem{IEC61131}
+{\sc\bgroup}{International Electrotechnical Commission}{\egroup}.
+\newblock {\em {IEC~61131-3: Programmable Controllers, Part~3: Programming
+  Languages, Edition~3}} online.
+\newblock 2013.
+\newblock Available at:
+  ~{\small\url{https://www.iec.ch/homepage/prod/other.htm}}.
+\newblock [cit. 2025-05-12].
+\newblock IEC 61131-3 Ed.3.
+
+\bibitem{CMake}
+{\sc\bgroup}{Kitware, Inc.}{\egroup}.
+\newblock {\em {CMake: The Cross-Platform Open-Source Build System}} online.
+\newblock 2024.
+\newblock Available at: ~{\small\url{https://cmake.org/}}.
+\newblock [cit. 2025-05-12].
+
 \bibitem{LeBlanc1987}
 {\sc\bgroup}LeBlanc{\egroup}, T.~J. and~{\sc\bgroup}Mellor Crummey{\egroup},
   J.~M.
@@ -110,6 +176,13 @@
 \newblock Available at: ~{\small\url{https://react.dev/}}.
 \newblock [cit. 2025-05-11].
 
+\bibitem{Morrison1994}
+{\sc\bgroup}Morrison{\egroup}, J.~P.
+\newblock {\em Flow-Based Programming: A New Approach to Application
+  Development}.
+\newblock New York, NY: Van Nostrand Reinhold, 1994.
+\newblock ISBN 978-0-442-01771-2.
+
 \bibitem{Murata1989}
 {\sc\bgroup}Murata{\egroup}, T.
 \newblock Petri Nets: Properties, Analysis and Applications.
@@ -124,6 +197,15 @@
 \newblock Challenges in Integration of Heterogeneous Internet of Things.
 \newblock {\em Scientific Programming}.
 \newblock Hindawi, 2022, vol.~2022, p.~1--17.
+
+\bibitem{MQTT}
+{\sc\bgroup}{OASIS}{\egroup}.
+\newblock {\em {MQTT Version 5.0}} online.
+\newblock 2019.
+\newblock Available at:
+  ~{\small\url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html}}.
+\newblock [cit. 2025-05-12].
+\newblock OASIS Standard.
 
 \bibitem{NodeRED}
 {\sc\bgroup}O'Leary{\egroup}, N. and~{\sc\bgroup}{Conway-Jones}{\egroup}, D.

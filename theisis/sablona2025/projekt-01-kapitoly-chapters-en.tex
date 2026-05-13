@@ -35,7 +35,7 @@ The consequence is a practical problem: when a system deployed across dozens of 
 This thesis addresses that problem by presenting \textit{Aetherium Automata}, a complete toolchain for the visual design, deployment, and monitoring of distributed IoT control systems modeled as \textit{Extended Finite State Machines} (EFSMs). The system treats automata as first-class citizens: every device behavior is expressed as a named state machine with typed variables, Lua-scripted guards and actions, and a rich set of transition types. The toolchain includes:
 
 \begin{itemize}
-  \item a portable C++17 runtime engine that executes EFSM definitions on targets ranging from desktop Linux to ESP32 and Raspberry Pi Pico,
+  \item a portable C++17 runtime engine that executes EFSM definitions on targets ranging from desktop Linux to ESP32 (Xtensa LX6) and the NXP FRDM-MCXN947 evaluation board (ARM Cortex-M33),
   \item a YAML-based domain-specific language (DSL) for authoring automata,
   \item a real-time Elixir/Phoenix gateway that bridges IDE and device network,
   \item an Electron-based visual IDE for design, live monitoring, fault injection, and time-travel debugging,
@@ -67,11 +67,11 @@ Together these features form a test-debug cycle that is not possible in toolchai
 \label{par:dad}
 In most IoT toolchains, the developer writes logic and deploys it into a communication layer they do not own. Optimisation is retrospective: instrument the deployment, collect logs, correlate events across devices. The developer must infer what the network is doing.
 
-\textit{Deployment-Aware Development} (DAD) inverts this relationship. Because Aetherium owns the communication layer end-to-end --- binary wire protocol, custom gateway, structured telemetry --- every deployed automaton is accompanied by live metadata: round-trip time, connection type, battery level, wake-up timer intervals. This information is not scraped from logs; it appears in the same IDE panel as the running state machine. The developer can therefore make quantified, deliberate trade-offs:
+\textit{Deployment-Aware Development} (DAD) inverts this relationship. Because Aetherium owns the communication layer end-to-end --- binary wire protocol, custom gateway, structured telemetry --- every deployed automaton is accompanied by live metadata: round-trip time, connection type, wake-up timer intervals, and --- on hardware that exposes it --- battery level. This information is not scraped from logs; it appears in the same IDE panel as the running state machine. The developer can therefore make quantified, deliberate trade-offs:
 
 \begin{itemize}
   \item A measured RTT of 350\,ms informs the choice of timer-transition intervals.
-  \item A battery reading of 12\,\% can trigger an immediate transition to a low-power mode before the device disconnects.
+  \item On battery-capable targets the protocol carries charge state; a low reading can trigger an immediate transition to a low-power mode before the device disconnects.
   \item A known-intermittent connection can be reproduced via the fault injector to verify recovery behavior before it occurs in production.
 \end{itemize}
 
@@ -253,11 +253,11 @@ Node-RED~\cite{NodeRED} is a low-code, flow-based programming tool originally de
 
 \subsection{Programming Model}
 
-Node-RED implements the \textit{flow-based programming} paradigm~\cite{Noaman2022}, in which an application is expressed as a directed graph of \textit{nodes} connected by \textit{wires}. Each node encapsulates a single unit of processing and communicates with adjacent nodes by passing JavaScript message objects (\texttt{msg}). Flows are the top-level grouping unit and are serialised as JSON. The browser-based editor communicates with a Node.js runtime that executes the flows.
+Node-RED implements the \textit{flow-based programming} paradigm~\cite{Morrison1994}, in which an application is expressed as a directed graph of \textit{nodes} connected by \textit{wires}. Each node encapsulates a single unit of processing and communicates with adjacent nodes by passing JavaScript message objects (\texttt{msg}). Flows are the top-level grouping unit and are serialised as JSON. The browser-based editor communicates with a Node.js runtime that executes the flows.
 
 Three kinds of built-in nodes are provided:
 \begin{description}
-  \item[Input nodes] Inject messages into the flow from external sources --- timers, MQTT brokers, HTTP endpoints, or hardware GPIO.
+  \item[Input nodes] Inject messages into the flow from external sources --- timers, MQTT~\cite{MQTT} brokers, HTTP endpoints, or hardware GPIO.
   \item[Processing nodes] Transform, filter, or route messages --- function nodes accept arbitrary JavaScript code, switch nodes branch on message properties.
   \item[Output nodes] Forward messages to external sinks: MQTT, HTTP, or database.
 \end{description}
@@ -291,7 +291,7 @@ Eclipse 4diac~\cite{Eclipse4diac} is an open-source IDE and runtime for IEC~6149
 
 \subsection{IEC 61499 and Function Blocks}
 
-IEC~61499 is an international standard for distributed industrial process measurement and control systems. It defines a \textit{Function Block} (FB) as the primary computational unit and extends the earlier IEC~61131-3 PLC programming standard to multi-device, distributed architectures.
+IEC~61499~\cite{IEC61499} is an international standard for distributed industrial process measurement and control systems. It defines a \textit{Function Block} (FB) as the primary computational unit and extends the earlier IEC~61131-3~\cite{IEC61131} PLC programming standard to multi-device, distributed architectures.
 
 Three FB types are defined:
 
@@ -342,7 +342,7 @@ Table~\ref{tab:comparison} summarises the key characteristics of both analysed p
     Scripting language    & JavaScript       & Structured Text       & Lua 5.4 \\
     Visual editor         & Browser (Node.js)& Eclipse IDE           & Electron desktop \\
     Embedded runtime      & No               & Yes (FORTE, C++)      & Yes (C++17) \\
-    Embedded targets      & Raspberry Pi+    & 16/32-bit MCUs        & ESP32, Pico, MCXN947 \\
+    Embedded targets      & Raspberry Pi+    & 16/32-bit MCUs        & ESP32, MCXN947 \\
     Program format        & JSON             & XML (FBT)             & YAML \\
     Typed variables       & No (JavaScript)  & Yes (IEC 61131-3)     & Yes (7 types) \\
     Fault injection       & No               & No                    & Yes \\
@@ -374,9 +374,9 @@ Based on the analysis above, the thesis goals, and the two design principles int
 \begin{description}
   \item[R1 -- EFSM expressiveness] The model must support guarded transitions, time-driven transitions, event/signal-driven transitions, probabilistic transitions, and unconditional (epsilon) transitions. Probabilistic transitions are essential for RitL: rare real-world events must be expressible and their frequency tunable without changing the automaton definition.
   \item[R2 -- Scripting] Guards and actions must be expressible as scripts evaluated against the current variable store. Lua is chosen as the scripting language.
-  \item[R3 -- Portability] The runtime engine must compile and execute on desktop Linux/macOS, ESP32 (Arduino/FreeRTOS), Raspberry Pi Pico, and ARM Cortex-M (MCXN947).
+  \item[R3 -- Portability] The runtime engine must compile and execute on desktop Linux/macOS, ESP32~\cite{ESP32TRM} (Xtensa LX6, Arduino~\cite{Arduino}/FreeRTOS~\cite{FreeRTOS}), and an ARM Cortex-M target. The NXP FRDM-MCXN947 evaluation board (dual-core Cortex-M33) fulfils this role.
   \item[R4 -- DSL] Automata definitions must be authored in a human-readable format. YAML is chosen.
-  \item[R5 -- Real-time monitoring] The IDE must display the current state, variable values, and connection metadata (RTT, battery, connection type) of running automata with low latency. \emph{(DAD)}
+  \item[R5 -- Real-time monitoring] The IDE must display the current state, variable values, and connection metadata (RTT, connection type; battery where the device hardware exposes it) of running automata with low latency. \emph{(DAD)}
   \item[R6 -- Fault injection] The system must support configurable fault injection (delay, jitter, drop, disconnect) at the communication boundary to enable controlled RitL testing. \emph{(RitL)}
   \item[R7 -- Time-travel debugging] Execution traces must be recorded on the server and replayable step-by-step in the IDE, closing the observe-debug loop for injected faults. \emph{(RitL)}
   \item[R8 -- Structural analysis] The system must lift multi-automata networks to Petri nets and detect deadlocks, bottlenecks, and resource contention, giving the developer a network-level analytical view. \emph{(DAD)}
@@ -413,10 +413,10 @@ Every major technology choice in Aetherium is a direct consequence of the two de
 
 \subsection{Elixir and the BEAM for the Server and Gateway}
 
-The server and gateway are written in Elixir, which compiles to bytecode for the BEAM virtual machine --- the same runtime that underpins Erlang~\cite{Armstrong2007}. The choice is deliberate and has concrete implications for a fleet-management backend.
+The server and gateway are written in Elixir~\cite{Elixir}, which compiles to bytecode for the BEAM virtual machine --- the same runtime that underpins Erlang~\cite{Armstrong2007}. The choice is deliberate and has concrete implications for a fleet-management backend.
 
 \paragraph{Process-per-device isolation.}
-BEAM processes are not OS threads; they are extremely lightweight green threads managed by the VM. A freshly spawned process consumes approximately 2--4\,KB of heap. In practice this means that each connected device can be represented by its own process (a GenServer holding that device's state), and the fleet can scale to thousands of devices on a single server node without the shared-memory overhead or lock contention that would accompany the same design in a thread-per-device model.
+BEAM processes are not OS threads; they are extremely lightweight green threads managed by the VM. A freshly spawned process consumes approximately 2--4\,KB of heap~\cite{Armstrong2007}. In practice this means that each connected device can be represented by its own process (a GenServer holding that device's state), and the fleet can scale to thousands of devices on a single server node without the shared-memory overhead or lock contention that would accompany the same design in a thread-per-device model.
 
 \paragraph{OTP supervision trees and let-it-crash.}
 The Open Telecom Platform (OTP) provides a set of behavioral abstractions --- GenServer, Supervisor, Registry --- that impose a structured message-passing discipline on concurrent code. Every device process is supervised: if a device handler encounters an unexpected message or a protocol violation, it crashes and is restarted in isolation by its supervisor. The remaining devices are unaffected. This \textit{let-it-crash} philosophy replaces defensive \texttt{try/catch} blocks with a structurally enforced recovery path, making the server resilient to individual device misbehavior by construction~\cite{Armstrong2007}.
@@ -424,20 +424,20 @@ The Open Telecom Platform (OTP) provides a set of behavioral abstractions --- Ge
 \paragraph{Preemptive scheduling and throughput.}
 BEAM uses a preemptive reduction-counting scheduler: each process is allotted a fixed number of reductions (roughly equivalent to function calls) before it is descheduled. A single misbehaving handler cannot starve other processes, which is essential when one slow device must not delay telemetry from fifty healthy ones. The scheduler's cooperative multitasking analogue in most IoT backends is the event loop, where a blocking call freezes the entire server. BEAM makes blocking impossible by design.
 
-\paragraph{Hot code reloading.}
-BEAM supports atomic module replacement at runtime: a new version of the gateway code can be loaded while WebSocket connections are live, and all new message arrivals are dispatched to the new code without dropping any in-flight state. For a production fleet-management system this is critical; for a development-phase system it is convenient. Either way it removes the need for a restart-based deploy cycle.
+\paragraph{Automata hot deployment.}
+Because device state lives in independent OTP GenServer processes, new automaton definitions can be deployed to a running device while other devices in the fleet continue executing uninterrupted. The deploy command pushes a new YAML artifact to the target device's GenServer; the engine on that device reloads its automaton and restarts from the initial state. No server restart is required, and no other device is affected. This is a direct consequence of the process-isolation model: a redeploy is operationally identical to any other GenServer call.
 
 \subsection{C++ for the Engine}
 
-The engine is the component that runs on devices, which span an extreme range: from a quad-core Linux desktop down to a dual-core Cortex-M0+ microcontroller (Raspberry Pi Pico) or a dual-core Xtensa LX6 (ESP32). This range rules out languages with managed runtimes or non-trivial standard library footprints. C++17 with disciplined allocator usage is the only mainstream language that can target all of these platforms with a single source tree.
+The engine is the component that runs on devices, which span an extreme range: from a quad-core Linux desktop down to a dual-core Xtensa LX6 (ESP32~\cite{ESP32TRM}) or a dual-core ARM Cortex-M33 (NXP FRDM-MCXN947). The MCXN947 is the ARM Cortex-M representative in this thesis: it provides the tight-resource, bare-metal profile that validates the engine's portability to the class of microcontrollers where Raspberry Pi Pico and similar boards also live, with the advantage that NXP's MCUXpresso SDK gives deterministic peripheral access without a third-party OS. This range rules out languages with managed runtimes or non-trivial standard library footprints. C++17 with disciplined allocator usage is the only mainstream language that can target all of these platforms with a single source tree.
 
 \paragraph{Engine-as-library design.}
 The engine is packaged as a static library rather than an application. The consuming project provides \texttt{main()}, hardware initialization, and the platform-specific implementations of three abstract interfaces. The engine itself contains no \texttt{main()}, no global state beyond what the application registers, and no compile-time assumption about the OS or threading model. This means the same engine code can be linked into:
 
 \begin{itemize}
   \item a desktop process that opens a WebSocket connection and runs the tick loop in a thread,
-  \item an ESP32 Arduino sketch that calls \texttt{engine.tick()} from its FreeRTOS task,
-  \item a Raspberry Pi Pico application that drives the tick loop from a hardware timer interrupt.
+  \item an ESP32 Arduino~\cite{Arduino} sketch that calls \texttt{engine.tick()} from its FreeRTOS~\cite{FreeRTOS} task,
+  \item an MCXN947 bare-metal application that drives the tick loop from a hardware timer interrupt.
 \end{itemize}
 
 \paragraph{Abstract platform interfaces.}
@@ -450,7 +450,7 @@ The three interfaces that isolate platform-specific behavior are:
 \end{description}
 
 \paragraph{CMake build target selection.}
-The top-level \texttt{CMakeLists.txt} defines two interface targets: \texttt{aetherium\_engine\_desktop} and \texttt{aetherium\_engine\_embedded}. Linking against the former pulls in the Lua, IXWebSocket~\cite{IXWebSocket}, and RapidYAML~\cite{RapidYAML} dependencies. Linking against the latter pulls in only the embedded stubs. Platform-selection variables (\texttt{AETHERIUM\_TARGET=esp32}, \texttt{AETHERIUM\_TARGET=pico}, \texttt{AETHERIUM\_TARGET=desktop}) configure the right target automatically.
+The top-level \texttt{CMakeLists.txt}~\cite{CMake} defines two interface targets: \texttt{aetherium\_engine\_desktop} and \texttt{aetherium\_engine\_embedded}. Linking against the former pulls in the Lua, IXWebSocket~\cite{IXWebSocket}, and RapidYAML~\cite{RapidYAML} dependencies. Linking against the latter pulls in only the embedded stubs. Platform-selection variables (\texttt{AETHERIUM\_TARGET=esp32}, \texttt{AETHERIUM\_TARGET=mcxn947}, \texttt{AETHERIUM\_TARGET=desktop}) configure the right target automatically.
 
 \section{Component Responsibilities}
 \label{sec:components}
@@ -468,7 +468,7 @@ The engine is the core library. It is written in C++17 with no dynamic dependenc
 
 \subsection{Server}
 
-The server is an Elixir/OTP application structured around a supervised process tree. It maintains the device registry as an OTP Registry, where each entry maps a device identifier to the PID of its dedicated GenServer process. The device GenServer holds the last-known state snapshot, a buffer of unacknowledged outbound messages, and the device's connection metadata (transport type, RTT, battery level). When a device disconnects, its GenServer is not immediately terminated; it enters a reconnection-wait state so that deployment state survives transient network interruptions.
+The server is an Elixir/OTP application structured around a supervised process tree. It maintains the device registry as an OTP Registry, where each entry maps a device identifier to the PID of its dedicated GenServer process. The device GenServer holds the last-known state snapshot, a buffer of unacknowledged outbound messages, and the device's connection metadata (transport type, RTT, and battery level if the device populates the protocol field). When a device disconnects, its GenServer is not immediately terminated; it enters a reconnection-wait state so that deployment state survives transient network interruptions.
 
 The server exposes an internal API consumed by the gateway. Incoming IDE commands (deploy, start, stop, set input, inject fault) are translated into GenServer calls. Outgoing telemetry events are forwarded to a Phoenix PubSub topic to which the gateway subscribes.
 
@@ -487,7 +487,7 @@ Figure~\ref{fig:arch} shows the static topology; the dynamic interaction sequenc
 
 \begin{enumerate}
   \item The IDE loads a project file and the developer clicks \textit{Deploy}. The IDE serializes the YAML automaton definitions and sends them as a \texttt{deploy} channel event to the gateway.
-  \item The gateway forwards the payload to the server, which stores the definitions in the target device's GenServer and pushes a binary \texttt{DEPLOY} frame to the device over its WebSocket connection.
+  \item The gateway forwards the payload to the server, which stores the definitions in the target device's GenServer and pushes a binary \texttt{DEPLOY} frame to the device over its serial or WebSocket transport (embedded devices use UART serial; desktop emulators use a native WebSocket).
   \item The engine on the device receives the frame, parses the definitions, and enters the \textit{running} state. On every tick it evaluates transitions and emits a \texttt{TELEMETRY} frame containing the current state, variable values, and timing metadata.
   \item The server receives the telemetry frame, updates the device GenServer, and publishes the event to the PubSub topic.
   \item The gateway relays the event to all subscribed IDE channel sessions. The IDE updates the relevant Zustand store slice; connected React panels re-render automatically.
@@ -497,7 +497,7 @@ This pipeline is entirely event-driven: no polling occurs anywhere in the stack.
 
 \section{Deployment Model}
 
-Devices are deployed using Docker Compose for local multi-service orchestration. A typical local stack consists of the gateway service, the server service, one or more device emulator services (each running the engine as a desktop binary), and optionally a black-box probe container for sandboxed external systems. Real embedded targets (ESP32, Pico) connect to the same gateway over the network; from the server's perspective a real device and an emulated one are indistinguishable---both speak the same binary wire protocol over WebSocket.
+Devices are deployed using Docker Compose~\cite{Docker} for local multi-service orchestration. A typical local stack consists of the gateway service, the server service, one or more device emulator services (each running the engine as a desktop binary), and optionally a black-box probe container for sandboxed external systems. Real embedded targets (ESP32, MCXN947) connect to the server over a UART serial link; from the server's perspective a physical device and a desktop emulator are indistinguishable---both speak the same binary wire protocol, differing only in the underlying transport carrier.
 
 % ============================================================
 \chapter{Automata Model and DSL}
@@ -760,20 +760,134 @@ The runtime depends on three platform interfaces: clock, randomness, and script 
 \section{Lua Scripting}
 \label{sec:lua}
 
-Guards and state/transition code are authored in Lua~5.4~\cite{Lua1996,LuaManual54}. The engine exposes the following global API functions to scripts:
+Guards, state hooks (\texttt{onEnter}/\texttt{onExit}), and per-tick state code are all authored in Lua~5.4~\cite{Lua1996,LuaManual54}. The engine's Lua environment exposes three layers of API: variable I/O, hardware peripherals, and platform components. Together they allow a single YAML automaton to control a real device's GPIOs, read sensors, drive displays, and stream live telemetry to the IDE without any C++ changes.
+
+\subsection{Variable I/O and Control API}
+
+The following globals are available in every script, on every platform:
 
 \begin{description}
-  \item[\texttt{value(name)}] Read the current value of a variable by name.
-  \item[\texttt{setVal(name, v)}] Write a value to a variable by name.
-  \item[\texttt{check(name)}] Return \texttt{true} if the variable's \texttt{changed()} flag is set.
-  \item[\texttt{emit(name)}] Signal a named event.
-  \item[\texttt{log(msg)}] Write a message to the telemetry log.
-  \item[\texttt{rand()}] Return a uniform random float in $[0, 1)$ using the platform \texttt{IRandomSource}.
-  \item[\texttt{now()}] Return the current monotonic timestamp in milliseconds from \texttt{IClock}.
-  \item[\texttt{clamp(v, lo, hi)}] Clamp $v$ to $[\mathit{lo}, \mathit{hi}]$.
+  \item[\texttt{value(name)}] Read the current runtime value of a named variable.
+  \item[\texttt{setVal(name, v)} / \texttt{emit(name, v)}] Write a value to an output variable; rejected at runtime if \texttt{name} is declared \texttt{input}.
+  \item[\texttt{getInput(name)}] Read an input variable; rejected if the variable is an output.
+  \item[\texttt{setOutput(name, v)}] Write an output variable with a stricter direction check than \texttt{setVal}.
+  \item[\texttt{check(name)} / \texttt{changed(name)}] Return \texttt{true} if the variable's change flag is set since the last tick --- used to detect edge events.
+  \item[\texttt{now()}] Return the current monotonic timestamp in milliseconds (delegates to \texttt{IClock}).
+  \item[\texttt{rand()}] Return a uniform $[0,1)$ float (delegates to \texttt{IRandomSource}).
+  \item[\texttt{clamp(v, lo, hi)}] Clamp $v$ to $[\mathit{lo},\, \mathit{hi}]$.
+  \item[\texttt{log(level, msg)}] Emit a structured log entry to the telemetry stream visible in the IDE Runtime panel.
+  \item[\texttt{print(\ldots)}] Debug output; maps to \texttt{printf} on embedded, console on desktop.
 \end{description}
 
-On platforms where full Lua is not available (highly constrained microcontrollers), a \texttt{SimpleScriptEngine} or no-op stub can be substituted via the \texttt{IScriptEngine} interface without modifying any other engine module.
+\subsection{Hardware Peripheral API}
+
+The engine registers four hardware tables in the Lua environment: \texttt{gpio}, \texttt{pwm}, \texttt{adc}, and \texttt{dac}. All calls pass through the \texttt{IHardwareService} abstraction; errors are thrown as Lua exceptions so a misconfigured pin fails fast with an informative message rather than silently.
+
+\paragraph{\texttt{gpio} --- digital I/O.}
+\begin{description}
+  \item[\texttt{gpio.mode(pin, mode)}] Configure a pin direction. Accepted values for \texttt{mode}: \texttt{"output"}, \texttt{"input"}, \texttt{"input\_pullup"}, \texttt{"input\_pulldown"}.
+  \item[\texttt{gpio.write(pin, value)}] Drive a pin high or low. Accepts \texttt{bool} or integer.
+  \item[\texttt{gpio.read(pin)}] Return the digital level of a pin as \texttt{0} or \texttt{1}.
+\end{description}
+
+The following \texttt{onEnter} snippet from the ESP32 follower showcase illustrates a typical use: the first line configures a status LED pin as output and the PWM pin is bound with \texttt{pwm.attach}; thereafter each tick drives both with a single write:
+
+\begin{lstlisting}[language={}]
+-- onEnter
+gpio.mode(2, "output")
+pwm.attach(0, 23, 5000, 8)       -- channel 0, pin 23, 5 kHz, 8-bit
+
+-- per-tick code
+gpio.write(2, leader_button)
+pwm.write(0, duty)
+\end{lstlisting}
+
+\paragraph{\texttt{pwm} --- pulse-width modulation (ESP32).}
+\begin{description}
+  \item[\texttt{pwm.attach(channel, pin, freq, bits)}] Bind an LEDC channel to a physical pin with the given frequency (Hz) and duty resolution (bits). On ESP32 up to 8 channels can be active simultaneously~\cite{ESP32TRM}.
+  \item[\texttt{pwm.write(channel, duty)}] Update the duty cycle of the channel. For an 8-bit channel the range is 0--255.
+\end{description}
+
+\paragraph{\texttt{adc} --- analogue-to-digital conversion (ESP32).}
+\begin{description}
+  \item[\texttt{adc.read(pin)}] Return the raw ADC count (0--4095 for the ESP32 12-bit SAR ADC~\cite{ESP32TRM}).
+  \item[\texttt{adc.read\_mv(pin)}] Return the calibrated millivolt reading, using the ESP-IDF \texttt{analogReadMilliVolts} calibration API~\cite{ESP32TRM}.
+\end{description}
+
+The OLED dashboard showcase combines both calls to display a potentiometer reading in both raw counts and millivolts on the same screen refresh:
+
+\begin{lstlisting}[language={}]
+local pot    = adc.read(34)
+local pot_mv = adc.read_mv(34)
+local duty   = math.floor(clamp((pot / 4095.0) * 255, 0, 255))
+pwm.write(0, duty)
+\end{lstlisting}
+
+\paragraph{\texttt{dac} --- digital-to-analogue conversion (ESP32 only).}
+\begin{description}
+  \item[\texttt{dac.write(pin, value)}] Output an 8-bit analogue voltage on pin 25 or 26 (the only DAC-capable pins on ESP32-WROOM).
+\end{description}
+
+\paragraph{\texttt{i2c} --- two-wire bus.}
+\begin{description}
+  \item[\texttt{i2c.open(bus, sda, scl [, freq])}] Initialise an I$^2$C bus. \texttt{bus}~=~0 maps to \texttt{Wire}, \texttt{bus}~=~1 maps to \texttt{Wire1} on dual-bus ESP32 variants. Default frequency is 400\,kHz.
+  \item[\texttt{i2c.scan([bus])}] Scan all 127 I$^2$C addresses and return a Lua table of responding device addresses. Used in the IDE's \textit{I2C scanner} component panel.
+\end{description}
+
+\subsection{Component System}
+
+Complex peripherals are encapsulated as named \textit{components} registered with \texttt{IHardwareService}. A script accesses a component by name via the \texttt{component(name)} global, which returns a Lua table whose methods map directly to the component's \texttt{invoke} handler:
+
+\begin{lstlisting}[language={}]
+local display = component("ssd1306_text")
+display:init(128, 64, 0x3C, 0, 21, 22, 400000)
+display:line(0, "Aetherium IDE")
+display:line(1, "Pot: " .. tostring(pot))
+\end{lstlisting}
+
+The component system is open: any C++ class implementing the \texttt{IComponent} interface can be registered at startup. Currently shipped components are:
+
+\begin{description}
+  \item[\texttt{ssd1306\_text} (ESP32, implemented --- not hardware-tested)] SSD1306 128$\times$64 OLED text renderer via Adafruit SSD1306. Methods: \texttt{init}, \texttt{clear}, \texttt{line(row, text)}, \texttt{show}, \texttt{set\_text\_size}, \texttt{invert}. The component manages the I$^2$C bus lifecycle internally; the script only provides display coordinates. Hardware validation was not performed as the display module was not available during development.
+  \item[\texttt{board\_led} (ESP32)] Controls the built-in RGB/status LED. Methods: \texttt{on}, \texttt{off}, \texttt{set(bool)}, \texttt{status}.
+  \item[\texttt{i2c\_scanner} (ESP32)] Wraps \texttt{i2c.scan} as a component so the IDE can trigger a scan via the Analyzer panel without any automaton code.
+  \item[\texttt{board\_temp} (MCXN947)] Reads the on-chip temperature via the NXP LPADC sensor HAL. Methods: \texttt{init}, \texttt{read\_c} (degrees Celsius), \texttt{read\_milli\_c} (milli-Celsius integer). The MCXN947 temperature guard showcase uses this to gate LED outputs on thermal thresholds.
+  \item[\texttt{touch\_pad} (MCXN947)] Reads the TSI~v6 capacitive touch sensor. Methods: \texttt{init([threshold])}, \texttt{raw}, \texttt{baseline}, \texttt{delta}, \texttt{pressed([threshold])}, \texttt{threshold}, \texttt{set\_threshold}. Baseline calibration is performed on \texttt{init} by averaging eight consecutive scans; subsequent \texttt{pressed} checks subtract the baseline and compare to the threshold.
+\end{description}
+
+\subsection{Network Connectivity}
+
+Network connectivity is handled at the \textit{platform level}, not through Lua. The embedded engine communicates with the server over a UART serial link (\texttt{AetheriumEsp32SerialLink} / \texttt{AetheriumAvrSerialLink}); the MCXN947 target uses the same serial transport via \texttt{AetheriumMcxn947SerialLink}. The desktop emulator uses a native TCP/WebSocket connection via IXWebSocket. In all cases the transport is transparent to the automaton: it sees only the variable inputs that arrive from the server and the variable outputs it emits back. No network or serial code ever appears in a Lua script.
+
+\subsection{Platform Capability Matrix}
+
+Table~\ref{tab:hw-matrix} summarises which hardware APIs are available on each supported target.
+
+\begin{table}[H]
+  \centering
+  \caption{Lua hardware API availability by target platform.}
+  \label{tab:hw-matrix}
+  \vskip6pt
+  \begin{tabularx}{\textwidth}{lXXX}
+    \toprule
+    API / Feature & Desktop & ESP32 & MCXN947 \\
+    \midrule
+    \texttt{gpio.mode/write/read}  & stub & \checkmark\ tested & \checkmark\ tested \\
+    \texttt{pwm.attach/write}      & stub & \checkmark\ tested (LEDC) & --- \\
+    \texttt{adc.read/read\_mv}     & stub & \checkmark\ tested (12-bit) & --- \\
+    \texttt{dac.write}             & stub & impl. & --- \\
+    \texttt{i2c.open/scan}         & stub & impl. (Wire/Wire1) & --- \\
+    \texttt{ssd1306\_text}         & stub & impl., not tested & --- \\
+    \texttt{board\_temp}           & ---  & --- & \checkmark\ tested (LPADC) \\
+    \texttt{touch\_pad}            & ---  & --- & \checkmark\ tested (TSI v6) \\
+    Transport                      & TCP/WS & Serial (UART) & Serial (UART) \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\noindent Desktop stubs throw a descriptive error so that an automaton referencing \texttt{gpio.write} on the desktop emulator fails immediately with a clear message rather than silently succeeding with incorrect behavior.
+
+On platforms where full Lua is unavailable (highly constrained microcontrollers), a no-op \texttt{IScriptEngine} stub can be substituted at compile time via the CMake target selection described in Section~\ref{sec:tech-rationale}.
 
 \section{Timer Management}
 
@@ -824,7 +938,7 @@ Record-and-replay is a well-established strategy for debugging distributed syste
   \item the fault actions applied to the associated message (if any).
 \end{itemize}
 
-The trace is exported to newline-delimited JSON (JSON Lines) for post-mortem tooling. The IDE's runtime view panel can load a trace and step forward and backward through it, reconstructing the exact variable and state values at each recorded instant. This enables deterministic replay of timing-sensitive bugs in distributed systems without requiring hardware reproduction of the fault.
+The engine accumulates trace records in a \texttt{LocalTraceStore}; the server persists them as a time-series in \texttt{time\_series\_store} and InfluxDB. The IDE's runtime view panel can step forward and backward through the server-reconstructed trace, retrieving the exact variable and state values at each recorded instant via \texttt{replay\_state\_at}. This enables deterministic replay of timing-sensitive bugs without requiring hardware reproduction of the fault.
 
 \subsection*{Server-Side State Reconstruction and \texttt{RestoreState}}
 \label{sec:restore-state}
@@ -895,7 +1009,7 @@ All messages between the engine and the server use a compact binary envelope sho
   \label{fig:wire}
 \end{figure}
 
-The protocol is inspired by MQTT's lightweight, topic-structured publish/subscribe model, but is implemented as a custom binary format rather than using the MQTT standard directly. The custom wire format was necessary to provide structured support for time-travel debugging: the server tags each message with a monotonic sequence number and stores a full execution trace, enabling deterministic replay and \texttt{RestoreState} rewinding --- capabilities that a generic MQTT broker cannot provide without external instrumentation.
+The protocol is inspired by MQTT's~\cite{MQTT} lightweight, topic-structured publish/subscribe model, but is implemented as a custom binary format rather than using the MQTT standard directly. The custom wire format was necessary to provide structured support for time-travel debugging: the server tags each message with a monotonic sequence number and stores a full execution trace, enabling deterministic replay and \texttt{RestoreState} rewinding --- capabilities that a generic MQTT broker cannot provide without external instrumentation.
 
 Messages are organized into three categories:
 
@@ -909,7 +1023,7 @@ Large automata definitions that exceed the message MTU are fragmented using a ch
 
 \section{Phoenix Gateway}
 
-The gateway is implemented as an Elixir~\cite{Elixir}/Phoenix~\cite{Phoenix} application using Phoenix Channels. Phoenix Channels provide persistent, topic-routed bidirectional WebSocket connections with presence tracking. Each IDE client session maps to one channel subscription.
+The gateway is implemented as an Elixir~\cite{Elixir}/Phoenix~\cite{Phoenix} application using Phoenix Channels. Phoenix Channels provide persistent, topic-routed bidirectional WebSocket~\cite{RFC6455} connections with presence tracking. Each IDE client session maps to one channel subscription.
 
 The gateway exposes the following operations to the IDE:
 \begin{itemize}
@@ -1005,7 +1119,7 @@ An Aetherium automaton is a tuple $\mathcal{A}_i = (S_i,\, s^0_i,\, T_i,\, V_i,\
 \end{itemize}
 
 \paragraph{P/T net.}
-A Place/Transition net is a tuple $\mathcal{N} = (P,\, T,\, F,\, W,\, M^0)$ where $P$ and $T$ are disjoint finite sets of \textit{places} and \textit{transitions}, $F \subseteq (P \times T) \cup (T \times P)$ is the flow relation, $W : F \to \mathbb{N}_{>0}$ assigns arc weights, and $M^0 : P \to \mathbb{N}_{\geq 0}$ is the initial marking.
+A Place/Transition net is a tuple $\mathcal{N} = (P,\, T,\, F,\, W,\, M^0)$~\cite{Murata1989} where $P$ and $T$ are disjoint finite sets of \textit{places} and \textit{transitions}, $F \subseteq (P \times T) \cup (T \times P)$ is the flow relation, $W : F \to \mathbb{N}_{>0}$ assigns arc weights, and $M^0 : P \to \mathbb{N}_{\geq 0}$ is the initial marking.
 
 A transition $t \in T$ is \textit{enabled} under marking $M$ iff for every pre-place $p$ with $(p,t) \in F$: $M(p) \geq W(p,t)$. Firing $t$ produces marking $M'$ where $M'(p) = M(p) - W(p,t) + W(t,p)$, with $W$ extended to return~0 for non-existent arcs.
 
@@ -1126,7 +1240,7 @@ The system is validated by a showcase set of 39 YAML automata organized into 15 
     06 & Pipeline         & Multi-stage line buffer dispatcher \\
     07 & Folderized       & Folder-based code layout, door safety controller \\
     08 & ESP32            & PWM, LED, OLED, thermostat, production line (8 automata) \\
-    09 & MCXN947          & GPIO, buttons, touch, temperature on ARM Cortex-M7 (4 automata) \\
+    09 & MCXN947          & GPIO, buttons, touch, temperature on ARM Cortex-M33 (4 automata) \\
     10 & Guarded Cell     & 6-automata safety supervision network \\
     11 & Bidir.\ Loop     & 4 automata with bidirectional signal wiring \\
     12 & Black Box        & Docker-sandboxed probe, external system wrapping \\
@@ -1317,7 +1431,7 @@ End-to-end testing validates paths that cross process boundaries. The project in
 
 The time-travel workflow is covered by \texttt{scripts/test\_time\_travel.py}. The script deploys a representative automaton, waits for state changes, requests a rewind of the deployment to an earlier timestamp, and verifies that the reconstructed state is accepted by the runtime. This test specifically guards the contract between the server's time-series query layer and the engine's \texttt{RestoreState} command.
 
-The Docker-based smoke tests validate service composition. The core stack check starts the gateway, server, and C++ device container. The black-box smoke test starts the black-box profile and verifies activation/response behavior through the declared signal contract. The time-series integration test starts the Influx/Grafana profile and runs the server-side Influx integration suite with \texttt{RUN\_INFLUX\_INTEGRATION\_TESTS=1}. These checks are slower than unit tests but catch configuration, networking, and service-startup errors that isolated component tests cannot expose.
+The Docker-based~\cite{Docker} smoke tests validate service composition. The core stack check starts the gateway, server, and C++ device container. The black-box smoke test starts the black-box profile and verifies activation/response behavior through the declared signal contract. The time-series integration test starts the Influx/Grafana profile and runs the server-side Influx integration suite with \texttt{RUN\_INFLUX\_INTEGRATION\_TESTS=1}. These checks are slower than unit tests but catch configuration, networking, and service-startup errors that isolated component tests cannot expose.
 
 \section{Fault Injection and Replay Validation}
 
@@ -1737,7 +1851,7 @@ maps each demonstrated capability to the platform component responsible for it.
   \end{tabular}
 \end{table}
 
-The hardware-in-the-loop variants (ESP32, MCXN947, Raspberry Pi Pico) follow
+The hardware-in-the-loop variants (ESP32, MCXN947) follow
 the same IDE workflow; the only difference is that \texttt{make up-gateway}
 replaces the full Docker stack and the server runs on the host machine with a
 serial transport connector. This confirms that the platform's layered
@@ -1755,16 +1869,16 @@ This thesis presented Aetherium Automata, a platform for the visual design, depl
 
 \textit{Reality-in-the-Loop} holds that production code and testing infrastructure must share the same execution substrate. Rather than maintaining a separate test harness, Aetherium lets developers run the actual automaton on actual (or emulated) hardware while the fault injection layer perturbs the communication boundary at configurable rates. Probabilistic transitions make rare real-world events reliably inducible; black-box contracts define the formal interface under test; and time-travel debugging closes the loop by allowing the developer to rewind to the exact state sequence that preceded any observed anomaly. Events that would otherwise require weeks of field observation can be forced, observed, and diagnosed in a single development session.
 
-\textit{Deployment-Aware Development} holds that the developer should never be blind to the network their automata run on. Because Aetherium owns the communication layer end-to-end, every deployed device is accompanied by live telemetry --- RTT, connection type, battery level, wake-up timer intervals --- available in the same IDE panel as the state machine. Developers can make quantified, deliberate trade-offs instead of guessing at network conditions. The Petri net analysis layer extends this to the structural level: lifting all automata in the network to a single Petri net makes bottlenecks, deadlocks, and resource contention computable and visualizable, giving the developer a vantage point that is inaccessible when inspecting each device in isolation.
+\textit{Deployment-Aware Development} holds that the developer should never be blind to the network their automata run on. Because Aetherium owns the communication layer end-to-end, every deployed device is accompanied by live telemetry --- RTT, connection type, wake-up timer intervals, and battery level where the hardware exposes it --- available in the same IDE panel as the state machine. Developers can make quantified, deliberate trade-offs instead of guessing at network conditions. The Petri net analysis layer extends this to the structural level: lifting all automata in the network to a single Petri net makes bottlenecks, deadlocks, and resource contention computable and visualizable, giving the developer a vantage point that is inaccessible when inspecting each device in isolation.
 
 The concrete contributions that realise these principles are:
 \begin{enumerate}
-  \item A formal EFSM model supporting five transition types (classic, timed, event, probabilistic, immediate), typed variables with reactive change detection, and Lua-scripted guards and actions. The probabilistic type is the engine of RitL.
-  \item A YAML domain-specific language for authoring automata in both inline and folder layouts, with a parser that validates structure and identifier correctness.
-  \item A portable C++17 runtime engine that executes the model on desktop Linux and embedded platforms (ESP32, Raspberry Pi Pico, MCXN947) via three abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}).
-  \item A binary wire protocol inspired by MQTT's lightweight publish/subscribe model but reimplemented to support server-side sequence numbering and execution trace recording --- the technical foundation of time-travel debugging.
-  \item An Electron IDE providing live state monitoring, variable inspection, fault injection, time-travel debugging, and Petri net analysis --- the single surface at which both RitL and DAD are exercised.
-	  \item A Petri net analysis layer that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
+  \item A formal EFSM model~\cite{Harel1987} supporting five transition types (classic, timed, event, probabilistic, immediate), typed variables with reactive change detection, and Lua-scripted~\cite{Lua1996} guards and actions. The probabilistic type is the engine of RitL.
+  \item A YAML~\cite{YAML122} domain-specific language for authoring automata in both inline and folder layouts, with a parser that validates structure and identifier correctness.
+  \item A portable C++17 runtime engine that executes the model on desktop Linux and embedded platforms (ESP32~\cite{ESP32TRM}, MCXN947) via three abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}).
+  \item A binary wire protocol inspired by MQTT's~\cite{MQTT} lightweight publish/subscribe model but reimplemented to support server-side sequence numbering and execution trace recording --- the technical foundation of time-travel debugging.
+  \item An Electron~\cite{Electron} IDE providing live state monitoring, variable inspection, fault injection, time-travel debugging, and Petri net analysis --- the single surface at which both RitL and DAD are exercised.
+	  \item A Petri net analysis layer~\cite{Murata1989} that lifts multi-automata networks to a structural plane where deadlocks, bottlenecks, and resource contention are computed rather than inferred --- the highest expression of Deployment-Aware Development.
 	  \item A showcase set of 39 YAML automata covering real-world IoT scenarios including resilience, energy management, probabilistic routing, multi-device coordination, and the dedicated Aetherium Gem Cell project.
 	  \item A multi-layer validation suite combining unit tests, component tests, end-to-end deployment checks, curated showcase validation, manual IDE workflows, and hardware smoke tests.
 	\end{enumerate}
@@ -1776,7 +1890,7 @@ The goals stated in Section~\ref{sec:philosophy} and Section~1.2 can be evaluate
 
 The first goal was to design an EFSM model expressive enough for real IoT control logic. This goal was met by the combination of typed variables, Lua guards and actions, five transition types, and state-level hooks. The showcase catalog demonstrates this expressiveness across watchdog recovery, probabilistic quality routing, power allocation, signal chains, bidirectional feedback, and the Gem Cell.
 
-The second goal was portability. The runtime core is written in C++17 and separated from platform-specific services through clock, random-source, and script-engine abstractions. Desktop execution is used for Docker and local testing; embedded profiles cover ESP32, Raspberry Pi Pico, and MCXN947-style targets. The deployment compiler tests confirm that richer targets can accept richer automata while constrained profiles reject unsupported constructs deterministically.
+The second goal was portability. The runtime core is written in C++17 and separated from platform-specific services through clock, random-source, and script-engine abstractions. Desktop execution is used for Docker and local testing; embedded profiles cover ESP32 and MCXN947. The deployment compiler tests confirm that richer targets can accept richer automata while constrained profiles reject unsupported constructs deterministically.
 
 The third goal was a practical authoring format. The YAML DSL satisfies this by keeping automata definitions readable in plain text while still supporting inline and folderized layouts. The DSL is also compatible with the IDE: developers can edit YAML directly, but the same file can be visualized as states, transitions, variables, and network wiring.
 
@@ -1785,6 +1899,29 @@ The fourth goal was live deployment and monitoring. This was met by the Phoenix 
 The fifth goal was Reality-in-the-Loop testing. The implementation supports seeded fault profiles, black-box contracts, trace recording, state reconstruction, and device-level restore. The validation chapter shows that this loop is tested through unit, integration, end-to-end, and manual workflows.
 
 The sixth goal was Petri net analysis. The system lifts automata into Petri net substructures, composes shared channels and resources, and reports deadlock candidates, bottlenecks, P-invariant evidence, and contention. This does not yet constitute a complete formal verification engine, but it does provide useful structural analysis inside the development workflow.
+
+\section{Results}
+\label{sec:results}
+
+The following concrete outcomes were produced and verified by the implementation and validation described in the preceding chapters.
+
+\begin{description}
+  \item[EFSM model and DSL.] Five transition types (classic, timed, event, probabilistic, immediate), seven variable types, and three code hooks per state (\texttt{on\_enter}, \texttt{body}, \texttt{on\_exit}) are fully implemented. The YAML parser enforces naming constraints and referential integrity at load time. Priority-based resolution with deterministic weighted selection is verified across the showcase catalog.
+
+  \item[Portable runtime.] The C++17 engine compiles for desktop Linux, ESP32 (Xtensa LX6, Arduino/FreeRTOS), and NXP FRDM-MCXN947 (ARM Cortex-M33, bare-metal) from a single source tree via three abstract platform interfaces. Hardware peripheral APIs (gpio, pwm, adc, dac, i2c) and five component types (board\_led, i2c\_scanner, board\_temp, touch\_pad, ssd1306\_text) are exposed to Lua scripts; platform capability is enforced at runtime so that a misconfigured peripheral fails fast with a clear diagnostic.
+
+  \item[Fault injection.] Four fault categories (delay, jitter, message drop, disconnect) operate at the communication boundary with configurable probability parameters and a deterministic seed for reproducible fault scenarios. A seeded fault run applied to the same automaton always produces the same perturbation sequence.
+
+  \item[Time-travel debugging.] The full rewind chain is implemented and end-to-end tested: every state transition and variable change is stored in the server-side time-series; \texttt{replay\_state\_at} reconstructs the exact automaton state at any past timestamp; a \texttt{RestoreState} binary message (\texttt{0x48}) atomically resets the physical device to that state without firing hooks; the device immediately resumes executing from the restored state.
+
+  \item[Petri net analysis.] Reachability and deadlock detection, channel boundedness checking, P-invariant verification, and pairwise resource-contention reporting are implemented as structural passes over the composed Petri net derived from YAML definitions. No execution trace is required; the analysis runs before any device is connected.
+
+  \item[Showcase catalog.] 39 YAML automata across 15 categories cover timed, event, and probabilistic transitions; watchdog recovery; pipeline dispatch; multi-device supervision; ESP32 hardware peripherals; NXP FRDM-MCXN947 peripherals; bidirectional signaling; black-box contracts; Petri signal chains; power contention; and the Aetherium Gem Cell flagship.
+
+  \item[Validation.] The multi-layer test suite spans C++ CLI and YAML parser checks, Elixir ExUnit tests for the gateway and server (protocol encoding, device registry, replay, analyzer), the \texttt{mix aetherium.e2e} end-to-end deployment task, curated showcase catalog validation, Docker-based stack smoke tests (core, black-box, time-series), and manual IDE and hardware workflows.
+\end{description}
+
+All nine requirements stated in Section~\ref{sec:requirements} are addressed: R1 (EFSM expressiveness with five transition types), R2 (Lua scripting), R3 (portability to desktop, ESP32, and MCXN947), R4 (YAML DSL), R5 (real-time monitoring with deployment metadata), R6 (fault injection), R7 (time-travel debugging with physical device restore), R8 (Petri net structural analysis), and R9 (black-box contracts).
 
 \section{Limitations}
 \label{sec:conclusion-limitations}
@@ -1820,6 +1957,7 @@ The following directions are identified for future development:
   \item Bytecode compilation of Lua scripts into a compact \texttt{EngineBytecodeProgram} format for deployment to the most constrained targets.
   \item Hierarchical and abstract automata --- template (parameterized) automata instantiated at compose time, with Petri net lifting extended to hierarchical networks, moving the system toward a full DEVS-style coupled-model composition.
   \item Third-party device interoperability via black-box adapters: the black-box contract architecture (Section~\ref{sec:blackbox}) makes it straightforward to wrap external subsystems --- ROS2 nodes, Zigbee gateways, WiFi relays --- with a thin protocol adapter that exposes only the signal contract, without modifying the core engine or gateway.
+  \item Raspberry Pi Pico (RP2040) target: the abstract platform interfaces (\texttt{IClock}, \texttt{IRandomSource}, \texttt{IScriptEngine}) are designed to accommodate a Pico port. GPIO, PWM, and ADC mappings are straightforward; the main outstanding work is the serial transport link and validation on hardware.
   \item Extended IDE canvas: undo/redo history, multi-select, copy-paste of states and transitions.
   \item Integration with InfluxDB and Grafana for long-running time-series metrics dashboards.
 \end{itemize}
