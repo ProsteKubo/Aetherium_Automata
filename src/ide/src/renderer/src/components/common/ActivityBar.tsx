@@ -86,34 +86,37 @@ export const ActivityBar: React.FC = () => {
       : 'automata';
 
   return (
-    <nav className="activity-bar" aria-label="Workspace Controls">
-      <div className="activity-bar-top">
+    <nav className="activity-bar activity-bar-compact" aria-label="Workspace Controls">
+      <div className="activity-bar-center">
         <ToolbarButton
-          icon={<IconExplorer size={20} />}
-          label="Explorer"
-          active={!sidebarCollapsed && sidebarPanel === 'explorer'}
-          onClick={() => switchSidebarPanel('explorer')}
+          icon={<IconNetwork size={20} />}
+          label="Topology"
+          active={modePanel === 'network'}
+          onClick={() => activatePanel('network')}
         />
         <ToolbarButton
-          icon={<IconDevice size={20} />}
-          label="Devices"
-          active={!sidebarCollapsed && sidebarPanel === 'devices'}
-          onClick={() => switchSidebarPanel('devices')}
+          icon={<IconNetwork size={20} />}
+          label="Petri Net"
+          active={modePanel === 'petri'}
+          onClick={() => activatePanel('petri')}
+        />
+        <ToolbarButton
+          icon={<IconAutomata size={20} />}
+          label="Logic Editor"
+          active={modePanel === 'automata'}
+          onClick={() => activatePanel('automata')}
         />
         <ToolbarButton
           icon={<IconGateway size={20} />}
-          label="Gateway"
+          label="Fault Lab"
           active={!sidebarCollapsed && sidebarPanel === 'gateway'}
           onClick={() => switchSidebarPanel('gateway')}
         />
-      </div>
-
-      <div className="activity-bar-center">
         <ToolbarButton
-          icon={<IconAutomata size={20} />}
-          label="Editor"
-          active={modePanel === 'automata'}
-          onClick={() => activatePanel('automata')}
+          icon={<IconRuntime size={20} />}
+          label="Debugger"
+          active={modePanel === 'runtime'}
+          onClick={() => activatePanel('runtime')}
         />
         <ToolbarButton
           icon={<IconAnalyzer size={20} />}
@@ -127,27 +130,21 @@ export const ActivityBar: React.FC = () => {
           active={modePanel === 'blackboxes'}
           onClick={() => activatePanel('blackboxes')}
         />
-        <ToolbarButton
-          icon={<IconNetwork size={20} />}
-          label="Petri"
-          active={modePanel === 'petri'}
-          onClick={() => activatePanel('petri')}
-        />
-        <ToolbarButton
-          icon={<IconNetwork size={20} />}
-          label="Network"
-          active={modePanel === 'network'}
-          onClick={() => activatePanel('network')}
-        />
-        <ToolbarButton
-          icon={<IconRuntime size={20} />}
-          label="Runtime"
-          active={modePanel === 'runtime'}
-          onClick={() => activatePanel('runtime')}
-        />
       </div>
 
       <div className="activity-bar-bottom">
+        <ToolbarButton
+          icon={<IconExplorer size={20} />}
+          label="Explorer"
+          active={!sidebarCollapsed && sidebarPanel === 'explorer'}
+          onClick={() => switchSidebarPanel('explorer')}
+        />
+        <ToolbarButton
+          icon={<IconDevice size={20} />}
+          label="Devices"
+          active={!sidebarCollapsed && sidebarPanel === 'devices'}
+          onClick={() => switchSidebarPanel('devices')}
+        />
         <ToolbarButton
           icon={<IconConsole size={20} />}
           label="Console"

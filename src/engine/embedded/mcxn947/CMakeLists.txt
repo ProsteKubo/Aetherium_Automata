@@ -75,6 +75,7 @@ add_library(aetherium_mcxn947_runtime STATIC
   ${AETHERIUM_ROOT}/core/runtime.cpp
   ${AETHERIUM_ROOT}/core/protocol.cpp
   ${AETHERIUM_ROOT}/core/protocol_v2.cpp
+  ${AETHERIUM_ROOT}/core/execution_trace.cpp
   ${AETHERIUM_ROOT}/core/telemetry_log_hub.cpp
   ${AETHERIUM_ROOT}/core/command_bus.cpp
   ${AETHERIUM_ROOT}/core/engine.cpp

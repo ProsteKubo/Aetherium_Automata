@@ -1,35 +1,14 @@
 /**
- * Aetherium Automata - Monaco Code Editor Component
- * 
- * Lua code editor for state entry/exit scripts using Monaco Editor.
+ * Aetherium Automata - Lightweight Lua Code Editor
+ *
+ * The heavyweight editor dependency was intentionally removed from the IDE bundle. This editor keeps the
+ * implemented state/hook editing workflow while using native controls styled as
+ * a dense JetBrains Graphite workbench surface.
  */
 
-import React, { useRef, useCallback } from 'react';
-import Editor, { OnMount, OnChange, loader } from '@monaco-editor/react';
-import * as monaco from 'monaco-editor';
-import type { editor, languages, IRange } from 'monaco-editor';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useAutomataStore, useUIStore } from '../../stores';
 import { StateHooks } from '../../types';
-
-// Configure Monaco to use local package instead of CDN
-loader.config({ monaco });
-
-// Lua language configuration for Monaco
-const luaLanguageConfig = {
-  keywords: [
-    'and', 'break', 'do', 'else', 'elseif', 'end', 'false', 'for', 'function',
-    'goto', 'if', 'in', 'local', 'nil', 'not', 'or', 'repeat', 'return',
-    'then', 'true', 'until', 'while'
-  ],
-  builtins: [
-    'print', 'type', 'tostring', 'tonumber', 'pairs', 'ipairs', 'next',
-    'select', 'unpack', 'rawget', 'rawset', 'setmetatable', 'getmetatable',
-    'assert', 'error', 'pcall', 'xpcall', 'load', 'loadfile', 'dofile',
-    // Aetherium specific
-    'emit', 'transition', 'get_context', 'set_context', 'log', 'sleep',
-    'get_device', 'send_command', 'get_sensor', 'get_time'
-  ]
-};
 
 type ScriptType = 'code' | 'onEnter' | 'onExit' | 'onTick' | 'onError';
 
@@ -39,243 +18,132 @@ interface CodeEditorProps {
   initialScriptType?: ScriptType;
 }
 
+const SCRIPT_TABS: Array<{ id: ScriptType; label: string; shortLabel: string }> = [
+  { id: 'code', label: 'Main state code', shortLabel: 'Main' },
+  { id: 'onEnter', label: 'Entry hook', shortLabel: 'Entry' },
+  { id: 'onExit', label: 'Exit hook', shortLabel: 'Exit' },
+  { id: 'onTick', label: 'Tick hook', shortLabel: 'Tick' },
+  { id: 'onError', label: 'Error hook', shortLabel: 'Error' },
+];
+
+const DEFAULT_SCRIPTS: Record<ScriptType, string> = {
+  code: '-- Main state code\n-- Keep state behavior explicit and observable.\n\n',
+  onEnter: '-- Entry hook\nfunction on_enter(context)\n  -- runs when entering this state\nend\n',
+  onExit: '-- Exit hook\nfunction on_exit(context)\n  -- runs before leaving this state\nend\n',
+  onTick: '-- Tick hook\nfunction on_tick(context, delta)\n  -- runs each execution cycle\nend\n',
+  onError: '-- Error hook\nfunction on_error(context, error)\n  -- handle state-local errors\nend\n',
+};
+
+const API_SNIPPETS = ['emit', 'transition', 'get_context', 'set_context', 'log', 'get_device', 'send_command', 'get_sensor'];
+
 export const CodeEditor: React.FC<CodeEditorProps> = ({ stateId, automataId, initialScriptType = 'code' }) => {
-  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-  const [currentScriptType, setCurrentScriptType] = React.useState<ScriptType>(initialScriptType);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const monacoRef = useRef<any>(null);
-  
-  // Get state and update functions - using bracket notation for Record access
-  const state = useAutomataStore((s) => {
-    const automata = s.automata.get(automataId);
+  const [currentScriptType, setCurrentScriptType] = useState<ScriptType>(initialScriptType);
+  const textAreaRef = useRef<HTMLTextAreaElement | null>(null);
+  const lineNumberRef = useRef<HTMLDivElement | null>(null);
+
+  const state = useAutomataStore((store) => {
+    const automata = store.automata.get(automataId);
     return automata?.states[stateId];
   });
-  const updateState = useAutomataStore((s) => s.updateState);
-  const updateTab = useUIStore((s) => s.updateTab);
-  const activeTab = useUIStore((s) => s.tabs.find((t) => t.targetId === stateId));
-  
-  // Get the correct script content based on type
-  const getScriptContent = (): string => {
-    if (!state) return '';
-    switch (currentScriptType) {
-      case 'code':
-        return state.code || '-- Main state code\n-- This is the main logic for this state\n\n';
-      case 'onEnter':
-        return state.hooks?.onEnter || '-- Entry hook\n-- This runs when entering the state\n\nfunction on_enter(context)\n  -- Your code here\nend';
-      case 'onExit':
-        return state.hooks?.onExit || '-- Exit hook\n-- This runs when leaving the state\n\nfunction on_exit(context)\n  -- Your code here\nend';
-      case 'onTick':
-        return state.hooks?.onTick || '-- Tick hook\n-- This runs each execution cycle while in the state\n\nfunction on_tick(context, delta)\n  -- Your code here\nend';
-      case 'onError':
-        return state.hooks?.onError || '-- Error hook\n-- This runs when an error occurs in this state\n\nfunction on_error(context, error)\n  -- Handle error here\nend';
-      default:
-        return '';
-    }
-  };
-  
-  const handleEditorMount: OnMount = (editor, monaco) => {
-    editorRef.current = editor;
-    monacoRef.current = monaco;
-    
-    // Configure Lua syntax highlighting
-    monaco.languages.register({ id: 'lua' });
-    
-    // Set up custom theme
-    monaco.editor.defineTheme('aetherium-dark', {
-      base: 'vs-dark',
-      inherit: true,
-      rules: [
-        { token: 'keyword', foreground: '00d4ff', fontStyle: 'bold' },
-        { token: 'string', foreground: '7ee787' },
-        { token: 'number', foreground: 'ff7b72' },
-        { token: 'comment', foreground: '8b949e', fontStyle: 'italic' },
-        { token: 'function', foreground: 'd2a8ff' },
-        { token: 'variable', foreground: 'ffa657' },
-        { token: 'operator', foreground: '79c0ff' },
-      ],
-      colors: {
-        'editor.background': '#0d1117',
-        'editor.foreground': '#c9d1d9',
-        'editor.lineHighlightBackground': '#161b2233',
-        'editor.selectionBackground': '#264f78',
-        'editorCursor.foreground': '#00d4ff',
-        'editorWhitespace.foreground': '#484f58',
-        'editorIndentGuide.background': '#21262d',
-        'editorIndentGuide.activeBackground': '#30363d',
-        'editor.selectionHighlightBackground': '#3fb95040',
-        'editorBracketMatch.background': '#17e5e633',
-        'editorBracketMatch.border': '#17e5e6',
-      },
-    });
-    
-    monaco.editor.setTheme('aetherium-dark');
-    
-    // Configure Lua language
-    monaco.languages.setMonarchTokensProvider('lua', {
-      keywords: luaLanguageConfig.keywords,
-      builtins: luaLanguageConfig.builtins,
-      
-      tokenizer: {
-        root: [
-          [/--\[=*\[/, 'comment', '@commentBlock'],
-          [/--.*$/, 'comment'],
-          [/"([^"\\]|\\.)*$/, 'string.invalid'],
-          [/'([^'\\]|\\.)*$/, 'string.invalid'],
-          [/"/, 'string', '@string."'],
-          [/'/, 'string', "@string.'"],
-          [/\[\[/, 'string', '@stringBlock'],
-          [/\d+(\.\d+)?([eE][-+]?\d+)?/, 'number'],
-          [/0[xX][0-9a-fA-F]+/, 'number.hex'],
-          [/[a-zA-Z_]\w*/, {
-            cases: {
-              '@keywords': 'keyword',
-              '@builtins': 'function',
-              '@default': 'identifier'
-            }
-          }],
-          [/[{}()\[\]]/, '@brackets'],
-          [/[<>=~+\-*/%#^]/, 'operator'],
-          [/[;,.]/, 'delimiter'],
-        ],
-        string: [
-          [/[^\\"']+/, 'string'],
-          [/\\./, 'string.escape'],
-          [/"/, 'string', '@pop'],
-          [/'/, 'string', '@pop'],
-        ],
-        stringBlock: [
-          [/[^\]]+/, 'string'],
-          [/\]\]/, 'string', '@pop'],
-          [/\]/, 'string'],
-        ],
-        commentBlock: [
-          [/[^\]]+/, 'comment'],
-          [/\]=*\]/, 'comment', '@pop'],
-          [/\]/, 'comment'],
-        ],
-      },
-    });
-    
-    // Add completion provider for Aetherium API
-    const getWordRange = (model: editor.ITextModel, position: { lineNumber: number; column: number }): IRange => {
-      const word = model.getWordUntilPosition(position);
-      return {
-        startLineNumber: position.lineNumber,
-        endLineNumber: position.lineNumber,
-        startColumn: word.startColumn,
-        endColumn: word.endColumn,
-      };
-    };
+  const updateState = useAutomataStore((store) => store.updateState);
+  const updateTab = useUIStore((store) => store.updateTab);
+  const activeTab = useUIStore((store) => store.tabs.find((tab) => tab.targetId === stateId));
 
-    monaco.languages.registerCompletionItemProvider('lua', {
-      provideCompletionItems: (model, position) => {
-        const range = getWordRange(model, position);
-        const suggestions: languages.CompletionItem[] = [
-          // Aetherium API functions
-          {
-            label: 'emit',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'emit("${1:event_name}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Emit an event to trigger transitions',
-            range,
-          },
-          {
-            label: 'transition',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'transition("${1:target_state}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Force transition to a specific state',
-            range,
-          },
-          {
-            label: 'get_context',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'get_context("${1:key}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Get a value from the automata context',
-            range,
-          },
-          {
-            label: 'set_context',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'set_context("${1:key}", ${2:value})',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Set a value in the automata context',
-            range,
-          },
-          {
-            label: 'log',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'log("${1:message}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Log a message to the output console',
-            range,
-          },
-          {
-            label: 'get_device',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'get_device("${1:device_id}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Get a reference to a device',
-            range,
-          },
-          {
-            label: 'send_command',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'send_command("${1:device_id}", "${2:command}", {${3:params}})',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Send a command to a device',
-            range,
-          },
-          {
-            label: 'get_sensor',
-            kind: monaco.languages.CompletionItemKind.Function,
-            insertText: 'get_sensor("${1:sensor_id}")',
-            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
-            documentation: 'Get the current value of a sensor',
-            range,
-          },
-        ];
-        
-        return { suggestions };
-      },
-    });
-  };
-  
-  const handleEditorChange: OnChange = useCallback((value) => {
-    if (!value || !state) return;
-    
-    // Update the state with new script content
+  const scriptValue = useMemo(() => {
+    if (!state) {
+      return '';
+    }
+
     if (currentScriptType === 'code') {
-      updateState(stateId, { code: value });
-    } else {
-      // Update the appropriate hook
-      const hookKey = currentScriptType as keyof StateHooks;
-      const newHooks: StateHooks = {
-        ...state.hooks,
-        [hookKey]: value,
-      };
-      updateState(stateId, { hooks: newHooks });
+      return state.code ?? DEFAULT_SCRIPTS.code;
     }
-    
-    // Mark tab as dirty
-    if (activeTab) {
-      updateTab(activeTab.id, { isDirty: true });
+
+    return state.hooks?.[currentScriptType as keyof StateHooks] ?? DEFAULT_SCRIPTS[currentScriptType];
+  }, [currentScriptType, state]);
+
+  const lineNumbers = useMemo(() => {
+    const count = Math.max(scriptValue.split('\n').length, 1);
+    return Array.from({ length: count }, (_, index) => index + 1);
+  }, [scriptValue]);
+
+  const selectedTab = SCRIPT_TABS.find((tab) => tab.id === currentScriptType);
+
+  const handleScriptChange = useCallback(
+    (value: string) => {
+      if (!state) {
+        return;
+      }
+
+      if (currentScriptType === 'code') {
+        updateState(stateId, { code: value });
+      } else {
+        const hookKey = currentScriptType as keyof StateHooks;
+        updateState(stateId, {
+          hooks: {
+            ...state.hooks,
+            [hookKey]: value,
+          },
+        });
+      }
+
+      if (activeTab) {
+        updateTab(activeTab.id, { isDirty: true });
+      }
+    },
+    [activeTab, currentScriptType, state, stateId, updateState, updateTab],
+  );
+
+  const insertSnippet = useCallback(
+    (snippet: string) => {
+      const textArea = textAreaRef.current;
+      const insertion = `${snippet}("${snippet === 'transition' ? 'target_state' : 'value'}")`;
+
+      if (!textArea) {
+        const nextValue = scriptValue.endsWith('\n') ? `${scriptValue}${insertion}` : `${scriptValue}\n${insertion}`;
+        handleScriptChange(nextValue);
+        return;
+      }
+
+      const start = textArea.selectionStart;
+      const end = textArea.selectionEnd;
+      const nextValue = `${scriptValue.slice(0, start)}${insertion}${scriptValue.slice(end)}`;
+      handleScriptChange(nextValue);
+
+      requestAnimationFrame(() => {
+        textArea.focus();
+        const cursor = start + insertion.length;
+        textArea.setSelectionRange(cursor, cursor);
+      });
+    },
+    [handleScriptChange, scriptValue],
+  );
+
+  const handleScroll = useCallback((event: React.UIEvent<HTMLTextAreaElement>) => {
+    if (lineNumberRef.current) {
+      lineNumberRef.current.scrollTop = event.currentTarget.scrollTop;
     }
-  }, [state, currentScriptType, updateState, stateId, activeTab, updateTab]);
-  
-  const getScriptTypeLabel = () => {
-    switch (currentScriptType) {
-      case 'code': return 'Main Code';
-      case 'onEnter': return 'Entry Hook';
-      case 'onExit': return 'Exit Hook';
-      case 'onTick': return 'Tick Hook';
-      case 'onError': return 'Error Hook';
-      default: return 'Code';
-    }
-  };
-  
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+
+      event.preventDefault();
+      const textArea = event.currentTarget;
+      const start = textArea.selectionStart;
+      const end = textArea.selectionEnd;
+      const nextValue = `${scriptValue.slice(0, start)}  ${scriptValue.slice(end)}`;
+      handleScriptChange(nextValue);
+
+      requestAnimationFrame(() => {
+        textArea.setSelectionRange(start + 2, start + 2);
+      });
+    },
+    [handleScriptChange, scriptValue],
+  );
+
   if (!state) {
     return (
       <div className="code-editor-empty">
@@ -283,71 +151,66 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({ stateId, automataId, ini
       </div>
     );
   }
-  
+
   return (
-    <div className="code-editor">
+    <div className="code-editor graphite-code-editor">
       <div className="code-editor-header">
-        <span className="code-editor-title">
-          {state.name} - {getScriptTypeLabel()}
-        </span>
-        <div className="code-editor-tabs">
-          <button 
-            className={`code-tab ${currentScriptType === 'code' ? 'active' : ''}`}
-            onClick={() => setCurrentScriptType('code')}
-          >
-            Main
-          </button>
-          <button 
-            className={`code-tab ${currentScriptType === 'onEnter' ? 'active' : ''}`}
-            onClick={() => setCurrentScriptType('onEnter')}
-          >
-            Entry
-          </button>
-          <button 
-            className={`code-tab ${currentScriptType === 'onExit' ? 'active' : ''}`}
-            onClick={() => setCurrentScriptType('onExit')}
-          >
-            Exit
-          </button>
-          <button 
-            className={`code-tab ${currentScriptType === 'onTick' ? 'active' : ''}`}
-            onClick={() => setCurrentScriptType('onTick')}
-          >
-            Tick
-          </button>
+        <div className="code-editor-title-group">
+          <span className="code-editor-eyebrow">State Logic</span>
+          <span className="code-editor-title">
+            {state.name} <span className="code-editor-title-muted">/ {selectedTab?.label ?? 'Code'}</span>
+          </span>
+        </div>
+
+        <div className="code-editor-tabs" role="tablist" aria-label="Script section">
+          {SCRIPT_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              className={`code-tab ${currentScriptType === tab.id ? 'active' : ''}`}
+              onClick={() => setCurrentScriptType(tab.id)}
+              role="tab"
+              aria-selected={currentScriptType === tab.id}
+            >
+              {tab.shortLabel}
+            </button>
+          ))}
         </div>
       </div>
-      
-      <div className="code-editor-content">
-        <Editor
-          height="100%"
-          language="lua"
-          value={getScriptContent()}
-          onChange={handleEditorChange}
-          onMount={handleEditorMount}
-          loading={<div className="editor-loading">Loading editor...</div>}
-          theme="vs-dark"
-          options={{
-            fontSize: 14,
-            fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
-            lineNumbers: 'on',
-            minimap: { enabled: false },
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            wordWrap: 'on',
-            cursorBlinking: 'smooth',
-            cursorSmoothCaretAnimation: 'on',
-            smoothScrolling: true,
-            padding: { top: 16, bottom: 16 },
-            renderLineHighlight: 'all',
-            bracketPairColorization: { enabled: true },
-            guides: {
-              bracketPairs: true,
-              indentation: true,
-            },
-          }}
-        />
+
+      <div className="code-editor-workbench">
+        <aside className="code-editor-rail" aria-label="Aetherium Lua helpers">
+          <span className="code-editor-rail-title">API</span>
+          {API_SNIPPETS.map((snippet) => (
+            <button key={snippet} type="button" className="code-helper-chip" onClick={() => insertSnippet(snippet)}>
+              {snippet}
+            </button>
+          ))}
+        </aside>
+
+        <div className="code-editor-content native-code-surface">
+          <div className="code-line-numbers" ref={lineNumberRef} aria-hidden="true">
+            {lineNumbers.map((lineNumber) => (
+              <span key={lineNumber}>{lineNumber}</span>
+            ))}
+          </div>
+          <textarea
+            ref={textAreaRef}
+            className="native-code-input"
+            spellCheck={false}
+            value={scriptValue}
+            onChange={(event) => handleScriptChange(event.target.value)}
+            onKeyDown={handleKeyDown}
+            onScroll={handleScroll}
+            aria-label={`${state.name} ${selectedTab?.label ?? 'code'}`}
+          />
+        </div>
+      </div>
+
+      <div className="code-editor-footer">
+        <span>{lineNumbers.length} lines</span>
+        <span>Lua</span>
+        <span>UTF-8</span>
       </div>
     </div>
   );

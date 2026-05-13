@@ -70,7 +70,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
       |> Map.put("id", automata_id)
       |> Map.put("name", "#{target.automata["name"] || target.entry.name} E2E")
 
-    {:ok, _reply} =
+    {:ok, deploy_reply} =
       push_sync!(
         auto_chan,
         "deploy",
@@ -83,11 +83,35 @@ defmodule Mix.Tasks.Aetherium.E2e do
         Keyword.fetch!(opts, :timeout_ms)
       )
 
-    wait_for_running(auto_chan, gw_chan, automata_id, device_id, Keyword.fetch!(opts, :timeout_ms))
+    deployment_id = deployment_id_from_reply(deploy_reply, automata_id, device_id)
+
+    {:ok, _start_reply} =
+      push_sync!(
+        auto_chan,
+        "start_execution",
+        %{
+          "device_id" => device_id,
+          "deployment_id" => deployment_id
+        },
+        Keyword.fetch!(opts, :timeout_ms)
+      )
+
+    wait_for_running(
+      auto_chan,
+      gw_chan,
+      automata_id,
+      device_id,
+      Keyword.fetch!(opts, :timeout_ms)
+    )
 
     default_stimulus_sequence(target)
     |> maybe_append_manual_input(Keyword.get(opts, :set_input))
-    |> send_stimulus_sequence(auto_chan, device_id, automata_id, Keyword.fetch!(opts, :timeout_ms))
+    |> send_stimulus_sequence(
+      auto_chan,
+      device_id,
+      automata_id,
+      Keyword.fetch!(opts, :timeout_ms)
+    )
 
     wait_for_state_change(auto_chan, gw_chan, device_id, Keyword.fetch!(opts, :timeout_ms))
 
@@ -120,6 +144,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
           device_id: :string,
           bundle: :string,
           showcase: :string,
+          bytecode_smoke: :boolean,
           timeout_ms: :integer,
           wait_ms: :integer,
           set_input: :string
@@ -149,6 +174,7 @@ defmodule Mix.Tasks.Aetherium.E2e do
       token: token,
       server_id: Keyword.get(opts, :server_id),
       device_id: Keyword.get(opts, :device_id),
+      bytecode_smoke: Keyword.get(opts, :bytecode_smoke, false),
       bundle: Keyword.get(opts, :bundle, @default_bundle),
       showcase: Keyword.get(opts, :showcase),
       timeout_ms: timeout_ms,
@@ -214,35 +240,90 @@ defmodule Mix.Tasks.Aetherium.E2e do
   end
 
   defp load_target!(opts) do
-    if present?(opts[:showcase]) do
-      case ShowcaseCatalog.load_automata(opts[:showcase]) do
-        {:ok, %{entry: entry, automata: automata}} ->
-          %{bundle_id: nil, network: nil, entry: entry, automata: automata}
+    cond do
+      opts[:bytecode_smoke] ->
+        %{
+          bundle_id: nil,
+          network: "bytecode_smoke",
+          entry: %{id: "bytecode_smoke", name: "Bytecode Smoke", relative_path: "inline"},
+          automata: bytecode_smoke_automata()
+        }
 
-        {:error, reason} ->
-          raise "Failed to load showcase target #{opts[:showcase]}: #{inspect(reason)}"
-      end
-    else
-      bundle_id = opts[:bundle] || @default_bundle
+      present?(opts[:showcase]) ->
+        case ShowcaseCatalog.load_automata(opts[:showcase]) do
+          {:ok, %{entry: entry, automata: automata}} ->
+            %{bundle_id: nil, network: nil, entry: entry, automata: automata}
 
-      case ShowcaseCatalog.load_bundle(bundle_id) do
-        {:ok, bundle} ->
-          member =
-            Enum.find(bundle.members, &(&1.entry.relative_path == @default_flagship_target)) ||
-              Enum.find(bundle.members, &(&1.device_role == "host")) ||
-              raise("Bundle #{bundle_id} does not contain a host-run E2E target")
+          {:error, reason} ->
+            raise "Failed to load showcase target #{opts[:showcase]}: #{inspect(reason)}"
+        end
 
-          %{
-            bundle_id: bundle.id,
-            network: member.network,
-            entry: member.entry,
-            automata: member.automata
-          }
+      true ->
+        bundle_id = opts[:bundle] || @default_bundle
 
-        {:error, reason} ->
-          raise "Failed to load flagship bundle #{bundle_id}: #{inspect(reason)}"
-      end
+        case ShowcaseCatalog.load_bundle(bundle_id) do
+          {:ok, bundle} ->
+            member =
+              Enum.find(bundle.members, &(&1.entry.relative_path == @default_flagship_target)) ||
+                Enum.find(bundle.members, &(&1.device_role == "host")) ||
+                raise("Bundle #{bundle_id} does not contain a host-run E2E target")
+
+            %{
+              bundle_id: bundle.id,
+              network: member.network,
+              entry: member.entry,
+              automata: member.automata
+            }
+
+          {:error, reason} ->
+            raise "Failed to load flagship bundle #{bundle_id}: #{inspect(reason)}"
+        end
     end
+  end
+
+  defp bytecode_smoke_automata do
+    %{
+      "id" => "bytecode_smoke",
+      "name" => "Bytecode Smoke",
+      "version" => "1.0.0",
+      "initial_state" => "idle",
+      "states" => %{
+        "idle" => %{"id" => "idle", "name" => "Idle", "type" => "initial"},
+        "running" => %{"id" => "running", "name" => "Running", "type" => "normal"},
+        "done" => %{"id" => "done", "name" => "Done", "type" => "normal"}
+      },
+      "transitions" => %{
+        "t_gate" => %{
+          "id" => "t_gate",
+          "from" => "idle",
+          "to" => "running",
+          "type" => "classic",
+          "condition" => "enabled == true"
+        },
+        "t_immediate" => %{
+          "id" => "t_immediate",
+          "from" => "running",
+          "to" => "done",
+          "type" => "immediate"
+        },
+        "t_done" => %{
+          "id" => "t_done",
+          "from" => "done",
+          "to" => "idle",
+          "type" => "timed",
+          "after" => 25
+        }
+      },
+      "variables" => [
+        %{
+          "id" => "v1",
+          "name" => "enabled",
+          "type" => "bool",
+          "direction" => "input",
+          "default" => false
+        }
+      ]
+    }
   end
 
   defp default_stimulus_sequence(target) do
@@ -265,6 +346,20 @@ defmodule Mix.Tasks.Aetherium.E2e do
 
   defp maybe_append_manual_input(sequence, nil), do: sequence
   defp maybe_append_manual_input(sequence, input), do: sequence ++ [input]
+
+  defp deployment_id_from_reply(reply, automata_id, device_id) when is_map(reply) do
+    reply
+    |> get_in(["response", "result", "deployment"])
+    |> case do
+      %{} = deployment ->
+        deployment["deployment_id"] || deployment["id"] || "#{automata_id}:#{device_id}"
+
+      _ ->
+        get_in(reply, ["result", "deployment", "deployment_id"]) ||
+          get_in(reply, ["result", "deployment", "id"]) ||
+          "#{automata_id}:#{device_id}"
+    end
+  end
 
   defp send_stimulus_sequence(sequence, auto_chan, device_id, automata_id, timeout_ms) do
     Enum.each(sequence, fn {name, value} ->

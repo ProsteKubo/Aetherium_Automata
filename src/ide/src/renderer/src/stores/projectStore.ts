@@ -24,6 +24,13 @@ export const setAutomataStoreGetter = (getter: () => any) => {
 
 const FLAGSHIP_NETWORK_BLUEPRINTS: Array<Pick<AutomataNetwork, 'name' | 'description' | 'relativePath' | 'color' | 'icon'>> = [
   {
+    name: 'Hardware Button Showcase',
+    description: 'Two-node live demo: FRDM-MCXN947 reads the onboard button and a desktop/C++ controller mirrors the signal.',
+    relativePath: 'networks/hardware-button-showcase',
+    color: '#f0b75e',
+    icon: 'hardware',
+  },
+  {
     name: 'Signal Chain Backbone',
     description: 'Gateway-to-device backbone for command, permit, heartbeat, and telemetry channels.',
     relativePath: 'networks/signal-chain-backbone',
@@ -54,17 +61,176 @@ const FLAGSHIP_NETWORK_BLUEPRINTS: Array<Pick<AutomataNetwork, 'name' | 'descrip
 ];
 
 function seedFlagshipNetworks(project: Project): Project {
-  if (project.networks.length > 0) {
-    return project;
+  if (project.networks.length === 0) {
+    project.networks = FLAGSHIP_NETWORK_BLUEPRINTS.map((blueprint) => ({
+      ...createEmptyNetwork(blueprint.name),
+      ...blueprint,
+      isExpanded: true,
+    }));
   }
 
-  project.networks = FLAGSHIP_NETWORK_BLUEPRINTS.map((blueprint) => ({
-    ...createEmptyNetwork(blueprint.name),
-    ...blueprint,
-    isExpanded: true,
-  }));
+  seedHardwareButtonShowcase(project);
 
   return project;
+}
+
+function seedHardwareButtonShowcase(project: Project): void {
+  let hardwareNetwork = project.networks.find((network) => network.relativePath === 'networks/hardware-button-showcase');
+  if (!hardwareNetwork) {
+    hardwareNetwork = {
+      ...createEmptyNetwork('Hardware Button Showcase'),
+      description: 'Two-node live demo: FRDM-MCXN947 reads the onboard button and a desktop/C++ controller mirrors the signal.',
+      relativePath: 'networks/hardware-button-showcase',
+      color: '#f0b75e',
+      icon: 'hardware',
+      isExpanded: true,
+    };
+    project.networks.unshift(hardwareNetwork);
+  }
+
+  const now = Date.now();
+  const nxpId = 'showcase_mcxn947_button_leader' as AutomataId;
+  const cppId = 'showcase_cpp_button_observer' as AutomataId;
+
+  const nxpButtonLeader: Automata = {
+    id: nxpId,
+    version: '0.0.1',
+    config: {
+      name: 'NXP Button Leader',
+      type: 'inline',
+      language: 'lua',
+      description: 'Reads the FRDM-MCXN947 onboard button on GPIO 23, mirrors it to the local red LED, and publishes leader_button.',
+      tags: ['showcase', 'hardware', 'mcxn947', 'button', 'gpio'],
+      author: 'Aetherium Team',
+      version: '1.0.0',
+      target: { profile: 'mcxn947_lua_v1' },
+      created: now,
+      modified: now,
+    },
+    initialState: 'Polling',
+    states: {
+      Polling: {
+        id: 'Polling',
+        name: 'Polling',
+        inputs: [],
+        outputs: ['leader_button', 'leader_online'],
+        variables: [],
+        hooks: {
+          onEnter: 'gpio.mode(10, "output")\ngpio.mode(23, "input_pullup")',
+        },
+        code:
+          'local pressed = gpio.read(23) == 0\n\n' +
+          'gpio.write(10, pressed)\n\n' +
+          'setOutput("leader_button", pressed)\n' +
+          'setOutput("leader_online", true)',
+        isComposite: false,
+        position: { x: 180, y: 160 },
+        color: '#f0b75e',
+        description: 'Live FRDM-MCXN947 button polling state.',
+      },
+    },
+    transitions: {
+      stay_polling: {
+        id: 'stay_polling',
+        name: 'Stay Polling',
+        from: 'Polling',
+        to: 'Polling',
+        type: 'classic',
+        condition: 'false',
+        priority: 0,
+        weight: 1,
+      },
+    },
+    variables: [
+      { name: 'leader_button', type: 'bool', direction: 'output', default: false },
+      { name: 'leader_online', type: 'bool', direction: 'output', default: false },
+    ],
+    inputs: [],
+    outputs: ['leader_button', 'leader_online'],
+    nestedAutomataIds: [],
+  };
+
+  const cppButtonObserver: Automata = {
+    id: cppId,
+    version: '0.0.1',
+    config: {
+      name: 'CPP Button Observer',
+      type: 'inline',
+      language: 'lua',
+      description: 'Desktop/C++ target that consumes leader_button and exposes a visible pressed/released state.',
+      tags: ['showcase', 'desktop', 'cpp', 'button', 'binding'],
+      author: 'Aetherium Team',
+      version: '1.0.0',
+      target: { profile: 'desktop_v1' },
+      created: now,
+      modified: now,
+    },
+    initialState: 'Released',
+    states: {
+      Released: {
+        id: 'Released',
+        name: 'Released',
+        inputs: ['leader_button'],
+        outputs: ['button_state'],
+        variables: [],
+        hooks: { onEnter: 'setOutput("button_state", "released")' },
+        code: 'setOutput("button_state", "released")',
+        isComposite: false,
+        position: { x: 180, y: 160 },
+        color: '#60a5fa',
+        description: 'Desktop observer while the board button is not pressed.',
+      },
+      Pressed: {
+        id: 'Pressed',
+        name: 'Pressed',
+        inputs: ['leader_button'],
+        outputs: ['button_state'],
+        variables: [],
+        hooks: { onEnter: 'setOutput("button_state", "pressed")' },
+        code: 'setOutput("button_state", "pressed")',
+        isComposite: false,
+        position: { x: 520, y: 160 },
+        color: '#4ade80',
+        description: 'Desktop observer while the board button is pressed.',
+      },
+    },
+    transitions: {
+      press: {
+        id: 'press',
+        name: 'Button Pressed',
+        from: 'Released',
+        to: 'Pressed',
+        type: 'classic',
+        condition: 'leader_button == true',
+        priority: 0,
+        weight: 1,
+      },
+      release: {
+        id: 'release',
+        name: 'Button Released',
+        from: 'Pressed',
+        to: 'Released',
+        type: 'classic',
+        condition: 'leader_button == false',
+        priority: 0,
+        weight: 1,
+      },
+    },
+    variables: [
+      { name: 'leader_button', type: 'bool', direction: 'input', default: false },
+      { name: 'button_state', type: 'string', direction: 'output', default: 'released' },
+    ],
+    inputs: ['leader_button'],
+    outputs: ['button_state'],
+    nestedAutomataIds: [],
+  };
+
+  project.automata[nxpId] = nxpButtonLeader;
+  project.automata[cppId] = cppButtonObserver;
+  hardwareNetwork.automataIds = [nxpId, cppId];
+  hardwareNetwork.rootAutomataIds = [nxpId, cppId];
+  hardwareNetwork.inputs = ['leader_button'];
+  hardwareNetwork.outputs = ['leader_button', 'leader_online', 'button_state'];
 }
 
 // ============================================================================
@@ -225,6 +391,7 @@ export const useProjectStore = create<ProjectStore>()(
           });
           
           get().buildTreeFromProject();
+          get().syncAutomataToEditor();
           get().loadRecentProjects();
           
           return true;
@@ -456,6 +623,16 @@ export const useProjectStore = create<ProjectStore>()(
     ensureLocalProject: (name = 'Aetherium Flagship Workspace') => {
       const existing = get().project;
       if (existing) {
+        set((state) => {
+          if (state.project) {
+            seedFlagshipNetworks(state.project);
+            state.isLoaded = true;
+            state.isDirty = true;
+            state.error = null;
+          }
+        });
+        get().buildTreeFromProject();
+        get().syncAutomataToEditor();
         return;
       }
 
@@ -471,6 +648,7 @@ export const useProjectStore = create<ProjectStore>()(
       });
 
       get().buildTreeFromProject();
+      get().syncAutomataToEditor();
     },
     
     // ========================================================================

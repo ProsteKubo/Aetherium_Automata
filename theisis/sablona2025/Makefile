@@ -63,3 +63,28 @@ vlna:
 # Spocita normostrany / Count of standard pages
 normostrany:
 	detex -n $(NORM_FILES) | sed s/"^ *"/""/ | sed s/"^	*"/""/ | wc -c | awk '{ printf "%.2f\n", $$1 / 1800 }'
+
+# Plain-text export (for AI analyzers, spell checkers, etc.)
+# detex is bundled with TeX Live; no extra install needed.
+txt: $(NORM_FILES)
+	detex -n $(NORM_FILES) \
+	  | sed '/^[[:space:]]*$$/N;/^\n$$/d' \
+	  > $(CO).txt
+	@echo "Plain text: $(CO).txt"
+
+# DOCX / ODT export via pandoc (install: sudo pacman -S pandoc)
+docx: $(NORM_FILES)
+	@command -v pandoc >/dev/null 2>&1 || { echo "pandoc not found. Install: sudo pacman -S pandoc"; exit 1; }
+	pandoc $(NORM_FILES) \
+	  -f latex -t docx \
+	  --bibliography=$(CO)-20-literatura-bibliography.bib \
+	  -o $(CO).docx
+	@echo "DOCX: $(CO).docx"
+
+odt: $(NORM_FILES)
+	@command -v pandoc >/dev/null 2>&1 || { echo "pandoc not found. Install: sudo pacman -S pandoc"; exit 1; }
+	pandoc $(NORM_FILES) \
+	  -f latex -t odt \
+	  --bibliography=$(CO)-20-literatura-bibliography.bib \
+	  -o $(CO).odt
+	@echo "ODT (LibreOffice): $(CO).odt"

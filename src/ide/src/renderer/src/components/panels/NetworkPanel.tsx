@@ -77,6 +77,15 @@ const HIDDEN_HANDLE_STYLE = {
   background: 'transparent',
 };
 
+const TOPOLOGY_GATEWAY_X = 80;
+const TOPOLOGY_SERVER_X = 340;
+const TOPOLOGY_DEVICE_X = 650;
+const TOPOLOGY_TOP = 80;
+const TOPOLOGY_SERVER_CARD_HEIGHT = 104;
+const TOPOLOGY_DEVICE_CARD_HEIGHT = 108;
+const TOPOLOGY_DEVICE_GAP = 124;
+const TOPOLOGY_CLUSTER_GAP = 64;
+
 function nodeColor(kind: NetworkNodeKind): string {
   if (kind === 'gateway') return '#22c55e';
   if (kind === 'server') return '#60a5fa';
@@ -345,6 +354,30 @@ export const NetworkPanel: React.FC = () => {
   }, [deploymentsMap, devicesMap, logicalChannelRoutes, project]);
 
   const graph = useMemo(() => {
+    let layoutY = TOPOLOGY_TOP;
+    const serverLayouts = servers.map((server) => {
+      const serverDevices = devices.filter((device) => device.serverId === server.id);
+      const deviceBandHeight =
+        serverDevices.length > 0
+          ? (serverDevices.length - 1) * TOPOLOGY_DEVICE_GAP + TOPOLOGY_DEVICE_CARD_HEIGHT
+          : TOPOLOGY_SERVER_CARD_HEIGHT;
+      const clusterHeight = Math.max(TOPOLOGY_SERVER_CARD_HEIGHT, deviceBandHeight);
+      const layout = {
+        server,
+        serverDevices,
+        serverY: layoutY + (clusterHeight - TOPOLOGY_SERVER_CARD_HEIGHT) / 2,
+        deviceStartY: layoutY,
+        clusterTop: layoutY,
+        clusterHeight,
+      };
+      layoutY += clusterHeight + TOPOLOGY_CLUSTER_GAP;
+      return layout;
+    });
+    const graphHeight =
+      serverLayouts.length > 0
+        ? serverLayouts[serverLayouts.length - 1].clusterTop + serverLayouts[serverLayouts.length - 1].clusterHeight - TOPOLOGY_TOP
+        : TOPOLOGY_SERVER_CARD_HEIGHT;
+
     const nodes: NetworkCanvasNode[] = [
       {
         id: 'gateway_root',
@@ -352,15 +385,13 @@ export const NetworkPanel: React.FC = () => {
         label: 'Gateway',
         subtitle: `${servers.length} servers`,
         status: gatewayStatus,
-        position: { x: 80, y: 220 },
+        position: { x: TOPOLOGY_GATEWAY_X, y: TOPOLOGY_TOP + Math.max(0, (graphHeight - TOPOLOGY_SERVER_CARD_HEIGHT) / 2) },
       },
     ];
     const edges: Edge[] = [];
 
-    servers.forEach((server, serverIndex) => {
-      const serverY = 90 + serverIndex * 200;
+    serverLayouts.forEach(({ server, serverDevices, serverY, deviceStartY }) => {
       const serverNodeId = `server:${server.id}`;
-      const serverDevices = devices.filter((device) => device.serverId === server.id);
 
       nodes.push({
         id: serverNodeId,
@@ -368,7 +399,7 @@ export const NetworkPanel: React.FC = () => {
         label: server.name,
         subtitle: `${serverDevices.length} devices`,
         status: server.status,
-        position: { x: 340, y: serverY },
+        position: { x: TOPOLOGY_SERVER_X, y: serverY },
         metadata: {
           id: server.id,
           address: `${server.address}:${server.port}`,
@@ -419,7 +450,7 @@ export const NetworkPanel: React.FC = () => {
                 ? `${deviceNetworkNames.join(' · ')}${automataName ? ` · ${automataName}` : ''}`
                 : automataName ?? device.connectorType ?? device.transport ?? device.address,
           status: device.status,
-          position: { x: 650, y: serverY + deviceIndex * 108 - Math.max(0, serverDevices.length - 1) * 42 },
+          position: { x: TOPOLOGY_DEVICE_X, y: deviceStartY + deviceIndex * TOPOLOGY_DEVICE_GAP },
           metadata: {
             id: device.id,
             serverId: device.serverId,

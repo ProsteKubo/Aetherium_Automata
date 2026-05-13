@@ -157,7 +157,7 @@
   background: var(--color-bg-secondary);
   border-radius: 4px;
   font-size: 12px;
-  font-family: 'Monaco', 'Menlo', monospace;
+  font-family: var(--font-family-mono);
   color: var(--color-text-secondary);
 }
 

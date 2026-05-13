@@ -11,18 +11,6 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
-    plugins: [react()],
-    optimizeDeps: {
-      include: ['monaco-editor']
-    },
-    build: {
-      rollupOptions: {
-        output: {
-          manualChunks: {
-            'monaco-editor': ['monaco-editor']
-          }
-        }
-      }
-    }
+    plugins: [react()]
   }
 })

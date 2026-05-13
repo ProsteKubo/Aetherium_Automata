@@ -8,7 +8,7 @@ defmodule AetheriumServer.DeviceIngress do
 
   @spec route(atom(), map(), String.t() | nil, DeviceSessionRef.t()) :: {:ok, String.t() | nil}
   def route(:hello, hello, _current_device_id, %DeviceSessionRef{} = session_ref) do
-    device_id = hello.name
+    device_id = sanitize_device_id(hello.name, session_ref)
     connector_meta = session_ref.metadata || %{}
 
     case DeviceManager.register_device(
@@ -138,4 +138,51 @@ defmodule AetheriumServer.DeviceIngress do
   def map_device_type(0x10), do: :server
   def map_device_type(0x11), do: :gateway
   def map_device_type(_), do: :unknown
+
+  defp sanitize_device_id(raw, session_ref) when is_binary(raw) do
+    cleaned =
+      raw
+      |> printable_ascii_identifier()
+      |> String.replace(~r/-+/, "-")
+      |> String.trim("-_.:")
+
+    device_id =
+      if cleaned == "" do
+        "serial-device-" <> short_hash(raw <> session_ref.session_id)
+      else
+        cleaned
+      end
+
+    if device_id != raw do
+      Logger.warning("Sanitized device id #{inspect(raw)} to #{device_id}")
+    end
+
+    device_id
+  end
+
+  defp sanitize_device_id(raw, session_ref) do
+    raw
+    |> inspect()
+    |> sanitize_device_id(session_ref)
+  end
+
+  defp printable_ascii_identifier(raw) do
+    for <<byte <- raw>>, into: <<>> do
+      cond do
+        byte in ?a..?z -> <<byte>>
+        byte in ?A..?Z -> <<byte>>
+        byte in ?0..?9 -> <<byte>>
+        byte in [?_, ?-, ?., ?:] -> <<byte>>
+        byte in [?\s, ?\t, ?\r, ?\n] -> "-"
+        true -> ""
+      end
+    end
+  end
+
+  defp short_hash(value) do
+    value
+    |> then(&:crypto.hash(:sha256, &1))
+    |> Base.url_encode64(padding: false)
+    |> binary_part(0, 10)
+  end
 end

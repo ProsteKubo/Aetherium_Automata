@@ -67,8 +67,8 @@
 \contentsline {subsection}{\numberline {6.3.2}Hardware Peripheral API}{33}{subsection.6.3.2}%
 \contentsline {paragraph}{\texttt {gpio} --- digital I/O.}{33}{section*.13}%
 \contentsline {paragraph}{\texttt {pwm} --- pulse-width modulation (ESP32).}{33}{section*.14}%
-\contentsline {paragraph}{\texttt {adc} --- analogue-to-digital conversion (ESP32).}{34}{section*.15}%
-\contentsline {paragraph}{\texttt {dac} --- digital-to-analogue conversion (ESP32 only).}{34}{section*.16}%
+\contentsline {paragraph}{\texttt {adc} --- analog-to-digital conversion (ESP32).}{34}{section*.15}%
+\contentsline {paragraph}{\texttt {dac} --- digital-to-analog conversion (ESP32 only).}{34}{section*.16}%
 \contentsline {paragraph}{\texttt {i2c} --- two-wire bus.}{34}{section*.17}%
 \contentsline {subsection}{\numberline {6.3.3}Component System}{34}{subsection.6.3.3}%
 \contentsline {subsection}{\numberline {6.3.4}Network Connectivity}{35}{subsection.6.3.4}%
@@ -82,7 +82,7 @@
 \contentsline {section}{\numberline {7.3}End-to-End Message Flow}{41}{section.7.3}%
 \contentsline {section}{\numberline {7.4}Integrated Development Environment}{41}{section.7.4}%
 \contentsline {subsection}{\numberline {7.4.1}IDE Architecture}{41}{subsection.7.4.1}%
-\contentsline {subsection}{\numberline {7.4.2}Phoenix Gateway Service}{41}{subsection.7.4.2}%
+\contentsline {subsection}{\numberline {7.4.2}Phoenix Gateway Service}{43}{subsection.7.4.2}%
 \contentsline {subsection}{\numberline {7.4.3}Operator Panels}{43}{subsection.7.4.3}%
 \contentsline {chapter}{\numberline {8}Petri Net Analysis}{44}{chapter.8}%
 \contentsline {section}{\numberline {8.1}Formal Definitions}{44}{section.8.1}%
@@ -94,13 +94,12 @@
 \contentsline {paragraph}{Initial marking.}{45}{section*.23}%
 \contentsline {section}{\numberline {8.3}Network Composition}{45}{section.8.3}%
 \contentsline {section}{\numberline {8.4}Analysis Operations}{45}{section.8.4}%
-\contentsline {subsection}{\numberline {8.4.1}Reachability and Deadlock Detection}{45}{subsection.8.4.1}%
-\contentsline {subsection}{\numberline {8.4.2}Boundedness}{47}{subsection.8.4.2}%
-\contentsline {subsection}{\numberline {8.4.3}P-Invariant Analysis}{47}{subsection.8.4.3}%
-\contentsline {subsection}{\numberline {8.4.4}Contention Analysis}{47}{subsection.8.4.4}%
+\contentsline {subsection}{\numberline {8.4.1}Dead-State Detection}{45}{subsection.8.4.1}%
+\contentsline {subsection}{\numberline {8.4.2}Structural Bottleneck Detection}{47}{subsection.8.4.2}%
+\contentsline {subsection}{\numberline {8.4.3}Resource Contention Identification}{47}{subsection.8.4.3}%
 \contentsline {section}{\numberline {8.5}Showcase Scenarios}{47}{section.8.5}%
 \contentsline {subsection}{\numberline {8.5.1}Showcase 13 --- Petri Signal Chain}{47}{subsection.8.5.1}%
-\contentsline {subsection}{\numberline {8.5.2}Showcase 14 --- Petri Contention}{48}{subsection.8.5.2}%
+\contentsline {subsection}{\numberline {8.5.2}Showcase 14 --- Petri Contention}{47}{subsection.8.5.2}%
 \contentsline {chapter}{\numberline {9}Showcase Catalog}{49}{chapter.9}%
 \contentsline {section}{\numberline {9.1}Flagship Showcase: Aetherium Gem Cell (15)}{49}{section.9.1}%
 \contentsline {section}{\numberline {9.2}Selected Showcase: Quality Router (03)}{50}{section.9.2}%
@@ -110,36 +109,36 @@
 \contentsline {chapter}{\numberline {10}Testing and Validation}{53}{chapter.10}%
 \contentsline {section}{\numberline {10.1}Validation Scope}{53}{section.10.1}%
 \contentsline {section}{\numberline {10.2}Requirement Traceability}{54}{section.10.2}%
-\contentsline {section}{\numberline {10.3}Unit and Component Tests}{54}{section.10.3}%
+\contentsline {section}{\numberline {10.3}Unit and Component Tests}{55}{section.10.3}%
 \contentsline {section}{\numberline {10.4}Coverage by Component}{56}{section.10.4}%
-\contentsline {section}{\numberline {10.5}End-to-End Tests}{56}{section.10.5}%
+\contentsline {section}{\numberline {10.5}End-to-End Tests}{57}{section.10.5}%
 \contentsline {section}{\numberline {10.6}Fault Injection and Replay Validation}{57}{section.10.6}%
-\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{57}{section.10.7}%
+\contentsline {section}{\numberline {10.7}Showcase Catalog Validation}{58}{section.10.7}%
 \contentsline {section}{\numberline {10.8}Manual Validation Protocol}{58}{section.10.8}%
-\contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{58}{section.10.9}%
+\contentsline {section}{\numberline {10.9}Manual IDE and Hardware Validation}{59}{section.10.9}%
 \contentsline {section}{\numberline {10.10}Validation Limits}{59}{section.10.10}%
-\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{60}{chapter.11}%
-\contentsline {section}{\numberline {11.1}Infrastructure Setup}{60}{section.11.1}%
-\contentsline {section}{\numberline {11.2}Opening the Demo Project}{61}{section.11.2}%
-\contentsline {section}{\numberline {11.3}Deploying Automata}{61}{section.11.3}%
-\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{62}{section.11.4}%
-\contentsline {section}{\numberline {11.5}Injecting Faults}{62}{section.11.5}%
-\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{63}{section.11.6}%
-\contentsline {section}{\numberline {11.7}Petri Net Analysis}{64}{section.11.7}%
-\contentsline {section}{\numberline {11.8}Analyzer Panel}{65}{section.11.8}%
-\contentsline {section}{\numberline {11.9}Black-Box Devices}{66}{section.11.9}%
-\contentsline {section}{\numberline {11.10}Demonstration Summary}{66}{section.11.10}%
-\contentsline {chapter}{\numberline {12}Conclusion}{67}{chapter.12}%
-\contentsline {section}{\numberline {12.1}Summary}{67}{section.12.1}%
-\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{68}{section.12.2}%
-\contentsline {section}{\numberline {12.3}Results}{69}{section.12.3}%
-\contentsline {section}{\numberline {12.4}Limitations}{70}{section.12.4}%
-\contentsline {section}{\numberline {12.5}Practical Impact}{70}{section.12.5}%
-\contentsline {section}{\numberline {12.6}Future Work}{71}{section.12.6}%
-\contentsline {chapter}{Bibliography}{72}{chapter*.24}%
+\contentsline {chapter}{\numberline {11}End-to-End Demonstration}{61}{chapter.11}%
+\contentsline {section}{\numberline {11.1}Infrastructure Setup}{61}{section.11.1}%
+\contentsline {section}{\numberline {11.2}Opening the Demo Project}{62}{section.11.2}%
+\contentsline {section}{\numberline {11.3}Deploying Automata}{62}{section.11.3}%
+\contentsline {section}{\numberline {11.4}Live Runtime Monitoring}{63}{section.11.4}%
+\contentsline {section}{\numberline {11.5}Injecting Faults}{63}{section.11.5}%
+\contentsline {section}{\numberline {11.6}Time-Travel Debugging}{64}{section.11.6}%
+\contentsline {section}{\numberline {11.7}Petri Net Analysis}{66}{section.11.7}%
+\contentsline {section}{\numberline {11.8}Analyzer Panel}{66}{section.11.8}%
+\contentsline {section}{\numberline {11.9}Black-Box Devices}{67}{section.11.9}%
+\contentsline {section}{\numberline {11.10}Demonstration Summary}{69}{section.11.10}%
+\contentsline {chapter}{\numberline {12}Conclusion}{70}{chapter.12}%
+\contentsline {section}{\numberline {12.1}Summary}{70}{section.12.1}%
+\contentsline {section}{\numberline {12.2}Evaluation Against Goals}{71}{section.12.2}%
+\contentsline {section}{\numberline {12.3}Results}{72}{section.12.3}%
+\contentsline {section}{\numberline {12.4}Limitations}{73}{section.12.4}%
+\contentsline {section}{\numberline {12.5}Practical Impact}{73}{section.12.5}%
+\contentsline {section}{\numberline {12.6}Future Work}{74}{section.12.6}%
+\contentsline {chapter}{Bibliography}{75}{chapter*.24}%
 \ttl@starttoc {chapters@1}
-\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{75}{appendix.A}%
-\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{76}{appendix.B}%
-\contentsline {chapter}{\numberline {C}Supported Platform Targets}{77}{appendix.C}%
-\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{78}{appendix.D}%
+\contentsline {chapter}{\numberline {A}Contents of the Included Storage Media}{79}{appendix.A}%
+\contentsline {chapter}{\numberline {B}YAML DSL Schema Reference}{80}{appendix.B}%
+\contentsline {chapter}{\numberline {C}Supported Platform Targets}{81}{appendix.C}%
+\contentsline {chapter}{\numberline {D}Required Demonstration Figures}{82}{appendix.D}%
 \contentsfinish 

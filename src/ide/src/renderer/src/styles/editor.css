@@ -572,6 +572,16 @@
   box-shadow: var(--shadow-md);
 }
 
+.workspace-launch-card-accent {
+  border-color: rgba(240, 183, 94, 0.45);
+  background: linear-gradient(180deg, rgba(240, 183, 94, 0.12), rgba(255, 255, 255, 0.03));
+}
+
+.welcome-demo-grid {
+  max-width: 760px;
+  margin: 0 auto var(--spacing-6);
+}
+
 .workspace-launch-card strong,
 .workspace-network-card strong {
   color: var(--color-text-primary);

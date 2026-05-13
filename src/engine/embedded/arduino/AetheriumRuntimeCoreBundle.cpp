@@ -9,6 +9,7 @@
 #include "../../core/runtime.cpp"
 #include "../../core/protocol.cpp"
 #include "../../core/protocol_v2.cpp"
+#include "../../core/execution_trace.cpp"
 #include "../../core/telemetry_log_hub.cpp"
 #include "../../core/command_bus.cpp"
 #include "../../core/engine.cpp"

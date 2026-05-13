@@ -717,31 +717,6 @@
 }
 
 /* ============================================================================
-   Resizer
-   ============================================================================ */
-
-.resizer {
-  flex-shrink: 0;
-  background-color: transparent;
-  transition: background-color var(--transition-fast);
-}
-
-.resizer:hover,
-.resizer.active {
-  background-color: var(--color-primary-500);
-}
-
-.resizer-horizontal {
-  width: 4px;
-  cursor: col-resize;
-}
-
-.resizer-vertical {
-  height: 4px;
-  cursor: row-resize;
-}
-
-/* ============================================================================
    Spinner / Loading
    ============================================================================ */
 

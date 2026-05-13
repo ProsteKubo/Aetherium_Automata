@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  13 MAY 2026 07:48
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  13 MAY 2026 16:02
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -1146,7 +1146,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.2}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.135 ...mberline {12.3}Results}{69}{section.12.3}
+l.134 ...mberline {12.3}Results}{72}{section.12.3}
                                                   % [2])
 \tf@toc=\write5
 \openout5 = `projekt.toc'.
@@ -1168,15 +1168,20 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.4}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.27 ...ile on the demo device.}}{63}{figure.11.4}
+l.26 ...the deployed automaton.}}{64}{figure.11.3}
                                                   % [4
 
-])
+]
+Overfull \hbox (6.15303pt too wide) in paragraph at lines 31--31
+ [][] [][]\T1/lmr/m/n/10.95 Runtime Mon-i-tor panel show-ing the black-box de-v
+ice con-tract for \T1/lmtt/m/n/10.95 black_box_01\T1/lmr/m/n/10.95 .[] [][]  
+ []
+
+)
 \tf@lof=\write6
 \openout6 = `projekt.lof'.
 
-
-(./projekt-01-kapitoly-chapters-en.tex [5]
+ (./projekt-01-kapitoly-chapters-en.tex [5]
 Chapter 1.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 3
 8.
@@ -1200,122 +1205,128 @@ Chapter 3.
 [14
 
 ] [15] [16] [17]
-Overfull \hbox (3.22745pt too wide) in paragraph at lines 377--378
+Overfull \hbox (3.22745pt too wide) in paragraph at lines 378--379
 []\T1/lmr/m/n/10.95 The run-time en-gine must com-pile and ex-e-cute on desk-to
 p Linux/macOS,
  []
 
 [18] [19]
 Chapter 4.
-<obrazky-figures/arch.pdf, id=729, 602.25pt x 252.945pt>
+<obrazky-figures/arch.pdf, id=743, 602.25pt x 252.945pt>
 File: obrazky-figures/arch.pdf Graphic file (type pdf)
 <use obrazky-figures/arch.pdf>
-Package pdftex.def Info: obrazky-figures/arch.pdf  used on input line 404.
+Package pdftex.def Info: obrazky-figures/arch.pdf  used on input line 405.
 (pdftex.def)             Requested size: 397.89975pt x 167.11789pt.
 [20
 
- <./obrazky-figures/arch.pdf>] [21]
+ <./obrazky-figures/arch.pdf>]
+Underfull \hbox (badness 2050) in paragraph at lines 420--421
+ []\T1/lmr/bx/n/10.95 Process-per-device iso-la-tion.[] \T1/lmr/m/n/10.95 BEAM 
+pro-cesses are not OS threads; they are
+ []
+
+[21]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 447.
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 448.
  [22] [23] [24]
 Chapter 5.
 [25
 
 ] [26]
 Package hyperref Info: bookmark level for unknown algorithm defaults to 0 on in
-put line 603.
+put line 605.
  [27]
-<obrazky-figures/black_box_contract.pdf, id=844, 602.25pt x 374.3586pt>
+<obrazky-figures/black_box_contract.pdf, id=861, 602.25pt x 374.3586pt>
 File: obrazky-figures/black_box_contract.pdf Graphic file (type pdf)
 <use obrazky-figures/black_box_contract.pdf>
 Package pdftex.def Info: obrazky-figures/black_box_contract.pdf  used on input 
-line 651.
+line 653.
 (pdftex.def)             Requested size: 397.89975pt x 247.33449pt.
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
-nput line 663.
+nput line 665.
  [28 <./obrazky-figures/black_box_contract.pdf>] [29] [30]
 Chapter 6.
-<obrazky-figures/tick_cycle.pdf, id=926, 400.37581pt x 788.9475pt>
+<obrazky-figures/tick_cycle.pdf, id=943, 400.37581pt x 788.9475pt>
 File: obrazky-figures/tick_cycle.pdf Graphic file (type pdf)
 <use obrazky-figures/tick_cycle.pdf>
-Package pdftex.def Info: obrazky-figures/tick_cycle.pdf  used on input line 741
+Package pdftex.def Info: obrazky-figures/tick_cycle.pdf  used on input line 743
 .
 (pdftex.def)             Requested size: 159.40826pt x 314.11676pt.
-<obrazky-figures/platform_abstraction.pdf, id=928, 602.25pt x 243.79079pt>
+<obrazky-figures/platform_abstraction.pdf, id=945, 602.25pt x 243.79079pt>
 File: obrazky-figures/platform_abstraction.pdf Graphic file (type pdf)
 <use obrazky-figures/platform_abstraction.pdf>
 Package pdftex.def Info: obrazky-figures/platform_abstraction.pdf  used on inpu
-t line 753.
+t line 755.
 (pdftex.def)             Requested size: 397.89975pt x 161.06981pt.
 [31
 
  <./obrazky-figures/tick_cycle.pdf>] [32 <./obrazky-figures/platform_abstractio
 n.pdf>]
-Overfull \hbox (58.19763pt too wide) in paragraph at lines 814--815
+Overfull \hbox (58.19763pt too wide) in paragraph at lines 816--817
 []\T1/lmr/m/n/10.95 Return the cal-i-brated mil-li-volt read-ing, us-ing the ES
 P-IDF \T1/lmtt/m/n/10.95 analogReadMilliVolts
  []
 
 [33]
-Overfull \hbox (20.28845pt too wide) in paragraph at lines 839--840
+Overfull \hbox (20.28845pt too wide) in paragraph at lines 841--842
 \T1/lmr/m/n/10.95 Complex pe-riph-er-als are en-cap-su-lated as named \T1/lmr/m
 /it/10.95 com-po-nents \T1/lmr/m/n/10.95 reg-is-tered with \T1/lmtt/m/n/10.95 I
 HardwareService\T1/lmr/m/n/10.95 .
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 851--852
+Underfull \hbox (badness 10000) in paragraph at lines 853--854
 []\T1/lmr/m/n/10.95 SSD1306 128$\OMS/cmsy/m/n/10.95 ^^B$\T1/lmr/m/n/10.95 64
  []
 
 
-Underfull \hbox (badness 2443) in paragraph at lines 852--853
+Underfull \hbox (badness 2443) in paragraph at lines 854--855
 []\T1/lmr/m/n/10.95 Controls the built-in RGB/status LED. Meth-ods: \T1/lmtt/m/
 n/10.95 on\T1/lmr/m/n/10.95 , \T1/lmtt/m/n/10.95 off\T1/lmr/m/n/10.95 ,
  []
 
 [34]
-Overfull \hbox (46.11417pt too wide) in paragraph at lines 855--856
+Overfull \hbox (46.11417pt too wide) in paragraph at lines 857--858
 []\T1/lmr/m/n/10.95 Reads the TSI v6 ca-pac-i-tive touch sen-sor. Meth-ods: \T1
 /lmtt/m/n/10.95 init([threshold])\T1/lmr/m/n/10.95 ,
  []
 
 
-Underfull \hbox (badness 10000) in paragraph at lines 885--885
+Underfull \hbox (badness 10000) in paragraph at lines 887--887
 []|\T1/lmr/m/n/10.95 impl.
  []
 
 [35]
-<obrazky-figures/fault_injection_pipeline.pdf, id=1016, 533.1117pt x 761.96669p
+<obrazky-figures/fault_injection_pipeline.pdf, id=1033, 533.1117pt x 761.96669p
 t>
 File: obrazky-figures/fault_injection_pipeline.pdf Graphic file (type pdf)
 <use obrazky-figures/fault_injection_pipeline.pdf>
 Package pdftex.def Info: obrazky-figures/fault_injection_pipeline.pdf  used on 
-input line 923.
+input line 925.
 (pdftex.def)             Requested size: 219.773pt x 314.11748pt.
  [36] [37 <./obrazky-figures/fault_injection_pipeline.pdf>]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
-(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 943.
-<obrazky-figures/time_travel_flow.pdf, id=1045, 602.25pt x 593.3367pt>
+(Font)              Font shape `T1/lmtt/b/n' tried instead on input line 945.
+<obrazky-figures/time_travel_flow.pdf, id=1063, 602.25pt x 593.3367pt>
 File: obrazky-figures/time_travel_flow.pdf Graphic file (type pdf)
 <use obrazky-figures/time_travel_flow.pdf>
 Package pdftex.def Info: obrazky-figures/time_travel_flow.pdf  used on input li
-ne 982.
+ne 983.
 (pdftex.def)             Requested size: 318.84177pt x 314.12291pt.
  [38] [39 <./obrazky-figures/time_travel_flow.pdf>]
 Chapter 7.
 [40
 
 ]
-<obrazky-figures/msgflow.pdf, id=1080, 602.25pt x 659.5842pt>
+<obrazky-figures/msgflow.pdf, id=1099, 602.25pt x 659.5842pt>
 File: obrazky-figures/msgflow.pdf Graphic file (type pdf)
 <use obrazky-figures/msgflow.pdf>
-Package pdftex.def Info: obrazky-figures/msgflow.pdf  used on input line 1045.
+Package pdftex.def Info: obrazky-figures/msgflow.pdf  used on input line 1046.
 (pdftex.def)             Requested size: 286.81607pt x 314.12096pt.
  [41] [42 <./obrazky-figures/msgflow.pdf>] [43]
 Chapter 8.
 
-Overfull \hbox (2.95271pt too wide) in paragraph at lines 1110--1112
+Overfull \hbox (2.95271pt too wide) in paragraph at lines 1113--1115
  []\T1/lmr/bx/n/10.95 Automaton.[] \T1/lmr/m/n/10.95 An Ae-the-rium au-toma-ton
  is a tu-ple $\OMS/cmsy/m/n/10.95 A[] \OT1/cmr/m/n/10.95 = (\OML/cmm/m/it/10.95
  S[];  s[];  T[];  V[];  G[];  [][];  \OT1/cmr/m/n/10.95 ^^F[]\OML/cmm/m/it/10.
@@ -1325,36 +1336,36 @@ Overfull \hbox (2.95271pt too wide) in paragraph at lines 1110--1112
 [44
 
 ]
-<obrazky-figures/petri_lifting.pdf, id=1131, 515.04419pt x 473.85028pt>
+<obrazky-figures/petri_lifting.pdf, id=1150, 515.04419pt x 473.85028pt>
 File: obrazky-figures/petri_lifting.pdf Graphic file (type pdf)
 <use obrazky-figures/petri_lifting.pdf>
 Package pdftex.def Info: obrazky-figures/petri_lifting.pdf  used on input line 
-1151.
+1154.
 (pdftex.def)             Requested size: 341.42342pt x 314.11592pt.
  [45] [46 <./obrazky-figures/petri_lifting.pdf>] [47] [48]
 Chapter 9.
 [49
 
 ]
-<obrazky-figures/watchdog.pdf, id=1182, 294.13892pt x 392.42609pt>
+<obrazky-figures/watchdog.pdf, id=1199, 294.13892pt x 392.42609pt>
 File: obrazky-figures/watchdog.pdf Graphic file (type pdf)
 <use obrazky-figures/watchdog.pdf>
-Package pdftex.def Info: obrazky-figures/watchdog.pdf  used on input line 1304.
+Package pdftex.def Info: obrazky-figures/watchdog.pdf  used on input line 1301.
 
 (pdftex.def)             Requested size: 235.45058pt x 314.12692pt.
  [50] [51 <./obrazky-figures/watchdog.pdf>] [52]
 Chapter 10.
-<obrazky-figures/testing_validation_coverage.pdf, id=1223, 602.25pt x 364.48169
+<obrazky-figures/testing_validation_coverage.pdf, id=1242, 602.25pt x 364.48169
 pt>
 File: obrazky-figures/testing_validation_coverage.pdf Graphic file (type pdf)
 <use obrazky-figures/testing_validation_coverage.pdf>
 Package pdftex.def Info: obrazky-figures/testing_validation_coverage.pdf  used 
-on input line 1353.
+on input line 1350.
 (pdftex.def)             Requested size: 397.89975pt x 240.80891pt.
 [53
 
 ] [54 <./obrazky-figures/testing_validation_coverage.pdf>] [55] [56]
-[57] [58] [59]
+[57] [58] [59] [60]
 Chapter 11.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
@@ -1365,28 +1376,92 @@ File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
-[60
+[61
 
-] [61] [62] [63] [64] [65] [66]
+]
+<obrazky-figures/network_view.png, id=1320, 3083.52pt x 1927.2pt>
+File: obrazky-figures/network_view.png Graphic file (type png)
+<use obrazky-figures/network_view.png>
+Package pdftex.def Info: obrazky-figures/network_view.png  used on input line 1
+564.
+(pdftex.def)             Requested size: 397.86043pt x 248.66277pt.
+<obrazky-figures/automata_and_upload.png, id=1322, 3052.40375pt x 1753.55125pt>
+
+File: obrazky-figures/automata_and_upload.png Graphic file (type png)
+<use obrazky-figures/automata_and_upload.png>
+Package pdftex.def Info: obrazky-figures/automata_and_upload.png  used on input
+ line 1590.
+(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
+ [62 <./obrazky-figures/network_view.png>]
+<obrazky-figures/runtime_view.png, id=1330, 3052.40375pt x 1753.55125pt>
+File: obrazky-figures/runtime_view.png Graphic file (type png)
+<use obrazky-figures/runtime_view.png>
+Package pdftex.def Info: obrazky-figures/runtime_view.png  used on input line 1
+624.
+(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
+ [63 <./obrazky-figures/automata_and_upload.png>]
+<obrazky-figures/ide_fault_injection.pdf, id=1338, 151.87993pt x 85.31876pt>
+File: obrazky-figures/ide_fault_injection.pdf Graphic file (type pdf)
+<use obrazky-figures/ide_fault_injection.pdf>
+Package pdftex.def Info: obrazky-figures/ide_fault_injection.pdf  used on input
+ line 1670.
+(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
+ [64 <./obrazky-figures/runtime_view.png>]
+<obrazky-figures/ide_time_travel.pdf, id=1346, 151.87993pt x 85.31876pt>
+File: obrazky-figures/ide_time_travel.pdf Graphic file (type pdf)
+<use obrazky-figures/ide_time_travel.pdf>
+Package pdftex.def Info: obrazky-figures/ide_time_travel.pdf  used on input lin
+e 1712.
+(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
+ [65 <./obrazky-figures/ide_fault_injection.pdf>]
+<obrazky-figures/petri_net_lift.png, id=1360, 3052.40375pt x 1753.55125pt>
+File: obrazky-figures/petri_net_lift.png Graphic file (type png)
+<use obrazky-figures/petri_net_lift.png>
+Package pdftex.def Info: obrazky-figures/petri_net_lift.png  used on input line
+ 1742.
+(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
+ [66 <./obrazky-figures/ide_time_travel.pdf>]
+<obrazky-figures/ide_analyzer.pdf, id=1368, 151.87993pt x 85.31876pt>
+File: obrazky-figures/ide_analyzer.pdf Graphic file (type pdf)
+<use obrazky-figures/ide_analyzer.pdf>
+Package pdftex.def Info: obrazky-figures/ide_analyzer.pdf  used on input line 1
+793.
+(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
+
+[67 <./obrazky-figures/petri_net_lift.png>]
+<obrazky-figures/black_box_view.png, id=1377, 3052.40375pt x 1753.55125pt>
+File: obrazky-figures/black_box_view.png Graphic file (type png)
+<use obrazky-figures/black_box_view.png>
+Package pdftex.def Info: obrazky-figures/black_box_view.png  used on input line
+ 1821.
+(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
+
+Underfull \hbox (badness 2065) in paragraph at lines 1822--1822
+[]\T1/lmr/m/n/10.95 Figure 11.8: Run-time Mon-i-tor panel show-ing the black-bo
+x de-vice con-tract for
+ []
+
+[68 <./obrazky-figures/ide_analyzer.pdf> <./obrazky-figures/black_box_view.png>
+] [69]
 Chapter 12.
-[67
+[70
 
-] [68] [69] [70]) (./projekt.bbl [71] [72
+] [71] [72] [73]) (./projekt.bbl [74] [75
 
-] [73])
+] [76] [77])
 \c@ttl@toc@chapters=\count400
 
-(./projekt-30-prilohy-appendices-en.tex [74]
+(./projekt-30-prilohy-appendices-en.tex [78]
 Appendix A.
-[75
+[79
 
 ]
 Appendix B.
-[76
+[80
 
 ]
 Appendix C.
-[77
+[81
 
 ]
 Appendix D.
@@ -1394,7 +1469,7 @@ Appendix D.
 \tf@ptc=\write7
 \openout7 = `projekt.ptc'.
 
- [78
+ [82
 
 ] (./projekt.aux)
  ***********
@@ -1409,43 +1484,42 @@ Package rerunfilecheck Info: File `projekt.out' has not changed.
 (rerunfilecheck)             Checksum: A8B8FE60DF059B88EDC476DFEA30BD53;14093.
  ) 
 Here is how much of TeX's memory you used:
- 29056 strings out of 468830
- 532947 string characters out of 5450632
- 1401628 words of memory out of 5000000
- 56847 multiletter control sequences out of 15000+600000
- 737151 words of font info for 130 fonts, out of 8000000 for 9000
+ 29140 strings out of 468830
+ 536356 string characters out of 5450632
+ 1402253 words of memory out of 5000000
+ 56929 multiletter control sequences out of 15000+600000
+ 729705 words of font info for 122 fonts, out of 8000000 for 9000
  320 hyphenation exceptions out of 8191
  88i,13n,96p,1563b,2174s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/ascender/opensans/Op
 enSans-Bold.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public
-/amsfonts/cm/cmbx10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type
-1/public/amsfonts/cm/cmex10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fo
-nts/type1/public/amsfonts/cm/cmmi10.pfb></home/jakito/.local/texlive/2026/texmf
--dist/fonts/type1/public/amsfonts/cm/cmmi6.pfb></home/jakito/.local/texlive/202
-6/texmf-dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></home/jakito/.local/texl
-ive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></home/jakito/.loc
-al/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></home/jakit
-o/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></ho
-me/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.p
+/amsfonts/cm/cmex10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type
+1/public/amsfonts/cm/cmmi10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fo
+nts/type1/public/amsfonts/cm/cmmi6.pfb></home/jakito/.local/texlive/2026/texmf-
+dist/fonts/type1/public/amsfonts/cm/cmmi8.pfb></home/jakito/.local/texlive/2026
+/texmf-dist/fonts/type1/public/amsfonts/cm/cmr10.pfb></home/jakito/.local/texli
+ve/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmr8.pfb></home/jakito/.local
+/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy10.pfb></home/jakit
+o/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmsy8.pfb></hom
+e/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/cmti10.p
 fb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/cm/
-cmti10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsf
-onts/cm/cmti8.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/publ
-ic/lm/lmbx10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/publi
-c/lm/lmbx12.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public
-/lm/lmcsc10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public
-/lm/lmr10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/l
-m/lmr6.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/l
-mr8.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr9
-.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri10.
-pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtk10.p
-fb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt10.pf
-b></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symb
-ols/msam10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/
-amsfonts/symbols/msbm10.pfb>
-Output written on projekt.pdf (82 pages, 1242954 bytes).
+cmti8.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lm
+bx10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmb
+x12.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmcs
+c10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr1
+0.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr6.p
+fb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr8.pfb>
+</home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmr9.pfb></h
+ome/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmri10.pfb></ho
+me/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtk10.pfb></hom
+e/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></home
+/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msam
+10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts
+/symbols/msbm10.pfb>
+Output written on projekt.pdf (86 pages, 3375265 bytes).
 PDF statistics:
- 1635 PDF objects out of 1728 (max. 8388607)
- 1436 compressed objects within 15 object streams
- 435 named destinations out of 1000 (max. 500000)
- 770 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1711 PDF objects out of 1728 (max. 8388607)
+ 1496 compressed objects within 15 object streams
+ 450 named destinations out of 1000 (max. 500000)
+ 810 words of extra memory for PDF output out of 10000 (max. 10000000)
 

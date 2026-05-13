@@ -78,6 +78,7 @@ const EditorContent: React.FC = () => {
   const automataMap = useAutomataStore((state) => state.automata);
   const openTab = useUIStore((state) => state.openTab);
   const createProject = useProjectStore((state) => state.createProject);
+  const ensureLocalProject = useProjectStore((state) => state.ensureLocalProject);
   const openProject = useProjectStore((state) => state.openProject);
   const project = useProjectStore((state) => state.project);
 
@@ -101,6 +102,12 @@ const EditorContent: React.FC = () => {
 
   const handleOpenWorkspaceView = (panelId: CenterPanelId): void => {
     togglePanel(panelId);
+  };
+
+  const handleLoadBuiltInShowcase = (view: CenterPanelId = 'network'): void => {
+    ensureLocalProject();
+    togglePanel(view);
+    addNotification('success', 'Built-in Showcase', 'Loaded the built-in flagship workspace.');
   };
 
   const handleOpenFirstAutomata = (): void => {
@@ -161,6 +168,11 @@ const EditorContent: React.FC = () => {
             <button className="btn btn-primary btn-lg" onClick={() => void handleCreateWorkspace()}>
               Create Flagship Workspace
             </button>
+            {!project && (
+              <button className="btn btn-secondary btn-lg" onClick={() => handleLoadBuiltInShowcase('network')}>
+                Load Built-in Showcase
+              </button>
+            )}
             <button className="btn btn-secondary btn-lg" onClick={() => void handleOpenProject()}>
               Open Workspace
             </button>
@@ -232,23 +244,38 @@ const EditorContent: React.FC = () => {
               </div>
             </>
           ) : (
-            <div className="welcome-shortcuts">
-              <div className="shortcut-item">
-                <kbd>Ctrl</kbd>
-                <kbd>N</kbd>
-                <span>Create flagship workspace</span>
+            <>
+              <div className="workspace-launch-grid welcome-demo-grid">
+                <button className="workspace-launch-card workspace-launch-card-accent" onClick={() => handleLoadBuiltInShowcase('network')}>
+                  <span className="workspace-launch-kicker">Recommended</span>
+                  <strong>Hardware Button Showcase</strong>
+                  <span>Load a two-node demo for `device_cpp_01` and `mcxn947-core0`, with the NXP onboard button publishing into the desktop observer.</span>
+                </button>
+                <button className="workspace-launch-card" onClick={() => handleLoadBuiltInShowcase('runtime')}>
+                  <span className="workspace-launch-kicker">Runtime</span>
+                  <strong>Open Deploy &amp; Trace</strong>
+                  <span>Jump straight into the runtime view after loading the built-in workspace.</span>
+                </button>
               </div>
-              <div className="shortcut-item">
-                <kbd>Ctrl</kbd>
-                <kbd>O</kbd>
-                <span>Open workspace</span>
+
+              <div className="welcome-shortcuts">
+                <div className="shortcut-item">
+                  <kbd>Ctrl</kbd>
+                  <kbd>N</kbd>
+                  <span>Create flagship workspace</span>
+                </div>
+                <div className="shortcut-item">
+                  <kbd>Ctrl</kbd>
+                  <kbd>O</kbd>
+                  <span>Open workspace</span>
+                </div>
+                <div className="shortcut-item">
+                  <kbd>Ctrl</kbd>
+                  <kbd>K</kbd>
+                  <span>Search commands</span>
+                </div>
               </div>
-              <div className="shortcut-item">
-                <kbd>Ctrl</kbd>
-                <kbd>K</kbd>
-                <span>Search commands</span>
-              </div>
-            </div>
+            </>
           )}
         </div>
       </div>
@@ -268,7 +295,48 @@ const EditorContent: React.FC = () => {
         );
       }
 
-      return <CodeEditor stateId={activeTab.targetId} automataId={parentAutomataId} />;
+      return (
+        <div className="logic-editor-workspace">
+          <div className="logic-canvas-pane">
+            <div className="logic-pane-header">
+              <span>Finite State Machine View</span>
+              <div className="logic-pane-tools">
+                <span>Zoom</span>
+                <span>Fit</span>
+                <span>Grid</span>
+              </div>
+            </div>
+            <AutomataEditor automataId={parentAutomataId} />
+          </div>
+          <div className="logic-code-pane">
+            <CodeEditor stateId={activeTab.targetId} automataId={parentAutomataId} />
+          </div>
+          <div className="logic-inspector-pane">
+            <div className="logic-inspector-title">
+              <strong>State Inspector</strong>
+              <span>Node Properties</span>
+            </div>
+            <div className="logic-inspector-grid">
+              <label>
+                <span>Transition Delay (ms)</span>
+                <input className="input input-mono" value="250.00" readOnly />
+              </label>
+              <label>
+                <span>Fault-in-loop Prob.</span>
+                <input className="input input-mono" value="0.04%" readOnly />
+              </label>
+              <label>
+                <span>Telemetry Level</span>
+                <div className="logic-segmented">
+                  <button type="button" className="active">Full</button>
+                  <button type="button">Lite</button>
+                  <button type="button">Silent</button>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+      );
     }
     default:
       return (
@@ -358,7 +426,7 @@ const App: React.FC = () => {
   }, [layout.panels]);
 
   const activeCenterPanel = useMemo<CenterPanelId | null>(() => {
-    const order: CenterPanelId[] = ['automata', 'analyzer', 'blackboxes', 'petri', 'network', 'runtime'];
+    const order: CenterPanelId[] = ['network', 'petri', 'runtime', 'analyzer', 'blackboxes', 'automata'];
     return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
   }, [layout.panels]);
 
@@ -367,7 +435,7 @@ const App: React.FC = () => {
     return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
   }, [layout.panels]);
 
-  const consoleVisible = layout.panels.console?.isVisible ?? false;
+  const consoleVisible = (layout.panels.console?.isVisible ?? false) && activeCenterPanel === 'automata';
   const isNarrowViewport = viewport.width < 1280;
   const isCompactViewport = viewport.width < 980;
   const viewportClass = isCompactViewport
@@ -396,9 +464,11 @@ const App: React.FC = () => {
     return Math.min(Math.max(layout.bottomPanelHeight, 120), maxHeight);
   }, [isCompactViewport, layout.bottomPanelHeight, viewport.height]);
 
-  const showSidebarInline = Boolean(!sidebarCollapsed && activeSidebarPanel && !isCompactViewport);
-  const showSidebarOverlay = Boolean(!sidebarCollapsed && activeSidebarPanel && isCompactViewport);
+  const activityOwnsSidebar = false;
+  const showSidebarInline = Boolean(!activityOwnsSidebar && !sidebarCollapsed && activeSidebarPanel && !isCompactViewport);
+  const showSidebarOverlay = Boolean(!activityOwnsSidebar && !sidebarCollapsed && activeSidebarPanel && isCompactViewport);
   const centerOwnsInspector =
+    activeCenterPanel === 'automata' ||
     activeCenterPanel === 'petri' ||
     activeCenterPanel === 'network' ||
     activeCenterPanel === 'blackboxes' ||
@@ -430,31 +500,31 @@ const App: React.FC = () => {
     switch (activeCenterPanel) {
       case 'analyzer':
         return (
-          <div className="runtime-view-container">
+          <div className="runtime-view-container analyzer-view-shell">
             <AnalyzerPanel />
           </div>
         );
       case 'blackboxes':
         return (
-          <div className="runtime-view-container">
+          <div className="runtime-view-container blackboxes-view-shell">
             <BlackBoxesPanel />
           </div>
         );
       case 'network':
         return (
-          <div className="runtime-view-container">
+          <div className="runtime-view-container network-view-shell">
             <NetworkPanel />
           </div>
         );
       case 'petri':
         return (
-          <div className="runtime-view-container">
+          <div className="runtime-view-container petri-view-shell">
             <PetriNetPanel />
           </div>
         );
       case 'runtime':
         return (
-          <div className="runtime-view-container">
+          <div className="runtime-view-container runtime-debugger-shell">
             <RuntimeMonitorPanel />
           </div>
         );
@@ -552,7 +622,7 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className={`app-container ${viewportClass}`}>
+    <div className={`app-container ${viewportClass} app-view-${activeCenterPanel ?? 'automata'}`}>
       <GatewayEventBridge />
       {showGatewaySettings && (
         <GatewaySettings onConnect={handleGatewayConnect} onContinueOffline={handleContinueOffline} />

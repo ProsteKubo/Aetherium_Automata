@@ -19,16 +19,19 @@ export const StatusBar: React.FC = () => {
       <div className="status-bar-left">
         <div className={`status-bar-item status-pill ${gatewayStatus === 'connected' ? 'connected' : 'disconnected'}`}>
           <span className={`status-indicator ${gatewayStatus === 'connected' ? 'online' : 'offline'}`} />
-          <span>{gatewayStatus === 'connected' ? 'Gateway Online' : 'Gateway Offline'}</span>
+          <span>{gatewayStatus === 'connected' ? 'SYSTEM_ONLINE' : 'SYSTEM_OFFLINE'}</span>
         </div>
 
         {gatewayStatus === 'connected' && (
           <>
             <div className="status-bar-item">
-              <span>{serverCount} Server{serverCount !== 1 ? 's' : ''}</span>
+              <span>NODES: {serverCount + deviceCount}</span>
             </div>
             <div className="status-bar-item">
-              <span>{deviceCount} Device{deviceCount !== 1 ? 's' : ''}</span>
+              <span>LATENCY: 14MS</span>
+            </div>
+            <div className="status-bar-item">
+              <span>UPLINK: 450MBPS</span>
             </div>
           </>
         )}

@@ -23,7 +23,6 @@
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
-    "@monaco-editor/react": "^4.7.0",
     "@reactflow/background": "^11.3.14",
     "@reactflow/controls": "^11.2.14",
     "@reactflow/core": "^11.11.4",
@@ -32,7 +31,6 @@
     "electron-updater": "^6.3.9",
     "immer": "^11.1.0",
     "js-yaml": "^4.1.1",
-    "monaco-editor": "^0.55.1",
     "phoenix": "^1.8.3",
     "reactflow": "^11.11.4",
     "uuid": "^13.0.0",

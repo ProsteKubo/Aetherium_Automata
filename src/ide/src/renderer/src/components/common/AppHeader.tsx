@@ -10,7 +10,7 @@ import {
   useProjectStore,
   useUIStore,
 } from '../../stores';
-import { IconChevronRight, IconSearch, IconSettings, IconZap } from './Icons';
+import { IconChevronRight, IconPlay, IconSettings, IconZap } from './Icons';
 
 // ============================================================================
 // File Menu Icons
@@ -81,8 +81,6 @@ export const AppHeader: React.FC = () => {
   const isConnected = useGatewayStore(selectIsConnected);
   const status = useGatewayStore((state) => state.status);
   const togglePanel = useUIStore((state) => state.togglePanel);
-  const setCommandPaletteOpen = useUIStore((state) => state.setCommandPaletteOpen);
-
   // Project store
   const createProject = useProjectStore((state) => state.createProject);
   const openProject = useProjectStore((state) => state.openProject);
@@ -173,9 +171,6 @@ export const AppHeader: React.FC = () => {
 
       if (event.key === 'Escape') {
         closeMenus();
-      } else if (ctrlOrCmd && event.key === 'k') {
-        event.preventDefault();
-        setCommandPaletteOpen(true);
       } else if (ctrlOrCmd && event.key === 's') {
         event.preventDefault();
         if (event.shiftKey) {
@@ -194,7 +189,7 @@ export const AppHeader: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [closeMenus, handleNew, handleOpen, handleSave, handleSaveAs, setCommandPaletteOpen]);
+  }, [closeMenus, handleNew, handleOpen, handleSave, handleSaveAs]);
 
   const isMac = typeof navigator !== 'undefined' && navigator.platform.toUpperCase().includes('MAC');
   const modKey = isMac ? '⌘' : 'Ctrl';
@@ -204,7 +199,7 @@ export const AppHeader: React.FC = () => {
       <div className="app-header-left">
         <div className="app-logo">
           <IconZap size={17} className="app-logo-icon" />
-          <span>Aetherium</span>
+          <span>ORCHESTRATOR_V1</span>
         </div>
 
         <div className="header-menu-root" ref={menuRootRef}>
@@ -303,21 +298,17 @@ export const AppHeader: React.FC = () => {
         )}
       </div>
 
-      <div className="app-header-center">
-        <button
-          type="button"
-          className="header-search-trigger"
-          onClick={() => setCommandPaletteOpen(true)}
-          title={`Quick Search (${modKey}+K)`}
-        >
-          <IconSearch size={14} />
-          <span>Search commands, files, automata...</span>
-          <span className="header-search-shortcut">{modKey}+K</span>
-        </button>
-      </div>
-
       <div className="app-header-right">
         {isSaving && <span className="header-saving-state">Saving...</span>}
+
+        <button type="button" className="btn btn-primary header-build-btn" onClick={() => void handleSave()} disabled={!project || isSaving}>
+          Build
+        </button>
+
+        <button type="button" className="btn btn-secondary header-run-btn" onClick={() => togglePanel('runtime')}>
+          <IconPlay size={13} />
+          Run
+        </button>
 
         <div className={`header-connection-pill ${isConnected ? 'connected' : 'disconnected'}`}>
           <span className={`status-indicator ${isConnected ? 'online' : 'offline'}`} />

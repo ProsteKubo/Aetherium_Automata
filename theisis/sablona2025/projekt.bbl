@@ -63,6 +63,14 @@
   ({S4D})}.
 \newblock IEEE, 2012, p.~1--6.
 
+\bibitem{ErlangProcesses}
+{\sc\bgroup}{Erlang/OTP Documentation}{\egroup}.
+\newblock {\em {Processes --- Erlang System Documentation}} online.
+\newblock 2026.
+\newblock Available at:
+  ~{\small\url{https://www.erlang.org/doc/system/eff_guide_processes.html}}.
+\newblock [cit. 2026-05-13].
+
 \bibitem{ESP32TRM}
 {\sc\bgroup}{Espressif Systems}{\egroup}.
 \newblock {\em {ESP32 Technical Reference Manual}} online.
@@ -90,6 +98,14 @@
 \newblock Available at:
   ~{\small\url{https://www.usenix.org/conference/2006-usenix-annual-technical-conference/replay-debugging-distributed-applications}}.
 \newblock Best Paper Award.
+
+\bibitem{GrafanaDashboards}
+{\sc\bgroup}{Grafana Labs}{\egroup}.
+\newblock {\em {Grafana Documentation: Dashboards}} online.
+\newblock 2026.
+\newblock Available at:
+  ~{\small\url{https://grafana.com/docs/grafana/latest/visualizations/dashboards/}}.
+\newblock [cit. 2026-05-13].
 
 \bibitem{Harel1987}
 {\sc\bgroup}Harel{\egroup}, D.
@@ -124,6 +140,14 @@
 \newblock Available at:
   ~{\small\url{https://doi.org/10.1002/(SICI)1097-024X(199606)26:6<635::AID-SPE26>3.0.CO;2-P}}.
 
+\bibitem{InfluxDB}
+{\sc\bgroup}{InfluxData Inc.}{\egroup}.
+\newblock {\em {Time Series Database Explained}} online.
+\newblock 2026.
+\newblock Available at:
+  ~{\small\url{https://www.influxdata.com/time-series-database/}}.
+\newblock [cit. 2026-05-13].
+
 \bibitem{IEC61499}
 {\sc\bgroup}{International Electrotechnical Commission}{\egroup}.
 \newblock {\em {IEC~61499-1: Function Blocks, Part~1: Architecture, Edition~2}}
@@ -143,6 +167,16 @@
   ~{\small\url{https://www.iec.ch/homepage/prod/other.htm}}.
 \newblock [cit. 2025-05-12].
 \newblock IEC 61131-3 Ed.3.
+
+\bibitem{ISO29119}
+{\sc\bgroup}{ISO/IEC JTC 1/SC 7}{\egroup}.
+\newblock {\em {ISO/IEC/IEEE 29119 Series: Software and Systems Engineering ---
+  Software Testing}} online.
+\newblock 2022.
+\newblock Available at:
+  ~{\small\url{https://committee.iso.org/sites/jtc1sc7/home/projects/flagship-standards/isoiecieee-29119-series.html}}.
+\newblock [cit. 2026-05-13].
+\newblock Software testing standards series.
 
 \bibitem{CMake}
 {\sc\bgroup}{Kitware, Inc.}{\egroup}.
@@ -176,6 +210,14 @@
 \newblock Available at: ~{\small\url{https://react.dev/}}.
 \newblock [cit. 2025-05-11].
 
+\bibitem{TypeScriptHandbook}
+{\sc\bgroup}{Microsoft}{\egroup}.
+\newblock {\em {TypeScript Handbook: The Basics}} online.
+\newblock 2026.
+\newblock Available at:
+  ~{\small\url{https://www.typescriptlang.org/docs/handbook/2/basic-types.html}}.
+\newblock [cit. 2026-05-13].
+
 \bibitem{Morrison1994}
 {\sc\bgroup}Morrison{\egroup}, J.~P.
 \newblock {\em Flow-Based Programming: A New Approach to Application
@@ -198,6 +240,22 @@
 \newblock {\em Scientific Programming}.
 \newblock Hindawi, 2022, vol.~2022, p.~1--17.
 
+\bibitem{NodeREDLibrary}
+{\sc\bgroup}{Node-RED Project}{\egroup}.
+\newblock {\em {Node-RED Library}} online.
+\newblock 2026.
+\newblock Available at: ~{\small\url{https://flows.nodered.org/}}.
+\newblock [cit. 2026-05-13].
+
+\bibitem{NXPFRDMMCXN947}
+{\sc\bgroup}{NXP Semiconductors}{\egroup}.
+\newblock {\em {FRDM Development Board for MCX N94/N54 MCUs}} online.
+\newblock 2026.
+\newblock Available at:
+  ~{\small\url{https://www.nxp.com/design/design-center/development-boards-and-designs/FRDM-MCXN947}}.
+\newblock [cit. 2026-05-13].
+\newblock FRDM-MCXN947 board product page.
+
 \bibitem{MQTT}
 {\sc\bgroup}{OASIS}{\egroup}.
 \newblock {\em {MQTT Version 5.0}} online.
@@ -206,6 +264,25 @@
   ~{\small\url{https://docs.oasis-open.org/mqtt/mqtt/v5.0/mqtt-v5.0.html}}.
 \newblock [cit. 2025-05-12].
 \newblock OASIS Standard.
+
+\bibitem{OCallahan2016RR}
+{\sc\bgroup}O'Callahan{\egroup}, R.; {\sc\bgroup}Jones{\egroup}, C.;
+  {\sc\bgroup}Froyd{\egroup}, N.; {\sc\bgroup}Huey{\egroup}, K.;
+  {\sc\bgroup}Noll{\egroup}, A. et~al.
+\newblock {\em {Lightweight User-Space Record and Replay}} online.
+\newblock 2016.
+\newblock Available at: ~{\small\url{https://arxiv.org/abs/1610.02144}}.
+\newblock [cit. 2026-05-13].
+\newblock ArXiv:1610.02144.
+
+\bibitem{NodeREDJSFoundation}
+{\sc\bgroup}O'Leary{\egroup}, N.
+\newblock {\em {Moving to the JS Foundation}} online.
+\newblock 2016.
+\newblock Available at:
+  ~{\small\url{https://nodered.org/blog/2016/10/17/js-foundation}}.
+\newblock [cit. 2026-05-13].
+\newblock Node-RED project blog.
 
 \bibitem{NodeRED}
 {\sc\bgroup}O'Leary{\egroup}, N. and~{\sc\bgroup}{Conway-Jones}{\egroup}, D.
@@ -265,6 +342,14 @@
 \newblock Available at: ~{\small\url{https://github.com/ThePhD/sol2}}.
 \newblock [cit. 2025-05-11].
 \newblock MIT License.
+
+\bibitem{Tu2012}
+{\sc\bgroup}Tu{\egroup}, Y.; {\sc\bgroup}Li{\egroup}, D.
+  and~{\sc\bgroup}Li{\egroup}, S.
+\newblock Formal Syntax and Semantics of Basic Function Blocks in {IEC} 61499.
+\newblock {\em Proceedings of the Institution of Mechanical Engineers, Part I:
+  Journal of Systems and Control Engineering}, 2012, vol.~226, no.~4,
+  p.~542--555.
 
 \bibitem{Elixir}
 {\sc\bgroup}Valim{\egroup}, J. et~al.

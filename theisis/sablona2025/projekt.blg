@@ -24,21 +24,29 @@ Warning--"{" isn't a brace-balanced string for entry Eclipse4diac
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty editor and organization in Engblom2012
 Warning--empty isbn and issn in Engblom2012
+Warning--"{" isn't a brace-balanced string for entry ErlangProcesses
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry ESP32TRM
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry RFC6455
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty editor and organization in Geels2006
 Warning--empty isbn and issn in Geels2006
+Warning--"{" isn't a brace-balanced string for entry GrafanaDashboards
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Harel1987
 Warning--"{" isn't a brace-balanced string for entry LuaManual54
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry Lua1996
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Lua1996
+Warning--"{" isn't a brace-balanced string for entry InfluxDB
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry IEC61499
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry IEC61131
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry ISO29119
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry CMake
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
@@ -49,11 +57,21 @@ Warning--"{" isn't a brace-balanced string for entry IXWebSocket
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry React
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry TypeScriptHandbook
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Morrison1994
 Warning--empty edition in Murata1989
 Warning--empty edition in Noaman2022
 Warning--empty number in Noaman2022
+Warning--"{" isn't a brace-balanced string for entry NodeREDLibrary
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry NXPFRDMMCXN947
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry MQTT
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry OCallahan2016RR
+while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--"{" isn't a brace-balanced string for entry NodeREDJSFoundation
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry NodeRED
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
@@ -69,50 +87,51 @@ Warning--empty editor and organization in Strasser2008
 Warning--empty isbn and issn in Strasser2008
 Warning--"{" isn't a brace-balanced string for entry Sol2
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
+Warning--empty edition in Tu2012
 Warning--"{" isn't a brace-balanced string for entry Elixir
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--"{" isn't a brace-balanced string for entry YAML122
 while executing--line 3197 of file bib-styles/Pysny/enplain.bst
 Warning--empty edition in Zoitl2017
-You've used 35 entries,
+You've used 45 entries,
             3768 wiz_defined-function locations,
-            1023 strings with 11050 characters,
-and the built_in function-call counts, 15638 in all, are:
-= -- 1298
-> -- 472
-< -- 46
-+ -- 164
-- -- 128
-* -- 891
-:= -- 2003
-add.period$ -- 144
-call.type$ -- 35
-change.case$ -- 269
-chr.to.int$ -- 30
-cite$ -- 52
-duplicate$ -- 935
-empty$ -- 2032
-format.name$ -- 128
-if$ -- 3792
+            1083 strings with 12812 characters,
+and the built_in function-call counts, 19998 in all, are:
+= -- 1660
+> -- 598
+< -- 60
++ -- 207
+- -- 161
+* -- 1123
+:= -- 2540
+add.period$ -- 186
+call.type$ -- 45
+change.case$ -- 348
+chr.to.int$ -- 38
+cite$ -- 63
+duplicate$ -- 1196
+empty$ -- 2613
+format.name$ -- 161
+if$ -- 4871
 int.to.chr$ -- 0
-int.to.str$ -- 35
+int.to.str$ -- 45
 missing$ -- 0
-newline$ -- 254
-num.names$ -- 70
-pop$ -- 451
+newline$ -- 326
+num.names$ -- 90
+pop$ -- 597
 preamble$ -- 1
-purify$ -- 145
+purify$ -- 183
 quote$ -- 0
-skip$ -- 681
+skip$ -- 888
 stack$ -- 0
-substring$ -- 625
-swap$ -- 195
-text.length$ -- 52
+substring$ -- 766
+swap$ -- 253
+text.length$ -- 71
 text.prefix$ -- 0
 top$ -- 0
-type$ -- 71
-warning$ -- 17
-while$ -- 97
-width$ -- 37
-write$ -- 488
-(There were 41 warnings)
+type$ -- 91
+warning$ -- 18
+while$ -- 121
+width$ -- 47
+write$ -- 631
+(There were 51 warnings)

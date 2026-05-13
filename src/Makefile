@@ -13,9 +13,12 @@ BLACK_BOX_SHOWCASE ?= example/automata/showcase/12_black_box/docker_black_box_pr
 empty :=
 space := $(empty) $(empty)
 comma := ,
-AUTO_ESP_PORT ?= $(or $(firstword $(wildcard /dev/cu.usbserial*)), $(firstword $(wildcard /dev/cu.usbmodem*)), /dev/cu.usbserial-0001)
-AUTO_MCXN947_PORT ?= $(or $(firstword $(wildcard /dev/cu.usbmodem*)), /dev/cu.debug-console)
-AUTO_SERIAL_PORTS ?= $(if $(wildcard $(ESP_PORT)),$(ESP_PORT),$(if $(wildcard $(MCXN947_PORT)),$(MCXN947_PORT),))$(if $(and $(wildcard $(ESP_PORT)),$(wildcard $(MCXN947_PORT)),$(filter-out $(ESP_PORT),$(MCXN947_PORT))),$(comma),)$(if $(and $(wildcard $(MCXN947_PORT)),$(filter-out $(ESP_PORT),$(MCXN947_PORT))),$(MCXN947_PORT),)
+AUTO_ESP_PORT ?= $(or $(firstword $(subst $(comma), ,$(AUTO_LINUX_ESP_PORTS))),$(firstword $(wildcard /dev/cu.usbserial*)),$(firstword $(wildcard /dev/cu.usbmodem*)),/dev/cu.usbserial-0001)
+AUTO_MCXN947_PORT ?= $(or $(AUTO_LINUX_MCXN947_PORT),$(firstword $(wildcard /dev/cu.usbmodem*)),/dev/cu.debug-console)
+AUTO_LINUX_ESP_PORTS ?= $(shell if [ -d /dev/serial/by-id ]; then for p in /dev/serial/by-id/*Silicon* /dev/serial/by-id/*CP210* /dev/serial/by-id/*QinHeng* /dev/serial/by-id/*1a86* /dev/serial/by-id/*USB_Single_Serial*; do [ -e "$$p" ] && readlink -f "$$p"; done | awk '!seen[$$0]++' | paste -sd, -; fi)
+AUTO_LINUX_MCXN947_PORT ?= $(shell if [ -d /dev/serial/by-id ]; then for p in /dev/serial/by-id/*NXP* /dev/serial/by-id/*MCU-LINK* /dev/serial/by-id/*CMSIS-DAP*; do [ -e "$$p" ] && readlink -f "$$p"; done | awk '!seen[$$0]++' | head -n 1; fi)
+AUTO_LINUX_SERIAL_PORTS ?= $(AUTO_LINUX_ESP_PORTS)$(if $(and $(AUTO_LINUX_ESP_PORTS),$(AUTO_LINUX_MCXN947_PORT)),$(comma),)$(AUTO_LINUX_MCXN947_PORT)
+AUTO_SERIAL_PORTS ?= $(or $(AUTO_LINUX_SERIAL_PORTS),$(if $(wildcard $(ESP_PORT)),$(ESP_PORT),$(if $(wildcard $(MCXN947_PORT)),$(MCXN947_PORT),))$(if $(and $(wildcard $(ESP_PORT)),$(wildcard $(MCXN947_PORT)),$(filter-out $(ESP_PORT),$(MCXN947_PORT))),$(comma),)$(if $(and $(wildcard $(MCXN947_PORT)),$(filter-out $(ESP_PORT),$(MCXN947_PORT))),$(MCXN947_PORT),))
 
 ARDUINO_CLI ?= arduino-cli
 ESP_PORT ?= $(AUTO_ESP_PORT)
@@ -48,7 +51,7 @@ MCXN947_TARGET ?= mcxn947vdf
 MCXN947_PROBE_UID ?=
 MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
 
-.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
+.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke
 
 help:
 	@echo "Aetherium src dev shortcuts"
@@ -100,6 +103,7 @@ help:
 	@echo ""
 	@echo "Generic Serial Host:"
 	@echo "  make serial-server / make ssrv  - run one host server over one or more serial ports"
+	@echo "  make hardware-server / make hsrv - run host serial server with auto-detected hardware ports"
 	@echo "  make serial-smoke / make ssmoke - generic serial deploy/start/stop smoke"
 	@echo "  make ports / make p             - print resolved ESP/FRDM/serial ports"
 	@echo "  make host-demo / make hdemo     - run host+FRDM+ESP server with auto ports and host runtime"
@@ -246,6 +250,9 @@ ports p:
 
 serial-server ssrv:
 	cd $(SERVER_DIR) && SERVER_ID=$(SERIAL_SERVER_ID) ENABLE_SERIAL_DEVICE_TRANSPORT=1 ENABLE_HOST_RUNTIME_DEVICE=$(ENABLE_HOST_RUNTIME_DEVICE) SERIAL_PORTS="$(SERIAL_PORTS)" SERIAL_BAUD_RATE=$(SERIAL_BAUD_RATE) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix run --no-halt
+
+hardware-server hsrv:
+	$(MAKE) serial-server SERIAL_SERVER_ID=hardware_host SERIAL_PORTS="$(SERIAL_PORTS)"
 
 serial-smoke ssmoke:
 	cd $(SERVER_DIR) && SERVER_ID=$(SERIAL_SERVER_ID) DEVICE_PORT=4100 ENABLE_SERIAL_DEVICE_TRANSPORT=1 ENABLE_HOST_RUNTIME_DEVICE=$(ENABLE_HOST_RUNTIME_DEVICE) SERIAL_PORTS="$(SERIAL_PORTS)" SERIAL_BAUD_RATE=$(SERIAL_BAUD_RATE) GATEWAY_WS_URL=$(ESP_GATEWAY_WS_URL) GATEWAY_AUTH_TOKEN=$(ESP_GATEWAY_AUTH_TOKEN) mix aetherium.serial.smoke --wait-ms 30000 --timeout-ms 20000

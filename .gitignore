@@ -63,3 +63,22 @@ __pycache__/
 *.pyc
 
 src/ide/node_modules/
+
+# Runtime/generated state
+src/**/var/
+src/logs.txt
+
+# Python/pytest generated state
+.pytest_cache/
+
+# LaTeX build intermediates
+theisis/sablona2025/*.aux
+theisis/sablona2025/*.bbl
+theisis/sablona2025/*.blg
+theisis/sablona2025/*.fdb_latexmk
+theisis/sablona2025/*.fls
+theisis/sablona2025/*.lof
+theisis/sablona2025/*.log
+theisis/sablona2025/*.out
+theisis/sablona2025/*.ptc
+theisis/sablona2025/*.toc

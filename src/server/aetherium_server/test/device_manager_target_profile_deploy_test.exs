@@ -6,6 +6,23 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
   alias AetheriumServer.DeviceManager
   alias AetheriumServer.DeviceSessionRef
 
+  test "hello registration sanitizes noisy serial device ids" do
+    raw_device_id = <<"esp32-931744", 0xAE, 0x01, 0x20, "(esp32)">>
+
+    assert {:ok, "esp32-931744-esp32"} =
+             DeviceIngress.route(
+               :hello,
+               %{name: raw_device_id, device_type: 0x02, capabilities: 0},
+               nil,
+               fake_session_ref()
+             )
+
+    assert_receive {:send_binary, _hello_ack}, 500
+    assert {:ok, device} = DeviceManager.get_device("esp32-931744-esp32")
+    assert device.device_type == :esp32
+    assert device.status == :connected
+  end
+
   test "arduino target deploy compiles to aeth_ir_v1 and sends binary load_automata frame" do
     previous = System.get_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
     System.put_env("AETHERIUM_DEPLOY_CHUNK_SIZE", "65535")
@@ -518,7 +535,8 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
       connector_id: "test_connector",
       connector_type: :serial,
       connector_module: AetheriumServer.DeviceConnectors.SerialConnector,
-      session_id: "test_session"
+      session_id: "test_session",
+      endpoint: self()
     }
   end
 end
