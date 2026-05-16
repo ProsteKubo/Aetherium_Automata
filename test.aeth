@@ -1,0 +1,5039 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "test",
+    "version": "0.1.0",
+    "description": "Canonical multi-network showcase for the converged package: state-heavy EFSM orchestration, named channels, black boxes, contention, fault paths, and replay/analyzer value in one desktop-runnable project.",
+    "author": "Aetherium Team",
+    "tags": [
+      "flagship",
+      "efsm",
+      "orchestration",
+      "petri",
+      "analyzer",
+      "black-box",
+      "runtime"
+    ],
+    "created": 1778699463903,
+    "modified": 1778699463903
+  },
+  "networks": [
+    {
+      "id": "network_aetherium_gem",
+      "name": "Aetherium Gem Cell",
+      "description": "Single flagship cell for thesis demos: TDD checkpoints, high state churn, fault-injection controls, replay markers, black-box boundary metadata, and a Petri-liftable shared bus demand.",
+      "rootAutomataIds": [
+        "network_aetherium_gem_01_aetherium_gem_cell"
+      ],
+      "automataIds": [
+        "network_aetherium_gem_01_aetherium_gem_cell"
+      ],
+      "inputs": [
+        "operator_enable",
+        "sensor_ok",
+        "petri_bus_grant",
+        "quality_score",
+        "fault_inject_drop",
+        "fault_inject_delay",
+        "reset_fault"
+      ],
+      "outputs": [
+        "phase",
+        "demand_bus",
+        "heartbeat",
+        "black_box_probe",
+        "tdd_step",
+        "tdd_assertion_passed",
+        "replay_marker",
+        "cycle_count",
+        "fault_latched"
+      ],
+      "relativePath": "networks/aetherium-gem-cell",
+      "color": "#2563eb",
+      "icon": "spark",
+      "isExpanded": true
+    },
+    {
+      "id": "network_signal_chain",
+      "name": "Signal Chain Backbone",
+      "description": "Operator-to-drive backbone. Produces heartbeat, permit, state, and module-status channels that feed other networks.",
+      "rootAutomataIds": [
+        "network_signal_chain_01_petri_command_router",
+        "network_signal_chain_02_petri_safety_gate",
+        "network_signal_chain_03_petri_drive_unit_black_box",
+        "network_signal_chain_04_petri_telemetry_observer"
+      ],
+      "automataIds": [
+        "network_signal_chain_01_petri_command_router",
+        "network_signal_chain_02_petri_safety_gate",
+        "network_signal_chain_03_petri_drive_unit_black_box",
+        "network_signal_chain_04_petri_telemetry_observer"
+      ],
+      "inputs": [
+        "operator_enable",
+        "watchdog_ok",
+        "permit_ok",
+        "alarm_latched",
+        "module_status",
+        "arm_request",
+        "route_state",
+        "heartbeat"
+      ],
+      "outputs": [
+        "arm_request",
+        "heartbeat",
+        "route_state",
+        "demand_charge",
+        "demand_motion",
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state",
+        "module_status",
+        "torque_ready",
+        "dashboard_ready",
+        "telemetry_state"
+      ],
+      "relativePath": "networks/signal-chain-backbone",
+      "color": "#1f6f78",
+      "icon": "network",
+      "isExpanded": true
+    },
+    {
+      "id": "network_guarded_cell",
+      "name": "Guarded Cell Cluster",
+      "description": "State-heavy cell supervision network spanning host and embedded actors. Shares permit and supervisor channels with the backbone.",
+      "rootAutomataIds": [
+        "network_guarded_cell_01_guarded_cell_safety_supervisor",
+        "network_guarded_cell_02_guarded_cell_actuation_controller",
+        "network_guarded_cell_03_guarded_cell_signal_conditioner",
+        "network_guarded_cell_04_esp32_guarded_cell_alarm_beacon",
+        "network_guarded_cell_05_esp32_guarded_cell_primary_actuator",
+        "network_guarded_cell_06_mcxn947_guarded_cell_leader"
+      ],
+      "automataIds": [
+        "network_guarded_cell_01_guarded_cell_safety_supervisor",
+        "network_guarded_cell_02_guarded_cell_actuation_controller",
+        "network_guarded_cell_03_guarded_cell_signal_conditioner",
+        "network_guarded_cell_04_esp32_guarded_cell_alarm_beacon",
+        "network_guarded_cell_05_esp32_guarded_cell_primary_actuator",
+        "network_guarded_cell_06_mcxn947_guarded_cell_leader"
+      ],
+      "inputs": [
+        "request_ok",
+        "permit_ok",
+        "inhibit",
+        "request_raw",
+        "permit_raw",
+        "supervisor_alarm",
+        "actuate_cmd"
+      ],
+      "outputs": [
+        "inhibit",
+        "supervisor_alarm",
+        "supervisor_state",
+        "fault_count",
+        "actuate_cmd",
+        "controller_blocked",
+        "controller_state",
+        "cycle_count",
+        "request_ok",
+        "permit_ok",
+        "conditioner_state",
+        "pulse_count",
+        "alarm_active",
+        "primary_active",
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "relativePath": "networks/guarded-cell-cluster",
+      "color": "#7c3aed",
+      "icon": "shield",
+      "isExpanded": true
+    },
+    {
+      "id": "network_power_contention",
+      "name": "Power Contention Ring",
+      "description": "Three cooperating automata competing for a latency-sensitive dc_bus so the analyzer and Petri views have real bottlenecks to surface.",
+      "rootAutomataIds": [
+        "network_power_contention_01_petri_power_allocator",
+        "network_power_contention_02_petri_charger_node",
+        "network_power_contention_03_petri_motion_axis"
+      ],
+      "automataIds": [
+        "network_power_contention_01_petri_power_allocator",
+        "network_power_contention_02_petri_charger_node",
+        "network_power_contention_03_petri_motion_axis"
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion",
+        "route_state",
+        "charge_enable",
+        "drive_enable"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state",
+        "bus_owner",
+        "charger_state",
+        "charge_cycles",
+        "axis_state",
+        "move_cycles"
+      ],
+      "relativePath": "networks/power-contention-ring",
+      "color": "#c84c09",
+      "icon": "analysis",
+      "isExpanded": true
+    },
+    {
+      "id": "network_resilience_watchdog",
+      "name": "Resilience Watchdog",
+      "description": "Consumes heartbeat traffic from the backbone and turns missing liveness into explicit recovery and fault states for replay workflows.",
+      "rootAutomataIds": [
+        "network_resilience_watchdog_01_sensor_watchdog_recovery"
+      ],
+      "automataIds": [
+        "network_resilience_watchdog_01_sensor_watchdog_recovery"
+      ],
+      "inputs": [
+        "heartbeat",
+        "manual_reset",
+        "max_retries"
+      ],
+      "outputs": [
+        "retry_count",
+        "watchdog_ok",
+        "fault",
+        "watchdog_state"
+      ],
+      "relativePath": "networks/resilience-watchdog",
+      "color": "#0f766e",
+      "icon": "pulse",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_aetherium_gem_01_aetherium_gem_cell": {
+      "id": "network_aetherium_gem_01_aetherium_gem_cell",
+      "version": "0.0.1",
+      "config": {
+        "name": "Aetherium Gem Cell",
+        "type": "inline",
+        "language": "lua",
+        "description": "State-heavy flagship cell that exercises TDD checkpoints, fault injection, replay markers, black-box boundaries, and Petri-liftable shared-resource demand.",
+        "tags": [
+          "showcase",
+          "flagship",
+          "gem",
+          "tdd",
+          "fault-injection",
+          "petri",
+          "time-travel"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"boot\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"black_box_probe\", false)\nsetVal(\"tdd_step\", 0)\nsetVal(\"tdd_assertion_passed\", false)\nsetVal(\"replay_marker\", \"boot\")\nsetVal(\"fault_latched\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "SelfTestArrange": {
+          "id": "SelfTestArrange",
+          "name": "SelfTestArrange",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_arrange\")\nsetVal(\"tdd_step\", 1)\nsetVal(\"replay_marker\", \"arrange\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "SelfTestAct": {
+          "id": "SelfTestAct",
+          "name": "SelfTestAct",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_act\")\nsetVal(\"tdd_step\", 2)\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "SelfTestAssert": {
+          "id": "SelfTestAssert",
+          "name": "SelfTestAssert",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_assert\")\nsetVal(\"tdd_step\", 3)\nsetVal(\"tdd_assertion_passed\", value(\"sensor_ok\") == true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"idle\")\nsetVal(\"demand_bus\", false)\nsetVal(\"black_box_probe\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"replay_marker\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "RequestBus": {
+          "id": "RequestBus",
+          "name": "RequestBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"request_bus\")\nsetVal(\"demand_bus\", true)\nsetVal(\"heartbeat\", true)\nsetVal(\"black_box_probe\", true)\nsetVal(\"replay_marker\", \"bus_requested\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "AwaitGrant": {
+          "id": "AwaitGrant",
+          "name": "AwaitGrant",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"await_grant\")\nsetVal(\"demand_bus\", true)\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        },
+        "AcquireBus": {
+          "id": "AcquireBus",
+          "name": "AcquireBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"acquire_bus\")\nsetVal(\"demand_bus\", true)\nsetVal(\"cycle_count\", value(\"cycle_count\") + 1)\nsetVal(\"replay_marker\", \"cycle_\" .. tostring(value(\"cycle_count\")))\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 240
+          }
+        },
+        "ProcessAlpha": {
+          "id": "ProcessAlpha",
+          "name": "ProcessAlpha",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"process_alpha\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 400
+          }
+        },
+        "ProcessBeta": {
+          "id": "ProcessBeta",
+          "name": "ProcessBeta",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"process_beta\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 400
+          }
+        },
+        "DelayCompensation": {
+          "id": "DelayCompensation",
+          "name": "DelayCompensation",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"delay_compensation\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 400
+          }
+        },
+        "QualityGate": {
+          "id": "QualityGate",
+          "name": "QualityGate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"quality_gate\")\nsetVal(\"black_box_probe\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 400
+          }
+        },
+        "NominalCommit": {
+          "id": "NominalCommit",
+          "name": "NominalCommit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"nominal_commit\")\nsetVal(\"replay_marker\", \"commit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 560
+          }
+        },
+        "MinorRework": {
+          "id": "MinorRework",
+          "name": "MinorRework",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"minor_rework\")\nsetVal(\"replay_marker\", \"rework\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 560
+          }
+        },
+        "FaultInjected": {
+          "id": "FaultInjected",
+          "name": "FaultInjected",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"fault_injected\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"fault_latched\", true)\nsetVal(\"replay_marker\", \"fault_injected\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 560
+          }
+        },
+        "Isolate": {
+          "id": "Isolate",
+          "name": "Isolate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"isolate\")\nsetVal(\"demand_bus\", false)\nsetVal(\"black_box_probe\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 560
+          }
+        },
+        "ReplayCheckpoint": {
+          "id": "ReplayCheckpoint",
+          "name": "ReplayCheckpoint",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"replay_checkpoint\")\nsetVal(\"replay_marker\", \"checkpoint\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 720
+          }
+        },
+        "ReleaseBus": {
+          "id": "ReleaseBus",
+          "name": "ReleaseBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"release_bus\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 720
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"done\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 720
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_arrange": {
+          "id": "boot_to_arrange",
+          "name": "boot_to_arrange",
+          "from": "Boot",
+          "to": "SelfTestArrange",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 100,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "arrange_to_act": {
+          "id": "arrange_to_act",
+          "name": "arrange_to_act",
+          "from": "SelfTestArrange",
+          "to": "SelfTestAct",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "act_to_assert": {
+          "id": "act_to_assert",
+          "name": "act_to_assert",
+          "from": "SelfTestAct",
+          "to": "SelfTestAssert",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 100,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "assert_to_idle": {
+          "id": "assert_to_idle",
+          "name": "assert_to_idle",
+          "from": "SelfTestAssert",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"tdd_assertion_passed\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "assert_to_fault": {
+          "id": "assert_to_fault",
+          "name": "assert_to_fault",
+          "from": "SelfTestAssert",
+          "to": "FaultInjected",
+          "type": "classic",
+          "condition": "value(\"tdd_assertion_passed\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_request": {
+          "id": "idle_to_request",
+          "name": "idle_to_request",
+          "from": "Idle",
+          "to": "RequestBus",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "operator_enable",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "request_fault_drop": {
+          "id": "request_fault_drop",
+          "name": "request_fault_drop",
+          "from": "RequestBus",
+          "to": "FaultInjected",
+          "type": "classic",
+          "condition": "value(\"fault_inject_drop\") == true or value(\"sensor_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "request_to_await": {
+          "id": "request_to_await",
+          "name": "request_to_await",
+          "from": "RequestBus",
+          "to": "AwaitGrant",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 120,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "await_to_acquire": {
+          "id": "await_to_acquire",
+          "name": "await_to_acquire",
+          "from": "AwaitGrant",
+          "to": "AcquireBus",
+          "type": "classic",
+          "condition": "value(\"petri_bus_grant\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "await_timeout_to_fault": {
+          "id": "await_timeout_to_fault",
+          "name": "await_timeout_to_fault",
+          "from": "AwaitGrant",
+          "to": "FaultInjected",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "acquire_to_alpha": {
+          "id": "acquire_to_alpha",
+          "name": "acquire_to_alpha",
+          "from": "AcquireBus",
+          "to": "ProcessAlpha",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 60,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 60
+          }
+        },
+        "acquire_to_beta": {
+          "id": "acquire_to_beta",
+          "name": "acquire_to_beta",
+          "from": "AcquireBus",
+          "to": "ProcessBeta",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 40,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 40
+          }
+        },
+        "alpha_delay_fault": {
+          "id": "alpha_delay_fault",
+          "name": "alpha_delay_fault",
+          "from": "ProcessAlpha",
+          "to": "DelayCompensation",
+          "type": "classic",
+          "condition": "value(\"fault_inject_delay\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alpha_to_quality": {
+          "id": "alpha_to_quality",
+          "name": "alpha_to_quality",
+          "from": "ProcessAlpha",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "beta_delay_fault": {
+          "id": "beta_delay_fault",
+          "name": "beta_delay_fault",
+          "from": "ProcessBeta",
+          "to": "DelayCompensation",
+          "type": "classic",
+          "condition": "value(\"fault_inject_delay\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "beta_to_quality": {
+          "id": "beta_to_quality",
+          "name": "beta_to_quality",
+          "from": "ProcessBeta",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 260,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "delay_to_quality": {
+          "id": "delay_to_quality",
+          "name": "delay_to_quality",
+          "from": "DelayCompensation",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "quality_to_commit": {
+          "id": "quality_to_commit",
+          "name": "quality_to_commit",
+          "from": "QualityGate",
+          "to": "NominalCommit",
+          "type": "classic",
+          "condition": "value(\"quality_score\") >= 70",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "quality_to_rework": {
+          "id": "quality_to_rework",
+          "name": "quality_to_rework",
+          "from": "QualityGate",
+          "to": "MinorRework",
+          "type": "classic",
+          "condition": "value(\"quality_score\") < 70",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "rework_to_request": {
+          "id": "rework_to_request",
+          "name": "rework_to_request",
+          "from": "MinorRework",
+          "to": "RequestBus",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "commit_to_checkpoint": {
+          "id": "commit_to_checkpoint",
+          "name": "commit_to_checkpoint",
+          "from": "NominalCommit",
+          "to": "ReplayCheckpoint",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "checkpoint_to_release": {
+          "id": "checkpoint_to_release",
+          "name": "checkpoint_to_release",
+          "from": "ReplayCheckpoint",
+          "to": "ReleaseBus",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "release_continue": {
+          "id": "release_continue",
+          "name": "release_continue",
+          "from": "ReleaseBus",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true and value(\"cycle_count\") < 4",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_done": {
+          "id": "release_done",
+          "name": "release_done",
+          "from": "ReleaseBus",
+          "to": "Done",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false or value(\"cycle_count\") >= 4",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "fault_to_isolate": {
+          "id": "fault_to_isolate",
+          "name": "fault_to_isolate",
+          "from": "FaultInjected",
+          "to": "Isolate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "isolate_to_boot": {
+          "id": "isolate_to_boot",
+          "name": "isolate_to_boot",
+          "from": "Isolate",
+          "to": "Boot",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "reset_fault",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "operator_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "sensor_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "petri_bus_grant",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "quality_score",
+          "type": "int",
+          "direction": "input",
+          "default": 82
+        },
+        {
+          "name": "fault_inject_drop",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault_inject_delay",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "reset_fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        },
+        {
+          "name": "demand_bus",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "black_box_probe",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "tdd_step",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "tdd_assertion_passed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "replay_marker",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "fault_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "operator_enable",
+        "sensor_ok",
+        "petri_bus_grant",
+        "quality_score",
+        "fault_inject_drop",
+        "fault_inject_delay",
+        "reset_fault"
+      ],
+      "outputs": [
+        "phase",
+        "demand_bus",
+        "heartbeat",
+        "black_box_probe",
+        "tdd_step",
+        "tdd_assertion_passed",
+        "replay_marker",
+        "cycle_count",
+        "fault_latched"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "operator_enable",
+            "direction": "input",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true
+          },
+          {
+            "name": "fault_inject_drop",
+            "direction": "input",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true
+          },
+          {
+            "name": "demand_bus",
+            "direction": "output",
+            "type": "bool",
+            "observable": true
+          },
+          {
+            "name": "phase",
+            "direction": "output",
+            "type": "string",
+            "observable": true
+          },
+          {
+            "name": "fault_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "RequestBus",
+          "ProcessAlpha",
+          "ProcessBeta",
+          "FaultInjected",
+          "ReplayCheckpoint"
+        ],
+        "emittedEvents": [
+          "tdd_assertion_passed",
+          "fault_latched",
+          "replay_checkpoint"
+        ],
+        "resources": [
+          {
+            "name": "gem_workcell_bus",
+            "kind": "shared-control-channel",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_signal_chain_01_petri_command_router": {
+      "id": "network_signal_chain_01_petri_command_router",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Command Router",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship backbone orchestrator that stages operator intent into reviewed, synchronized, streaming, shed-load, and isolated runtime phases.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [
+            "operator_enable"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"standby\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "CommandReview": {
+          "id": "CommandReview",
+          "name": "CommandReview",
+          "inputs": [
+            "operator_enable",
+            "watchdog_ok",
+            "alarm_latched"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"command_review\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "BackboneSync": {
+          "id": "BackboneSync",
+          "name": "BackboneSync",
+          "inputs": [
+            "permit_ok",
+            "watchdog_ok"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", true)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"backbone_sync\")\nsetVal(\"demand_charge\", true)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "PermitStreaming": {
+          "id": "PermitStreaming",
+          "name": "PermitStreaming",
+          "inputs": [
+            "permit_ok",
+            "module_status"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", true)\nsetVal(\"heartbeat\", true)\nsetVal(\"route_state\", \"permit_streaming\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "LoadShedding": {
+          "id": "LoadShedding",
+          "name": "LoadShedding",
+          "inputs": [
+            "permit_ok",
+            "operator_enable"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", true)\nsetVal(\"heartbeat\", true)\nsetVal(\"route_state\", \"load_shedding\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "DegradedWatch": {
+          "id": "DegradedWatch",
+          "name": "DegradedWatch",
+          "inputs": [
+            "watchdog_ok",
+            "alarm_latched"
+          ],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", true)\nsetVal(\"route_state\", \"degraded_watch\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "FaultIsolated": {
+          "id": "FaultIsolated",
+          "name": "FaultIsolated",
+          "inputs": [],
+          "outputs": [
+            "arm_request",
+            "heartbeat",
+            "route_state",
+            "demand_charge",
+            "demand_motion"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"arm_request\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"route_state\", \"fault_isolated\")\nsetVal(\"demand_charge\", false)\nsetVal(\"demand_motion\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "standby_to_review": {
+          "id": "standby_to_review",
+          "name": "standby_to_review",
+          "from": "Standby",
+          "to": "CommandReview",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "review_to_sync": {
+          "id": "review_to_sync",
+          "name": "review_to_sync",
+          "from": "CommandReview",
+          "to": "BackboneSync",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true and value(\"watchdog_ok\") == true and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "review_to_fault": {
+          "id": "review_to_fault",
+          "name": "review_to_fault",
+          "from": "CommandReview",
+          "to": "FaultIsolated",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "review_timeout_to_fault": {
+          "id": "review_timeout_to_fault",
+          "name": "review_timeout_to_fault",
+          "from": "CommandReview",
+          "to": "FaultIsolated",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "sync_to_streaming": {
+          "id": "sync_to_streaming",
+          "name": "sync_to_streaming",
+          "from": "BackboneSync",
+          "to": "PermitStreaming",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true and value(\"module_status\") != \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "sync_to_load_shedding": {
+          "id": "sync_to_load_shedding",
+          "name": "sync_to_load_shedding",
+          "from": "BackboneSync",
+          "to": "LoadShedding",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false and value(\"operator_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "sync_to_fault": {
+          "id": "sync_to_fault",
+          "name": "sync_to_fault",
+          "from": "BackboneSync",
+          "to": "FaultIsolated",
+          "type": "classic",
+          "condition": "value(\"watchdog_ok\") == false or value(\"alarm_latched\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "streaming_to_load_shedding": {
+          "id": "streaming_to_load_shedding",
+          "name": "streaming_to_load_shedding",
+          "from": "PermitStreaming",
+          "to": "LoadShedding",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false or value(\"module_status\") == \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "streaming_to_degraded": {
+          "id": "streaming_to_degraded",
+          "name": "streaming_to_degraded",
+          "from": "PermitStreaming",
+          "to": "DegradedWatch",
+          "type": "classic",
+          "condition": "value(\"watchdog_ok\") == false and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "load_shedding_to_sync": {
+          "id": "load_shedding_to_sync",
+          "name": "load_shedding_to_sync",
+          "from": "LoadShedding",
+          "to": "BackboneSync",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true and value(\"permit_ok\") == true and value(\"watchdog_ok\") == true and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "load_shedding_to_standby": {
+          "id": "load_shedding_to_standby",
+          "name": "load_shedding_to_standby",
+          "from": "LoadShedding",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "degraded_to_review": {
+          "id": "degraded_to_review",
+          "name": "degraded_to_review",
+          "from": "DegradedWatch",
+          "to": "CommandReview",
+          "type": "classic",
+          "condition": "value(\"watchdog_ok\") == true and value(\"alarm_latched\") == false and value(\"operator_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "degraded_to_fault": {
+          "id": "degraded_to_fault",
+          "name": "degraded_to_fault",
+          "from": "DegradedWatch",
+          "to": "FaultIsolated",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "fault_to_standby": {
+          "id": "fault_to_standby",
+          "name": "fault_to_standby",
+          "from": "FaultIsolated",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false and value(\"watchdog_ok\") == true and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "operator_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "watchdog_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        },
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        },
+        {
+          "name": "demand_charge",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "demand_motion",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "operator_enable",
+        "watchdog_ok",
+        "permit_ok",
+        "alarm_latched",
+        "module_status"
+      ],
+      "outputs": [
+        "arm_request",
+        "heartbeat",
+        "route_state",
+        "demand_charge",
+        "demand_motion"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_signal_chain_02_petri_safety_gate": {
+      "id": "network_signal_chain_02_petri_safety_gate",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Safety Gate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship signal-chain safety gate that reviews route phases before granting permit to the downstream drive unit.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "safety",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Inhibit",
+      "states": {
+        "Inhibit": {
+          "id": "Inhibit",
+          "name": "Inhibit",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"reserved\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"inhibit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "VotePending": {
+          "id": "VotePending",
+          "name": "VotePending",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"voting\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"vote_pending\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Permit": {
+          "id": "Permit",
+          "name": "Permit",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"passing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", true)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "InterlockHold": {
+          "id": "InterlockHold",
+          "name": "InterlockHold",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"holding\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"interlock_hold\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"tripped\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", true)\nsetVal(\"supervisor_state\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "inhibit_to_vote_pending": {
+          "id": "inhibit_to_vote_pending",
+          "name": "inhibit_to_vote_pending",
+          "from": "Inhibit",
+          "to": "VotePending",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true and value(\"route_state\") != \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "vote_to_permit": {
+          "id": "vote_to_permit",
+          "name": "vote_to_permit",
+          "from": "VotePending",
+          "to": "Permit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "vote_to_alarm": {
+          "id": "vote_to_alarm",
+          "name": "vote_to_alarm",
+          "from": "VotePending",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"degraded_watch\" or value(\"route_state\") == \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "permit_to_interlock": {
+          "id": "permit_to_interlock",
+          "name": "permit_to_interlock",
+          "from": "Permit",
+          "to": "InterlockHold",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false or value(\"route_state\") == \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "permit_to_alarm": {
+          "id": "permit_to_alarm",
+          "name": "permit_to_alarm",
+          "from": "Permit",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "interlock_to_vote": {
+          "id": "interlock_to_vote",
+          "name": "interlock_to_vote",
+          "from": "InterlockHold",
+          "to": "VotePending",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true and value(\"route_state\") == \"backbone_sync\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "interlock_to_inhibit": {
+          "id": "interlock_to_inhibit",
+          "name": "interlock_to_inhibit",
+          "from": "InterlockHold",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "alarm_to_inhibit": {
+          "id": "alarm_to_inhibit",
+          "name": "alarm_to_inhibit",
+          "from": "Alarm",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false and value(\"route_state\") == \"standby\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "input",
+          "default": "standby"
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "inhibit"
+        }
+      ],
+      "inputs": [
+        "arm_request",
+        "route_state"
+      ],
+      "outputs": [
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm_request",
+            "direction": "input",
+            "type": "bool",
+            "description": "Routed arm request from the operator side"
+          },
+          {
+            "name": "route_state",
+            "direction": "input",
+            "type": "string",
+            "description": "Backbone route phase used during safety voting"
+          },
+          {
+            "name": "permit_ok",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Safety permission for the drive unit"
+          },
+          {
+            "name": "alarm_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Alarm path consumed by telemetry"
+          }
+        ],
+        "observableStates": [
+          "Inhibit",
+          "VotePending",
+          "Permit",
+          "InterlockHold",
+          "Alarm"
+        ],
+        "emittedEvents": [
+          "supervisor_alarm"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_signal_chain_03_petri_drive_unit_black_box": {
+      "id": "network_signal_chain_03_petri_drive_unit_black_box",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Drive Unit Black Box",
+        "type": "inline",
+        "language": "lua",
+        "description": "Black-box drive node that consumes permit signals and shares bus/battery resources.",
+        "tags": [
+          "showcase",
+          "petri",
+          "black-box",
+          "signal-chain"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [
+            "permit_ok"
+          ],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"idle\"\nlocal battery_pack = \"float\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"idle\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Ready": {
+          "id": "Ready",
+          "name": "Ready",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"active\"\nlocal battery_pack = \"load\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"ready\")\nsetVal(\"torque_ready\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [
+            "module_status",
+            "torque_ready"
+          ],
+          "variables": [],
+          "code": "local battery_pack = \"recover\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"module_status\", \"cooldown\")\nsetVal(\"torque_ready\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "permit_to_ready": {
+          "id": "permit_to_ready",
+          "name": "permit_to_ready",
+          "from": "Idle",
+          "to": "Ready",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_to_cooldown": {
+          "id": "release_to_cooldown",
+          "name": "release_to_cooldown",
+          "from": "Ready",
+          "to": "Cooldown",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_idle": {
+          "id": "cooldown_to_idle",
+          "name": "cooldown_to_idle",
+          "from": "Cooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "torque_ready",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "permit_ok"
+      ],
+      "outputs": [
+        "module_status",
+        "torque_ready"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "permit_ok",
+            "direction": "input",
+            "type": "bool",
+            "description": "Safety permit entering the sealed drive unit"
+          },
+          {
+            "name": "module_status",
+            "direction": "output",
+            "type": "string",
+            "observable": true,
+            "description": "Public black-box state channel"
+          },
+          {
+            "name": "torque_ready",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Public actuator readiness"
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "Ready",
+          "Cooldown"
+        ],
+        "emittedEvents": [
+          "torque_lost"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          },
+          {
+            "name": "battery_pack",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": false,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_signal_chain_04_petri_telemetry_observer": {
+      "id": "network_signal_chain_04_petri_telemetry_observer",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Telemetry Observer",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship telemetry node that turns the live backbone into quiet, syncing, streaming, replay, and alarm-centric observation phases.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "telemetry",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Quiet",
+      "states": {
+        "Quiet": {
+          "id": "Quiet",
+          "name": "Quiet",
+          "inputs": [
+            "heartbeat",
+            "module_status",
+            "alarm_latched",
+            "route_state"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"listening\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", false)\nsetVal(\"telemetry_state\", \"quiet\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Syncing": {
+          "id": "Syncing",
+          "name": "Syncing",
+          "inputs": [
+            "heartbeat",
+            "route_state"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"syncing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", \"syncing\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Streaming": {
+          "id": "Streaming",
+          "name": "Streaming",
+          "inputs": [
+            "heartbeat",
+            "module_status",
+            "route_state"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"streaming\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", value(\"module_status\"))\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "ReplayPinned": {
+          "id": "ReplayPinned",
+          "name": "ReplayPinned",
+          "inputs": [
+            "heartbeat",
+            "module_status",
+            "route_state"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", \"replay_pinned\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "AlarmDigest": {
+          "id": "AlarmDigest",
+          "name": "AlarmDigest",
+          "inputs": [
+            "alarm_latched"
+          ],
+          "outputs": [
+            "dashboard_ready",
+            "telemetry_state"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dashboard_ready\", true)\nsetVal(\"telemetry_state\", \"alarm_digest\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "quiet_to_syncing": {
+          "id": "quiet_to_syncing",
+          "name": "quiet_to_syncing",
+          "from": "Quiet",
+          "to": "Syncing",
+          "type": "classic",
+          "condition": "value(\"heartbeat\") == true and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "syncing_to_streaming": {
+          "id": "syncing_to_streaming",
+          "name": "syncing_to_streaming",
+          "from": "Syncing",
+          "to": "Streaming",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"permit_streaming\" or value(\"module_status\") != \"idle\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "syncing_to_replay": {
+          "id": "syncing_to_replay",
+          "name": "syncing_to_replay",
+          "from": "Syncing",
+          "to": "ReplayPinned",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "streaming_to_alarm": {
+          "id": "streaming_to_alarm",
+          "name": "streaming_to_alarm",
+          "from": "Streaming",
+          "to": "AlarmDigest",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "streaming_to_replay": {
+          "id": "streaming_to_replay",
+          "name": "streaming_to_replay",
+          "from": "Streaming",
+          "to": "ReplayPinned",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"load_shedding\" or value(\"module_status\") == \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "replay_to_streaming": {
+          "id": "replay_to_streaming",
+          "name": "replay_to_streaming",
+          "from": "ReplayPinned",
+          "to": "Streaming",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == false and value(\"heartbeat\") == true and value(\"route_state\") == \"permit_streaming\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "replay_to_quiet": {
+          "id": "replay_to_quiet",
+          "name": "replay_to_quiet",
+          "from": "ReplayPinned",
+          "to": "Quiet",
+          "type": "classic",
+          "condition": "value(\"heartbeat\") == false and value(\"alarm_latched\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "alarm_to_replay": {
+          "id": "alarm_to_replay",
+          "name": "alarm_to_replay",
+          "from": "AlarmDigest",
+          "to": "ReplayPinned",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == false and value(\"heartbeat\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarm_to_quiet": {
+          "id": "alarm_to_quiet",
+          "name": "alarm_to_quiet",
+          "from": "AlarmDigest",
+          "to": "Quiet",
+          "type": "classic",
+          "condition": "value(\"alarm_latched\") == false and value(\"heartbeat\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "module_status",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "input",
+          "default": "standby"
+        },
+        {
+          "name": "dashboard_ready",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "telemetry_state",
+          "type": "string",
+          "direction": "output",
+          "default": "quiet"
+        }
+      ],
+      "inputs": [
+        "heartbeat",
+        "module_status",
+        "alarm_latched",
+        "route_state"
+      ],
+      "outputs": [
+        "dashboard_ready",
+        "telemetry_state"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_01_guarded_cell_safety_supervisor": {
+      "id": "network_guarded_cell_01_guarded_cell_safety_supervisor",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Safety Supervisor",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship guarded-cell supervisor that stages the cell through cold start, permit review, live operation, violation hold, and recovery audit states.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "supervisor",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "ColdStart",
+      "states": {
+        "ColdStart": {
+          "id": "ColdStart",
+          "name": "ColdStart",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"cold_start\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "AwaitPermit": {
+          "id": "AwaitPermit",
+          "name": "AwaitPermit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"await_permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "ArmingReview": {
+          "id": "ArmingReview",
+          "name": "ArmingReview",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"arming_review\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "LivePermit": {
+          "id": "LivePermit",
+          "name": "LivePermit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", false)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"live_permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "ViolationHold": {
+          "id": "ViolationHold",
+          "name": "ViolationHold",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"violation_hold\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "AlarmLatched": {
+          "id": "AlarmLatched",
+          "name": "AlarmLatched",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", true)\nsetVal(\"supervisor_state\", \"alarm_latched\")\nsetVal(\"fault_count\", value(\"fault_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "RecoveryAudit": {
+          "id": "RecoveryAudit",
+          "name": "RecoveryAudit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"recovery_audit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "cold_start_to_await": {
+          "id": "cold_start_to_await",
+          "name": "cold_start_to_await",
+          "from": "ColdStart",
+          "to": "AwaitPermit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "await_to_arming": {
+          "id": "await_to_arming",
+          "name": "await_to_arming",
+          "from": "AwaitPermit",
+          "to": "ArmingReview",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true and value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "await_to_alarm": {
+          "id": "await_to_alarm",
+          "name": "await_to_alarm",
+          "from": "AwaitPermit",
+          "to": "AlarmLatched",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false and value(\"request_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "arming_to_live": {
+          "id": "arming_to_live",
+          "name": "arming_to_live",
+          "from": "ArmingReview",
+          "to": "LivePermit",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true and value(\"request_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "arming_to_await": {
+          "id": "arming_to_await",
+          "name": "arming_to_await",
+          "from": "ArmingReview",
+          "to": "AwaitPermit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "live_to_violation": {
+          "id": "live_to_violation",
+          "name": "live_to_violation",
+          "from": "LivePermit",
+          "to": "ViolationHold",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false or value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "violation_to_alarm": {
+          "id": "violation_to_alarm",
+          "name": "violation_to_alarm",
+          "from": "ViolationHold",
+          "to": "AlarmLatched",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "violation_to_recovery": {
+          "id": "violation_to_recovery",
+          "name": "violation_to_recovery",
+          "from": "ViolationHold",
+          "to": "RecoveryAudit",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false and value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarm_to_recovery": {
+          "id": "alarm_to_recovery",
+          "name": "alarm_to_recovery",
+          "from": "AlarmLatched",
+          "to": "RecoveryAudit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false and value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "recovery_to_await": {
+          "id": "recovery_to_await",
+          "name": "recovery_to_await",
+          "from": "RecoveryAudit",
+          "to": "AwaitPermit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recovery_to_live": {
+          "id": "recovery_to_live",
+          "name": "recovery_to_live",
+          "from": "RecoveryAudit",
+          "to": "LivePermit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "inhibit",
+          "type": "bool",
+          "direction": "output",
+          "default": true
+        },
+        {
+          "name": "supervisor_alarm",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "cold_start"
+        },
+        {
+          "name": "fault_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_ok",
+        "permit_ok"
+      ],
+      "outputs": [
+        "inhibit",
+        "supervisor_alarm",
+        "supervisor_state",
+        "fault_count"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_02_guarded_cell_actuation_controller": {
+      "id": "network_guarded_cell_02_guarded_cell_actuation_controller",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Actuation Controller",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that turns normalized guarded-cell requests into bounded actuation cycles unless the supervisor inhibits them.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "controller"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", false)\nsetVal(\"controller_blocked\", false)\nsetVal(\"controller_state\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Actuate": {
+          "id": "Actuate",
+          "name": "Actuate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", true)\nsetVal(\"controller_blocked\", false)\nsetVal(\"controller_state\", \"actuate\")\nsetVal(\"cycle_count\", value(\"cycle_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Blocked": {
+          "id": "Blocked",
+          "name": "Blocked",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", false)\nsetVal(\"controller_blocked\", true)\nsetVal(\"controller_state\", \"blocked\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_actuate": {
+          "id": "idle_to_actuate",
+          "name": "idle_to_actuate",
+          "from": "Idle",
+          "to": "Actuate",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "idle_to_blocked": {
+          "id": "idle_to_blocked",
+          "name": "idle_to_blocked",
+          "from": "Idle",
+          "to": "Blocked",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "actuate_to_blocked": {
+          "id": "actuate_to_blocked",
+          "name": "actuate_to_blocked",
+          "from": "Actuate",
+          "to": "Blocked",
+          "type": "classic",
+          "condition": "value(\"inhibit\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "actuate_to_idle": {
+          "id": "actuate_to_idle",
+          "name": "actuate_to_idle",
+          "from": "Actuate",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "blocked_to_idle": {
+          "id": "blocked_to_idle",
+          "name": "blocked_to_idle",
+          "from": "Blocked",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "blocked_to_actuate": {
+          "id": "blocked_to_actuate",
+          "name": "blocked_to_actuate",
+          "from": "Blocked",
+          "to": "Actuate",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "inhibit",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "actuate_cmd",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_blocked",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_ok",
+        "inhibit"
+      ],
+      "outputs": [
+        "actuate_cmd",
+        "controller_blocked",
+        "controller_state",
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_03_guarded_cell_signal_conditioner": {
+      "id": "network_guarded_cell_03_guarded_cell_signal_conditioner",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Signal Conditioner",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that converts raw MCXN947 request and permit signals into normalized guarded-cell control signals.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "conditioning"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", false)\nsetVal(\"permit_ok\", false)\nsetVal(\"conditioner_state\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Ready": {
+          "id": "Ready",
+          "name": "Ready",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", false)\nsetVal(\"permit_ok\", true)\nsetVal(\"conditioner_state\", \"ready\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Pulse": {
+          "id": "Pulse",
+          "name": "Pulse",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", true)\nsetVal(\"permit_ok\", true)\nsetVal(\"conditioner_state\", \"pulse\")\nsetVal(\"pulse_count\", value(\"pulse_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_ready": {
+          "id": "idle_to_ready",
+          "name": "idle_to_ready",
+          "from": "Idle",
+          "to": "Ready",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "ready_to_idle": {
+          "id": "ready_to_idle",
+          "name": "ready_to_idle",
+          "from": "Ready",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "ready_to_pulse": {
+          "id": "ready_to_pulse",
+          "name": "ready_to_pulse",
+          "from": "Ready",
+          "to": "Pulse",
+          "type": "classic",
+          "condition": "value(\"request_raw\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "pulse_to_idle": {
+          "id": "pulse_to_idle",
+          "name": "pulse_to_idle",
+          "from": "Pulse",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "pulse_to_ready": {
+          "id": "pulse_to_ready",
+          "name": "pulse_to_ready",
+          "from": "Pulse",
+          "to": "Ready",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "request_raw",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_raw",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "conditioner_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "pulse_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_raw",
+        "permit_raw"
+      ],
+      "outputs": [
+        "request_ok",
+        "permit_ok",
+        "conditioner_state",
+        "pulse_count"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_04_esp32_guarded_cell_alarm_beacon": {
+      "id": "network_guarded_cell_04_esp32_guarded_cell_alarm_beacon",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Guarded Cell Alarm Beacon",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 alarm node for the guarded actuation cell. Uses the visible board LED as the supervisor alarm indicator.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "guarded-cell",
+          "alarm",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local active = supervisor_alarm == true\ncomponent(\"board_led\"):set(active)\nsetOutput(\"alarm_active\", active)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "supervisor_alarm",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "alarm_active",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "supervisor_alarm"
+      ],
+      "outputs": [
+        "alarm_active"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_05_esp32_guarded_cell_primary_actuator": {
+      "id": "network_guarded_cell_05_esp32_guarded_cell_primary_actuator",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Guarded Cell Primary Actuator",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 primary actuator node for the guarded actuation cell. Uses the visible board LED as the actuation indicator.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "guarded-cell",
+          "actuator",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local active = actuate_cmd == true\ncomponent(\"board_led\"):set(active)\nsetOutput(\"primary_active\", active)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "actuate_cmd",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "primary_active",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "actuate_cmd"
+      ],
+      "outputs": [
+        "primary_active"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_guarded_cell_06_mcxn947_guarded_cell_leader": {
+      "id": "network_guarded_cell_06_mcxn947_guarded_cell_leader",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Guarded Cell Leader",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 leader node for the guarded actuation cell. Exports raw request and permit signals while mirroring them on local LEDs.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "guarded-cell",
+          "leader",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Monitor",
+      "states": {
+        "Monitor": {
+          "id": "Monitor",
+          "name": "Monitor",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local request = gpio.read(23) == 0\nlocal permit = gpio.read(6) == 0\n\ngpio.write(10, request)\ngpio.write(27, permit)\n\nsetOutput(\"request_raw\", request)\nsetOutput(\"permit_raw\", permit)\nsetOutput(\"leader_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Monitor",
+          "to": "Monitor",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "permit_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_power_contention_01_petri_power_allocator": {
+      "id": "network_power_contention_01_petri_power_allocator",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Power Allocator",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship contention allocator that stages the shared dc_bus through queueing, grant, handoff, and contention alarm phases.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"idle\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"idle\")\nsetVal(\"bus_owner\", \"none\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "ChargeQueue": {
+          "id": "ChargeQueue",
+          "name": "ChargeQueue",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charge_queue\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"charge_queue\")\nsetVal(\"bus_owner\", \"pending_charge\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "MotionQueue": {
+          "id": "MotionQueue",
+          "name": "MotionQueue",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"motion_queue\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"motion_queue\")\nsetVal(\"bus_owner\", \"pending_motion\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "ChargeGranted": {
+          "id": "ChargeGranted",
+          "name": "ChargeGranted",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charge\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", true)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"charge_granted\")\nsetVal(\"bus_owner\", \"charger\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "MotionGranted": {
+          "id": "MotionGranted",
+          "name": "MotionGranted",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"motion\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", true)\nsetVal(\"allocator_state\", \"motion_granted\")\nsetVal(\"bus_owner\", \"motion_axis\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "HandoffCooldown": {
+          "id": "HandoffCooldown",
+          "name": "HandoffCooldown",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"handoff\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"handoff_cooldown\")\nsetVal(\"bus_owner\", \"handoff\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "ContentionAlarm": {
+          "id": "ContentionAlarm",
+          "name": "ContentionAlarm",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"alarm\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"contention_alarm\")\nsetVal(\"bus_owner\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_charge_queue": {
+          "id": "idle_to_charge_queue",
+          "name": "idle_to_charge_queue",
+          "from": "Idle",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_motion_queue": {
+          "id": "idle_to_motion_queue",
+          "name": "idle_to_motion_queue",
+          "from": "Idle",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_contention": {
+          "id": "idle_to_contention",
+          "name": "idle_to_contention",
+          "from": "Idle",
+          "to": "ContentionAlarm",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == true and value(\"route_state\") == \"permit_streaming\"",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "charge_queue_to_granted": {
+          "id": "charge_queue_to_granted",
+          "name": "charge_queue_to_granted",
+          "from": "ChargeQueue",
+          "to": "ChargeGranted",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "charge_queue_to_motion_queue": {
+          "id": "charge_queue_to_motion_queue",
+          "name": "charge_queue_to_motion_queue",
+          "from": "ChargeQueue",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "motion_queue_to_granted": {
+          "id": "motion_queue_to_granted",
+          "name": "motion_queue_to_granted",
+          "from": "MotionQueue",
+          "to": "MotionGranted",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 120,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "motion_queue_to_contention": {
+          "id": "motion_queue_to_contention",
+          "name": "motion_queue_to_contention",
+          "from": "MotionQueue",
+          "to": "ContentionAlarm",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "charge_granted_to_handoff": {
+          "id": "charge_granted_to_handoff",
+          "name": "charge_granted_to_handoff",
+          "from": "ChargeGranted",
+          "to": "HandoffCooldown",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true or value(\"route_state\") == \"permit_streaming\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "charge_granted_to_idle": {
+          "id": "charge_granted_to_idle",
+          "name": "charge_granted_to_idle",
+          "from": "ChargeGranted",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "motion_granted_to_handoff": {
+          "id": "motion_granted_to_handoff",
+          "name": "motion_granted_to_handoff",
+          "from": "MotionGranted",
+          "to": "HandoffCooldown",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false or value(\"route_state\") == \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "motion_granted_to_contention": {
+          "id": "motion_granted_to_contention",
+          "name": "motion_granted_to_contention",
+          "from": "MotionGranted",
+          "to": "ContentionAlarm",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "handoff_to_charge_queue": {
+          "id": "handoff_to_charge_queue",
+          "name": "handoff_to_charge_queue",
+          "from": "HandoffCooldown",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "handoff_to_motion_queue": {
+          "id": "handoff_to_motion_queue",
+          "name": "handoff_to_motion_queue",
+          "from": "HandoffCooldown",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "handoff_to_idle": {
+          "id": "handoff_to_idle",
+          "name": "handoff_to_idle",
+          "from": "HandoffCooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "contention_to_motion_queue": {
+          "id": "contention_to_motion_queue",
+          "name": "contention_to_motion_queue",
+          "from": "ContentionAlarm",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "contention_to_charge_queue": {
+          "id": "contention_to_charge_queue",
+          "name": "contention_to_charge_queue",
+          "from": "ContentionAlarm",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false and value(\"demand_charge\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "contention_to_idle": {
+          "id": "contention_to_idle",
+          "name": "contention_to_idle",
+          "from": "ContentionAlarm",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false and value(\"demand_charge\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "demand_charge",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "demand_motion",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "input",
+          "default": "standby"
+        },
+        {
+          "name": "charge_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "drive_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "allocator_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "bus_owner",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        }
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion",
+        "route_state"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state",
+        "bus_owner"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_power_contention_02_petri_charger_node": {
+      "id": "network_power_contention_02_petri_charger_node",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Charger Node",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship charger participant that moves through precharge, bulk, topoff, and cooldown phases when granted the shared bus.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [],
+          "outputs": [
+            "charger_state",
+            "charge_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"open\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"standby\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PrechargeCheck": {
+          "id": "PrechargeCheck",
+          "name": "PrechargeCheck",
+          "inputs": [
+            "charge_enable"
+          ],
+          "outputs": [
+            "charger_state",
+            "charge_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"precharge\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"precharge_check\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "BulkCharge": {
+          "id": "BulkCharge",
+          "name": "BulkCharge",
+          "inputs": [
+            "charge_enable"
+          ],
+          "outputs": [
+            "charger_state",
+            "charge_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"bulk\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"bulk_charge\")\nsetVal(\"charge_cycles\", value(\"charge_cycles\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Topoff": {
+          "id": "Topoff",
+          "name": "Topoff",
+          "inputs": [
+            "charge_enable"
+          ],
+          "outputs": [
+            "charger_state",
+            "charge_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"topoff\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"topoff\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [
+            "charger_state",
+            "charge_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"cooldown\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charger_state\", \"cooldown\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "standby_to_precharge": {
+          "id": "standby_to_precharge",
+          "name": "standby_to_precharge",
+          "from": "Standby",
+          "to": "PrechargeCheck",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "precharge_to_bulk": {
+          "id": "precharge_to_bulk",
+          "name": "precharge_to_bulk",
+          "from": "PrechargeCheck",
+          "to": "BulkCharge",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "precharge_to_standby": {
+          "id": "precharge_to_standby",
+          "name": "precharge_to_standby",
+          "from": "PrechargeCheck",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "bulk_to_topoff": {
+          "id": "bulk_to_topoff",
+          "name": "bulk_to_topoff",
+          "from": "BulkCharge",
+          "to": "Topoff",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "bulk_to_cooldown": {
+          "id": "bulk_to_cooldown",
+          "name": "bulk_to_cooldown",
+          "from": "BulkCharge",
+          "to": "Cooldown",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "topoff_to_cooldown": {
+          "id": "topoff_to_cooldown",
+          "name": "topoff_to_cooldown",
+          "from": "Topoff",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 600,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "topoff_abort_to_cooldown": {
+          "id": "topoff_abort_to_cooldown",
+          "name": "topoff_abort_to_cooldown",
+          "from": "Topoff",
+          "to": "Cooldown",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_precharge": {
+          "id": "cooldown_to_precharge",
+          "name": "cooldown_to_precharge",
+          "from": "Cooldown",
+          "to": "PrechargeCheck",
+          "type": "classic",
+          "condition": "value(\"charge_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_standby": {
+          "id": "cooldown_to_standby",
+          "name": "cooldown_to_standby",
+          "from": "Cooldown",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "charge_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "charger_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        },
+        {
+          "name": "charge_cycles",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "charge_enable"
+      ],
+      "outputs": [
+        "charger_state",
+        "charge_cycles"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_power_contention_03_petri_motion_axis": {
+      "id": "network_power_contention_03_petri_motion_axis",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Motion Axis",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship motion participant that stages the shared bus through homing, acceleration, tracking, braking, and recovery hold phases.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Parked",
+      "states": {
+        "Parked": {
+          "id": "Parked",
+          "name": "Parked",
+          "inputs": [],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"parked\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"parked\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Homing": {
+          "id": "Homing",
+          "name": "Homing",
+          "inputs": [
+            "drive_enable"
+          ],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"homing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"homing\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Accelerating": {
+          "id": "Accelerating",
+          "name": "Accelerating",
+          "inputs": [
+            "drive_enable"
+          ],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"accelerating\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"accelerating\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Tracking": {
+          "id": "Tracking",
+          "name": "Tracking",
+          "inputs": [
+            "drive_enable"
+          ],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"tracking\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"tracking\")\nsetVal(\"move_cycles\", value(\"move_cycles\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Braking": {
+          "id": "Braking",
+          "name": "Braking",
+          "inputs": [],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"braking\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"braking\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "RecoveryHold": {
+          "id": "RecoveryHold",
+          "name": "RecoveryHold",
+          "inputs": [],
+          "outputs": [
+            "axis_state",
+            "move_cycles"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"recovery\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"axis_state\", \"recovery_hold\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "parked_to_homing": {
+          "id": "parked_to_homing",
+          "name": "parked_to_homing",
+          "from": "Parked",
+          "to": "Homing",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "homing_to_accelerating": {
+          "id": "homing_to_accelerating",
+          "name": "homing_to_accelerating",
+          "from": "Homing",
+          "to": "Accelerating",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "homing_to_parked": {
+          "id": "homing_to_parked",
+          "name": "homing_to_parked",
+          "from": "Homing",
+          "to": "Parked",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "accelerating_to_tracking": {
+          "id": "accelerating_to_tracking",
+          "name": "accelerating_to_tracking",
+          "from": "Accelerating",
+          "to": "Tracking",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "accelerating_to_braking": {
+          "id": "accelerating_to_braking",
+          "name": "accelerating_to_braking",
+          "from": "Accelerating",
+          "to": "Braking",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "tracking_to_braking": {
+          "id": "tracking_to_braking",
+          "name": "tracking_to_braking",
+          "from": "Tracking",
+          "to": "Braking",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "tracking_to_recovery": {
+          "id": "tracking_to_recovery",
+          "name": "tracking_to_recovery",
+          "from": "Tracking",
+          "to": "RecoveryHold",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1800,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "braking_to_parked": {
+          "id": "braking_to_parked",
+          "name": "braking_to_parked",
+          "from": "Braking",
+          "to": "Parked",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "braking_to_homing": {
+          "id": "braking_to_homing",
+          "name": "braking_to_homing",
+          "from": "Braking",
+          "to": "Homing",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "recovery_to_homing": {
+          "id": "recovery_to_homing",
+          "name": "recovery_to_homing",
+          "from": "RecoveryHold",
+          "to": "Homing",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "recovery_to_parked": {
+          "id": "recovery_to_parked",
+          "name": "recovery_to_parked",
+          "from": "RecoveryHold",
+          "to": "Parked",
+          "type": "classic",
+          "condition": "value(\"drive_enable\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "drive_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "axis_state",
+          "type": "string",
+          "direction": "output",
+          "default": "parked"
+        },
+        {
+          "name": "move_cycles",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "drive_enable"
+      ],
+      "outputs": [
+        "axis_state",
+        "move_cycles"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "isDirty": false
+    },
+    "network_resilience_watchdog_01_sensor_watchdog_recovery": {
+      "id": "network_resilience_watchdog_01_sensor_watchdog_recovery",
+      "version": "0.0.1",
+      "config": {
+        "name": "Sensor Watchdog Recovery",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship heartbeat watchdog with priming, missed-beat detection, retry windows, backoff, failure, and reset-audit phases.",
+        "tags": [
+          "showcase",
+          "resilience",
+          "watchdog",
+          "timeout",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"retry_count\", 0)\nsetVal(\"watchdog_state\", \"boot\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PrimeSensors": {
+          "id": "PrimeSensors",
+          "name": "PrimeSensors",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"prime_sensors\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Healthy": {
+          "id": "Healthy",
+          "name": "Healthy",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", true)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"healthy\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "MissedBeat": {
+          "id": "MissedBeat",
+          "name": "MissedBeat",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"missed_beat\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "RetryWindow": {
+          "id": "RetryWindow",
+          "name": "RetryWindow",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"retry_window\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Recovering": {
+          "id": "Recovering",
+          "name": "Recovering",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"retry_count\", value(\"retry_count\") + 1)\nsetVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"recovering\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Backoff": {
+          "id": "Backoff",
+          "name": "Backoff",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"backoff\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        },
+        "Failed": {
+          "id": "Failed",
+          "name": "Failed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", true)\nsetVal(\"watchdog_state\", \"failed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 240
+          }
+        },
+        "ResetAudit": {
+          "id": "ResetAudit",
+          "name": "ResetAudit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"reset_audit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 400
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_prime": {
+          "id": "boot_to_prime",
+          "name": "boot_to_prime",
+          "from": "Boot",
+          "to": "PrimeSensors",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "prime_to_healthy": {
+          "id": "prime_to_healthy",
+          "name": "prime_to_healthy",
+          "from": "PrimeSensors",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "prime_to_missed": {
+          "id": "prime_to_missed",
+          "name": "prime_to_missed",
+          "from": "PrimeSensors",
+          "to": "MissedBeat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 600,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "healthy_timeout": {
+          "id": "healthy_timeout",
+          "name": "healthy_timeout",
+          "from": "Healthy",
+          "to": "MissedBeat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 5000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "missed_on_heartbeat": {
+          "id": "missed_on_heartbeat",
+          "name": "missed_on_heartbeat",
+          "from": "MissedBeat",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "missed_to_retry_window": {
+          "id": "missed_to_retry_window",
+          "name": "missed_to_retry_window",
+          "from": "MissedBeat",
+          "to": "RetryWindow",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "retry_on_heartbeat": {
+          "id": "retry_on_heartbeat",
+          "name": "retry_on_heartbeat",
+          "from": "RetryWindow",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "retry_to_recovering": {
+          "id": "retry_to_recovering",
+          "name": "retry_to_recovering",
+          "from": "RetryWindow",
+          "to": "Recovering",
+          "type": "classic",
+          "condition": "value(\"retry_count\") < value(\"max_retries\")",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "retry_to_failed": {
+          "id": "retry_to_failed",
+          "name": "retry_to_failed",
+          "from": "RetryWindow",
+          "to": "Failed",
+          "type": "classic",
+          "condition": "value(\"retry_count\") >= value(\"max_retries\")",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1
+        },
+        "recovering_to_backoff": {
+          "id": "recovering_to_backoff",
+          "name": "recovering_to_backoff",
+          "from": "Recovering",
+          "to": "Backoff",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "backoff_on_heartbeat": {
+          "id": "backoff_on_heartbeat",
+          "name": "backoff_on_heartbeat",
+          "from": "Backoff",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "backoff_to_retry_window": {
+          "id": "backoff_to_retry_window",
+          "name": "backoff_to_retry_window",
+          "from": "Backoff",
+          "to": "RetryWindow",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 800,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "failed_to_reset_audit": {
+          "id": "failed_to_reset_audit",
+          "name": "failed_to_reset_audit",
+          "from": "Failed",
+          "to": "ResetAudit",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "manual_reset",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "reset_audit_to_boot": {
+          "id": "reset_audit_to_boot",
+          "name": "reset_audit_to_boot",
+          "from": "ResetAudit",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "manual_reset",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "max_retries",
+          "type": "int",
+          "direction": "input",
+          "default": 3
+        },
+        {
+          "name": "retry_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "watchdog_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "watchdog_state",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        }
+      ],
+      "inputs": [
+        "heartbeat",
+        "manual_reset",
+        "max_retries"
+      ],
+      "outputs": [
+        "retry_count",
+        "watchdog_ok",
+        "fault",
+        "watchdog_state"
+      ],
+      "nestedAutomataIds": [],
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

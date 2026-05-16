@@ -1556,15 +1556,8 @@ associated YAML automata paths, as described in Section~\ref{sec:model-overview}
 Opening the file via \textit{File~\textrightarrow~Open Project} loads all
 networks into the Network panel. Each network card shows its name, the number
 of devices it contains, and whether any of those devices are currently connected
-through the gateway. Figure~\ref{fig:ide-network} shows the Network panel
-with the demo project loaded and \texttt{device\_cpp\_01} online.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/network_view}
-  \caption{Network panel showing the demo project with one connected device.}
-  \label{fig:ide-network}
-\end{figure}
+through the gateway. With the demo project loaded, the Network panel shows
+\texttt{device\_cpp\_01} online.
 
 The Explorer panel on the left lists the automata YAML files that belong to the
 project. Selecting a file opens it in the IDE's native code editor and inspector
@@ -1585,13 +1578,6 @@ payload or an \texttt{aeth\_ir\_v1} artifact to the device engine. A deployment
 acknowledgment appears in the Runtime Monitor panel within a few hundred
 milliseconds on a local network.
 
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/automata_and_upload}
-  \caption{Runtime Monitor panel after deploying the sensor watchdog automaton to \texttt{device\_cpp\_01}.}
-  \label{fig:ide-deploy}
-\end{figure}
-
 Once deployed, the automaton begins executing immediately. The engine sends
 periodic state snapshots — containing current state, all variable values, and
 the last fired transition — to the server, which forwards them to any subscribed
@@ -1601,9 +1587,8 @@ IDE clients over the Phoenix channel.
 \section{Live Runtime Monitoring}
 \label{sec:demo-monitor}
 
-The Runtime Monitor panel (Figure~\ref{fig:ide-monitor}) provides a
-per-device, per-automaton view of live execution. For each deployed automaton,
-it shows:
+The Runtime Monitor panel provides a per-device, per-automaton view of live
+execution. For each deployed automaton, it shows:
 
 \begin{itemize}
   \item the \textbf{current state} name, highlighted in the state list,
@@ -1618,13 +1603,6 @@ it shows:
 rate. Because the gateway maintains persistent WebSocket connections in both
 directions, state updates arrive in the IDE within one to two tick cycles of
 firing.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/runtime_view}
-  \caption{Runtime Monitor panel displaying live state and variable values for the deployed automaton.}
-  \label{fig:ide-monitor}
-\end{figure}
 
 The monitor is read-only but supports two direct actions available via the
 panel toolbar: \textit{Start} and \textit{Stop} send lifecycle commands to the
@@ -1659,19 +1637,6 @@ reproducible. The same seed applied to the same automaton always produces the
 same sequence of dropped or delayed messages, which is essential for debugging
 timing-dependent failures.
 
-Figure~\ref{fig:ide-fault} shows the Gateway panel with a delay fault
-profile active on the demo C++ device. The Runtime Monitor simultaneously
-shows the automaton continuing to execute despite the injected latency,
-demonstrating that the engine's internal timing is decoupled from transport
-delays.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/ide_fault_injection}
-  \caption{Gateway panel with an active delay fault profile on the demo device.}
-  \label{fig:ide-fault}
-\end{figure}
-
 % ── Section 6 ────────────────────────────────────────────────────────────────
 \section{Time-Travel Debugging}
 \label{sec:demo-replay}
@@ -1703,16 +1668,9 @@ The time-travel workflow proceeds as follows:
     to \texttt{Running} from the restored historical state.
 \end{enumerate}
 
-\noindent Figure~\ref{fig:ide-replay} shows the replay timeline for the sensor
-watchdog automaton.  The selected event shows the automaton entering the
+\noindent The replay workflow reconstructs the sensor watchdog automaton at any
+chosen instant. The selected event can show the automaton entering the
 \texttt{alarming} state and the \texttt{alarm\_count} variable incrementing.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/ide_time_travel}
-  \caption{Execution trace replay timeline in the Runtime Monitor panel.}
-  \label{fig:ide-replay}
-\end{figure}
 
 The rewind is a true device-level operation, not a visual simulation: after
 \texttt{RestoreState} and an explicit \texttt{Resume}, the device fires transitions
@@ -1783,17 +1741,9 @@ The report contains three sections:
     state.
 \end{itemize}
 
-\noindent Figure~\ref{fig:ide-analyzer} shows the Analyzer panel during a
-deployment of the Petri Signal Chain showcase (Showcase~13), where the safety
-gate automaton is identified as processing commands at a lower rate than the
-command router is emitting them.
-
-\begin{figure}[!htbp]
-  \centering
-  \includegraphics[width=0.92\textwidth, height=0.48\textheight, keepaspectratio]{obrazky-figures/ide_analyzer}
-  \caption{Analyzer panel reporting channel activity and an anomaly for the signal chain scenario.}
-  \label{fig:ide-analyzer}
-\end{figure}
+\noindent During a deployment of the Petri Signal Chain showcase (Showcase~13),
+the Analyzer can identify when the safety gate automaton processes commands at a
+lower rate than the command router emits them.
 
 % ── Section 9 ────────────────────────────────────────────────────────────────
 \section{Black-Box Devices}

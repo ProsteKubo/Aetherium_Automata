@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  13 MAY 2026 20:56
+This is pdfTeX, Version 3.141592653-2.6-1.40.29 (TeX Live 2026) (preloaded format=pdflatex 2026.4.18)  16 MAY 2026 10:39
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -211,13 +211,37 @@ Package: enumitem 2025/02/06 v3.11 Customized lists
 \enit@count@id=\count300
 \enitdp@description=\count301
 )
-(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/graphicx.sty
-Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pdfpages/pdfpages.sty
+Package: pdfpages 2026/03/30 v0.6h Insert pages of external PDF documents (AM)
+
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/base/ifthen.sty
+Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
+)
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/calc.sty
+Package: calc 2025/03/01 v4.3b Infix arithmetic (KKT,FJ)
+\calc@Acount=\count302
+\calc@Bcount=\count303
+\calc@Adimen=\dimen162
+\calc@Bdimen=\dimen163
+\calc@Askip=\skip69
+\calc@Bskip=\skip70
+LaTeX Info: Redefining \setlength on input line 86.
+LaTeX Info: Redefining \addtolength on input line 87.
+\calc@Ccount=\count304
+\calc@Cskip=\skip71
+)
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/eso-pic/eso-pic.sty
+Package: eso-pic 2025/12/10 v3.0d eso-pic (RN)
+\ESO@tempdima=\dimen164
+\ESO@tempdimb=\dimen165
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/keyval.sty
 Package: keyval 2022/05/29 v1.15 key=value parser (DPC)
 \KV@toks@=\toks26
-)
+))
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/graphicx.sty
+Package: graphicx 2024/12/31 v1.2e Enhanced LaTeX Graphics (DPC,SPQR)
+
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/graphics.sty
 Package: graphics 2024/08/06 v1.4g Standard LaTeX Graphics (DPC,SPQR)
 
@@ -230,12 +254,28 @@ File: graphics.cfg 2016/06/04 v1.11 sample graphics configuration
 )
 Package graphics Info: Driver file: pdftex.def on input line 106.
 )
-\Gin@req@height=\dimen162
-\Gin@req@width=\dimen163
+\Gin@req@height=\dimen166
+\Gin@req@width=\dimen167
 )
-\mkspc=\skip69
-\DESCRIPTION@totalleftmargin=\skip70
-\DESCRIPTION@linewidth=\skip71
+\AM@pagewidth=\dimen168
+\AM@pageheight=\dimen169
+\AM@fboxrule=\dimen170
+
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pdfpages/pppdftex.def
+File: pppdftex.def 2026/03/30 v0.6h Pdfpages driver for pdfTeX (AM)
+)
+\pdfpages@includegraphics@status=\count305
+\AM@pagebox=\box56
+\AM@global@opts=\toks27
+\AM@pagecnt=\count306
+\AM@toc@title=\toks28
+\AM@lof@heading=\toks29
+\c@AM@survey=\count307
+\AM@templatesizebox=\box57
+)
+\mkspc=\skip72
+\DESCRIPTION@totalleftmargin=\skip73
+\DESCRIPTION@linewidth=\skip74
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/opensans/opensans.sty
 Package: opensans 2019/06/20 Style file for Open Sans.
@@ -270,32 +310,19 @@ Package: xkeyval 2025/11/04 v2.10 package option processing (HA)
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/xkeyval/xkeyval.tex
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/xkeyval/xkvutils.tex
-\XKV@toks=\toks27
-\XKV@tempa@toks=\toks28
-\XKV@tempb@toks=\toks29
+\XKV@toks=\toks30
+\XKV@tempa@toks=\toks31
+\XKV@tempb@toks=\toks32
 )
-\XKV@depth=\count302
+\XKV@depth=\count308
 File: xkeyval.tex 2014/12/03 v2.7a key=value parser (HA)
 ))) (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/float/float.sty
 Package: float 2001/11/08 v1.3d Float enhancements (AL)
-\c@float@type=\count303
-\float@exts=\toks30
-\float@box=\box56
-\@float@everytoks=\toks31
-\@floatcapt=\box57
-)
-(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/calc.sty
-Package: calc 2025/03/01 v4.3b Infix arithmetic (KKT,FJ)
-\calc@Acount=\count304
-\calc@Bcount=\count305
-\calc@Adimen=\dimen164
-\calc@Bdimen=\dimen165
-\calc@Askip=\skip72
-\calc@Bskip=\skip73
-LaTeX Info: Redefining \setlength on input line 86.
-LaTeX Info: Redefining \addtolength on input line 87.
-\calc@Ccount=\count306
-\calc@Cskip=\skip74
+\c@float@type=\count309
+\float@exts=\toks33
+\float@box=\box58
+\@float@everytoks=\toks34
+\@floatcapt=\box59
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/longtable.sty
 Package: longtable 2025-10-13 v4.24 Multi-page Table package (DPC)
@@ -303,38 +330,38 @@ Package: longtable 2025-10-13 v4.24 Multi-page Table package (DPC)
 \LTright=\skip76
 \LTpre=\skip77
 \LTpost=\skip78
-\LTchunksize=\count307
-\LTcapwidth=\dimen166
-\LT@head=\box58
-\LT@firsthead=\box59
-\LT@foot=\box60
-\LT@lastfoot=\box61
-\LT@gbox=\box62
-\LT@cols=\count308
-\LT@rows=\count309
-\c@LT@tables=\count310
-\c@LT@chunks=\count311
-\LT@p@ftn=\toks32
+\LTchunksize=\count310
+\LTcapwidth=\dimen171
+\LT@head=\box60
+\LT@firsthead=\box61
+\LT@foot=\box62
+\LT@lastfoot=\box63
+\LT@gbox=\box64
+\LT@cols=\count311
+\LT@rows=\count312
+\c@LT@tables=\count313
+\c@LT@chunks=\count314
+\LT@p@ftn=\toks35
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/booktabs/booktabs.sty
 Package: booktabs 2020/01/12 v1.61803398 Publication quality tables
-\heavyrulewidth=\dimen167
-\lightrulewidth=\dimen168
-\cmidrulewidth=\dimen169
-\belowrulesep=\dimen170
-\belowbottomsep=\dimen171
-\aboverulesep=\dimen172
-\abovetopsep=\dimen173
-\cmidrulesep=\dimen174
-\cmidrulekern=\dimen175
-\defaultaddspace=\dimen176
-\@cmidla=\count312
-\@cmidlb=\count313
-\@aboverulesep=\dimen177
-\@belowrulesep=\dimen178
-\@thisruleclass=\count314
-\@lastruleclass=\count315
-\@thisrulewidth=\dimen179
+\heavyrulewidth=\dimen172
+\lightrulewidth=\dimen173
+\cmidrulewidth=\dimen174
+\belowrulesep=\dimen175
+\belowbottomsep=\dimen176
+\aboverulesep=\dimen177
+\abovetopsep=\dimen178
+\cmidrulesep=\dimen179
+\cmidrulekern=\dimen180
+\defaultaddspace=\dimen181
+\@cmidla=\count315
+\@cmidlb=\count316
+\@aboverulesep=\dimen182
+\@belowrulesep=\dimen183
+\@thisruleclass=\count317
+\@lastruleclass=\count318
+\@thisrulewidth=\dimen184
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/xcolor/xcolor.sty
 Package: xcolor 2024/09/29 v3.02 LaTeX color extensions (UK)
@@ -360,34 +387,34 @@ Package: colortbl 2024/10/29 v1.0k Color table columns (DPC)
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/array.sty
 Package: array 2025/09/25 v2.6n Tabular extension package (FMi)
-\col@sep=\dimen180
-\ar@mcellbox=\box63
-\extrarowheight=\dimen181
-\NC@list=\toks33
+\col@sep=\dimen185
+\ar@mcellbox=\box65
+\extrarowheight=\dimen186
+\NC@list=\toks36
 \extratabsurround=\skip79
 \backup@length=\skip80
-\ar@cellbox=\box64
+\ar@cellbox=\box66
 )
-\everycr=\toks34
+\everycr=\toks37
 \minrowclearance=\skip81
-\rownum=\count316
+\rownum=\count319
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/multirow/multirow.sty
 Package: multirow 2024/11/12 v2.9 Span multiple rows of a table
 \multirow@colwidth=\skip82
-\multirow@cntb=\count317
+\multirow@cntb=\count320
 \multirow@dima=\skip83
-\bigstrutjot=\dimen182
+\bigstrutjot=\dimen187
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/tabularx.sty
 Package: tabularx 2023/12/11 v2.12a `tabularx' package (DPC)
-\TX@col@width=\dimen183
-\TX@old@table=\dimen184
-\TX@old@col=\dimen185
-\TX@target=\dimen186
-\TX@delta=\dimen187
-\TX@cols=\count318
-\TX@ftn=\toks35
+\TX@col@width=\dimen188
+\TX@old@table=\dimen189
+\TX@old@col=\dimen190
+\TX@target=\dimen191
+\TX@delta=\dimen192
+\TX@cols=\count321
+\TX@ftn=\toks38
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/blindtext/blindtext.sty
 Package: blindtext 2012/01/06 V2.0 blindtext-Package
@@ -395,47 +422,47 @@ Package: blindtext 2012/01/06 V2.0 blindtext-Package
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tools/xspace.sty
 Package: xspace 2014/10/28 v1.13 Space after command names (DPC,MH)
 )
-\c@blindtext=\count319
-\c@Blindtext=\count320
-\c@blind@countparstart=\count321
-\blind@countxx=\count322
-\blindtext@numBlindtext=\count323
-\blind@countyy=\count324
-\c@blindlist=\count325
-\c@blindlistlevel=\count326
-\c@blindlist@level=\count327
-\blind@listitem=\count328
-\c@blind@listcount=\count329
-\c@blind@levelcount=\count330
-\blind@mathformula=\count331
-\blind@Mathformula=\count332
-\c@blind@randomcount=\count333
-\c@blind@randommax=\count334
-\c@blind@pangramcount=\count335
-\c@blind@pangrammax=\count336
+\c@blindtext=\count322
+\c@Blindtext=\count323
+\c@blind@countparstart=\count324
+\blind@countxx=\count325
+\blindtext@numBlindtext=\count326
+\blind@countyy=\count327
+\c@blindlist=\count328
+\c@blindlistlevel=\count329
+\c@blindlist@level=\count330
+\blind@listitem=\count331
+\c@blind@listcount=\count332
+\c@blind@levelcount=\count333
+\blind@mathformula=\count334
+\blind@Mathformula=\count335
+\c@blind@randomcount=\count336
+\c@blind@randommax=\count337
+\c@blind@pangramcount=\count338
+\c@blind@pangrammax=\count339
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/listings.sty
-\lst@mode=\count337
-\lst@gtempboxa=\box65
-\lst@token=\toks36
-\lst@length=\count338
-\lst@currlwidth=\dimen188
-\lst@column=\count339
-\lst@pos=\count340
-\lst@lostspace=\dimen189
-\lst@width=\dimen190
-\lst@newlines=\count341
-\lst@lineno=\count342
-\lst@maxwidth=\dimen191
+\lst@mode=\count340
+\lst@gtempboxa=\box67
+\lst@token=\toks39
+\lst@length=\count341
+\lst@currlwidth=\dimen193
+\lst@column=\count342
+\lst@pos=\count343
+\lst@lostspace=\dimen194
+\lst@width=\dimen195
+\lst@newlines=\count344
+\lst@lineno=\count345
+\lst@maxwidth=\dimen196
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstpatch.sty
 File: lstpatch.sty 2025/11/14 1.11b (Carsten Heinz)
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstmisc.sty
 File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
-\c@lstnumber=\count343
-\lst@skipnumbers=\count344
-\lst@framebox=\box66
+\c@lstnumber=\count346
+\lst@skipnumbers=\count347
+\lst@framebox=\box68
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/listings.cfg
 File: listings.cfg 2025/11/14 1.11b listings configuration
@@ -450,13 +477,13 @@ Package: listings 2025/11/14 1.11b (Carsten Heinz)
     so I'm assuming it got fixed.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/appendix/appendix.sty
 Package: appendix 2020/02/08 v1.2c extra appendix facilities
-\c@@pps=\count345
-\c@@ppsavesec=\count346
-\c@@ppsaveapp=\count347
+\c@@pps=\count348
+\c@@ppsavesec=\count349
+\c@@ppsaveapp=\count350
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/titlesec/titletoc.sty
 Package: titletoc 2025/01/04 v2.17 TOC entries
-\ttl@leftsep=\dimen192
+\ttl@leftsep=\dimen197
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/regexpatch/regexpatch.st
 y (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/l3kernel/expl3.sty
@@ -465,7 +492,7 @@ Package: expl3 2026-03-20 L3 programming layer (loader)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/l3backend/l3backend-pdft
 ex.def
 File: l3backend-pdftex.def 2026-02-18 L3 backend support: PDF output (pdfTeX)
-\l__color_backend_stack_int=\count348
+\l__color_backend_stack_int=\count351
 ))
 Package: regexpatch 2021/03/21 v0.2f Extending etoolbox patching commands
 
@@ -476,11 +503,8 @@ Package: xparse 2025-10-09 L3 Experimental document command parser
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/algorithms/algorithm.sty
 Package: algorithm 2009/08/24 v0.1 Document Style `algorithm' - floating enviro
 nment
-(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/base/ifthen.sty
-Package: ifthen 2024/03/16 v1.1e Standard LaTeX ifthen package (DPC)
-)
-\@float@every@algorithm=\toks37
-\c@algorithm=\count349
+\@float@every@algorithm=\toks40
+\c@algorithm=\count352
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/algorithmicx/algpseudoco
 de.sty
@@ -491,25 +515,25 @@ x.sty
 Package: algorithmicx 2005/04/27 v1.2 Algorithmicx
 
 Document Style algorithmicx 1.2 - a greatly improved `algorithmic' style
-\c@ALG@line=\count350
-\c@ALG@rem=\count351
-\c@ALG@nested=\count352
+\c@ALG@line=\count353
+\c@ALG@rem=\count354
+\c@ALG@nested=\count355
 \ALG@tlm=\skip84
 \ALG@thistlm=\skip85
-\c@ALG@Lnr=\count353
-\c@ALG@blocknr=\count354
-\c@ALG@storecount=\count355
-\c@ALG@tmpcounter=\count356
+\c@ALG@Lnr=\count356
+\c@ALG@blocknr=\count357
+\c@ALG@storecount=\count358
+\c@ALG@tmpcounter=\count359
 \ALG@tmplength=\skip86
 )
 Document Style - pseudocode environments for use with the `algorithmicx' style
 ) (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/rotating.sty
 Package: rotating 2025/01/14 v2.16e rotated objects in LaTeX
-\c@r@tfl@t=\count357
+\c@r@tfl@t=\count360
 \rotFPtop=\skip87
 \rotFPbot=\skip88
-\rot@float@box=\box67
-\rot@mess@toks=\toks38
+\rot@float@box=\box69
+\rot@mess@toks=\toks41
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pgf/frontendlayer/tikz.s
 ty
@@ -518,13 +542,13 @@ ty
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfutil-
 common.tex
-\pgfutil@everybye=\toks39
-\pgfutil@tempdima=\dimen193
-\pgfutil@tempdimb=\dimen194
+\pgfutil@everybye=\toks42
+\pgfutil@tempdima=\dimen198
+\pgfutil@tempdimb=\dimen199
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfutil-
 latex.def
-\pgfutil@abb=\box68
+\pgfutil@abb=\box70
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfrcs.c
 ode.tex
@@ -543,33 +567,33 @@ Package: pgfsys 2025-08-29 v3.1.11a (3.1.11a)
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfkeys.
 code.tex
-\pgfkeys@pathtoks=\toks40
-\pgfkeys@temptoks=\toks41
+\pgfkeys@pathtoks=\toks43
+\pgfkeys@temptoks=\toks44
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgfkeysl
 ibraryfiltered.code.tex
-\pgfkeys@tmptoks=\toks42
+\pgfkeys@tmptoks=\toks45
 ))
-\pgf@x=\dimen195
-\pgf@y=\dimen196
-\pgf@xa=\dimen197
-\pgf@ya=\dimen198
-\pgf@xb=\dimen199
-\pgf@yb=\dimen256
-\pgf@xc=\dimen257
-\pgf@yc=\dimen258
-\pgf@xd=\dimen259
-\pgf@yd=\dimen260
+\pgf@x=\dimen256
+\pgf@y=\dimen257
+\pgf@xa=\dimen258
+\pgf@ya=\dimen259
+\pgf@xb=\dimen260
+\pgf@yb=\dimen261
+\pgf@xc=\dimen262
+\pgf@yc=\dimen263
+\pgf@xd=\dimen264
+\pgf@yd=\dimen265
 \w@pgf@writea=\write3
 \r@pgf@reada=\read3
-\c@pgf@counta=\count358
-\c@pgf@countb=\count359
-\c@pgf@countc=\count360
-\c@pgf@countd=\count361
-\t@pgf@toka=\toks43
-\t@pgf@tokb=\toks44
-\t@pgf@tokc=\toks45
-\pgf@sys@id@count=\count362
+\c@pgf@counta=\count361
+\c@pgf@countb=\count362
+\c@pgf@countc=\count363
+\c@pgf@countd=\count364
+\t@pgf@toka=\toks46
+\t@pgf@tokb=\toks47
+\t@pgf@tokc=\toks48
+\pgf@sys@id@count=\count365
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgf.cf
 g
@@ -588,8 +612,8 @@ File: pgfsys-common-pdf.def 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsys
 softpath.code.tex
 File: pgfsyssoftpath.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfsyssoftpath@smallbuffer@items=\count363
-\pgfsyssoftpath@bigbuffer@items=\count364
+\pgfsyssoftpath@smallbuffer@items=\count366
+\pgfsyssoftpath@bigbuffer@items=\count367
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/systemlayer/pgfsys
 protocol.code.tex
@@ -605,12 +629,12 @@ tex
 ode.tex)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathparser
 .code.tex
-\pgfmath@dimen=\dimen261
-\pgfmath@count=\count365
-\pgfmath@box=\box69
-\pgfmath@toks=\toks46
-\pgfmath@stack@operand=\toks47
-\pgfmath@stack@operation=\toks48
+\pgfmath@dimen=\dimen266
+\pgfmath@count=\count368
+\pgfmath@box=\box71
+\pgfmath@toks=\toks49
+\pgfmath@stack@operand=\toks50
+\pgfmath@stack@operation=\toks51
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfuncti
 ons.code.tex)
@@ -634,59 +658,59 @@ ons.integerarithmetics.code.tex)
 ode.tex)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfmathfloat.
 code.tex
-\c@pgfmathroundto@lastzeros=\count366
+\c@pgfmathroundto@lastzeros=\count369
 ))
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/math/pgfint.code.t
 ex)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 points.code.tex
 File: pgfcorepoints.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@picminx=\dimen262
-\pgf@picmaxx=\dimen263
-\pgf@picminy=\dimen264
-\pgf@picmaxy=\dimen265
-\pgf@pathminx=\dimen266
-\pgf@pathmaxx=\dimen267
-\pgf@pathminy=\dimen268
-\pgf@pathmaxy=\dimen269
-\pgf@xx=\dimen270
-\pgf@xy=\dimen271
-\pgf@yx=\dimen272
-\pgf@yy=\dimen273
-\pgf@zx=\dimen274
-\pgf@zy=\dimen275
+\pgf@picminx=\dimen267
+\pgf@picmaxx=\dimen268
+\pgf@picminy=\dimen269
+\pgf@picmaxy=\dimen270
+\pgf@pathminx=\dimen271
+\pgf@pathmaxx=\dimen272
+\pgf@pathminy=\dimen273
+\pgf@pathmaxy=\dimen274
+\pgf@xx=\dimen275
+\pgf@xy=\dimen276
+\pgf@yx=\dimen277
+\pgf@yy=\dimen278
+\pgf@zx=\dimen279
+\pgf@zy=\dimen280
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 pathconstruct.code.tex
 File: pgfcorepathconstruct.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@path@lastx=\dimen276
-\pgf@path@lasty=\dimen277
+\pgf@path@lastx=\dimen281
+\pgf@path@lasty=\dimen282
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 pathusage.code.tex
 File: pgfcorepathusage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@shorten@end@additional=\dimen278
-\pgf@shorten@start@additional=\dimen279
+\pgf@shorten@end@additional=\dimen283
+\pgf@shorten@start@additional=\dimen284
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 scopes.code.tex
 File: pgfcorescopes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfpic=\box70
-\pgf@hbox=\box71
-\pgf@layerbox@main=\box72
-\pgf@picture@serial@count=\count367
+\pgfpic=\box72
+\pgf@hbox=\box73
+\pgf@layerbox@main=\box74
+\pgf@picture@serial@count=\count370
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 graphicstate.code.tex
 File: pgfcoregraphicstate.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgflinewidth=\dimen280
+\pgflinewidth=\dimen285
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 transformations.code.tex
 File: pgfcoretransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@pt@x=\dimen281
-\pgf@pt@y=\dimen282
-\pgf@pt@temp=\dimen283
+\pgf@pt@x=\dimen286
+\pgf@pt@y=\dimen287
+\pgf@pt@temp=\dimen288
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 quick.code.tex
@@ -703,14 +727,14 @@ File: pgfcorepathprocessing.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 arrows.code.tex
 File: pgfcorearrows.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfarrowsep=\dimen284
+\pgfarrowsep=\dimen289
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 shade.code.tex
 File: pgfcoreshade.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@max=\dimen285
-\pgf@sys@shading@range@num=\count368
-\pgf@shadingcount=\count369
+\pgf@max=\dimen290
+\pgf@sys@shading@range@num=\count371
+\pgf@shadingcount=\count372
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 image.code.tex
@@ -719,7 +743,7 @@ File: pgfcoreimage.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 external.code.tex
 File: pgfcoreexternal.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfexternal@startupbox=\box73
+\pgfexternal@startupbox=\box75
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/basiclayer/pgfcore
 layers.code.tex
@@ -740,7 +764,7 @@ File: pgfcorerdf.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmodules
 hapes.code.tex
 File: pgfmoduleshapes.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfnodeparttextbox=\box74
+\pgfnodeparttextbox=\box76
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmodulep
 lot.code.tex
@@ -749,8 +773,8 @@ File: pgfmoduleplot.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pgf/compatibility/pgfcom
 p-version-0-65.sty
 Package: pgfcomp-version-0-65 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@nodesepstart=\dimen286
-\pgf@nodesepend=\dimen287
+\pgf@nodesepstart=\dimen291
+\pgf@nodesepend=\dimen292
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pgf/compatibility/pgfcom
 p-version-1-18.sty
@@ -768,10 +792,10 @@ tex))
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/utilities/pgffor.c
 ode.tex
 Package: pgffor 2025-08-29 v3.1.11a (3.1.11a)
-\pgffor@iter=\dimen288
-\pgffor@skip=\dimen289
-\pgffor@stack=\toks49
-\pgffor@toks=\toks50
+\pgffor@iter=\dimen293
+\pgffor@skip=\dimen294
+\pgffor@stack=\toks52
+\pgffor@toks=\toks53
 ))
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz
 /tikz.code.tex
@@ -780,34 +804,34 @@ Package: tikz 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibra
 ryplothandlers.code.tex
 File: pgflibraryplothandlers.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@plot@mark@count=\count370
-\pgfplotmarksize=\dimen290
+\pgf@plot@mark@count=\count373
+\pgfplotmarksize=\dimen295
 )
-\tikz@lastx=\dimen291
-\tikz@lasty=\dimen292
-\tikz@lastxsaved=\dimen293
-\tikz@lastysaved=\dimen294
-\tikz@lastmovetox=\dimen295
-\tikz@lastmovetoy=\dimen296
-\tikzleveldistance=\dimen297
-\tikzsiblingdistance=\dimen298
-\tikz@figbox=\box75
-\tikz@figbox@bg=\box76
-\tikz@tempbox=\box77
-\tikz@tempbox@bg=\box78
-\tikztreelevel=\count371
-\tikznumberofchildren=\count372
-\tikznumberofcurrentchild=\count373
-\tikz@fig@count=\count374
+\tikz@lastx=\dimen296
+\tikz@lasty=\dimen297
+\tikz@lastxsaved=\dimen298
+\tikz@lastysaved=\dimen299
+\tikz@lastmovetox=\dimen300
+\tikz@lastmovetoy=\dimen301
+\tikzleveldistance=\dimen302
+\tikzsiblingdistance=\dimen303
+\tikz@figbox=\box77
+\tikz@figbox@bg=\box78
+\tikz@tempbox=\box79
+\tikz@tempbox@bg=\box80
+\tikztreelevel=\count374
+\tikznumberofchildren=\count375
+\tikznumberofcurrentchild=\count376
+\tikz@fig@count=\count377
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmodulem
 atrix.code.tex
 File: pgfmodulematrix.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfmatrixcurrentrow=\count375
-\pgfmatrixcurrentcolumn=\count376
-\pgf@matrix@numberofcolumns=\count377
+\pgfmatrixcurrentrow=\count378
+\pgfmatrixcurrentcolumn=\count379
+\pgf@matrix@numberofcolumns=\count380
 )
-\tikz@expandcount=\count378
+\tikz@expandcount=\count381
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz
 /libraries/tikzlibrarytopaths.code.tex
@@ -816,10 +840,10 @@ File: tikzlibrarytopaths.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibra
 ryarrows.meta.code.tex
 File: pgflibraryarrows.meta.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgfarrowinset=\dimen299
-\pgfarrowlength=\dimen300
-\pgfarrowwidth=\dimen301
-\pgfarrowlinewidth=\dimen302
+\pgfarrowinset=\dimen304
+\pgfarrowlength=\dimen305
+\pgfarrowwidth=\dimen306
+\pgfarrowlinewidth=\dimen307
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz
 /libraries/tikzlibrarybending.code.tex
@@ -832,18 +856,18 @@ File: pgfmodulebending.code.tex 2025-08-29 v3.1.11a (3.1.11a)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/modules/pgfmodulen
 onlineartransformations.code.tex
 File: pgfmodulenonlineartransformations.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgftransformnonlinearflatness=\dimen303
+\pgftransformnonlinearflatness=\dimen308
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/libraries/pgflibra
 rycurvilinear.code.tex
 File: pgflibrarycurvilinear.code.tex 2025-08-29 v3.1.11a (3.1.11a)
-\pgf@curvilinear@time@a=\dimen304
-\pgf@curvilinear@length@a=\dimen305
-\pgf@curvilinear@length@b=\dimen306
-\pgf@curvilinear@length@c=\dimen307
-\pgf@curvilinear@length@d=\dimen308
+\pgf@curvilinear@time@a=\dimen309
+\pgf@curvilinear@length@a=\dimen310
+\pgf@curvilinear@length@b=\dimen311
+\pgf@curvilinear@length@c=\dimen312
+\pgf@curvilinear@length@d=\dimen313
 )
-\pgf@arrows@the@rigidity=\dimen309
+\pgf@arrows@the@rigidity=\dimen314
 ))
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/pgf/frontendlayer/tikz
 /libraries/tikzlibrarycalc.code.tex
@@ -900,16 +924,16 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/kvoptions/kvoptions.sty
 Package: kvoptions 2022-06-15 v3.15 Key value format for package options (HO)
 ))
-\c@section@level=\count379
+\c@section@level=\count382
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/stringenc/stringenc.st
 y
 Package: stringenc 2019/11/29 v1.12 Convert strings between diff. encodings (HO
 )
 )
-\@linkdim=\dimen310
-\Hy@linkcounter=\count380
-\Hy@pagecounter=\count381
+\@linkdim=\dimen315
+\Hy@linkcounter=\count383
+\Hy@pagecounter=\count384
  (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/hyperref/pd1enc.def
 File: pd1enc.def 2026-01-29 v7.01p Hyperref: PDFDocEncoding definition (HO)
 Now handling font encoding PD1 ...
@@ -918,7 +942,7 @@ Now handling font encoding PD1 ...
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/intcalc/intcalc.sty
 Package: intcalc 2019/12/15 v1.3 Expandable calculations with integers (HO)
 )
-\Hy@SavedSpaceFactor=\count382
+\Hy@SavedSpaceFactor=\count385
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/hyperref/puenc.def
 File: puenc.def 2026-01-29 v7.01p Hyperref: PDF Unicode definition (HO)
@@ -936,9 +960,9 @@ Package hyperref Info: Plain pages OFF on input line 4216.
 Package hyperref Info: Backreferencing OFF on input line 4221.
 Package hyperref Info: Implicit mode ON; LaTeX internals redefined.
 Package hyperref Info: Bookmarks ON on input line 4468.
-\c@Hy@tempcnt=\count383
+\c@Hy@tempcnt=\count386
 LaTeX Info: Redefining \url on input line 4807.
-\XeTeXLinkMargin=\dimen311
+\XeTeXLinkMargin=\dimen316
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/generic/bitset/bitset.sty
 Package: bitset 2019/12/09 v1.3 Handle bit-vector datatype (HO)
@@ -948,9 +972,9 @@ sty
 Package: bigintcalc 2019/12/15 v1.5 Expandable calculations on big integers (HO
 )
 ))
-\Fld@menulength=\count384
-\Field@Width=\dimen312
-\Fld@charsize=\dimen313
+\Fld@menulength=\count387
+\Field@Width=\dimen317
+\Fld@charsize=\dimen318
 Package hyperref Info: Hyper figures OFF on input line 6084.
 Package hyperref Info: Link nesting OFF on input line 6089.
 Package hyperref Info: Hyper index ON on input line 6092.
@@ -958,16 +982,16 @@ Package hyperref Info: backreferencing OFF on input line 6099.
 Package hyperref Info: Link coloring ON on input line 6102.
 Package hyperref Info: Link coloring with OCG OFF on input line 6109.
 Package hyperref Info: PDF/A mode OFF on input line 6114.
-\Hy@abspage=\count385
-\c@Item=\count386
-\c@Hfootnote=\count387
+\Hy@abspage=\count388
+\c@Item=\count389
+\c@Hfootnote=\count390
 )
 Package hyperref Info: Driver: hpdftex.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/hyperref/hpdftex.def
 File: hpdftex.def 2026-01-29 v7.01p Hyperref driver for pdfTeX
-\Fld@listcount=\count388
-\c@bookmark@seq@number=\count389
+\Fld@listcount=\count391
+\c@bookmark@seq@number=\count392
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/rerunfilecheck/rerunfile
 check.sty
@@ -989,48 +1013,52 @@ Package: hypcap 2024-07-26 v1.13 Adjusting the anchors of captions (HO)
 sty
 Package: letltxmacro 2019/12/03 v1.6 Let assignment for LaTeX macros (HO)
 ))
-\enitdp@checklist=\count390
-LaTeX Font Info:    Trying to load font information for T1+lmr on input line 23
-6.
+\enitdp@checklist=\count393
+LaTeX Font Info:    Trying to load font information for T1+lmr on input line 22
+2.
  (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
+
+LaTeX Warning: Unused global option(s):
+    [pdftex].
+
 (./projekt.aux)
 \openout1 = `projekt.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 236.
-LaTeX Font Info:    ... okay on input line 236.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 222.
+LaTeX Font Info:    ... okay on input line 222.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/context/base/mkii/supp-pdf.mki
 i
 [Loading MPS to PDF converter (version 2006.09.02).]
-\scratchcounter=\count391
-\scratchdimen=\dimen314
-\scratchbox=\box79
-\nofMPsegments=\count392
-\nofMParguments=\count393
-\everyMPshowfont=\toks51
-\MPscratchCnt=\count394
-\MPscratchDim=\dimen315
-\MPnumerator=\count395
-\makeMPintoPDFobject=\count396
-\everyMPtoPDFconversion=\toks52
+\scratchcounter=\count394
+\scratchdimen=\dimen319
+\scratchbox=\box81
+\nofMPsegments=\count395
+\nofMParguments=\count396
+\everyMPshowfont=\toks54
+\MPscratchCnt=\count397
+\MPscratchDim=\dimen320
+\MPnumerator=\count398
+\makeMPintoPDFobject=\count399
+\everyMPtoPDFconversion=\toks55
 )
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/epstopdf-pkg/epstopdf-ba
 se.sty
@@ -1050,85 +1078,128 @@ G,.JBIG2,.JB2,.eps]
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-\c@mv@tabular=\count397
-\c@mv@boldtabular=\count398
-\c@lstlisting=\count399
-Package hyperref Info: Link coloring ON on input line 236.
- (./projekt.out) (./projekt.out)
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pdflscape/pdflscape.sty
+Package: pdflscape 2025-06-23 v0.14 Display of landscape pages in PDF
+
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/pdflscape/pdflscape-nome
+tadata.sty
+Package: pdflscape-nometadata 2025-06-23 v0.14 Display of landscape pages in PD
+F (HO)
+
+(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/graphics/lscape.sty
+Package: lscape 2020/05/28 v3.02 Landscape Pages (DPC)
+)
+Package pdflscape Info: Auto-detected driver: pdftex on input line 81.
+))
+\c@mv@tabular=\count400
+\c@mv@boldtabular=\count401
+\c@lstlisting=\count402
+Package hyperref Info: Link coloring ON on input line 222.
+
+(./projekt.out) (./projekt.out)
 \@outlinefile=\write4
 \openout4 = `projekt.out'.
 
-LaTeX Font Info:    Trying to load font information for T1+qhv on input line 24
-2.
+LaTeX Font Info:    Trying to load font information for T1+qhv on input line 22
+8.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/tex-gyre/t1qhv.fd
 File: t1qhv.fd 2009/09/25 v1.2 font definition file for T1/qhv
 )
-\@obrlogo=\box80
-\@rtext=\box81
+\@obrlogo=\box82
+\@rtext=\box83
 \@vyskartext=\skip90
 \@sirkartext=\skip91
 \@vyskaobr=\skip92
 \@sirkaobr=\skip93
-<template-fig/VUT_symbol_barevne_CMYK_CZ.pdf, id=353, 167.13641pt x 165.87971pt
+<template-fig/VUT_symbol_barevne_CMYK_CZ.pdf, id=349, 167.13641pt x 165.87971pt
 >
 File: template-fig/VUT_symbol_barevne_CMYK_CZ.pdf Graphic file (type pdf)
 <use template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>
 Package pdftex.def Info: template-fig/VUT_symbol_barevne_CMYK_CZ.pdf  used on i
-nput line 242.
+nput line 228.
 (pdftex.def)             Requested size: 116.65646pt x 115.17995pt.
 LaTeX Font Info:    Trying to load font information for T1+opensans-TLF on inpu
-t line 242.
+t line 228.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/opensans/T1opensans-TLF.
 fd
 File: T1opensans-TLF.fd 2019/06/24 Font definitions for T1/opensans-TLF.
 )
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 18.0pt on input line 242.
+(Font)              scaled to size 18.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 18.0pt on input line 242.
+(Font)              scaled to size 18.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 11.0pt on input line 242.
+(Font)              scaled to size 11.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 11.0pt on input line 242.
+(Font)              scaled to size 11.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 14.0pt on input line 242.
+(Font)              scaled to size 14.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 14.0pt on input line 242.
+(Font)              scaled to size 14.0pt on input line 228.
 
-Underfull \hbox (badness 4132) in paragraph at lines 242--242
+Underfull \hbox (badness 4132) in paragraph at lines 228--228
 \T1/opensans-TLF/b/n/18 AN EN-VI-RON-MENT FOR THE VI-SUAL DE-SIGN,
  []
 
 
-Overfull \hbox (20.60208pt too wide) in paragraph at lines 242--242
+Overfull \hbox (20.60208pt too wide) in paragraph at lines 228--228
 \T1/opensans-TLF/b/n/18 MON-I-TOR-ING, AND MAN-AGE-MENT OF DIS-TRIBUTED
  []
 
 LaTeX Font Info:    Font shape `T1/opensans-TLF/m/n' will be
-(Font)              scaled to size 10.0pt on input line 242.
+(Font)              scaled to size 10.0pt on input line 228.
 LaTeX Font Info:    Font shape `T1/opensans-TLF/b/n' will be
-(Font)              scaled to size 10.0pt on input line 242.
+(Font)              scaled to size 10.0pt on input line 228.
 
-Underfull \hbox (badness 3049) in paragraph at lines 242--242
+Underfull \hbox (badness 3049) in paragraph at lines 228--228
 \T1/opensans-TLF/b/n/10 PROSTêEDÕ PRO VIZU¡LNÕ N¡VRH, MON-I-TOROV¡NÕ A SPR¡VU D
 IS-TRIBUO-VAN›CH
  []
 
+<zadani.pdf, id=351, 597.51233pt x 845.0471pt>
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf>
+Package pdftex.def Info: zadani.pdf  used on input line 228.
+(pdftex.def)             Requested size: 597.51086pt x 845.04504pt.
+<zadani.pdf, id=353, page=1, 597.51233pt x 845.0471pt>
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf, page 1>
+Package pdftex.def Info: zadani.pdf , page1 used on input line 228.
+(pdftex.def)             Requested size: 597.51086pt x 845.04504pt.
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf, page 1>
+Package pdftex.def Info: zadani.pdf , page1 used on input line 228.
+(pdftex.def)             Requested size: 597.53821pt x 845.08372pt.
 [1
 
 {/home/jakito/.local/texlive/2026/texmf-var/fonts/map/pdftex/updmap/pdftex.map}
 {/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/opensans/a_jg4h6q.
-enc} <./template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>] [2{/home/jakito/.local/te
-xlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}] [3]
-LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 2
-42.
+enc} <./template-fig/VUT_symbol_barevne_CMYK_CZ.pdf>]
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf, page 1>
+Package pdftex.def Info: zadani.pdf , page1 used on input line 228.
+(pdftex.def)             Requested size: 597.53821pt x 845.08372pt.
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf, page 1>
+Package pdftex.def Info: zadani.pdf , page1 used on input line 228.
+(pdftex.def)             Requested size: 597.53821pt x 845.08372pt.
+File: zadani.pdf Graphic file (type pdf)
+<use zadani.pdf, page 1>
+Package pdftex.def Info: zadani.pdf , page1 used on input line 228.
+(pdftex.def)             Requested size: 597.53821pt x 845.08372pt.
+ [2
 
-(/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
+ <./zadani.pdf>]
+[3{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
+[4]
+LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 2
+28.
+ (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
-) [4]
-[5] [6] (./projekt.toc<<ot1.cmap>>
+)
+[5] [6] [7] (./projekt.toc<<ot1.cmap>>
 LaTeX Font Info:    Trying to load font information for U+msa on input line 3.
 
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/amsfonts/umsa.fd
@@ -1143,7 +1214,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.1}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.78 ...nd Time-Travel Debugging}{36}{section.6.6}
+l.78 ...nd Time-Travel Debugging}{35}{section.6.6}
                                                   % [1
 
 
@@ -1152,7 +1223,7 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.2}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.134 ...mberline {12.3}Results}{71}{section.12.3}
+l.134 ...mberline {12.3}Results}{67}{section.12.3}
                                                   % [2])
 \tf@toc=\write5
 \openout5 = `projekt.toc'.
@@ -1162,17 +1233,9 @@ pdfTeX warning (ext4): destination with the same identifier (name{page.3}) has
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
-l.254   {\hypersetup{hidelinks}\listoffigures
+l.240   {\hypersetup{hidelinks}\listoffigures
                                              } [3] (./projekt.lof
-pdfTeX warning (ext4): destination with the same identifier (name{page.4}) has 
-been already used, duplicate ignored
-<to be read again> 
-                   \relax 
-l.26 ...the deployed automaton.}}{63}{figure.11.3}
-                                                  % [4
-
-]
-Overfull \hbox (6.15303pt too wide) in paragraph at lines 31--31
+Overfull \hbox (6.15303pt too wide) in paragraph at lines 25--25
  [][] [][]\T1/lmr/m/n/10.95 Runtime Mon-i-tor panel show-ing the black-box de-v
 ice con-tract for \T1/lmtt/m/n/10.95 black_box_01\T1/lmr/m/n/10.95 .[] [][]  
  []
@@ -1182,54 +1245,68 @@ ice con-tract for \T1/lmtt/m/n/10.95 black_box_01\T1/lmr/m/n/10.95 .[] [][]
 \openout6 = `projekt.lof'.
 
  (./projekt-01-kapitoly-chapters-en.tex
-pdfTeX warning (ext4): destination with the same identifier (name{page.5}) has 
+pdfTeX warning (ext4): destination with the same identifier (name{page.4}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
 l.28 \chapter
-             {Introduction} [5]
+             {Introduction} [4
+
+]
 Chapter 1.
 LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 3
 8.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
-pdfTeX warning (ext4): destination with the same identifier (name{page.6}) has 
+pdfTeX warning (ext4): destination with the same identifier (name{page.5}) has 
 been already used, duplicate ignored
 <to be read again> 
                    \relax 
 l.49 
-      [6
+      [5
 
-{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}] [7
-]
+{/home/jakito/.local/texlive/2026/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}]
+pdfTeX warning (ext4): destination with the same identifier (name{page.6}) has 
+been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.75   \item A
+               known intermittent connection can be reproduced with the faul...
+[6]
 Underfull \hbox (badness 2103) in paragraph at lines 96--97
 \T1/lmr/m/n/10.95 Section [][]1.1[][] above in-tro-duces the two guid-ing prin-
 ci-ples (Reality-in-the-Loop and
  []
 
-[8] [9]
+
+pdfTeX warning (ext4): destination with the same identifier (name{page.7}) has 
+been already used, duplicate ignored
+<to be read again> 
+                   \relax 
+l.99 \chapter
+             {Background} [7] [8]
 Chapter 2.
-[10
+[9
 
-] [11] [12] [13]
+] [10] [11] [12]
 Chapter 3.
-[14
+[13
 
-] [15] [16] [17]
+] [14] [15] [16]
 Overfull \hbox (3.22745pt too wide) in paragraph at lines 378--379
 []\T1/lmr/m/n/10.95 The run-time en-gine must com-pile and ex-e-cute on desk-to
 p Linux/macOS,
  []
 
-[18] [19]
+[17] [18]
 Chapter 4.
-<obrazky-figures/arch.pdf, id=750, 602.25pt x 252.945pt>
+<obrazky-figures/arch.pdf, id=751, 602.25pt x 252.945pt>
 File: obrazky-figures/arch.pdf Graphic file (type pdf)
 <use obrazky-figures/arch.pdf>
 Package pdftex.def Info: obrazky-figures/arch.pdf  used on input line 405.
 (pdftex.def)             Requested size: 397.89975pt x 167.11789pt.
-[20
+[19
 
  <./obrazky-figures/arch.pdf>]
 Underfull \hbox (badness 2050) in paragraph at lines 420--421
@@ -1237,18 +1314,18 @@ Underfull \hbox (badness 2050) in paragraph at lines 420--421
 pro-cesses are not OS threads; they are
  []
 
-[21]
+[20]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <10.95> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 448.
- [22] [23] [24]
+ [21] [22] [23]
 Chapter 5.
-[25
+[24
 
-] [26]
+] [25]
 Package hyperref Info: bookmark level for unknown algorithm defaults to 0 on in
 put line 605.
- [27]
-<obrazky-figures/black_box_contract.pdf, id=867, 602.25pt x 374.3586pt>
+ [26]
+<obrazky-figures/black_box_contract.pdf, id=868, 602.25pt x 374.3586pt>
 File: obrazky-figures/black_box_contract.pdf Graphic file (type pdf)
 <use obrazky-figures/black_box_contract.pdf>
 Package pdftex.def Info: obrazky-figures/black_box_contract.pdf  used on input 
@@ -1256,30 +1333,30 @@ line 653.
 (pdftex.def)             Requested size: 397.89975pt x 247.33449pt.
 Package hyperref Info: bookmark level for unknown lstlisting defaults to 0 on i
 nput line 665.
- [28 <./obrazky-figures/black_box_contract.pdf>] [29] [30]
+ [27 <./obrazky-figures/black_box_contract.pdf>] [28] [29]
 Chapter 6.
-<obrazky-figures/tick_cycle.pdf, id=949, 400.37581pt x 788.9475pt>
+<obrazky-figures/tick_cycle.pdf, id=950, 400.37581pt x 788.9475pt>
 File: obrazky-figures/tick_cycle.pdf Graphic file (type pdf)
 <use obrazky-figures/tick_cycle.pdf>
 Package pdftex.def Info: obrazky-figures/tick_cycle.pdf  used on input line 743
 .
 (pdftex.def)             Requested size: 159.40826pt x 314.11676pt.
-<obrazky-figures/platform_abstraction.pdf, id=951, 602.25pt x 243.79079pt>
+<obrazky-figures/platform_abstraction.pdf, id=952, 602.25pt x 243.79079pt>
 File: obrazky-figures/platform_abstraction.pdf Graphic file (type pdf)
 <use obrazky-figures/platform_abstraction.pdf>
 Package pdftex.def Info: obrazky-figures/platform_abstraction.pdf  used on inpu
 t line 755.
 (pdftex.def)             Requested size: 397.89975pt x 161.06981pt.
-[31
+[30
 
- <./obrazky-figures/tick_cycle.pdf>] [32 <./obrazky-figures/platform_abstractio
+ <./obrazky-figures/tick_cycle.pdf>] [31 <./obrazky-figures/platform_abstractio
 n.pdf>]
 Overfull \hbox (58.19763pt too wide) in paragraph at lines 816--817
 []\T1/lmr/m/n/10.95 Return the cal-i-brated mil-li-volt read-ing, us-ing the ES
 P-IDF \T1/lmtt/m/n/10.95 analogReadMilliVolts
  []
 
-[33]
+[32]
 Overfull \hbox (20.28845pt too wide) in paragraph at lines 841--842
 \T1/lmr/m/n/10.95 Complex pe-riph-er-als are en-cap-su-lated as named \T1/lmr/m
 /it/10.95 com-po-nents \T1/lmr/m/n/10.95 reg-is-tered with \T1/lmtt/m/n/10.95 I
@@ -1297,7 +1374,7 @@ Underfull \hbox (badness 2443) in paragraph at lines 854--855
 n/10.95 on\T1/lmr/m/n/10.95 , \T1/lmtt/m/n/10.95 off\T1/lmr/m/n/10.95 ,
  []
 
-[34]
+[33]
 Overfull \hbox (46.11417pt too wide) in paragraph at lines 857--858
 []\T1/lmr/m/n/10.95 Reads the TSI v6 ca-pac-i-tive touch sen-sor. Meth-ods: \T1
 /lmtt/m/n/10.95 init([threshold])\T1/lmr/m/n/10.95 ,
@@ -1308,34 +1385,34 @@ Underfull \hbox (badness 10000) in paragraph at lines 887--887
 []|\T1/lmr/m/n/10.95 impl.
  []
 
-[35]
-<obrazky-figures/fault_injection_pipeline.pdf, id=1039, 533.1117pt x 761.96669p
+[34]
+<obrazky-figures/fault_injection_pipeline.pdf, id=1040, 533.1117pt x 761.96669p
 t>
 File: obrazky-figures/fault_injection_pipeline.pdf Graphic file (type pdf)
 <use obrazky-figures/fault_injection_pipeline.pdf>
 Package pdftex.def Info: obrazky-figures/fault_injection_pipeline.pdf  used on 
 input line 925.
 (pdftex.def)             Requested size: 219.773pt x 314.11748pt.
- [36] [37 <./obrazky-figures/fault_injection_pipeline.pdf>]
+ [35] [36 <./obrazky-figures/fault_injection_pipeline.pdf>]
 LaTeX Font Info:    Font shape `T1/lmtt/bx/n' in size <12> not available
 (Font)              Font shape `T1/lmtt/b/n' tried instead on input line 945.
-<obrazky-figures/time_travel_flow.pdf, id=1070, 602.25pt x 593.3367pt>
+<obrazky-figures/time_travel_flow.pdf, id=1071, 602.25pt x 593.3367pt>
 File: obrazky-figures/time_travel_flow.pdf Graphic file (type pdf)
 <use obrazky-figures/time_travel_flow.pdf>
 Package pdftex.def Info: obrazky-figures/time_travel_flow.pdf  used on input li
 ne 983.
 (pdftex.def)             Requested size: 318.84177pt x 314.12291pt.
- [38] [39 <./obrazky-figures/time_travel_flow.pdf>]
+ [37] [38 <./obrazky-figures/time_travel_flow.pdf>]
 Chapter 7.
-[40
+[39
 
 ]
-<obrazky-figures/msgflow.pdf, id=1105, 602.25pt x 659.5842pt>
+<obrazky-figures/msgflow.pdf, id=1106, 602.25pt x 659.5842pt>
 File: obrazky-figures/msgflow.pdf Graphic file (type pdf)
 <use obrazky-figures/msgflow.pdf>
 Package pdftex.def Info: obrazky-figures/msgflow.pdf  used on input line 1046.
 (pdftex.def)             Requested size: 286.81607pt x 314.12096pt.
- [41] [42 <./obrazky-figures/msgflow.pdf>] [43]
+ [40] [41 <./obrazky-figures/msgflow.pdf>] [42]
 Chapter 8.
 
 Overfull \hbox (2.95271pt too wide) in paragraph at lines 1113--1115
@@ -1345,39 +1422,39 @@ Overfull \hbox (2.95271pt too wide) in paragraph at lines 1113--1115
 95 ;  \OT1/cmr/m/n/10.95 ^^F[])$
  []
 
-[44
+[43
 
 ]
-<obrazky-figures/petri_lifting.pdf, id=1157, 515.04419pt x 473.85028pt>
+<obrazky-figures/petri_lifting.pdf, id=1158, 515.04419pt x 473.85028pt>
 File: obrazky-figures/petri_lifting.pdf Graphic file (type pdf)
 <use obrazky-figures/petri_lifting.pdf>
 Package pdftex.def Info: obrazky-figures/petri_lifting.pdf  used on input line 
 1154.
 (pdftex.def)             Requested size: 341.42342pt x 314.11592pt.
- [45] [46 <./obrazky-figures/petri_lifting.pdf>] [47] [48]
+ [44] [45 <./obrazky-figures/petri_lifting.pdf>] [46] [47]
 Chapter 9.
-[49
+[48
 
 ]
-<obrazky-figures/watchdog.pdf, id=1206, 294.13892pt x 392.42609pt>
+<obrazky-figures/watchdog.pdf, id=1207, 294.13892pt x 392.42609pt>
 File: obrazky-figures/watchdog.pdf Graphic file (type pdf)
 <use obrazky-figures/watchdog.pdf>
 Package pdftex.def Info: obrazky-figures/watchdog.pdf  used on input line 1301.
 
 (pdftex.def)             Requested size: 235.45058pt x 314.12692pt.
- [50] [51 <./obrazky-figures/watchdog.pdf>] [52]
+ [49] [50 <./obrazky-figures/watchdog.pdf>] [51]
 Chapter 10.
-<obrazky-figures/testing_validation_coverage.pdf, id=1247, 602.25pt x 364.48169
+<obrazky-figures/testing_validation_coverage.pdf, id=1248, 602.25pt x 364.48169
 pt>
 File: obrazky-figures/testing_validation_coverage.pdf Graphic file (type pdf)
 <use obrazky-figures/testing_validation_coverage.pdf>
 Package pdftex.def Info: obrazky-figures/testing_validation_coverage.pdf  used 
 on input line 1350.
 (pdftex.def)             Requested size: 397.89975pt x 240.80891pt.
-[53
+[52
 
-] [54 <./obrazky-figures/testing_validation_coverage.pdf>] [55] [56]
-[57] [58] [59]
+] [53 <./obrazky-figures/testing_validation_coverage.pdf>] [54] [55]
+[56] [57] [58]
 Chapter 11.
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
@@ -1388,100 +1465,52 @@ File: lstmisc.sty 2025/11/14 1.11b (Carsten Heinz)
 (/home/jakito/.local/texlive/2026/texmf-dist/tex/latex/listings/lstlang1.sty
 File: lstlang1.sty 2025/11/14 1.11b listings language file
 )
-[60
+[59
 
-]
-<obrazky-figures/network_view.png, id=1320, 3083.52pt x 1927.2pt>
-File: obrazky-figures/network_view.png Graphic file (type png)
-<use obrazky-figures/network_view.png>
-Package pdftex.def Info: obrazky-figures/network_view.png  used on input line 1
-564.
-(pdftex.def)             Requested size: 397.86043pt x 248.66277pt.
-<obrazky-figures/automata_and_upload.png, id=1322, 3052.40375pt x 1753.55125pt>
-
-File: obrazky-figures/automata_and_upload.png Graphic file (type png)
-<use obrazky-figures/automata_and_upload.png>
-Package pdftex.def Info: obrazky-figures/automata_and_upload.png  used on input
- line 1590.
-(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
- [61 <./obrazky-figures/network_view.png>]
-<obrazky-figures/runtime_view.png, id=1331, 3052.40375pt x 1753.55125pt>
-File: obrazky-figures/runtime_view.png Graphic file (type png)
-<use obrazky-figures/runtime_view.png>
-Package pdftex.def Info: obrazky-figures/runtime_view.png  used on input line 1
-624.
-(pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
- [62 <./obrazky-figures/automata_and_upload.png>]
-<obrazky-figures/ide_fault_injection.pdf, id=1338, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_fault_injection.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_fault_injection.pdf>
-Package pdftex.def Info: obrazky-figures/ide_fault_injection.pdf  used on input
- line 1670.
-(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
- [63 <./obrazky-figures/runtime_view.png>]
-<obrazky-figures/ide_time_travel.pdf, id=1346, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_time_travel.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_time_travel.pdf>
-Package pdftex.def Info: obrazky-figures/ide_time_travel.pdf  used on input lin
-e 1712.
-(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
- [64 <./obrazky-figures/ide_fault_injection.pdf>]
-<obrazky-figures/petri_net_lift.png, id=1360, 3052.40375pt x 1753.55125pt>
+] [60] [61]
+<obrazky-figures/petri_net_lift.png, id=1337, 3052.40375pt x 1753.55125pt>
 File: obrazky-figures/petri_net_lift.png Graphic file (type png)
 <use obrazky-figures/petri_net_lift.png>
 Package pdftex.def Info: obrazky-figures/petri_net_lift.png  used on input line
- 1742.
+ 1700.
 (pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
- [65 <./obrazky-figures/ide_time_travel.pdf>]
-<obrazky-figures/ide_analyzer.pdf, id=1368, 151.87993pt x 85.31876pt>
-File: obrazky-figures/ide_analyzer.pdf Graphic file (type pdf)
-<use obrazky-figures/ide_analyzer.pdf>
-Package pdftex.def Info: obrazky-figures/ide_analyzer.pdf  used on input line 1
-793.
-(pdftex.def)             Requested size: 397.89354pt x 223.5172pt.
-
-[66 <./obrazky-figures/petri_net_lift.png>]
-<obrazky-figures/black_box_view.png, id=1377, 3052.40375pt x 1753.55125pt>
+ [62 <./obrazky-figures/petri_net_lift.png>]
+<obrazky-figures/black_box_view.png, id=1345, 3052.40375pt x 1753.55125pt>
 File: obrazky-figures/black_box_view.png Graphic file (type png)
 <use obrazky-figures/black_box_view.png>
 Package pdftex.def Info: obrazky-figures/black_box_view.png  used on input line
- 1821.
+ 1771.
 (pdftex.def)             Requested size: 397.85109pt x 228.55832pt.
 
-Underfull \hbox (badness 2065) in paragraph at lines 1822--1822
-[]\T1/lmr/m/n/10.95 Figure 11.8: Run-time Mon-i-tor panel show-ing the black-bo
+Underfull \hbox (badness 2065) in paragraph at lines 1772--1772
+[]\T1/lmr/m/n/10.95 Figure 11.2: Run-time Mon-i-tor panel show-ing the black-bo
 x de-vice con-tract for
  []
 
-[67 <./obrazky-figures/ide_analyzer.pdf> <./obrazky-figures/black_box_view.png>
-] [68]
+[63] [64 <./obrazky-figures/black_box_view.png>]
 Chapter 12.
-[69
+[65
 
-] [70] [71] [72] [73]) (./projekt.bbl [74] [75
+] [66] [67] [68] [69]) (./projekt.bbl [70] [71
 
-] [76] [77])
-\c@ttl@toc@chapters=\count400
+] [72] [73])
+\c@ttl@toc@chapters=\count403
 
-(./projekt-30-prilohy-appendices-en.tex [78]
+(./projekt-30-prilohy-appendices-en.tex [74]
 Appendix A.
-[79
+[75
 
 ]
 Appendix B.
-[80
+[76
 
 ]
 Appendix C.
-[81
-
-]
-Appendix D.
 )
 \tf@ptc=\write7
 \openout7 = `projekt.ptc'.
 
- [82
+ [77
 
 ] (./projekt.aux)
  ***********
@@ -1493,16 +1522,16 @@ L3 programming layer <2021/03/21>
 LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
 
 Package rerunfilecheck Info: File `projekt.out' has not changed.
-(rerunfilecheck)             Checksum: A8B8FE60DF059B88EDC476DFEA30BD53;14093.
+(rerunfilecheck)             Checksum: 9596E0FF65A6ECA444F7CF1DA3879083;13892.
  ) 
 Here is how much of TeX's memory you used:
- 29138 strings out of 468830
- 536333 string characters out of 5450632
- 1403921 words of memory out of 5000000
- 56928 multiletter control sequences out of 15000+600000
+ 29831 strings out of 468830
+ 547561 string characters out of 5450632
+ 1416970 words of memory out of 5000000
+ 57613 multiletter control sequences out of 15000+600000
  729705 words of font info for 122 fonts, out of 8000000 for 9000
  320 hyphenation exceptions out of 8191
- 88i,13n,96p,1822b,2174s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 88i,17n,96p,1784b,2174s stack positions out of 10000i,1000n,20000p,200000b,200000s
 </home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/ascender/opensans/Op
 enSans-Bold.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public
 /amsfonts/cm/cmex10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type
@@ -1528,10 +1557,10 @@ e/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></home
 /jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts/symbols/msam
 10.pfb></home/jakito/.local/texlive/2026/texmf-dist/fonts/type1/public/amsfonts
 /symbols/msbm10.pfb>
-Output written on projekt.pdf (88 pages, 3376612 bytes).
+Output written on projekt.pdf (84 pages, 2311216 bytes).
 PDF statistics:
- 1713 PDF objects out of 1728 (max. 8388607)
- 1496 compressed objects within 15 object streams
- 449 named destinations out of 1000 (max. 500000)
- 810 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 1674 PDF objects out of 1728 (max. 8388607)
+ 1458 compressed objects within 15 object streams
+ 436 named destinations out of 1000 (max. 500000)
+ 787 words of extra memory for PDF output out of 10000 (max. 10000000)
 

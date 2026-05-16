@@ -3,9 +3,7 @@
 \chapter{Contents of the Included Storage Media}
 \label{app:media}
 
-% TODO: fill in final directory listing once all deliverables are collected.
-
-The included storage medium contains the following items:
+The included storage medium contains:
 
 \begin{description}
   \item[\texttt{src/}] Full source code of the Aetherium Automata platform:
@@ -99,33 +97,7 @@ Fields marked \textbf{(R)} are required; fields marked \textbf{(O)} are optional
     Desktop Linux/macOS & x86-64 / ARM64 & Lua 5.4 via Sol2    & WebSocket               & CMake \\
     ESP32               & Xtensa LX6     & Lightweight or stub & Serial / MQTT           & Arduino \\
     Raspberry Pi Pico   & ARM Cortex-M0+ & No-op stub          & Serial (UART)           & CMake \\
-    MCXN947             & ARM Cortex-M7  & Lightweight         & Serial (UART)           & CMake \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
-
-\chapter{Required Demonstration Figures}
-\label{app:required-figures}
-
-The current thesis includes placeholder IDE figures so the report can be compiled before final screenshots are captured. The final visual pass should replace these placeholders with screenshots taken from the running Aetherium Gem Cell and flagship desktop project.
-
-\begin{table}[!htbp]
-  \centering
-  \caption{Screenshot checklist for the final thesis figures.}
-  \label{tab:app-figure-checklist}
-  \vskip6pt
-  \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{0.24\textwidth}X}
-    \toprule
-    Figure & Required capture \\
-    \midrule
-    Network panel & Open the backend capabilities tour; capture the project tree with \textit{Aetherium Gem Cell} expanded above the signal-chain and power-contention networks. \\
-    Runtime deployment & Deploy the Gem Cell automaton to the demo C++ device; capture the deployment acknowledgement and selected automaton. \\
-    Runtime monitor & Run the Gem Cell with the operator enabled; capture the state list around request, acquire, and replay phases, including phase, TDD, demand, and replay variables. \\
-    Fault injection & Enable a drop or delay fault against the Gem Cell boundary; capture the Gateway fault profile and the monitor showing fault or compensation behavior. \\
-    Time travel & Rewind to the replay checkpoint marker; capture the trace timeline with the selected event and reconstructed state. \\
-    Petri net & Open the Petri Net panel for the Gem Cell plus Power Contention Ring; capture the shared bus/resource place and contention report. \\
-    Analyzer & Capture a report where the analyzer shows the Gem Cell black-box ports, emitted events, and shared-resource metadata. \\
-    Hardware variant & Optional: capture ESP32 or MCXN947 connected through serial to show the same IDE workflow with a physical target. \\
+    MCXN947             & ARM Cortex-M33  & Lightweight         & Serial (UART)           & CMake \\
     \bottomrule
   \end{tabularx}
 \end{table}
