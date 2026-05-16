@@ -258,15 +258,23 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
         }
 
         const existing = state.deployments.get(deploymentId);
+        const incomingUpdatedAt =
+          toFiniteNumber(payload.updated_at ?? payload.updatedAt ?? payload.timestamp) ?? now;
+        // Preserve the most recent currentState. Heartbeat inventories carry the
+        // server's view of the state which may lag behind live state_changed events
+        // already processed by ingestTransition. Only overwrite if the incoming
+        // data is strictly newer than what the frontend already knows.
+        const useIncomingState =
+          !existing || incomingUpdatedAt >= existing.updatedAt;
+        const incomingState = String(payload.current_state ?? payload.currentState ?? '');
         nextDeployments.set(deploymentId, {
           deploymentId,
           deviceId: deviceId as RuntimeDeployment['deviceId'],
           automataId: (automataId || existing?.automataId || 'unknown') as RuntimeDeployment['automataId'],
           status: mapStatus(payload.status),
-          currentState: String(payload.current_state ?? payload.currentState ?? existing?.currentState ?? ''),
+          currentState: (useIncomingState && incomingState) ? incomingState : (existing?.currentState ?? incomingState),
           variables: cloneRecord(payload.variables) ?? existing?.variables,
-          updatedAt:
-            toFiniteNumber(payload.updated_at ?? payload.updatedAt ?? payload.timestamp) ?? now,
+          updatedAt: Math.max(incomingUpdatedAt, existing?.updatedAt ?? 0),
         });
       });
 
@@ -328,13 +336,18 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
 
       const deployments = new Map(state.deployments);
       const existing = deployments.get(plainEvent.deploymentId);
+      // Only merge variables if the event actually carries them (non-empty payload).
+      // An empty variables object from events that don't include variables should NOT
+      // wipe the previously-known variable values.
+      const incomingVars = cloneRecord(plainEvent.variables);
+      const hasIncomingVars = incomingVars !== undefined && Object.keys(incomingVars).length > 0;
       deployments.set(plainEvent.deploymentId, {
         deploymentId: plainEvent.deploymentId,
         deviceId: plainEvent.deviceId,
         automataId: plainEvent.automataId,
         status: 'running',
         currentState: plainEvent.toState,
-        variables: cloneRecord(plainEvent.variables) ?? existing?.variables,
+        variables: hasIncomingVars ? incomingVars : (existing?.variables),
         updatedAt: plainEvent.timestamp || Date.now(),
       });
 
@@ -363,14 +376,19 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
       const existing = deployments.get(deploymentId);
       const proposedUpdatedAt =
         toFiniteNumber(payload.updated_at ?? payload.updatedAt ?? payload.timestamp) ?? Date.now();
+      // Preserve the most recent currentState. deployment_status events may carry
+      // a stale server state that lags behind live state_changed events already
+      // processed by ingestTransition. Only overwrite if the incoming data is newer.
+      const incomingState = String(payload.current_state ?? payload.currentState ?? '');
+      const useIncomingState = !existing || proposedUpdatedAt >= existing.updatedAt;
       const next: RuntimeDeployment = {
         deploymentId,
         deviceId: deviceId as RuntimeDeployment['deviceId'],
         automataId: (automataId || existing?.automataId || 'unknown') as RuntimeDeployment['automataId'],
         status: mapStatus(payload.status),
-        currentState: String(payload.current_state ?? payload.currentState ?? existing?.currentState ?? ''),
+        currentState: (useIncomingState && incomingState) ? incomingState : (existing?.currentState ?? incomingState),
         variables: cloneRecord(payload.variables) ?? existing?.variables,
-        updatedAt: proposedUpdatedAt,
+        updatedAt: Math.max(proposedUpdatedAt, existing?.updatedAt ?? 0),
       };
 
       if (shallowDeploymentEqual(existing, next)) {

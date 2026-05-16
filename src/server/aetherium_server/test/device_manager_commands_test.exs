@@ -37,6 +37,58 @@ defmodule AetheriumServer.DeviceManagerCommandsTest do
     assert snapshot.running == false
   end
 
+  test "stale device status cannot overwrite a newer state change" do
+    suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
+    device_id = "stale-status-device-#{suffix}"
+    automata_id = "stale-status-automata-#{suffix}"
+    deployment_id = "#{automata_id}:#{device_id}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :desktop,
+          capabilities: 0xFFFF,
+          protocol_version: 1
+        },
+        self()
+      )
+
+    {:ok, deployment} =
+      DeviceManager.deploy_automata(automata_id, device_id, sample_automata(automata_id))
+
+    DeviceManager.handle_device_message(device_id, :status, %{
+      run_id: deployment.run_id,
+      execution_state: 2,
+      current_state: 1,
+      transition_count: 0,
+      variables: %{"enabled" => false},
+      deployment_metadata: %{"latency" => %{"handle_timestamp" => 50}}
+    })
+
+    DeviceManager.handle_device_message(device_id, :state_change, %{
+      run_id: deployment.run_id,
+      previous_state: 1,
+      new_state: 2,
+      fired_transition: 1,
+      timestamp: 100
+    })
+
+    DeviceManager.handle_device_message(device_id, :status, %{
+      run_id: deployment.run_id,
+      execution_state: 2,
+      current_state: 1,
+      transition_count: 0,
+      variables: %{"enabled" => false},
+      deployment_metadata: %{"latency" => %{"handle_timestamp" => 50}}
+    })
+
+    Process.sleep(50)
+
+    assert {:ok, snapshot} = DeviceManager.request_state(deployment_id)
+    assert snapshot.current_state == "Running"
+  end
+
   test "deployment can be rewound from recorded time-series snapshots" do
     suffix = :erlang.unique_integer([:positive]) |> Integer.to_string()
     device_id = "rewind-device-#{suffix}"

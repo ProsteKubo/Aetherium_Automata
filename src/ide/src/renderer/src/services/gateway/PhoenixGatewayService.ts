@@ -1889,18 +1889,10 @@ export class PhoenixGatewayService implements IGatewayService {
         this.emit('onDeploymentTransfer', this.normalizeDeploymentTransfer(payload));
       });
 
-      this.automataChannel.on('state_changed', (payload: StateChangedEvent) => {
-        const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
-        if (!deviceId) return;
-        const toState = String(payload.to_state ?? payload.toState ?? '');
-
-        const device = this.devices.get(deviceId);
-        if (device) {
-          // Create new object to avoid mutating frozen Immer objects
-          this.devices.set(deviceId, { ...device, currentState: toState });
-          this.emit('onDeviceList', Array.from(this.devices.values()));
-        }
-      });
+      // Runtime state changes are consumed from gateway:control only. The gateway
+      // also mirrors state_changed/transition_fired on automata:control for
+      // command clients; treating those mirrored events as UI transitions creates
+      // duplicate or out-of-order state changes in the runtime view.
 
       this.automataChannel.on('deployment_status', (payload: any) => {
         const deviceId = String(payload.device_id ?? payload.deviceId ?? '');

@@ -38,6 +38,19 @@ SERIAL_BAUD_RATE ?= 115200
 SERIAL_PORTS ?= $(AUTO_SERIAL_PORTS)
 SERIAL_SERVER_ID ?= serial_host
 ENABLE_HOST_RUNTIME_DEVICE ?= 0
+HOST_GATEWAY_PORT ?= 8080
+HOST_DEVICE_PORT ?= 4100
+HOST_SERVER_ID ?= svr_host
+HOST_DEVICE_COUNT ?= 1
+HOST_DEVICE_PREFIX ?= host_cpp
+HOST_RUNTIME_DIR ?= var/host-console
+HOST_BUILD_ENGINE ?= 1
+HOST_STOP_COMPOSE ?= 1
+HOST_DEPS_GET ?= 1
+HOST_GATEWAY_LOG ?= filtered
+HOST_SERVER_LOG ?= all
+HOST_DEVICE_LOG ?= all
+HOST_LOG_DIR ?= $(HOST_RUNTIME_DIR)/logs
 MCXN947_CMAKE ?= cmake
 MCXN947_BUILD_DIR ?= build/mcxn947
 MCXN947_FW_DIR ?= engine/embedded/mcxn947
@@ -54,7 +67,7 @@ MCXN947_SHOWCASE ?= example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_le
 MCXN947_DEVICE_ID ?= mcxn947-core0
 MCXN947_DEPLOY_CHUNK_SIZE ?= 128
 
-.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke mcxn947-demo mdemo
+.PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps host-console hc up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke mcxn947-demo mdemo
 
 help:
 	@echo "Aetherium src dev shortcuts"
@@ -71,6 +84,9 @@ help:
 	@echo "  make logs / make l             - follow logs (tail=100)"
 	@echo "  make logs0 / make l0           - follow only fresh logs (tail=0)"
 	@echo "  make ps                        - compose service status"
+	@echo "  make host-console / make hc    - run gateway+server+C++ device on host with prefixed console output"
+	@echo "    vars: HOST_GATEWAY_PORT=8080 HOST_DEVICE_PORT=4100 HOST_DEVICE_COUNT=1 HOST_STOP_COMPOSE=1"
+	@echo "          HOST_GATEWAY_LOG=filtered|all|none HOST_DEPS_GET=1 HOST_LOG_DIR=var/host-console/logs"
 	@echo ""
 	@echo "Targeted:"
 	@echo "  make restart-gateway / make rg - restart gateway only"
@@ -190,6 +206,23 @@ smoke-blackbox sbb:
 
 ps:
 	$(COMPOSE) ps
+
+host-console hc:
+	HOST_GATEWAY_PORT=$(HOST_GATEWAY_PORT) \
+	HOST_DEVICE_PORT=$(HOST_DEVICE_PORT) \
+	HOST_SERVER_ID=$(HOST_SERVER_ID) \
+	HOST_DEVICE_COUNT=$(HOST_DEVICE_COUNT) \
+	HOST_DEVICE_PREFIX=$(HOST_DEVICE_PREFIX) \
+	HOST_RUNTIME_DIR=$(HOST_RUNTIME_DIR) \
+	HOST_BUILD_ENGINE=$(HOST_BUILD_ENGINE) \
+	HOST_STOP_COMPOSE=$(HOST_STOP_COMPOSE) \
+	HOST_DEPS_GET=$(HOST_DEPS_GET) \
+	HOST_GATEWAY_LOG=$(HOST_GATEWAY_LOG) \
+	HOST_SERVER_LOG=$(HOST_SERVER_LOG) \
+	HOST_DEVICE_LOG=$(HOST_DEVICE_LOG) \
+	HOST_LOG_DIR=$(HOST_LOG_DIR) \
+	COMPOSE='$(COMPOSE)' \
+	scripts/host-console.sh
 
 up-ros2 ur2:
 	$(COMPOSE) --profile ros2 up -d $(ROS2_SERVICES)

@@ -379,7 +379,7 @@ defmodule AetheriumServer.AethIrBytecode do
           kind_code: kind_code,
           priority: normalize_priority(Map.get(t.raw, :priority) || Map.get(t.raw, "priority")),
           enabled: normalize_enabled(Map.get(t.raw, :enabled) || Map.get(t.raw, "enabled")),
-          weight: normalize_weight(Map.get(t.raw, :weight) || Map.get(t.raw, "weight")),
+          weight: extract_transition_weight(t.raw),
           delay_ms: delay_ms,
           condition_expr: condition_expr,
           body_source: normalize_source(Map.get(t.raw, :body) || Map.get(t.raw, "body")),
@@ -409,6 +409,10 @@ defmodule AetheriumServer.AethIrBytecode do
   end
 
   defp normalize_transition_kind(%{type: "immediate"}, _mode) do
+    {:ok, @transition_immediate, 0, "", %{}, []}
+  end
+
+  defp normalize_transition_kind(%{type: "probabilistic"}, _mode) do
     {:ok, @transition_immediate, 0, "", %{}, []}
   end
 
@@ -1255,6 +1259,13 @@ defmodule AetheriumServer.AethIrBytecode do
   defp normalize_enabled(v) when is_integer(v), do: v != 0
   defp normalize_enabled(v) when is_binary(v), do: String.downcase(v) not in ["false", "0", "no"]
   defp normalize_enabled(_), do: true
+
+  defp extract_transition_weight(raw) do
+    top = Map.get(raw, :weight) || Map.get(raw, "weight")
+    prob = Map.get(raw, :probabilistic) || Map.get(raw, "probabilistic")
+    nested = if is_map(prob), do: Map.get(prob, :weight) || Map.get(prob, "weight"), else: nil
+    normalize_weight(top || nested)
+  end
 
   defp normalize_weight(nil), do: 100
   defp normalize_weight(v) when is_integer(v) and v >= 0 and v <= 0xFFFF, do: v

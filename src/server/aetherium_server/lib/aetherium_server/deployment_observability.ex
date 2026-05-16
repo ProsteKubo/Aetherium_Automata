@@ -194,6 +194,7 @@ defmodule AetheriumServer.DeploymentObservability do
         "runtime" =>
           compact_metadata(%{
             "run_id" => deployment && deployment.run_id,
+            "transition_count" => payload_value(payload, "transition_count"),
             "target_profile" =>
               (deployment && deployment.target_profile) ||
                 payload_value(payload, "target_profile"),

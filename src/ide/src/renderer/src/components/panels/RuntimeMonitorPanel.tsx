@@ -151,42 +151,50 @@ function RuntimeGraphCard({
 }) {
   const automata = useAutomataStore((state) => state.automata.get(item.automataId as any));
 
-  const nodes = useMemo<Node[]>(() => {
-    if (!automata) return [];
+  // Derive the live current state: frame tracks the most recently animated transition,
+  // falling back to the item's currentState from the deployment store.
+  const liveCurrentState = frame?.activeStateId || item.currentState || 'unknown';
 
-    return Object.values(automata.states).map((state) => {
-      const active = frame?.activeStateId === state.id;
-      const pulsing = Boolean(active && now <= (frame?.statePulseUntil || 0));
-      return {
-        id: state.id,
-        type: 'stateNode',
-        position: state.position,
-        data: {
-          ...state,
-          isActive: active,
-          isExecuting: pulsing,
-        },
-        draggable: false,
-        selectable: false,
-      } as Node;
-    });
+  const nodes = useMemo<Node[]>(() => {
+    if (!automata?.states) return [];
+
+    return Object.values(automata.states)
+      .filter((state) => state?.id && state?.position)
+      .map((state) => {
+        const active = frame?.activeStateId === state.id;
+        const pulsing = Boolean(active && now <= (frame?.statePulseUntil || 0));
+        return {
+          id: state.id,
+          type: 'stateNode',
+          position: state.position ?? { x: 0, y: 0 },
+          data: {
+            ...state,
+            isActive: active,
+            isExecuting: pulsing,
+          },
+          draggable: false,
+          selectable: false,
+        } as Node;
+      });
   }, [automata, frame?.activeStateId, frame?.statePulseUntil, now]);
 
   const edges = useMemo<Edge[]>(() => {
-    if (!automata) return [];
+    if (!automata?.transitions) return [];
 
-    return Object.values(automata.transitions).map((transition) => {
-      const hot = frame?.activeTransitionId === transition.id && now <= (frame?.edgePulseUntil || 0);
-      const className = `transition-edge ${hot ? 'active animating' : ''}`;
-      return {
-        id: transition.id,
-        source: transition.from,
-        target: transition.to,
-        className,
-        style: hot ? { stroke: 'var(--color-success)', strokeWidth: 3 } : undefined,
-        selectable: false,
-      } as Edge;
-    });
+    return Object.values(automata.transitions)
+      .filter((transition) => transition?.id && transition?.from && transition?.to)
+      .map((transition) => {
+        const hot = frame?.activeTransitionId === transition.id && now <= (frame?.edgePulseUntil || 0);
+        const className = `transition-edge ${hot ? 'active animating' : ''}`;
+        return {
+          id: transition.id,
+          source: transition.from,
+          target: transition.to,
+          className,
+          style: hot ? { stroke: 'var(--color-success)', strokeWidth: 3 } : undefined,
+          selectable: false,
+        } as Edge;
+      });
   }, [automata, frame?.activeTransitionId, frame?.edgePulseUntil, now]);
 
   if (!automata) {
@@ -194,8 +202,11 @@ function RuntimeGraphCard({
       <div className="runtime-card">
         <div className="runtime-card-header">
           <span className="runtime-card-title">{item.label}</span>
+          {item.currentState && <span className="runtime-state">{item.currentState}</span>}
         </div>
-        <div className="runtime-card-empty">Automata `{item.automataId}` is not loaded in editor.</div>
+        <div className="runtime-card-empty">
+          Automata <code>{item.automataId}</code> is not loaded in editor. Open the automata file to see the state graph.
+        </div>
       </div>
     );
   }
@@ -205,7 +216,7 @@ function RuntimeGraphCard({
       <div className="runtime-card-header">
         <span className="runtime-card-title">{item.label}</span>
         <span className={`runtime-status status-${item.status}`}>{item.status}</span>
-        <span className="runtime-state">{item.currentState || 'unknown'}</span>
+        <span className="runtime-state">{liveCurrentState}</span>
         {frame && frame.droppedEvents > 0 && (
           <span className="runtime-dropped" title="Visual decimation under burst load">
             dropped {frame.droppedEvents}
@@ -482,8 +493,29 @@ export const RuntimeMonitorPanel: React.FC = () => {
   useEffect(() => {
     const validIds = new Set(displayItems.map((item) => item.id));
     const stillValid = selectedIds.filter((id) => validIds.has(id));
+
     if (!sameSelection(stillValid, selectedIds)) {
-      setSelected(stillValid);
+      // When selection becomes empty due to item ID changes (e.g., "project:automataId"
+      // → "automataId:deviceId" when a deployment starts), try to re-select an equivalent
+      // item for the same automata/device so the graph doesn't vanish.
+      if (stillValid.length === 0 && selectedIds.length > 0) {
+        const lostIds = new Set(selectedIds.filter((id) => !validIds.has(id)));
+        const recovered: string[] = [];
+
+        lostIds.forEach((lostId) => {
+          // "project:automataId" pattern — find the now-deployed item for that automata
+          const projectPrefix = 'project:';
+          if (lostId.startsWith(projectPrefix)) {
+            const automataId = lostId.slice(projectPrefix.length);
+            const match = displayItems.find((item) => item.automataId === automataId);
+            if (match) recovered.push(match.id);
+          }
+        });
+
+        setSelected(recovered.length > 0 ? recovered : stillValid);
+      } else {
+        setSelected(stillValid);
+      }
     }
   }, [displayItems, selectedIds, setSelected]);
 
@@ -561,7 +593,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
             deploymentId: selectedFocusDeployment.deploymentId,
           }
         : undefined,
-    [selectedFocusDeployment],
+    [selectedFocusDeployment?.automataId, selectedFocusDeployment?.deploymentId],
   );
 
   const selectedSnapshot =
@@ -1371,10 +1403,10 @@ export const RuntimeMonitorPanel: React.FC = () => {
                 <div className="runtime-overview-stat">
                   <span className="runtime-overview-label">Current State</span>
                   <span className="runtime-overview-value">
-                    {activeBlackBoxSnapshot?.currentState ||
-                      selectedSnapshot?.currentState ||
-                      selectedFocusDeployment?.currentState ||
+                    {selectedFocusDeployment?.currentState ||
                       focusedDevice.currentState ||
+                      activeBlackBoxSnapshot?.currentState ||
+                      selectedSnapshot?.currentState ||
                       'Idle'}
                   </span>
                 </div>

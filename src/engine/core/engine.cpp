@@ -860,13 +860,8 @@ void Engine::configureRuntimeCallbacks() {
         const Timestamp eventAt = wallClockMs();
         logHub_.log(LogLevel::Debug, "runtime", debug, activeRunId_);
         traceRuntimeEvent("runtime_debug", "runtime", debug, activeRunId_, eventAt, std::nullopt);
-
-        protocol::DebugMessage msg;
-        msg.level = protocol::DebugLevel::Debug;
-        msg.source = "runtime";
-        msg.message = debug;
-        msg.timestamp = eventAt;
-        eventQueue_.push_back(std::make_unique<protocol::DebugMessage>(msg));
+        // streamLogs (registered in main.cpp) sends DebugMessages from logHub_ immediately;
+        // pushing to eventQueue_ here would duplicate every debug message.
     };
 
     runtime_.setCallbacks(std::move(callbacks));

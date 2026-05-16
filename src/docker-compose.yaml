@@ -47,6 +47,8 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_01
       - HEARTBEAT_INTERVAL=30000
+      - ENABLE_HOST_RUNTIME_DEVICE=1
+      - HOST_RUNTIME_DEVICE_ID=host-runtime-svr01
     command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix run --no-halt"]
 
   server2:
@@ -70,6 +72,8 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_02
       - HEARTBEAT_INTERVAL=30000
+      - ENABLE_HOST_RUNTIME_DEVICE=1
+      - HOST_RUNTIME_DEVICE_ID=host-runtime-svr02
     command: ["sh", "-c", "mix deps.get && mix deps.compile && mix compile && mix run --no-halt"]
 
   server3:
@@ -95,6 +99,8 @@ services:
       - GATEWAY_AUTH_TOKEN=server_secret_token
       - SERVER_ID=svr_03
       - HEARTBEAT_INTERVAL=30000
+      - ENABLE_HOST_RUNTIME_DEVICE=1
+      - HOST_RUNTIME_DEVICE_ID=host-runtime-svr03
       - AETHERIUM_DUMP_DEPLOY_YAML=1
       - ENABLE_ROS2_DEVICE_TRANSPORT=1
       - ROS2_BIND_IP=0.0.0.0
@@ -160,6 +166,10 @@ services:
       - DEVICE_ID=device_cpp_01
     command: [
       "--verbose",
+      "--instance-id", "device_cpp_01",
+      "--placement", "docker_device_1",
+      "--transport", "websocket",
+      "--control-plane-instance", "svr_03",
       "--run", "-",
       "--mode", "network",
       "--server", "ws://172.20.0.23:4000/socket/device/websocket"
@@ -177,6 +187,10 @@ services:
       - DEVICE_ID=device_cpp_02
     command: [
       "--verbose",
+      "--instance-id", "device_cpp_02",
+      "--placement", "docker_device_2",
+      "--transport", "websocket",
+      "--control-plane-instance", "svr_03",
       "--run", "-",
       "--mode", "network",
       "--server", "ws://172.20.0.23:4000/socket/device/websocket"

@@ -187,10 +187,11 @@ defmodule AetheriumServer.DeviceManager do
 
   @doc "Update deployment state (from automata runtime)"
   @spec update_deployment_state(String.t(), String.t(), map()) :: :ok
-  def update_deployment_state(deployment_id, current_state, variables) do
+  @spec update_deployment_state(String.t(), String.t(), map(), map()) :: :ok
+  def update_deployment_state(deployment_id, current_state, variables, transition \\ %{}) do
     GenServer.cast(
       __MODULE__,
-      {:update_deployment_state, deployment_id, current_state, variables}
+      {:update_deployment_state, deployment_id, current_state, variables, transition}
     )
   end
 
@@ -849,7 +850,9 @@ defmodule AetheriumServer.DeviceManager do
                 err -> err
               end
 
-            Logger.info("time_travel rewind #{deployment_id} to #{timestamp_ms}: device_send=#{inspect(device_send_result)}")
+            Logger.info(
+              "time_travel rewind #{deployment_id} to #{timestamp_ms}: device_send=#{inspect(device_send_result)}"
+            )
 
             device_restore_json =
               case device_send_result do
@@ -964,13 +967,19 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @impl true
-  def handle_cast({:update_deployment_state, deployment_id, current_state, variables}, state) do
+  def handle_cast(
+        {:update_deployment_state, deployment_id, current_state, variables, transition},
+        state
+      ) do
     case Map.get(state.deployments, deployment_id) do
       nil ->
         {:noreply, state}
 
       deployment ->
-        previous_state = deployment.current_state
+        previous_state =
+          transition[:from_state] || transition["from_state"] || deployment.current_state
+
+        transition_id = transition[:transition_id] || transition["transition_id"]
 
         new_state =
           state
@@ -985,7 +994,7 @@ defmodule AetheriumServer.DeviceManager do
             "device_id" => deployment.device_id,
             "from_state" => previous_state,
             "to_state" => current_state,
-            "transition_id" => nil,
+            "transition_id" => transition_id,
             "variables" => variables,
             "weight_used" => nil
           })
@@ -1145,9 +1154,13 @@ defmodule AetheriumServer.DeviceManager do
       to = Map.get(deployment.state_id_map, new_id, Integer.to_string(new_id))
       transition_id = Map.get(deployment.transition_id_map, fired_id, Integer.to_string(fired_id))
 
-      new_state = put_in(state, [:deployments, deployment.id, :current_state], to)
+      new_state =
+        state
+        |> put_in([:deployments, deployment.id, :current_state], to)
+        |> record_deployment_state_change(deployment.id, payload)
 
-      # Notify gateway of state change
+      now = System.system_time(:millisecond)
+
       DeploymentObservability.push_to_gateway(new_state, "state_changed", %{
         "deployment_id" => deployment.id,
         "automata_id" => deployment.automata_id,
@@ -1156,6 +1169,17 @@ defmodule AetheriumServer.DeviceManager do
         "to_state" => to,
         "transition_id" => transition_id,
         "weight_used" => nil
+      })
+
+      DeploymentObservability.push_to_gateway(new_state, "transition_fired", %{
+        "deployment_id" => deployment.id,
+        "automata_id" => deployment.automata_id,
+        "device_id" => device_id,
+        "from" => from,
+        "to" => to,
+        "transition_id" => transition_id,
+        "weight_used" => nil,
+        "timestamp" => now
       })
 
       DeploymentObservability.snapshot_deployment(new_state, deployment.id, "state_changed")
@@ -1195,6 +1219,7 @@ defmodule AetheriumServer.DeviceManager do
 
     deployment_metadata =
       DeploymentObservability.build_deployment_metadata(device, deployment, payload)
+      |> preserve_state_change_cursor(deployment)
 
     telemetry_variables = telemetry_variables_map(payload)
 
@@ -1236,78 +1261,75 @@ defmodule AetheriumServer.DeviceManager do
     device = Map.get(state.devices, device_id)
 
     if deployment do
-      status =
-        case payload[:execution_state] || payload["execution_state"] do
-          2 -> :running
-          3 -> :paused
-          4 -> :stopped
-          _ -> deployment.status
-        end
-
-      current_state_id = payload[:current_state] || payload["current_state"]
-
-      current_state =
-        if is_integer(current_state_id) do
-          Map.get(deployment.state_id_map, current_state_id, Integer.to_string(current_state_id))
-        else
-          deployment.current_state
-        end
-
-      variables = named_snapshot_map(payload)
-
-      deployment_metadata =
-        DeploymentObservability.build_deployment_metadata(device, deployment, payload)
-
-      new_state =
-        state
-        |> put_in([:deployments, deployment.id, :status], status)
-        |> put_in([:deployments, deployment.id, :current_state], current_state)
-        |> DeploymentState.maybe_put_device_metadata(device_id, deployment_metadata)
-        |> DeploymentState.maybe_merge_deployment_snapshot(
-          deployment.id,
-          variables,
-          deployment_metadata
+      if stale_status_payload?(deployment, payload) do
+        Logger.debug(
+          "Ignoring stale status for #{deployment.id}: status_handle_timestamp=#{inspect(status_handle_timestamp(payload))} last_state_change_timestamp=#{inspect(last_state_change_timestamp(deployment))}"
         )
 
-      DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
-        "deployment_id" => deployment.id,
-        "automata_id" => deployment.automata_id,
-        "device_id" => device_id,
-        "status" => Atom.to_string(status),
-        "current_state" => current_state,
-        "variables" => get_in(new_state, [:deployments, deployment.id, :variables]) || %{},
-        "deployment_metadata" =>
-          get_in(new_state, [:deployments, deployment.id, :deployment_metadata]) || %{}
-      })
+        state
+      else
+        status =
+          case payload[:execution_state] || payload["execution_state"] do
+            2 -> :running
+            3 -> :paused
+            4 -> :stopped
+            _ -> deployment.status
+          end
 
-      new_state = LiveStateRequests.fulfill_request(new_state, deployment.id)
-      DeploymentObservability.snapshot_deployment(new_state, deployment.id, "device_status")
-      new_state
+        current_state_id = payload[:current_state] || payload["current_state"]
+
+        current_state =
+          if is_integer(current_state_id) do
+            Map.get(
+              deployment.state_id_map,
+              current_state_id,
+              Integer.to_string(current_state_id)
+            )
+          else
+            deployment.current_state
+          end
+
+        variables = named_snapshot_map(payload)
+
+        deployment_metadata =
+          DeploymentObservability.build_deployment_metadata(device, deployment, payload)
+          |> preserve_state_change_cursor(deployment)
+
+        new_state =
+          state
+          |> put_in([:deployments, deployment.id, :status], status)
+          |> put_in([:deployments, deployment.id, :current_state], current_state)
+          |> DeploymentState.maybe_put_device_metadata(device_id, deployment_metadata)
+          |> DeploymentState.maybe_merge_deployment_snapshot(
+            deployment.id,
+            variables,
+            deployment_metadata
+          )
+
+        DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
+          "deployment_id" => deployment.id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => device_id,
+          "status" => Atom.to_string(status),
+          "current_state" => current_state,
+          "variables" => get_in(new_state, [:deployments, deployment.id, :variables]) || %{},
+          "deployment_metadata" =>
+            get_in(new_state, [:deployments, deployment.id, :deployment_metadata]) || %{}
+        })
+
+        new_state = LiveStateRequests.fulfill_request(new_state, deployment.id)
+        DeploymentObservability.snapshot_deployment(new_state, deployment.id, "device_status")
+        new_state
+      end
     else
       state
     end
   end
 
-  defp handle_message(device_id, :transition_fired, payload, state) do
-    deployment = DeploymentState.find_active_deployment(device_id, payload, state)
-
-    if deployment do
-      tid = payload[:transition_id] || payload["transition_id"]
-      from = payload[:from] || payload["from"] || deployment.current_state
-      to = payload[:to] || payload["to"] || deployment.current_state
-      weight = payload[:weight_used] || payload["weight_used"]
-
-      DeploymentObservability.push_to_gateway(state, "transition_fired", %{
-        "deployment_id" => deployment.id,
-        "automata_id" => deployment.automata_id,
-        "device_id" => device_id,
-        "from" => from,
-        "to" => to,
-        "transition_id" => tid,
-        "weight_used" => weight
-      })
-    end
-
+  defp handle_message(_device_id, :transition_fired, _payload, state) do
+    # transition_fired from C++ devices carries no from/to state names; the
+    # preceding :state_change message already emits transition_fired with correct
+    # from/to resolved via state_id_map. Nothing to do here.
     state
   end
 
@@ -1481,6 +1503,88 @@ defmodule AetheriumServer.DeviceManager do
 
   defp normalize_set_input_opts(opts) when is_map(opts), do: opts
   defp normalize_set_input_opts(_opts), do: %{}
+
+  defp record_deployment_state_change(state, deployment_id, payload) do
+    timestamp =
+      max(
+        normalize_int(payload[:timestamp] || payload["timestamp"]) || 0,
+        System.system_time(:millisecond)
+      )
+
+    maybe_put_state_change_timestamp(
+      state,
+      deployment_id,
+      timestamp
+    )
+  end
+
+  defp maybe_put_state_change_timestamp(state, deployment_id, timestamp)
+       when is_integer(timestamp) do
+    put_in(
+      state,
+      [
+        :deployments,
+        deployment_id,
+        :deployment_metadata,
+        "runtime",
+        "last_state_change_timestamp"
+      ],
+      timestamp
+    )
+  end
+
+  defp maybe_put_state_change_timestamp(state, _deployment_id, _timestamp), do: state
+
+  defp stale_status_payload?(deployment, payload) do
+    status_timestamp = status_handle_timestamp(payload)
+    state_change_timestamp = last_state_change_timestamp(deployment)
+
+    is_integer(status_timestamp) and is_integer(state_change_timestamp) and
+      status_timestamp < state_change_timestamp
+  end
+
+  defp last_state_change_timestamp(deployment) when is_map(deployment) do
+    deployment
+    |> get_in([:deployment_metadata, "runtime", "last_state_change_timestamp"])
+    |> normalize_int()
+  end
+
+  defp last_state_change_timestamp(_deployment), do: nil
+
+  defp status_handle_timestamp(payload) when is_map(payload) do
+    (payload[:handle_timestamp] ||
+       payload["handle_timestamp"] ||
+       get_in(payload, [:deployment_metadata, "latency", "handle_timestamp"]) ||
+       get_in(payload, ["deployment_metadata", "latency", "handle_timestamp"]))
+    |> normalize_int()
+  end
+
+  defp preserve_state_change_cursor(metadata, deployment) when is_map(metadata) do
+    timestamp =
+      max(
+        metadata |> get_in(["runtime", "last_state_change_timestamp"]) |> normalize_int() || 0,
+        last_state_change_timestamp(deployment) || 0
+      )
+
+    if timestamp > 0 do
+      put_in(metadata, ["runtime", "last_state_change_timestamp"], timestamp)
+    else
+      metadata
+    end
+  end
+
+  defp preserve_state_change_cursor(metadata, _deployment), do: metadata
+
+  defp normalize_int(value) when is_integer(value), do: value
+
+  defp normalize_int(value) when is_binary(value) do
+    case Integer.parse(value) do
+      {int, ""} -> int
+      _ -> nil
+    end
+  end
+
+  defp normalize_int(_), do: nil
 
   defp push_device_list(state) do
     devices =

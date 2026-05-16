@@ -316,21 +316,28 @@ defmodule AetheriumServer.AutomataRuntime do
   # ============================================================================
 
   defp check_and_fire_transitions(state) do
-    # Get all outgoing transitions from current state
     transitions = get_outgoing_transitions(state.current_state, state)
 
-    # Filter to condition-based transitions (classic, immediate)
     condition_transitions =
       transitions
       |> Enum.filter(&(&1[:type] in [:classic, :immediate, nil]))
       |> Enum.filter(&evaluate_condition(&1[:condition], state))
-      # Higher priority first
       |> Enum.sort_by(&(-(&1[:priority] || 0)))
 
-    if Enum.empty?(condition_transitions) do
-      state
-    else
+    if not Enum.empty?(condition_transitions) do
       select_and_fire_transition(condition_transitions, state, nil)
+    else
+      # When no condition-based transitions apply, evaluate probabilistic ones
+      prob_transitions =
+        transitions
+        |> Enum.filter(&(&1[:type] == :probabilistic))
+        |> Enum.sort_by(&(-(&1[:priority] || 0)))
+
+      if Enum.empty?(prob_transitions) do
+        state
+      else
+        select_and_fire_transition(prob_transitions, state, nil)
+      end
     end
   end
 
@@ -437,7 +444,8 @@ defmodule AetheriumServer.AutomataRuntime do
     DeviceManager.update_deployment_state(
       state.deployment_id,
       to_state,
-      new_state.variables
+      new_state.variables,
+      %{from_state: from_state, transition_id: transition_id}
     )
 
     # Broadcast transition event
@@ -588,7 +596,8 @@ defmodule AetheriumServer.AutomataRuntime do
     String.contains?(action, "\n") or
       String.starts_with?(action, "local ") or
       String.starts_with?(action, "if ") or
-      String.starts_with?(action, "setOutput(")
+      String.starts_with?(action, "setOutput(") or
+      String.starts_with?(action, "setVal(")
   end
 
   defp execute_set_action(action, state) do
@@ -729,6 +738,12 @@ defmodule AetheriumServer.AutomataRuntime do
         broadcast_output(output_name, value, next_state)
         {next_state, Map.put(env, output_name, value), stack, false}
 
+      Regex.match?(~r/^setVal\("([^"]+)",\s*(.+)\)$/, line) ->
+        [_, var_name, expr] = Regex.run(~r/^setVal\("([^"]+)",\s*(.+)\)$/, line)
+        value = evaluate_script_expression(expr, env)
+        next_state = put_in(state, [:variables, var_name], value)
+        {next_state, Map.put(env, var_name, value), stack, false}
+
       Regex.match?(~r/^(local\s+)?([A-Za-z_]\w*)\s*=\s*(.+)$/, line) ->
         [_, _local, name, expr] = Regex.run(~r/^(local\s+)?([A-Za-z_]\w*)\s*=\s*(.+)$/, line)
         value = evaluate_script_expression(expr, env)
@@ -784,6 +799,18 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp do_tokenize_script_expression(<<"-", rest::binary>>, acc),
     do: do_tokenize_script_expression(rest, ["-" | acc])
+
+  defp do_tokenize_script_expression(<<"*", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["*" | acc])
+
+  defp do_tokenize_script_expression(<<"/", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["/" | acc])
+
+  defp do_tokenize_script_expression(<<".", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["." | acc])
+
+  defp do_tokenize_script_expression(<<",", rest::binary>>, acc),
+    do: do_tokenize_script_expression(rest, ["," | acc])
 
   defp do_tokenize_script_expression(<<">", rest::binary>>, acc),
     do: do_tokenize_script_expression(rest, [">" | acc])
@@ -891,25 +918,74 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp parse_script_additive(tokens, env) do
-    {left, rest} = parse_script_primary(tokens, env)
+    {left, rest} = parse_script_multiplicative(tokens, env)
     parse_script_additive_tail(left, rest, env)
   end
 
   defp parse_script_additive_tail(left, ["+" | rest], env) do
-    {right, rest_after} = parse_script_primary(rest, env)
+    {right, rest_after} = parse_script_multiplicative(rest, env)
     parse_script_additive_tail(left + right, rest_after, env)
   end
 
   defp parse_script_additive_tail(left, ["-" | rest], env) do
-    {right, rest_after} = parse_script_primary(rest, env)
+    {right, rest_after} = parse_script_multiplicative(rest, env)
     parse_script_additive_tail(left - right, rest_after, env)
   end
 
   defp parse_script_additive_tail(left, rest, _env), do: {left, rest}
 
+  defp parse_script_multiplicative(tokens, env) do
+    {left, rest} = parse_script_primary(tokens, env)
+    parse_script_multiplicative_tail(left, rest, env)
+  end
+
+  defp parse_script_multiplicative_tail(left, ["*" | rest], env) do
+    {right, rest_after} = parse_script_primary(rest, env)
+    parse_script_multiplicative_tail(left * right, rest_after, env)
+  end
+
+  defp parse_script_multiplicative_tail(left, ["/" | rest], env) do
+    {right, rest_after} = parse_script_primary(rest, env)
+    parse_script_multiplicative_tail(left / right, rest_after, env)
+  end
+
+  defp parse_script_multiplicative_tail(left, rest, _env), do: {left, rest}
+
   defp parse_script_primary([{:number, value} | rest], _env), do: {value, rest}
   defp parse_script_primary([{:string, value} | rest], _env), do: {value, rest}
   defp parse_script_primary([{:literal, value} | rest], _env), do: {value, rest}
+
+  defp parse_script_primary([{:identifier, "math"}, ".", {:identifier, fname}, "(" | rest], env) do
+    {arg, rest2} = parse_script_or(rest, env)
+
+    case rest2 do
+      [")" | remaining] ->
+        result =
+          case fname do
+            "floor" -> floor(arg)
+            "ceil" -> ceil(arg)
+            "abs" -> abs(arg)
+            _ -> raise ArgumentError, "Unknown math.#{fname}"
+          end
+
+        {result, remaining}
+
+      _ ->
+        raise ArgumentError, "Unclosed math.#{fname}() call"
+    end
+  end
+
+  defp parse_script_primary([{:identifier, "value"}, "(" | rest], env) do
+    case rest do
+      [{:string, var_name}, ")" | remaining] -> {Map.get(env, var_name), remaining}
+      _ -> raise ArgumentError, "Invalid value() call syntax"
+    end
+  end
+
+  defp parse_script_primary([{:identifier, "rand"}, "(", ")" | rest], _env) do
+    {:rand.uniform(), rest}
+  end
+
   defp parse_script_primary([{:identifier, name} | rest], env), do: {Map.get(env, name), rest}
 
   defp parse_script_primary(["(" | rest], env) do
@@ -987,6 +1063,11 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp resolve_value(str, state) do
     cond do
+      # value("name") function call
+      Regex.match?(~r/^value\("([^"]+)"\)$/, str) ->
+        [_, var_name] = Regex.run(~r/^value\("([^"]+)"\)$/, str)
+        Map.get(state.variables, var_name)
+
       # Number
       Regex.match?(~r/^-?\d+$/, str) ->
         String.to_integer(str)
@@ -1097,17 +1178,27 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp normalize_automata(automata) when is_map(automata) do
+    # Gateway format nests states/transitions/initial_state under "automata" key.
+    # Fall back to that nested structure when the top-level map doesn't have them.
+    inner = get_in(automata, ["automata"]) || get_in(automata, [:automata]) || %{}
+
+    raw_states =
+      field(automata, :states) || field(automata, :states, %{}) |> non_empty_map() ||
+        field(inner, :states, %{})
+
+    raw_transitions =
+      field(automata, :transitions) |> non_empty_map() ||
+        field(inner, :transitions, %{})
+
     states =
-      automata
-      |> field(:states, %{})
+      raw_states
       |> Enum.into(%{}, fn {key, state_def} ->
         id = state_def |> field(:id, key) |> to_string()
         {id, normalize_state_def(id, state_def)}
       end)
 
     transitions =
-      automata
-      |> field(:transitions, %{})
+      raw_transitions
       |> Enum.into(%{}, fn {key, transition} ->
         id = transition |> field(:id, key) |> to_string()
         {id, normalize_transition(id, transition)}
@@ -1115,11 +1206,12 @@ defmodule AetheriumServer.AutomataRuntime do
 
     %{
       id: field(automata, :id),
-      name: field(automata, :name),
-      description: field(automata, :description),
+      name: field(automata, :name) || get_in(automata, ["config", "name"]),
+      description: field(automata, :description) || get_in(automata, ["config", "description"]),
       version: field(automata, :version, "1.0.0"),
       initial_state:
-        field(automata, :initial_state) ||
+        field(inner, :initial_state) ||
+          field(automata, :initial_state) ||
           get_in(automata, [:automata, :initial_state]) ||
           get_in(automata, ["automata", "initial_state"]),
       states: states,
@@ -1132,6 +1224,11 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp normalize_automata(other), do: other
+
+  defp non_empty_map(nil), do: nil
+  defp non_empty_map(m) when is_map(m) and map_size(m) == 0, do: nil
+  defp non_empty_map(m) when is_map(m), do: m
+  defp non_empty_map(_), do: nil
 
   defp normalize_state_def(id, state_def) do
     hooks = field(state_def, :hooks, %{})
@@ -1157,15 +1254,30 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   defp normalize_transition(id, transition) do
+    type = normalize_transition_type(field(transition, :type, :classic))
+
+    # Gateway YAML format: timed transitions use top-level "after: N" (milliseconds)
+    # instead of a nested "timed: {mode: after, delay_ms: N}" map.
+    timed_config =
+      field(transition, :timed) ||
+        (type == :timed && field(transition, :after) &&
+           %{mode: :after, delay_ms: field(transition, :after)})
+
+    # Gateway YAML format: probabilistic weights are in "probabilistic: {weight: N}"
+    weight =
+      field(transition, :weight) ||
+        get_in(transition, [:probabilistic, :weight]) ||
+        get_in(transition, ["probabilistic", "weight"])
+
     %{
       id: to_string(field(transition, :id, id)),
       from: field(transition, :from) |> to_string(),
       to: field(transition, :to) |> to_string(),
-      type: normalize_transition_type(field(transition, :type, :classic)),
+      type: type,
       condition: field(transition, :condition),
       priority: field(transition, :priority, 0),
-      weight: field(transition, :weight),
-      timed: normalize_timed(field(transition, :timed)),
+      weight: weight,
+      timed: normalize_timed(timed_config),
       event: field(transition, :event)
     }
   end

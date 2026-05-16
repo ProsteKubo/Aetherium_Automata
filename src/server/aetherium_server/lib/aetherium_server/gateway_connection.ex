@@ -196,6 +196,8 @@ defmodule AetheriumServer.GatewayConnection do
             :ok ->
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
+                automata_id: payload["automata_id"],
+                device_id: payload["device_id"],
                 status: "stopped"
               })
 
@@ -226,6 +228,8 @@ defmodule AetheriumServer.GatewayConnection do
             :ok ->
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
+                automata_id: payload["automata_id"],
+                device_id: payload["device_id"],
                 status: "running"
               })
 
@@ -255,6 +259,8 @@ defmodule AetheriumServer.GatewayConnection do
             :ok ->
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
+                automata_id: payload["automata_id"],
+                device_id: payload["device_id"],
                 status: "paused"
               })
 
@@ -284,6 +290,8 @@ defmodule AetheriumServer.GatewayConnection do
             :ok ->
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
+                automata_id: payload["automata_id"],
+                device_id: payload["device_id"],
                 status: "running"
               })
 
@@ -420,8 +428,12 @@ defmodule AetheriumServer.GatewayConnection do
 
               push_to_gateway(state, "deployment_status", %{
                 deployment_id: deployment_id,
-                automata_id: runtime_state[:automata_id] || runtime_state["automata_id"],
-                device_id: runtime_state[:device_id] || runtime_state["device_id"],
+                automata_id:
+                  runtime_state[:automata_id] || runtime_state["automata_id"] ||
+                    payload["automata_id"],
+                device_id:
+                  runtime_state[:device_id] || runtime_state["device_id"] ||
+                    payload["device_id"],
                 status: if(running?, do: "running", else: "stopped"),
                 current_state: runtime_state[:current_state] || runtime_state["current_state"],
                 variables: runtime_state[:variables] || runtime_state["variables"] || %{},
@@ -886,6 +898,7 @@ defmodule AetheriumServer.GatewayConnection do
     runtime =
       compact_map(%{
         "run_id" => deployment && deployment.run_id,
+        "transition_count" => payload["transition_count"],
         "target_profile" =>
           (deployment && deployment.target_profile) || payload["target_profile"],
         "patch_mode" => deployment && deployment.patch_mode,
