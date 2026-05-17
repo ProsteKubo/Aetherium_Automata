@@ -259,6 +259,7 @@ interface GraphTrack {
   automata: Automata | undefined;
   liveVariables: Record<string, unknown> | undefined;
   status: string;
+  updatedAt: number;
 }
 
 interface GraphPaneProps {
@@ -498,6 +499,7 @@ export const TimelinePanel: React.FC = () => {
   const [isPlaying, setIsPlaying]   = useState(false);
   const [speed, setSpeed]           = useState<number>(1);
   const [mutedTracks, setMutedTracks] = useState<Set<string>>(new Set());
+  const [filterLatest, setFilterLatest] = useState(true);
   const [splitRatio, setSplitRatio] = useState(0.52);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -555,25 +557,43 @@ export const TimelinePanel: React.FC = () => {
         automata,
         liveVariables: dep.variables,
         status: dep.status,
+        updatedAt: dep.updatedAt,
       });
       idx++;
     }
     return out;
   }, [deployments, snapshots, project, automataMap]);
 
+  // When filterLatest is on, keep only the most recently updated track per
+  // (automataName, deviceId) group. This hides old deployment attempts that
+  // accumulate in the timeline when the same automata is deployed multiple times.
+  const filteredTracks = useMemo(() => {
+    if (!filterLatest) return tracks;
+    const best = new Map<string, GraphTrack>();
+    for (const t of tracks) {
+      const key = `${t.automataName}\0${t.label.split('@')[1] ?? ''}`;
+      const existing = best.get(key);
+      if (!existing || t.updatedAt > existing.updatedAt) best.set(key, t);
+    }
+    return tracks.filter((t) => {
+      const key = `${t.automataName}\0${t.label.split('@')[1] ?? ''}`;
+      return best.get(key)?.deploymentId === t.deploymentId;
+    });
+  }, [tracks, filterLatest]);
+
   const { startMs, durationMs } = useMemo(() => {
     let min = Infinity, max = -Infinity;
-    for (const t of tracks) for (const s of t.snaps) { if (s.timestamp < min) min = s.timestamp; if (s.timestamp > max) max = s.timestamp; }
+    for (const t of filteredTracks) for (const s of t.snaps) { if (s.timestamp < min) min = s.timestamp; if (s.timestamp > max) max = s.timestamp; }
     if (!Number.isFinite(min)) return { startMs: 0, durationMs: 0 };
     const pad = Math.max(500, (max - min) * 0.04);
     return { startMs: min, durationMs: max - min + pad };
-  }, [tracks]);
+  }, [filteredTracks]);
 
   durationRef.current = durationMs;
 
   const trackSegments = useMemo(
-    () => new Map(tracks.map((t) => [t.deploymentId, buildSegments(t.snaps, startMs, durationMs)])),
-    [tracks, startMs, durationMs],
+    () => new Map(filteredTracks.map((t) => [t.deploymentId, buildSegments(t.snaps, startMs, durationMs)])),
+    [filteredTracks, startMs, durationMs],
   );
 
   // Playback — only pushes to React state at PLAYBACK_FPS to avoid 60fps re-renders
@@ -616,9 +636,9 @@ export const TimelinePanel: React.FC = () => {
 
   const allEvents = useMemo(() => {
     const times = new Set<number>();
-    for (const t of tracks) for (const s of t.snaps) times.add(s.timestamp - startMs);
+    for (const t of filteredTracks) for (const s of t.snaps) times.add(s.timestamp - startMs);
     return [...times].sort((a, b) => a - b);
-  }, [tracks, startMs]);
+  }, [filteredTracks, startMs]);
 
   const handleStepBack = useCallback(() => {
     const prev = [...allEvents].reverse().find((t) => t < scrubberMs - 1);
@@ -658,6 +678,8 @@ export const TimelinePanel: React.FC = () => {
     );
   }
 
+  const hiddenCount = tracks.length - filteredTracks.length;
+
   const TRANSPORT_H = 44;
   const SPLITTER_H = 8;
   const graphH = Math.floor(containerH * splitRatio);
@@ -671,7 +693,7 @@ export const TimelinePanel: React.FC = () => {
         <div style={{ position: 'absolute', top: 5, left: 8, fontSize: 9, fontFamily: 'monospace', color: 'var(--color-text-disabled)', letterSpacing: '0.07em', zIndex: 2, pointerEvents: 'none' }}>
           AUTOMATA STATE AT CURSOR
         </div>
-        <GraphPane tracks={tracks} scrubberMs={scrubberMs} startMs={startMs} height={graphH} containerW={containerW} />
+        <GraphPane tracks={filteredTracks} scrubberMs={scrubberMs} startMs={startMs} height={graphH} containerW={containerW} />
       </div>
 
       {/* ── Splitter ── */}
@@ -691,7 +713,18 @@ export const TimelinePanel: React.FC = () => {
           <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-text-secondary)', letterSpacing: '0.08em', fontWeight: 600 }}>SYSTEM EXECUTION TRACE</span>
           <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-text-disabled)', marginLeft: 12 }}>SAMPLE_RATE: realtime</span>
           <div style={{ flex: 1 }} />
-          <span style={{ fontSize: 9, color: 'var(--color-text-disabled)', fontFamily: 'monospace' }}>{tracks.length} TRACK{tracks.length !== 1 ? 'S' : ''}</span>
+          {hiddenCount > 0 && (
+            <span style={{ fontSize: 9, color: 'var(--color-text-disabled)', fontFamily: 'monospace', marginRight: 6 }}>
+              {hiddenCount} OLDER HIDDEN
+            </span>
+          )}
+          <button type="button"
+            onClick={() => setFilterLatest((v) => !v)}
+            title={filterLatest ? 'Show all deployment attempts' : 'Show only latest per device'}
+            style={{ background: filterLatest ? 'var(--color-primary)' : 'none', border: `1px solid ${filterLatest ? 'var(--color-primary)' : 'var(--color-border)'}`, borderRadius: 3, cursor: 'pointer', padding: '1px 6px', color: filterLatest ? '#fff' : 'var(--color-text-secondary)', fontSize: 9, fontFamily: 'monospace', marginRight: 8 }}>
+            LATEST ONLY
+          </button>
+          <span style={{ fontSize: 9, color: 'var(--color-text-disabled)', fontFamily: 'monospace' }}>{filteredTracks.length} TRACK{filteredTracks.length !== 1 ? 'S' : ''}</span>
         </div>
 
         <div ref={trackAreaRef} style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minHeight: 0 }} onWheel={handleWheel}>
@@ -705,7 +738,7 @@ export const TimelinePanel: React.FC = () => {
 
           {/* Tracks */}
           <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', minHeight: 0 }}>
-            {tracks.map((t) => (
+            {filteredTracks.map((t) => (
               <TrackRow key={t.deploymentId} label={t.label}
                 segments={trackSegments.get(t.deploymentId) ?? []}
                 color={t.color} muted={mutedTracks.has(t.deploymentId)}

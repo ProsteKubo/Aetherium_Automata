@@ -99,19 +99,19 @@ automata:
       from: LaneA
       to: Inspect
       type: timed
-      after: 5
+      after: 2
 
     lane_b_to_inspect:
       from: LaneB
       to: Inspect
       type: timed
-      after: 5
+      after: 2
 
     lane_c_to_inspect:
       from: LaneC
       to: Inspect
       type: timed
-      after: 5
+      after: 2
 
     inspect_reject:
       from: Inspect
@@ -131,18 +131,18 @@ automata:
       from: Rework
       to: ChooseLane
       type: timed
-      after: 5
+      after: 2
 
     completed_continue:
       from: CompletedItem
       to: ChooseLane
       type: timed
       after: 1
-      condition: value("batch_count") < 12
+      condition: value("batch_count") < 500
 
     completed_done:
       from: CompletedItem
       to: BatchDone
       type: timed
       after: 1
-      condition: value("batch_count") >= 12
+      condition: value("batch_count") >= 500

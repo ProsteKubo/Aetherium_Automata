@@ -209,6 +209,7 @@ for idx in $(seq 1 "${HOST_DEVICE_COUNT}"); do
       --transport websocket \
       --control-plane-instance "${HOST_SERVER_ID}" \
       --trace-file "${HOST_RUNTIME_DIR}/traces/${device_id}.jsonl" \
+      --max-ticks 1000000000 \
       --run - \
       --mode network \
       --server "ws://127.0.0.1:${HOST_DEVICE_PORT}/socket/device/websocket"

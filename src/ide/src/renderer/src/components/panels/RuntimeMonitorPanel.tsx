@@ -413,8 +413,8 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const renderFrames = useRuntimeViewStore((state) => state.renderFrames);
   const visualHz = useRuntimeViewStore((state) => state.visualHz);
   const setVisualHz = useRuntimeViewStore((state) => state.setVisualHz);
-  const tickAnimator = useRuntimeViewStore((state) => state.tickAnimator);
-  const clearStale = useRuntimeViewStore((state) => state.clearStale);
+  // tickAnimator and clearStale are driven exclusively by GatewayEventBridge
+  // (always mounted) — do not run duplicate intervals here.
   const upsertRuntimeDeployment = useRuntimeViewStore((state) => state.upsertDeployment);
   const setTimeTravelFrame = useRuntimeViewStore((state) => state.setTimeTravelFrame);
   const focusedDeviceId = useExecutionStore((state) => state.selectedDeviceId);
@@ -422,19 +422,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const focusedExecution = useExecutionStore((state) =>
     focusedDeviceId ? state.deviceExecutions.get(focusedDeviceId as any) : undefined,
   );
-
-  useEffect(() => {
-    const animator = setInterval(() => {
-      tickAnimator(Date.now());
-    }, Math.max(50, Math.round(1000 / visualHz)));
-
-    return () => clearInterval(animator);
-  }, [tickAnimator, visualHz]);
-
-  useEffect(() => {
-    const stale = setInterval(() => clearStale(Date.now(), 30_000), 5000);
-    return () => clearInterval(stale);
-  }, [clearStale]);
 
   const deployments = useMemo(
     () =>

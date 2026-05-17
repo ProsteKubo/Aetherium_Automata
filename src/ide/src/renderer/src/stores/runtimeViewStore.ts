@@ -576,9 +576,23 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
 
   clearStale: (now = Date.now(), staleMs = 30_000) => {
     set((state) => {
+      // Fast-path: skip Map allocations when nothing is likely stale.
+      let needsScan = false;
+      for (const d of state.deployments.values()) {
+        if (d.status === 'offline') continue;
+        const threshold = d.status === 'stopped' || d.status === 'error' ? 5 * 60_000 : staleMs;
+        if (now - d.updatedAt > threshold) { needsScan = true; break; }
+      }
+      if (!needsScan) {
+        for (const t of state.transfers.values()) {
+          const ttl = t.status === 'active' ? 120_000 : 30_000;
+          if (now - t.updatedAt > ttl) { needsScan = true; break; }
+        }
+      }
+      if (!needsScan) return state;
+
       const deployments = new Map(state.deployments);
       const transfers = new Map(state.transfers);
-      let changed = false;
       deployments.forEach((deployment, deploymentId) => {
         if (deployment.status === 'offline') return;
         // Stopped/error deployments linger for 5 minutes so the UI can show the final state.
@@ -587,45 +601,48 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
           : staleMs;
         if (now - deployment.updatedAt > threshold) {
           deployments.set(deploymentId, { ...deployment, status: 'offline' });
-          changed = true;
         }
       });
 
       transfers.forEach((transfer, deploymentId) => {
         const age = now - transfer.updatedAt;
         const ttl = transfer.status === 'active' ? 120_000 : 30_000;
-        if (age > ttl) {
-          transfers.delete(deploymentId);
-          changed = true;
-        }
+        if (age > ttl) transfers.delete(deploymentId);
       });
 
-      return changed ? { ...state, deployments, transfers } : state;
+      return { ...state, deployments, transfers };
     });
   },
 
   tickAnimator: (now = Date.now()) => {
     set((state) => {
+      // Fast-path: skip all allocations when there is nothing queued.
+      // tickAnimator fires at visualHz from two independent intervals (GatewayEventBridge
+      // + RuntimeMonitorPanel), so idle ticks are extremely common — avoid the 5 Map
+      // copies that used to happen on every call regardless of work.
+      let hasWork = false;
+      for (const q of state.transitionQueues.values()) {
+        if (q && q.length > 0) { hasWork = true; break; }
+      }
+      if (!hasWork) return state;
+
       const transitionQueues = new Map(state.transitionQueues);
       const transitionHistory = new Map(state.transitionHistory);
       const snapshots = new Map(state.snapshots);
       const renderFrames = new Map(state.renderFrames);
       const deployments = new Map(state.deployments);
-      let changed = false;
 
       transitionQueues.forEach((queue, deploymentId) => {
-        if (!queue || queue.length === 0) {
-          return;
-        }
+        if (!queue || queue.length === 0) return;
 
         // Drain the whole queue in one tick — intermediate frames are skipped visually
         // so the graph always shows the actual current state, not a lagging one.
-        const lastEvent = queue[queue.length - 1];
+        const lastEvent = queue[queue.length - 1]!;
         const skipped = queue.length - 1;
         transitionQueues.set(deploymentId, []);
 
         const frame = { ...ensureFrame(renderFrames, deploymentId) };
-        frame.previousStateId = skipped > 0 ? queue[queue.length - 2].toState : lastEvent.fromState;
+        frame.previousStateId = skipped > 0 ? queue[queue.length - 2]!.toState : lastEvent.fromState;
         frame.activeStateId = lastEvent.toState;
         frame.activeTransitionId = lastEvent.transitionId;
         frame.lastTransitionAt = lastEvent.timestamp;
@@ -635,26 +652,38 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
         renderFrames.set(deploymentId, frame);
 
         const previousHistory = transitionHistory.get(deploymentId) ?? [];
-        const history = [...previousHistory, ...queue];
-        if (history.length > state.maxEvents) {
-          history.splice(0, history.length - state.maxEvents);
-        }
+        const combinedHistLen = previousHistory.length + queue.length;
+        const history: RuntimeTransitionEvent[] = combinedHistLen <= state.maxEvents
+          ? [...previousHistory, ...queue]
+          : [
+              ...previousHistory.slice(combinedHistLen - state.maxEvents < previousHistory.length
+                ? combinedHistLen - state.maxEvents : previousHistory.length),
+              ...queue.slice(Math.max(0, combinedHistLen - state.maxEvents - previousHistory.length)),
+            ];
         transitionHistory.set(deploymentId, history);
+
+        const deployment = deployments.get(deploymentId);
+        // Use current deployment.variables as fallback so historical snapshot points
+        // carry variable state even when state_changed events omit variables.
+        const knownVars = deployment?.variables;
 
         const previousSnapshots = snapshots.get(deploymentId) ?? [];
         const newPoints: RuntimeSnapshotPoint[] = queue.map((event) => ({
           timestamp: event.timestamp,
           state: event.toState,
           transitionId: event.transitionId,
-          variables: flattenVariables(event.variables),
+          variables: flattenVariables(event.variables) ?? knownVars,
         }));
-        const nextSnapshots = [...previousSnapshots, ...newPoints];
-        if (nextSnapshots.length > state.maxEvents) {
-          nextSnapshots.splice(0, nextSnapshots.length - state.maxEvents);
-        }
+        const combinedSnapLen = previousSnapshots.length + newPoints.length;
+        const nextSnapshots: RuntimeSnapshotPoint[] = combinedSnapLen <= state.maxEvents
+          ? [...previousSnapshots, ...newPoints]
+          : [
+              ...previousSnapshots.slice(combinedSnapLen - state.maxEvents < previousSnapshots.length
+                ? combinedSnapLen - state.maxEvents : previousSnapshots.length),
+              ...newPoints.slice(Math.max(0, combinedSnapLen - state.maxEvents - previousSnapshots.length)),
+            ];
         snapshots.set(deploymentId, nextSnapshots);
 
-        const deployment = deployments.get(deploymentId);
         if (deployment) {
           const transitionVars = flattenVariables(lastEvent.variables);
           deployments.set(deploymentId, {
@@ -665,13 +694,7 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
             variables: transitionVars ?? deployment.variables,
           });
         }
-
-        changed = true;
       });
-
-      if (!changed) {
-        return state;
-      }
 
       return {
         ...state,
