@@ -43,7 +43,10 @@ defmodule AetheriumServer.GatewayConnection do
        server_id: server_id,
        heartbeat_interval: heartbeat_interval,
        join_retry_interval: join_retry_interval,
-       gateway_link: %{}
+       gateway_link: %{},
+       device_update_signature: nil,
+       deployment_inventory_signature: nil,
+       connector_status_signature: nil
      }}
   end
 
@@ -57,13 +60,7 @@ defmodule AetheriumServer.GatewayConnection do
   @impl true
   def handle_cast({:report_devices, devices}, %{channel: channel} = state)
       when not is_nil(channel) do
-    PhoenixClient.Channel.push_async(
-      channel,
-      "device_update",
-      decorate_gateway_payload(state, "device_update", %{"devices" => devices})
-    )
-
-    {:noreply, state}
+    {:noreply, maybe_push_device_update(state, channel, devices)}
   end
 
   def handle_cast({:report_devices, _devices}, state), do: {:noreply, state}
@@ -103,8 +100,8 @@ defmodule AetheriumServer.GatewayConnection do
         %{channel: channel, heartbeat_interval: heartbeat_interval} = state
       ) do
     state = send_gateway_heartbeat(state, channel)
-    push_live_deployments(state)
-    push_connector_statuses(state)
+    state = maybe_push_live_deployments(state, channel)
+    state = maybe_push_connector_statuses(state, channel)
     Process.send_after(self(), :send_heartbeat, heartbeat_interval)
     {:noreply, state}
   end
@@ -117,9 +114,9 @@ defmodule AetheriumServer.GatewayConnection do
       {:ok, _response, channel} ->
         Logger.info("Connected to gateway and joined server:gateway")
         joined_state = %{state | channel: channel}
-        push_current_devices(joined_state)
-        push_live_deployments(joined_state)
-        push_connector_statuses(joined_state)
+        joined_state = push_current_devices(joined_state)
+        joined_state = push_live_deployments(joined_state)
+        joined_state = push_connector_statuses(joined_state)
         Process.send_after(self(), :send_heartbeat, state.heartbeat_interval)
         {:noreply, joined_state}
 
@@ -517,7 +514,10 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
-  def handle_info(%PhoenixClient.Message{event: "rewind_deployment_batch", payload: payload}, state) do
+  def handle_info(
+        %PhoenixClient.Message{event: "rewind_deployment_batch", payload: payload},
+        state
+      ) do
     {payload, envelope} = split_envelope(payload)
 
     deployment_ids =
@@ -1148,6 +1148,7 @@ defmodule AetheriumServer.GatewayConnection do
             "pause_execution",
             "resume_execution",
             "reset_execution",
+            "set_input",
             "set_variable",
             "request_state",
             "time_travel_query",
@@ -1156,51 +1157,114 @@ defmodule AetheriumServer.GatewayConnection do
         }
       end)
 
+    push_device_update(state, channel, devices)
+  end
+
+  defp maybe_push_device_update(%{channel: channel} = state, _channel, devices) do
+    signature = payload_signature(devices)
+
+    if state.device_update_signature == signature do
+      state
+    else
+      push_device_update(%{state | device_update_signature: signature}, channel, devices)
+    end
+  end
+
+  defp push_device_update(state, channel, devices) do
     PhoenixClient.Channel.push_async(
       channel,
       "device_update",
       decorate_gateway_payload(state, "device_update", %{"devices" => devices})
     )
+
+    %{state | device_update_signature: payload_signature(devices)}
+  end
+
+  defp maybe_push_live_deployments(%{channel: channel} = state, channel) do
+    deployments = live_deployments_payload(state)
+    signature = payload_signature(deployments)
+
+    if state.deployment_inventory_signature == signature do
+      state
+    else
+      push_deployment_inventory(
+        %{state | deployment_inventory_signature: signature},
+        channel,
+        deployments
+      )
+    end
   end
 
   defp push_live_deployments(%{channel: channel} = state) do
-    deployments =
-      AetheriumServer.DeviceManager.list_devices()
-      |> Enum.flat_map(fn device ->
-        AetheriumServer.DeviceManager.get_device_deployments(device.id)
-        |> Enum.map(&{device, &1})
-      end)
-      |> Enum.filter(fn {_device, deployment} -> active_deployment?(deployment) end)
-      |> Enum.map(fn {device, deployment} ->
-        %{
-          "deployment_id" => deployment.id,
-          "automata_id" => deployment.automata_id,
-          "device_id" => deployment.device_id,
-          "status" => Atom.to_string(deployment.status),
-          "deployed_at" => deployment.deployed_at,
-          "current_state" => deployment.current_state,
-          "variables" => deployment.variables,
-          "error" => deployment.error,
-          "deployment_metadata" => build_deployment_metadata(state, %{}, device, deployment)
-        }
-      end)
+    push_deployment_inventory(state, channel, live_deployments_payload(state))
+  end
 
+  defp live_deployments_payload(state) do
+    AetheriumServer.DeviceManager.list_devices()
+    |> Enum.flat_map(fn device ->
+      AetheriumServer.DeviceManager.get_device_deployments(device.id)
+      |> Enum.map(&{device, &1})
+    end)
+    |> Enum.filter(fn {_device, deployment} -> active_deployment?(deployment) end)
+    |> Enum.map(fn {device, deployment} ->
+      %{
+        "deployment_id" => deployment.id,
+        "automata_id" => deployment.automata_id,
+        "device_id" => deployment.device_id,
+        "status" => Atom.to_string(deployment.status),
+        "deployed_at" => deployment.deployed_at,
+        "current_state" => deployment.current_state,
+        "variables" => deployment.variables,
+        "error" => deployment.error,
+        "deployment_metadata" => build_deployment_metadata(state, %{}, device, deployment)
+      }
+    end)
+  end
+
+  defp push_deployment_inventory(state, channel, deployments) do
     PhoenixClient.Channel.push_async(
       channel,
       "deployment_inventory",
       decorate_gateway_payload(state, "deployment_inventory", %{"deployments" => deployments})
     )
+
+    %{state | deployment_inventory_signature: payload_signature(deployments)}
+  end
+
+  defp maybe_push_connector_statuses(%{channel: channel} = state, channel) do
+    connectors = AetheriumServer.DeviceConnectorSupervisor.connector_statuses()
+    signature = payload_signature(connectors)
+
+    if state.connector_status_signature == signature do
+      state
+    else
+      push_connector_statuses(
+        %{state | connector_status_signature: signature},
+        channel,
+        connectors
+      )
+    end
   end
 
   defp push_connector_statuses(%{channel: channel} = state) do
-    connectors = AetheriumServer.DeviceConnectorSupervisor.connector_statuses()
+    push_connector_statuses(
+      state,
+      channel,
+      AetheriumServer.DeviceConnectorSupervisor.connector_statuses()
+    )
+  end
 
+  defp push_connector_statuses(state, channel, connectors) do
     PhoenixClient.Channel.push_async(
       channel,
       "connector_status",
       decorate_gateway_payload(state, "connector_status", %{"connectors" => connectors})
     )
+
+    %{state | connector_status_signature: payload_signature(connectors)}
   end
+
+  defp payload_signature(payload), do: :erlang.phash2(payload)
 
   defp deployment_error_payload(
          automata_id,

@@ -1,0 +1,161 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Bidirectional Loop Node Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/11_bidirectional_loop/esp32_bidirectional_loop_node.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_11_bidirectional_loop_esp32_bidirectional_loop_node",
+      "name": "ESP32 Bidirectional Loop Node",
+      "description": "ESP32 node for the bidirectional loop demo. Samples a potentiometer and drives a local LED from the host command path.",
+      "rootAutomataIds": [
+        "network_11_bidirectional_loop_esp32_bidirectional_loop_node_01_esp32_bidirectional_loop_node"
+      ],
+      "automataIds": [
+        "network_11_bidirectional_loop_esp32_bidirectional_loop_node_01_esp32_bidirectional_loop_node"
+      ],
+      "inputs": [
+        "remote_duty"
+      ],
+      "outputs": [
+        "pot_raw",
+        "pot_mv",
+        "esp_online"
+      ],
+      "relativePath": "networks/esp32_bidirectional_loop_node",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_11_bidirectional_loop_esp32_bidirectional_loop_node_01_esp32_bidirectional_loop_node": {
+      "id": "network_11_bidirectional_loop_esp32_bidirectional_loop_node_01_esp32_bidirectional_loop_node",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Bidirectional Loop Node",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 node for the bidirectional loop demo. Samples a potentiometer and drives a local LED from the host command path.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "adc",
+          "pwm",
+          "bidirectional",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Loop",
+      "states": {
+        "Loop": {
+          "id": "Loop",
+          "name": "Loop",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if next_sample_at ~= nil and now() < next_sample_at then\n  return\nend\n\nnext_sample_at = now() + 80\n\nlocal pot = adc.read(34)\nlocal mv = adc.read_mv(34)\nlocal duty = remote_duty or 0\n\nif duty < 0 then\n  duty = 0\nelseif duty > 255 then\n  duty = 255\nend\n\npwm.write(0, duty)\nsetOutput(\"pot_raw\", pot)\nsetOutput(\"pot_mv\", mv)\nsetOutput(\"esp_online\", true)",
+          "hooks": {
+            "onEnter": "pwm.attach(0, 18, 5000, 8)\nnext_sample_at = 0"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Loop",
+          "to": "Loop",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "remote_duty",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "pot_raw",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "pot_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "esp_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "remote_duty"
+      ],
+      "outputs": [
+        "pot_raw",
+        "pot_mv",
+        "esp_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/esp32_bidirectional_loop_node.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

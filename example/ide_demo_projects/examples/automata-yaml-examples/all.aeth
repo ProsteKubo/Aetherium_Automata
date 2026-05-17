@@ -1,0 +1,2706 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "YAML Example Collection Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata under example/automata/automata-yaml-examples.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_yaml_example_collection",
+      "name": "YAML Example Collection",
+      "description": "Generated collection for all yaml example automata.",
+      "rootAutomataIds": [
+        "network_yaml_example_collection_01_blinking_led_test",
+        "network_yaml_example_collection_02_command_event_gate",
+        "network_yaml_example_collection_03_event_threshold_runtime",
+        "network_yaml_example_collection_04_high_churn_immediate",
+        "network_yaml_example_collection_05_one_state_automata",
+        "network_yaml_example_collection_06_one_state_automata_inline",
+        "network_yaml_example_collection_07_probabilistic_balance_loop",
+        "network_yaml_example_collection_08_production_line_stress_seconds",
+        "network_yaml_example_collection_09_production_line_stress",
+        "network_yaml_example_collection_10_reactor",
+        "network_yaml_example_collection_11_thermostat",
+        "network_yaml_example_collection_12_timed_seconds_modes",
+        "network_yaml_example_collection_13_timeout_vs_classic",
+        "network_yaml_example_collection_14_weighted_transitions"
+      ],
+      "automataIds": [
+        "network_yaml_example_collection_01_blinking_led_test",
+        "network_yaml_example_collection_02_command_event_gate",
+        "network_yaml_example_collection_03_event_threshold_runtime",
+        "network_yaml_example_collection_04_high_churn_immediate",
+        "network_yaml_example_collection_05_one_state_automata",
+        "network_yaml_example_collection_06_one_state_automata_inline",
+        "network_yaml_example_collection_07_probabilistic_balance_loop",
+        "network_yaml_example_collection_08_production_line_stress_seconds",
+        "network_yaml_example_collection_09_production_line_stress",
+        "network_yaml_example_collection_10_reactor",
+        "network_yaml_example_collection_11_thermostat",
+        "network_yaml_example_collection_12_timed_seconds_modes",
+        "network_yaml_example_collection_13_timeout_vs_classic",
+        "network_yaml_example_collection_14_weighted_transitions"
+      ],
+      "inputs": [
+        "sensor_temp",
+        "threshold",
+        "door_open",
+        "cmd_reset",
+        "cmd_start",
+        "cmd_stop",
+        "pressure",
+        "target_quality",
+        "target_temp",
+        "gate_open",
+        "a"
+      ],
+      "outputs": [
+        "blink_count",
+        "current_state_name",
+        "over_temp",
+        "latch_count",
+        "manual_override",
+        "state_label",
+        "running",
+        "overload",
+        "path",
+        "cycle_count",
+        "selected_path",
+        "alarm",
+        "heater_on"
+      ],
+      "relativePath": "networks/yaml_example_collection",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_yaml_example_collection_01_blinking_led_test": {
+      "id": "network_yaml_example_collection_01_blinking_led_test",
+      "version": "0.0.1",
+      "config": {
+        "name": "Blinking LED Test",
+        "type": "inline",
+        "language": "lua",
+        "description": "Simple 2-state automata for testing - blinks every 2 seconds",
+        "tags": [
+          "test",
+          "simple",
+          "timed"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "LED_OFF",
+      "states": {
+        "LED_OFF": {
+          "id": "LED_OFF",
+          "name": "LED_OFF",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"💡 LED is now OFF - blink count: \" .. value(\"blink_count\"))\nsetVal(\"current_state_name\", \"off\")\n",
+            "onTick": "-- Tick every 100ms while in this state\nlog(\"debug\", \"LED_OFF tick\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          },
+          "description": "LED is off, waiting to turn on"
+        },
+        "LED_ON": {
+          "id": "LED_ON",
+          "name": "LED_ON",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local count = value(\"blink_count\") + 1\nsetVal(\"blink_count\", count)\nsetVal(\"current_state_name\", \"on\")\nlog(\"info\", \"💡 LED is now ON - blink count: \" .. count)\n\n-- Simulated output\nif count % 5 == 0 then\n  log(\"warning\", \"🎉 Milestone! 5 blinks completed!\")\nend\n",
+            "onTick": "log(\"debug\", \"LED_ON tick\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          },
+          "description": "LED is on, waiting to turn off"
+        }
+      },
+      "transitions": {
+        "id": {
+          "id": "id",
+          "name": "id",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "from": {
+          "id": "from",
+          "name": "from",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "to": {
+          "id": "to",
+          "name": "to",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "type": {
+          "id": "type",
+          "name": "type",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "after": {
+          "id": "after",
+          "name": "after",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "description": {
+          "id": "description",
+          "name": "description",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "blink_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0,
+          "description": "Number of times LED has toggled"
+        },
+        {
+          "name": "current_state_name",
+          "type": "string",
+          "direction": "output",
+          "default": "off",
+          "description": "Current state name for monitoring"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "blink_count",
+        "current_state_name"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/blinking-led-test.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_02_command_event_gate": {
+      "id": "network_yaml_example_collection_02_command_event_gate",
+      "version": "0.0.1",
+      "config": {
+        "name": "Command Event Gate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Command-driven automata for testing Input and Variable protocol commands",
+        "tags": [
+          "command-test",
+          "event",
+          "input",
+          "reset"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"over_temp\", false)\nsetVal(\"state_label\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"state_label\", \"armed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Latched": {
+          "id": "Latched",
+          "name": "Latched",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"over_temp\", true)\nsetVal(\"state_label\", \"latched\")\nsetVal(\"latch_count\", value(\"latch_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Resetting": {
+          "id": "Resetting",
+          "name": "Resetting",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"over_temp\", false)\nsetVal(\"state_label\", \"resetting\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "arm_when_hot": {
+          "id": "arm_when_hot",
+          "name": "arm_when_hot",
+          "from": "Idle",
+          "to": "Armed",
+          "type": "classic",
+          "condition": "value(\"sensor_temp\") >= value(\"threshold\")",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cool_when_safe": {
+          "id": "cool_when_safe",
+          "name": "cool_when_safe",
+          "from": "Armed",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"sensor_temp\") < (value(\"threshold\") - 5)",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "latch_on_door_open": {
+          "id": "latch_on_door_open",
+          "name": "latch_on_door_open",
+          "from": "Armed",
+          "to": "Latched",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "door_open",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": true,
+            "debounceMs": 0
+          }
+        },
+        "reset_command": {
+          "id": "reset_command",
+          "name": "reset_command",
+          "from": "Latched",
+          "to": "Resetting",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "cmd_reset",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "settle_to_idle": {
+          "id": "settle_to_idle",
+          "name": "settle_to_idle",
+          "from": "Resetting",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 5,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "sensor_temp",
+          "type": "int",
+          "direction": "input",
+          "default": 20
+        },
+        {
+          "name": "threshold",
+          "type": "int",
+          "direction": "input",
+          "default": 60
+        },
+        {
+          "name": "door_open",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "cmd_reset",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "over_temp",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "latch_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "manual_override",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "state_label",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        }
+      ],
+      "inputs": [
+        "sensor_temp",
+        "threshold",
+        "door_open",
+        "cmd_reset"
+      ],
+      "outputs": [
+        "over_temp",
+        "latch_count",
+        "manual_override",
+        "state_label"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/command-event-gate.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_03_event_threshold_runtime": {
+      "id": "network_yaml_example_collection_03_event_threshold_runtime",
+      "version": "0.0.1",
+      "config": {
+        "name": "Event Threshold Runtime",
+        "type": "inline",
+        "language": "lua",
+        "description": "Covers event on_rise/on_threshold plus timed timeout watchdog",
+        "tags": [
+          "event",
+          "threshold",
+          "watchdog"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", false)\nsetVal(\"overload\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Active": {
+          "id": "Active",
+          "name": "Active",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", true)\nsetVal(\"cycles\", value(\"cycles\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Tripped": {
+          "id": "Tripped",
+          "name": "Tripped",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", false)\nsetVal(\"overload\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_event": {
+          "id": "start_event",
+          "name": "start_event",
+          "from": "Idle",
+          "to": "Active",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "cmd_start",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "stop_event": {
+          "id": "stop_event",
+          "name": "stop_event",
+          "from": "Active",
+          "to": "Idle",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "cmd_stop",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "trip_on_pressure": {
+          "id": "trip_on_pressure",
+          "name": "trip_on_pressure",
+          "from": "Active",
+          "to": "Tripped",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "pressure",
+                "trigger": "on_threshold",
+                "threshold": {
+                  "operator": ">=",
+                  "value": 90
+                }
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "active_watchdog": {
+          "id": "active_watchdog",
+          "name": "active_watchdog",
+          "from": "Active",
+          "to": "Tripped",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 5000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recover_to_idle": {
+          "id": "recover_to_idle",
+          "name": "recover_to_idle",
+          "from": "Tripped",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"pressure\") < 50",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "cmd_start",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "cmd_stop",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "pressure",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "cycles",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "overload",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "cmd_start",
+        "cmd_stop",
+        "pressure"
+      ],
+      "outputs": [
+        "running",
+        "overload"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/event-threshold-runtime.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_04_high_churn_immediate": {
+      "id": "network_yaml_example_collection_04_high_churn_immediate",
+      "version": "0.0.1",
+      "config": {
+        "name": "High Churn Immediate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Stress automata for control-plane preemption under heavy transition churn",
+        "tags": [
+          "stress",
+          "immediate",
+          "command-priority"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "A",
+      "states": {
+        "A": {
+          "id": "A",
+          "name": "A",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"debug\", \"enter A\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "B": {
+          "id": "B",
+          "name": "B",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"debug\", \"enter B\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "a_to_b": {
+          "id": "a_to_b",
+          "name": "a_to_b",
+          "from": "A",
+          "to": "B",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "b_to_a": {
+          "id": "b_to_a",
+          "name": "b_to_a",
+          "from": "B",
+          "to": "A",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/high-churn-immediate.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_05_one_state_automata": {
+      "id": "network_yaml_example_collection_05_one_state_automata",
+      "version": "0.0.1",
+      "config": {
+        "name": "one state automata",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "State1",
+      "states": {
+        "State1": {
+          "id": "State1",
+          "name": "State1",
+          "inputs": [
+            "in1",
+            "in2"
+          ],
+          "outputs": [
+            "out1",
+            "out2"
+          ],
+          "variables": [
+            "var1",
+            "var2"
+          ],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "State2": {
+          "id": "State2",
+          "name": "State2",
+          "inputs": [
+            "in1",
+            "in3"
+          ],
+          "outputs": [
+            "out2",
+            "out3"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "Transition1": {
+          "id": "Transition1",
+          "name": "Transition1",
+          "from": "State1",
+          "to": "State2",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/one-state-automata-folder/one-state-automata.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_06_one_state_automata_inline": {
+      "id": "network_yaml_example_collection_06_one_state_automata_inline",
+      "version": "0.0.1",
+      "config": {
+        "name": "one state automata",
+        "type": "inline",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "State1",
+      "states": {
+        "State1": {
+          "id": "State1",
+          "name": "State1",
+          "inputs": [
+            "in1:string",
+            "in2:int",
+            "in3:bool"
+          ],
+          "outputs": [
+            "out1",
+            "out2"
+          ],
+          "variables": [
+            "var1",
+            "var2"
+          ],
+          "code": "print(\"hello world\")",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "State2": {
+          "id": "State2",
+          "name": "State2",
+          "inputs": [
+            "in1",
+            "in3"
+          ],
+          "outputs": [
+            "out2",
+            "out3"
+          ],
+          "variables": [],
+          "code": "print(\"hahaha\")",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "Transition1": {
+          "id": "Transition1",
+          "name": "Transition1",
+          "from": "State1",
+          "to": "State2",
+          "type": "classic",
+          "condition": "check(\"out1\")",
+          "body": "print(\"transitioned\")",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/one-state-automata-inline.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_07_probabilistic_balance_loop": {
+      "id": "network_yaml_example_collection_07_probabilistic_balance_loop",
+      "version": "0.0.1",
+      "config": {
+        "name": "Probabilistic Balance Loop",
+        "type": "inline",
+        "language": "lua",
+        "description": "Covers weighted branching and deterministic completion criteria",
+        "tags": [
+          "probabilistic",
+          "weighted",
+          "loop"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Choose",
+      "states": {
+        "Choose": {
+          "id": "Choose",
+          "name": "Choose",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PathA": {
+          "id": "PathA",
+          "name": "PathA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"path\", \"A\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "PathB": {
+          "id": "PathB",
+          "name": "PathB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"path\", \"B\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "End": {
+          "id": "End",
+          "name": "End",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"cycle_count\", value(\"cycle_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "choose_to_a": {
+          "id": "choose_to_a",
+          "name": "choose_to_a",
+          "from": "Choose",
+          "to": "PathA",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 70,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 70
+          }
+        },
+        "choose_to_b": {
+          "id": "choose_to_b",
+          "name": "choose_to_b",
+          "from": "Choose",
+          "to": "PathB",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 30,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 30
+          }
+        },
+        "a_to_end": {
+          "id": "a_to_end",
+          "name": "a_to_end",
+          "from": "PathA",
+          "to": "End",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_to_end": {
+          "id": "b_to_end",
+          "name": "b_to_end",
+          "from": "PathB",
+          "to": "End",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "end_continue": {
+          "id": "end_continue",
+          "name": "end_continue",
+          "from": "End",
+          "to": "Choose",
+          "type": "classic",
+          "condition": "value(\"cycle_count\") < 10",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "end_done": {
+          "id": "end_done",
+          "name": "end_done",
+          "from": "End",
+          "to": "Done",
+          "type": "classic",
+          "condition": "value(\"cycle_count\") >= 10",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "path"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_08_production_line_stress_seconds": {
+      "id": "network_yaml_example_collection_08_production_line_stress_seconds",
+      "version": "0.0.1",
+      "config": {
+        "name": "Production Line Stress (Seconds)",
+        "type": "inline",
+        "language": "lua",
+        "description": "Hardware-safe production-line stress profile with second-scale timing",
+        "tags": [
+          "stress",
+          "probabilistic",
+          "timed",
+          "recovery"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"boot: starting production controller\")\nsetVal(\"alarm\", false)\nsetVal(\"selected_path\", \"boot\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Warmup": {
+          "id": "Warmup",
+          "name": "Warmup",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"warmup: selecting process lane\")\nsetVal(\"selected_path\", \"warmup\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "ProcessA": {
+          "id": "ProcessA",
+          "name": "ProcessA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"A\")\nlocal q = 40 + math.floor(rand() * 60)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process A quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "ProcessB": {
+          "id": "ProcessB",
+          "name": "ProcessB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"B\")\nlocal q = 30 + math.floor(rand() * 70)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process B quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "ProcessC": {
+          "id": "ProcessC",
+          "name": "ProcessC",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"C\")\nlocal q = 20 + math.floor(rand() * 80)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process C quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local cycles = value(\"cycle_count\")\nsetVal(\"cycle_count\", cycles + 1)\nif value(\"quality_score\") < value(\"target_quality\") then\n  setVal(\"alarm\", true)\nelse\n  setVal(\"alarm\", false)\nend\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Recovery": {
+          "id": "Recovery",
+          "name": "Recovery",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local retries = value(\"retry_count\")\nsetVal(\"retry_count\", retries + 1)\nsetVal(\"alarm\", false)\nsetVal(\"selected_path\", \"recovery\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_warmup": {
+          "id": "boot_to_warmup",
+          "name": "boot_to_warmup",
+          "from": "Boot",
+          "to": "Warmup",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "warmup_to_a": {
+          "id": "warmup_to_a",
+          "name": "warmup_to_a",
+          "from": "Warmup",
+          "to": "ProcessA",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 50,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 50
+          }
+        },
+        "warmup_to_b": {
+          "id": "warmup_to_b",
+          "name": "warmup_to_b",
+          "from": "Warmup",
+          "to": "ProcessB",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 30,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 30
+          }
+        },
+        "warmup_to_c": {
+          "id": "warmup_to_c",
+          "name": "warmup_to_c",
+          "from": "Warmup",
+          "to": "ProcessC",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 20,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 20
+          }
+        },
+        "a_to_cooldown": {
+          "id": "a_to_cooldown",
+          "name": "a_to_cooldown",
+          "from": "ProcessA",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_to_cooldown": {
+          "id": "b_to_cooldown",
+          "name": "b_to_cooldown",
+          "from": "ProcessB",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "c_to_cooldown": {
+          "id": "c_to_cooldown",
+          "name": "c_to_cooldown",
+          "from": "ProcessC",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooldown_to_recovery": {
+          "id": "cooldown_to_recovery",
+          "name": "cooldown_to_recovery",
+          "from": "Cooldown",
+          "to": "Recovery",
+          "type": "classic",
+          "condition": "alarm == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_boot": {
+          "id": "cooldown_to_boot",
+          "name": "cooldown_to_boot",
+          "from": "Cooldown",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recovery_to_boot": {
+          "id": "recovery_to_boot",
+          "name": "recovery_to_boot",
+          "from": "Recovery",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 3000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "selected_path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        },
+        {
+          "name": "quality_score",
+          "type": "int",
+          "direction": "internal",
+          "default": 50
+        },
+        {
+          "name": "retry_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "alarm",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "target_quality",
+          "type": "int",
+          "direction": "input",
+          "default": 65
+        }
+      ],
+      "inputs": [
+        "target_quality"
+      ],
+      "outputs": [
+        "cycle_count",
+        "selected_path",
+        "alarm"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/production-line-stress-seconds.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_09_production_line_stress": {
+      "id": "network_yaml_example_collection_09_production_line_stress",
+      "version": "0.0.1",
+      "config": {
+        "name": "Production Line Stress",
+        "type": "inline",
+        "language": "lua",
+        "description": "Aggressive stress scenario (millisecond-scale) for simulation and soak tests",
+        "tags": [
+          "stress",
+          "probabilistic",
+          "timed",
+          "recovery"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"boot: starting production controller\")\nsetVal(\"alarm\", false)\nsetVal(\"selected_path\", \"boot\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Warmup": {
+          "id": "Warmup",
+          "name": "Warmup",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"warmup: selecting process lane\")\nsetVal(\"selected_path\", \"warmup\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "ProcessA": {
+          "id": "ProcessA",
+          "name": "ProcessA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"A\")\nlocal q = 40 + math.floor(rand() * 60)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process A quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "ProcessB": {
+          "id": "ProcessB",
+          "name": "ProcessB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"B\")\nlocal q = 30 + math.floor(rand() * 70)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process B quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "ProcessC": {
+          "id": "ProcessC",
+          "name": "ProcessC",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"C\")\nlocal q = 20 + math.floor(rand() * 80)\nsetVal(\"quality_score\", q)\nlog(\"debug\", \"process C quality=\" .. q)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local cycles = value(\"cycle_count\")\nsetVal(\"cycle_count\", cycles + 1)\nif value(\"quality_score\") < value(\"target_quality\") then\n  setVal(\"alarm\", true)\nelse\n  setVal(\"alarm\", false)\nend\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Recovery": {
+          "id": "Recovery",
+          "name": "Recovery",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local retries = value(\"retry_count\")\nsetVal(\"retry_count\", retries + 1)\nsetVal(\"alarm\", false)\nsetVal(\"selected_path\", \"recovery\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_warmup": {
+          "id": "boot_to_warmup",
+          "name": "boot_to_warmup",
+          "from": "Boot",
+          "to": "Warmup",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 20,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "warmup_to_a": {
+          "id": "warmup_to_a",
+          "name": "warmup_to_a",
+          "from": "Warmup",
+          "to": "ProcessA",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 50,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 50
+          }
+        },
+        "warmup_to_b": {
+          "id": "warmup_to_b",
+          "name": "warmup_to_b",
+          "from": "Warmup",
+          "to": "ProcessB",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 30,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 30
+          }
+        },
+        "warmup_to_c": {
+          "id": "warmup_to_c",
+          "name": "warmup_to_c",
+          "from": "Warmup",
+          "to": "ProcessC",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 20,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 20
+          }
+        },
+        "a_to_cooldown": {
+          "id": "a_to_cooldown",
+          "name": "a_to_cooldown",
+          "from": "ProcessA",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 15,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_to_cooldown": {
+          "id": "b_to_cooldown",
+          "name": "b_to_cooldown",
+          "from": "ProcessB",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 15,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "c_to_cooldown": {
+          "id": "c_to_cooldown",
+          "name": "c_to_cooldown",
+          "from": "ProcessC",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 15,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooldown_to_recovery": {
+          "id": "cooldown_to_recovery",
+          "name": "cooldown_to_recovery",
+          "from": "Cooldown",
+          "to": "Recovery",
+          "type": "classic",
+          "condition": "alarm == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_boot": {
+          "id": "cooldown_to_boot",
+          "name": "cooldown_to_boot",
+          "from": "Cooldown",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 20,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recovery_to_boot": {
+          "id": "recovery_to_boot",
+          "name": "recovery_to_boot",
+          "from": "Recovery",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 30,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "selected_path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        },
+        {
+          "name": "quality_score",
+          "type": "int",
+          "direction": "internal",
+          "default": 50
+        },
+        {
+          "name": "retry_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "alarm",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "target_quality",
+          "type": "int",
+          "direction": "input",
+          "default": 65
+        }
+      ],
+      "inputs": [
+        "target_quality"
+      ],
+      "outputs": [
+        "cycle_count",
+        "selected_path",
+        "alarm"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/production-line-stress.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_10_reactor": {
+      "id": "network_yaml_example_collection_10_reactor",
+      "version": "0.0.1",
+      "config": {
+        "name": "Reactor Folder Stress",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "description": "Folder layout stress case for loader and Lua hook resolution",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Heat": {
+          "id": "Heat",
+          "name": "Heat",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Hold": {
+          "id": "Hold",
+          "name": "Hold",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_heat": {
+          "id": "start_heat",
+          "name": "start_heat",
+          "from": "Idle",
+          "to": "Heat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 15,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "reach_target": {
+          "id": "reach_target",
+          "name": "reach_target",
+          "from": "Heat",
+          "to": "Hold",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "hold_done": {
+          "id": "hold_done",
+          "name": "hold_done",
+          "from": "Hold",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 20,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "core_temp",
+          "type": "int",
+          "direction": "internal",
+          "default": 20
+        },
+        {
+          "name": "target_temp",
+          "type": "int",
+          "direction": "input",
+          "default": 70
+        },
+        {
+          "name": "heater_on",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "target_temp"
+      ],
+      "outputs": [
+        "heater_on",
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/reactor-folder/reactor.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_11_thermostat": {
+      "id": "network_yaml_example_collection_11_thermostat",
+      "version": "0.0.1",
+      "config": {
+        "name": "thermostat automata",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [
+            "temp"
+          ],
+          "outputs": [
+            "cooler_on"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Cooling": {
+          "id": "Cooling",
+          "name": "Cooling",
+          "inputs": [
+            "temp"
+          ],
+          "outputs": [
+            "cooler_on"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "StartCooling": {
+          "id": "StartCooling",
+          "name": "StartCooling",
+          "from": "Idle",
+          "to": "Cooling",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "StopCooling": {
+          "id": "StopCooling",
+          "name": "StopCooling",
+          "from": "Cooling",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/thermostat-folder/thermostat.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_12_timed_seconds_modes": {
+      "id": "network_yaml_example_collection_12_timed_seconds_modes",
+      "version": "0.0.1",
+      "config": {
+        "name": "Timed Seconds Modes",
+        "type": "inline",
+        "language": "lua",
+        "description": "Covers after/every/window/timeout with second-based durations",
+        "tags": [
+          "timed",
+          "timeout",
+          "window",
+          "seconds"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"boot\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Pulse": {
+          "id": "Pulse",
+          "name": "Pulse",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"debug\", \"pulse\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "WindowEval": {
+          "id": "WindowEval",
+          "name": "WindowEval",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"debug\", \"window eval\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Fallback": {
+          "id": "Fallback",
+          "name": "Fallback",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"warn\", \"window timeout fallback\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"cycle_count\", value(\"cycle_count\") + 1)\nlog(\"info\", \"done\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_pulse": {
+          "id": "boot_to_pulse",
+          "name": "boot_to_pulse",
+          "from": "Boot",
+          "to": "Pulse",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "pulse_tick": {
+          "id": "pulse_tick",
+          "name": "pulse_tick",
+          "from": "Pulse",
+          "to": "Pulse",
+          "type": "timed",
+          "condition": "",
+          "body": "setVal(\"pulse_count\", value(\"pulse_count\") + 1)\n",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "every",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "repeatCount": 4,
+            "showCountdown": true
+          }
+        },
+        "pulse_to_window": {
+          "id": "pulse_to_window",
+          "name": "pulse_to_window",
+          "from": "Pulse",
+          "to": "WindowEval",
+          "type": "classic",
+          "condition": "value(\"pulse_count\") >= 4",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "window_to_done": {
+          "id": "window_to_done",
+          "name": "window_to_done",
+          "from": "WindowEval",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "window",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "windowEndMs": 3000,
+            "additionalCondition": "value(\"gate_open\") == true",
+            "showCountdown": true
+          }
+        },
+        "window_timeout_fallback": {
+          "id": "window_timeout_fallback",
+          "name": "window_timeout_fallback",
+          "from": "WindowEval",
+          "to": "Fallback",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 4000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "fallback_to_done": {
+          "id": "fallback_to_done",
+          "name": "fallback_to_done",
+          "from": "Fallback",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "pulse_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "gate_open",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        }
+      ],
+      "inputs": [
+        "gate_open"
+      ],
+      "outputs": [
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/timed-seconds-modes.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_13_timeout_vs_classic": {
+      "id": "network_yaml_example_collection_13_timeout_vs_classic",
+      "version": "0.0.1",
+      "config": {
+        "name": "Timeout Versus Classic",
+        "type": "inline",
+        "language": "lua",
+        "description": "Timeout transition should not preempt an immediately-true classic transition",
+        "tags": [
+          "timeout",
+          "fallback",
+          "priority"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "FastPath": {
+          "id": "FastPath",
+          "name": "FastPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "SlowPath": {
+          "id": "SlowPath",
+          "name": "SlowPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_fast": {
+          "id": "idle_to_fast",
+          "name": "idle_to_fast",
+          "from": "Idle",
+          "to": "FastPath",
+          "type": "classic",
+          "condition": "true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_timeout_fallback": {
+          "id": "idle_timeout_fallback",
+          "name": "idle_timeout_fallback",
+          "from": "Idle",
+          "to": "SlowPath",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "fast_to_done": {
+          "id": "fast_to_done",
+          "name": "fast_to_done",
+          "from": "FastPath",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "slow_to_done": {
+          "id": "slow_to_done",
+          "name": "slow_to_done",
+          "from": "SlowPath",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/timeout-vs-classic.yaml",
+      "isDirty": false
+    },
+    "network_yaml_example_collection_14_weighted_transitions": {
+      "id": "network_yaml_example_collection_14_weighted_transitions",
+      "version": "0.0.1",
+      "config": {
+        "name": "Weighted Transitions Demo",
+        "type": "inline",
+        "language": "lua",
+        "description": "Demonstrates weighted probabilistic transitions",
+        "tags": [
+          "example",
+          "weighted",
+          "probabilistic"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "S1",
+      "states": {
+        "S1": {
+          "id": "S1",
+          "name": "S1",
+          "inputs": [
+            "a:int"
+          ],
+          "outputs": [
+            "selected_path:string"
+          ],
+          "variables": [],
+          "code": "-- Waiting for input a > 5\nlog(\"info\", \"Waiting in S1, a = \" .. value(\"a\"))\n",
+          "hooks": {
+            "onEnter": "setVal(\"selected_path\", \"waiting\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          },
+          "description": "Initial waiting state"
+        },
+        "S2": {
+          "id": "S2",
+          "name": "S2",
+          "inputs": [],
+          "outputs": [],
+          "variables": [
+            "selection_count_s2:int"
+          ],
+          "code": "log(\"info\", \"In S2 - high probability path\")\n",
+          "hooks": {
+            "onEnter": "local count = value(\"selection_count_s2\") or 0\nsetVal(\"selection_count_s2\", count + 1)\nsetVal(\"selected_path\", \"S2\")\nemit(\"selected_path\", \"S2\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          },
+          "description": "High probability target (70%)"
+        },
+        "S3": {
+          "id": "S3",
+          "name": "S3",
+          "inputs": [],
+          "outputs": [],
+          "variables": [
+            "selection_count_s3:int"
+          ],
+          "code": "log(\"info\", \"In S3 - low probability path\")\n",
+          "hooks": {
+            "onEnter": "local count = value(\"selection_count_s3\") or 0\nsetVal(\"selection_count_s3\", count + 1)\nsetVal(\"selected_path\", \"S3\")\nemit(\"selected_path\", \"S3\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          },
+          "description": "Low probability target (30%)"
+        }
+      },
+      "transitions": {
+        "T1_to_S2": {
+          "id": "T1_to_S2",
+          "name": "T1_to_S2",
+          "from": "S1",
+          "to": "S2",
+          "type": "classic",
+          "condition": "value(\"a\") > 5",
+          "body": "log(\"info\", \"Transitioning to S2 (high prob)\")\n",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.7
+        },
+        "T2_to_S3": {
+          "id": "T2_to_S3",
+          "name": "T2_to_S3",
+          "from": "S1",
+          "to": "S3",
+          "type": "classic",
+          "condition": "value(\"a\") > 5",
+          "body": "log(\"info\", \"Transitioning to S3 (low prob)\")\n",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.3
+        },
+        "T3_return_from_S2": {
+          "id": "T3_return_from_S2",
+          "name": "T3_return_from_S2",
+          "from": "S2",
+          "to": "S1",
+          "type": "timed",
+          "condition": "",
+          "body": "log(\"info\", \"Returning to S1 from S2\")\n",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "T4_return_from_S3": {
+          "id": "T4_return_from_S3",
+          "name": "T4_return_from_S3",
+          "from": "S3",
+          "to": "S1",
+          "type": "timed",
+          "condition": "",
+          "body": "log(\"info\", \"Returning to S1 from S3\")\n",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "a",
+          "type": "int",
+          "direction": "input",
+          "description": "Primary input variable for transition conditions"
+        },
+        {
+          "name": "selected_path",
+          "type": "string",
+          "direction": "output",
+          "description": "Which path was selected (S2 or S3)"
+        },
+        {
+          "name": "selection_count_s2",
+          "type": "int",
+          "direction": "internal",
+          "description": "Counter for times S2 was selected"
+        },
+        {
+          "name": "selection_count_s3",
+          "type": "int",
+          "direction": "internal",
+          "description": "Counter for times S3 was selected"
+        }
+      ],
+      "inputs": [
+        "a"
+      ],
+      "outputs": [
+        "selected_path"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/weighted-transitions.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -329,7 +329,11 @@ defmodule AetheriumGateway.AutomataRegistry do
         }
 
         key = {automata_id, device_id}
-        new_state = put_in(state, [:deployments, key], deployment)
+
+        new_state =
+          state
+          |> stop_other_device_deployments(device_id, server_id, key)
+          |> put_in([:deployments, key], deployment)
 
         Logger.info(
           "Deploying automata #{automata_id} to device #{device_id} via server #{server_id}"
@@ -471,7 +475,12 @@ defmodule AetheriumGateway.AutomataRegistry do
             |> maybe_set_deployed_at(status)
 
           broadcast_deployment_update(updated)
-          next = put_in(state, [:deployments, key], updated)
+
+          next =
+            state
+            |> maybe_stop_other_device_deployments(updated, key, status)
+            |> put_in([:deployments, key], updated)
+
           persist_state(next)
 
           append_event("deployment_status", %{
@@ -608,6 +617,42 @@ defmodule AetheriumGateway.AutomataRegistry do
   end
 
   defp maybe_set_deployed_at(deployment, _status), do: deployment
+
+  defp maybe_stop_other_device_deployments(state, deployment, current_key, status)
+       when status in [:deploying, :running] do
+    stop_other_device_deployments(
+      state,
+      deployment_field(deployment, :device_id),
+      deployment_field(deployment, :server_id),
+      current_key
+    )
+  end
+
+  defp maybe_stop_other_device_deployments(state, _deployment, _current_key, _status), do: state
+
+  defp stop_other_device_deployments(state, device_id, server_id, current_key)
+       when is_binary(device_id) do
+    update_in(state, [:deployments], fn deployments ->
+      Enum.into(deployments, %{}, fn {key, deployment} ->
+        same_device? = deployment_field(deployment, :device_id) == device_id
+        same_server? = is_nil(server_id) or deployment_field(deployment, :server_id) == server_id
+
+        active? =
+          deployment_field(deployment, :status) in [:pending, :deploying, :running, :paused]
+
+        if key != current_key and same_device? and same_server? and active? do
+          {key,
+           deployment
+           |> Map.put(:status, :stopped)
+           |> Map.put(:updated_at, DateTime.utc_now())}
+        else
+          {key, deployment}
+        end
+      end)
+    end)
+  end
+
+  defp stop_other_device_deployments(state, _device_id, _server_id, _current_key), do: state
 
   defp merge_deployment_extras(deployment, extras) when is_map(extras) do
     existing_metadata =

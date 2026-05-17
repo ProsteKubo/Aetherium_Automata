@@ -1,0 +1,181 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Binding Leader OLED Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_binding_leader_oled.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_binding_leader_oled",
+      "name": "ESP32 Binding Leader OLED",
+      "description": "Leader node for a two-ESP demo. Samples a potentiometer, updates an OLED, and exposes outputs for gateway binding.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_binding_leader_oled_01_esp32_binding_leader_oled"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_binding_leader_oled_01_esp32_binding_leader_oled"
+      ],
+      "inputs": [
+        "manual_boost"
+      ],
+      "outputs": [
+        "leader_duty",
+        "leader_button",
+        "leader_sensor_mv"
+      ],
+      "relativePath": "networks/esp32_binding_leader_oled",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_binding_leader_oled_01_esp32_binding_leader_oled": {
+      "id": "network_08_esp32_esp32_binding_leader_oled_01_esp32_binding_leader_oled",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Leader OLED",
+        "type": "inline",
+        "language": "lua",
+        "description": "Leader node for a two-ESP demo. Samples a potentiometer, updates an OLED, and exposes outputs for gateway binding.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "leader",
+          "oled"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1",
+          "esp32": {
+            "resources": [
+              {
+                "kind": "i2c",
+                "name": "oled_bus",
+                "pins": [
+                  21,
+                  22
+                ]
+              },
+              {
+                "kind": "adc",
+                "name": "pot_input",
+                "pin": 34
+              },
+              {
+                "kind": "gpio",
+                "name": "button_input",
+                "pin": 18
+              },
+              {
+                "kind": "pwm",
+                "name": "local_led_pwm",
+                "pin": 19
+              }
+            ],
+            "components": [
+              {
+                "name": "ssd1306_text",
+                "builtin": true,
+                "manifest": "example/automata/showcase/08_esp32/components/ssd1306_text_component.json"
+              }
+            ]
+          }
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Leader",
+      "states": {
+        "Leader": {
+          "id": "Leader",
+          "name": "Leader",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if leader_next_sample ~= nil and now() < leader_next_sample then\n  return\nend\n\nleader_next_sample = now() + 80\n\nlocal pot = adc.read(34)\nlocal pot_mv_local = adc.read_mv(34)\nlocal button = gpio.read(18) == 0\nlocal duty = math.floor(clamp((pot / 4095.0) * 255, 0, 255))\nlocal boost = manual_boost or 0\n\nif boost > duty then\n  duty = boost\nend\n\nif button then\n  duty = 255\nend\n\npwm.write(0, duty)\nsetOutput(\"leader_duty\", duty)\nsetOutput(\"leader_button\", button)\nsetOutput(\"leader_sensor_mv\", pot_mv_local)\n\nif leader_next_display == nil or now() >= leader_next_display then\n  local display = component(\"ssd1306_text\")\n  display:line(0, \"Leader OLED\")\n  display:line(1, \"Duty: \" .. tostring(duty))\n  display:line(2, \"Button: \" .. tostring(button))\n  display:line(3, \"Sensor mV:\")\n  display:line(4, tostring(pot_mv_local))\n  display:line(5, \"Boost: \" .. tostring(boost))\n  leader_next_display = now() + 250\nend",
+          "hooks": {
+            "onEnter": "gpio.mode(18, \"input_pullup\")\npwm.attach(0, 19, 5000, 8)\n\nlocal display = component(\"ssd1306_text\")\ndisplay:init(128, 64, 60, 0, 21, 22, 400000)\ndisplay:clear()\ndisplay:line(0, \"Leader online\")\ndisplay:line(1, \"Waiting...\")\n\nleader_next_sample = 0\nleader_next_display = 0"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {},
+      "variables": [
+        {
+          "name": "manual_boost",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "leader_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_sensor_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "manual_boost"
+      ],
+      "outputs": [
+        "leader_duty",
+        "leader_button",
+        "leader_sensor_mv"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_leader_oled.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

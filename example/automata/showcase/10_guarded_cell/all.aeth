@@ -1,0 +1,1082 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Guarded Cell Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/10_guarded_cell.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_10_guarded_cell",
+      "name": "Guarded Cell",
+      "description": "Generated collection for Guarded Cell.",
+      "rootAutomataIds": [
+        "network_showcase_10_guarded_cell_01_esp32_guarded_cell_alarm_beacon",
+        "network_showcase_10_guarded_cell_02_esp32_guarded_cell_primary_actuator",
+        "network_showcase_10_guarded_cell_03_guarded_cell_actuation_controller",
+        "network_showcase_10_guarded_cell_04_guarded_cell_safety_supervisor",
+        "network_showcase_10_guarded_cell_05_guarded_cell_signal_conditioner",
+        "network_showcase_10_guarded_cell_06_mcxn947_guarded_cell_leader"
+      ],
+      "automataIds": [
+        "network_showcase_10_guarded_cell_01_esp32_guarded_cell_alarm_beacon",
+        "network_showcase_10_guarded_cell_02_esp32_guarded_cell_primary_actuator",
+        "network_showcase_10_guarded_cell_03_guarded_cell_actuation_controller",
+        "network_showcase_10_guarded_cell_04_guarded_cell_safety_supervisor",
+        "network_showcase_10_guarded_cell_05_guarded_cell_signal_conditioner",
+        "network_showcase_10_guarded_cell_06_mcxn947_guarded_cell_leader"
+      ],
+      "inputs": [
+        "supervisor_alarm",
+        "actuate_cmd",
+        "request_ok",
+        "inhibit",
+        "permit_ok",
+        "request_raw",
+        "permit_raw"
+      ],
+      "outputs": [
+        "alarm_active",
+        "primary_active",
+        "actuate_cmd",
+        "controller_blocked",
+        "controller_state",
+        "cycle_count",
+        "inhibit",
+        "supervisor_alarm",
+        "supervisor_state",
+        "fault_count",
+        "request_ok",
+        "permit_ok",
+        "conditioner_state",
+        "pulse_count",
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "relativePath": "networks/guarded_cell",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_10_guarded_cell_01_esp32_guarded_cell_alarm_beacon": {
+      "id": "network_showcase_10_guarded_cell_01_esp32_guarded_cell_alarm_beacon",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Guarded Cell Alarm Beacon",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 alarm node for the guarded actuation cell. Uses the visible board LED as the supervisor alarm indicator.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "guarded-cell",
+          "alarm",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local active = supervisor_alarm == true\ncomponent(\"board_led\"):set(active)\nsetOutput(\"alarm_active\", active)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "supervisor_alarm",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "alarm_active",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "supervisor_alarm"
+      ],
+      "outputs": [
+        "alarm_active"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml",
+      "isDirty": false
+    },
+    "network_showcase_10_guarded_cell_02_esp32_guarded_cell_primary_actuator": {
+      "id": "network_showcase_10_guarded_cell_02_esp32_guarded_cell_primary_actuator",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Guarded Cell Primary Actuator",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 primary actuator node for the guarded actuation cell. Uses the visible board LED as the actuation indicator.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "guarded-cell",
+          "actuator",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local active = actuate_cmd == true\ncomponent(\"board_led\"):set(active)\nsetOutput(\"primary_active\", active)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "actuate_cmd",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "primary_active",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "actuate_cmd"
+      ],
+      "outputs": [
+        "primary_active"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml",
+      "isDirty": false
+    },
+    "network_showcase_10_guarded_cell_03_guarded_cell_actuation_controller": {
+      "id": "network_showcase_10_guarded_cell_03_guarded_cell_actuation_controller",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Actuation Controller",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that turns normalized guarded-cell requests into bounded actuation cycles unless the supervisor inhibits them.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "controller"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", false)\nsetVal(\"controller_blocked\", false)\nsetVal(\"controller_state\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Actuate": {
+          "id": "Actuate",
+          "name": "Actuate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", true)\nsetVal(\"controller_blocked\", false)\nsetVal(\"controller_state\", \"actuate\")\nsetVal(\"cycle_count\", value(\"cycle_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Blocked": {
+          "id": "Blocked",
+          "name": "Blocked",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"actuate_cmd\", false)\nsetVal(\"controller_blocked\", true)\nsetVal(\"controller_state\", \"blocked\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_actuate": {
+          "id": "idle_to_actuate",
+          "name": "idle_to_actuate",
+          "from": "Idle",
+          "to": "Actuate",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "idle_to_blocked": {
+          "id": "idle_to_blocked",
+          "name": "idle_to_blocked",
+          "from": "Idle",
+          "to": "Blocked",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "actuate_to_blocked": {
+          "id": "actuate_to_blocked",
+          "name": "actuate_to_blocked",
+          "from": "Actuate",
+          "to": "Blocked",
+          "type": "classic",
+          "condition": "value(\"inhibit\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "actuate_to_idle": {
+          "id": "actuate_to_idle",
+          "name": "actuate_to_idle",
+          "from": "Actuate",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "blocked_to_idle": {
+          "id": "blocked_to_idle",
+          "name": "blocked_to_idle",
+          "from": "Blocked",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "blocked_to_actuate": {
+          "id": "blocked_to_actuate",
+          "name": "blocked_to_actuate",
+          "from": "Blocked",
+          "to": "Actuate",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"inhibit\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "inhibit",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "actuate_cmd",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_blocked",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_ok",
+        "inhibit"
+      ],
+      "outputs": [
+        "actuate_cmd",
+        "controller_blocked",
+        "controller_state",
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml",
+      "isDirty": false
+    },
+    "network_showcase_10_guarded_cell_04_guarded_cell_safety_supervisor": {
+      "id": "network_showcase_10_guarded_cell_04_guarded_cell_safety_supervisor",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Safety Supervisor",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship guarded-cell supervisor that stages the cell through cold start, permit review, live operation, violation hold, and recovery audit states.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "supervisor",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "ColdStart",
+      "states": {
+        "ColdStart": {
+          "id": "ColdStart",
+          "name": "ColdStart",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"cold_start\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "AwaitPermit": {
+          "id": "AwaitPermit",
+          "name": "AwaitPermit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"await_permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "ArmingReview": {
+          "id": "ArmingReview",
+          "name": "ArmingReview",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"arming_review\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "LivePermit": {
+          "id": "LivePermit",
+          "name": "LivePermit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", false)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"live_permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "ViolationHold": {
+          "id": "ViolationHold",
+          "name": "ViolationHold",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"violation_hold\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "AlarmLatched": {
+          "id": "AlarmLatched",
+          "name": "AlarmLatched",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", true)\nsetVal(\"supervisor_state\", \"alarm_latched\")\nsetVal(\"fault_count\", value(\"fault_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "RecoveryAudit": {
+          "id": "RecoveryAudit",
+          "name": "RecoveryAudit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"inhibit\", true)\nsetVal(\"supervisor_alarm\", false)\nsetVal(\"supervisor_state\", \"recovery_audit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "cold_start_to_await": {
+          "id": "cold_start_to_await",
+          "name": "cold_start_to_await",
+          "from": "ColdStart",
+          "to": "AwaitPermit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "await_to_arming": {
+          "id": "await_to_arming",
+          "name": "await_to_arming",
+          "from": "AwaitPermit",
+          "to": "ArmingReview",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true and value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "await_to_alarm": {
+          "id": "await_to_alarm",
+          "name": "await_to_alarm",
+          "from": "AwaitPermit",
+          "to": "AlarmLatched",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false and value(\"request_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "arming_to_live": {
+          "id": "arming_to_live",
+          "name": "arming_to_live",
+          "from": "ArmingReview",
+          "to": "LivePermit",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == true and value(\"request_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "arming_to_await": {
+          "id": "arming_to_await",
+          "name": "arming_to_await",
+          "from": "ArmingReview",
+          "to": "AwaitPermit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "live_to_violation": {
+          "id": "live_to_violation",
+          "name": "live_to_violation",
+          "from": "LivePermit",
+          "to": "ViolationHold",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false or value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "violation_to_alarm": {
+          "id": "violation_to_alarm",
+          "name": "violation_to_alarm",
+          "from": "ViolationHold",
+          "to": "AlarmLatched",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "violation_to_recovery": {
+          "id": "violation_to_recovery",
+          "name": "violation_to_recovery",
+          "from": "ViolationHold",
+          "to": "RecoveryAudit",
+          "type": "classic",
+          "condition": "value(\"permit_ok\") == false and value(\"request_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alarm_to_recovery": {
+          "id": "alarm_to_recovery",
+          "name": "alarm_to_recovery",
+          "from": "AlarmLatched",
+          "to": "RecoveryAudit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == false and value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "recovery_to_await": {
+          "id": "recovery_to_await",
+          "name": "recovery_to_await",
+          "from": "RecoveryAudit",
+          "to": "AwaitPermit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recovery_to_live": {
+          "id": "recovery_to_live",
+          "name": "recovery_to_live",
+          "from": "RecoveryAudit",
+          "to": "LivePermit",
+          "type": "classic",
+          "condition": "value(\"request_ok\") == true and value(\"permit_ok\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "inhibit",
+          "type": "bool",
+          "direction": "output",
+          "default": true
+        },
+        {
+          "name": "supervisor_alarm",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "cold_start"
+        },
+        {
+          "name": "fault_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_ok",
+        "permit_ok"
+      ],
+      "outputs": [
+        "inhibit",
+        "supervisor_alarm",
+        "supervisor_state",
+        "fault_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml",
+      "isDirty": false
+    },
+    "network_showcase_10_guarded_cell_05_guarded_cell_signal_conditioner": {
+      "id": "network_showcase_10_guarded_cell_05_guarded_cell_signal_conditioner",
+      "version": "0.0.1",
+      "config": {
+        "name": "Guarded Cell Signal Conditioner",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that converts raw MCXN947 request and permit signals into normalized guarded-cell control signals.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "guarded-cell",
+          "conditioning"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", false)\nsetVal(\"permit_ok\", false)\nsetVal(\"conditioner_state\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Ready": {
+          "id": "Ready",
+          "name": "Ready",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", false)\nsetVal(\"permit_ok\", true)\nsetVal(\"conditioner_state\", \"ready\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Pulse": {
+          "id": "Pulse",
+          "name": "Pulse",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"request_ok\", true)\nsetVal(\"permit_ok\", true)\nsetVal(\"conditioner_state\", \"pulse\")\nsetVal(\"pulse_count\", value(\"pulse_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_ready": {
+          "id": "idle_to_ready",
+          "name": "idle_to_ready",
+          "from": "Idle",
+          "to": "Ready",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "ready_to_idle": {
+          "id": "ready_to_idle",
+          "name": "ready_to_idle",
+          "from": "Ready",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "ready_to_pulse": {
+          "id": "ready_to_pulse",
+          "name": "ready_to_pulse",
+          "from": "Ready",
+          "to": "Pulse",
+          "type": "classic",
+          "condition": "value(\"request_raw\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "pulse_to_idle": {
+          "id": "pulse_to_idle",
+          "name": "pulse_to_idle",
+          "from": "Pulse",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"permit_raw\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "pulse_to_ready": {
+          "id": "pulse_to_ready",
+          "name": "pulse_to_ready",
+          "from": "Pulse",
+          "to": "Ready",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "request_raw",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "permit_raw",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "request_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "conditioner_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "pulse_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "request_raw",
+        "permit_raw"
+      ],
+      "outputs": [
+        "request_ok",
+        "permit_ok",
+        "conditioner_state",
+        "pulse_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml",
+      "isDirty": false
+    },
+    "network_showcase_10_guarded_cell_06_mcxn947_guarded_cell_leader": {
+      "id": "network_showcase_10_guarded_cell_06_mcxn947_guarded_cell_leader",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Guarded Cell Leader",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 leader node for the guarded actuation cell. Exports raw request and permit signals while mirroring them on local LEDs.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "guarded-cell",
+          "leader",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Monitor",
+      "states": {
+        "Monitor": {
+          "id": "Monitor",
+          "name": "Monitor",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local request = gpio.read(23) == 0\nlocal permit = gpio.read(6) == 0\n\ngpio.write(10, request)\ngpio.write(27, permit)\n\nsetOutput(\"request_raw\", request)\nsetOutput(\"permit_raw\", permit)\nsetOutput(\"leader_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Monitor",
+          "to": "Monitor",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "permit_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

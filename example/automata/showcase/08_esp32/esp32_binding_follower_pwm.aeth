@@ -1,0 +1,153 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Binding Follower PWM Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_binding_follower_pwm.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_binding_follower_pwm",
+      "name": "ESP32 Binding Follower PWM",
+      "description": "Follower node for a two-ESP demo. Consumes bound leader inputs and mirrors them to a PWM LED.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_binding_follower_pwm_01_esp32_binding_follower_pwm"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_binding_follower_pwm_01_esp32_binding_follower_pwm"
+      ],
+      "inputs": [
+        "leader_duty",
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_duty"
+      ],
+      "relativePath": "networks/esp32_binding_follower_pwm",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_binding_follower_pwm_01_esp32_binding_follower_pwm": {
+      "id": "network_08_esp32_esp32_binding_follower_pwm_01_esp32_binding_follower_pwm",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Follower PWM",
+        "type": "inline",
+        "language": "lua",
+        "description": "Follower node for a two-ESP demo. Consumes bound leader inputs and mirrors them to a PWM LED.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "follower",
+          "pwm"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1",
+          "esp32": {
+            "resources": [
+              {
+                "kind": "pwm",
+                "name": "follower_led_pwm",
+                "pin": 23
+              },
+              {
+                "kind": "gpio",
+                "name": "follower_status_led",
+                "pin": 2
+              }
+            ]
+          }
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local duty = math.floor(clamp(leader_duty or 0, 0, 255))\nlocal pressed = leader_button == true\n\nif pressed then\n  duty = 255\nend\n\ngpio.write(2, pressed)\npwm.write(0, duty)\nsetOutput(\"follower_duty\", duty)",
+          "hooks": {
+            "onEnter": "gpio.mode(2, \"output\")\npwm.attach(0, 23, 5000, 8)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {},
+      "variables": [
+        {
+          "name": "leader_duty",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "follower_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "leader_duty",
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_duty"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_follower_pwm.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

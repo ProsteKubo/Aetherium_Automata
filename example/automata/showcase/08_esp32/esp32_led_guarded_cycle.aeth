@@ -1,0 +1,217 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 LED Guarded Cycle Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_led_guarded_cycle",
+      "name": "ESP32 LED Guarded Cycle",
+      "description": "Hardware-safe LED cycle with explicit enable guard and 1s dwell times.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_led_guarded_cycle_01_esp32_led_guarded_cycle"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_led_guarded_cycle_01_esp32_led_guarded_cycle"
+      ],
+      "inputs": [
+        "enabled"
+      ],
+      "outputs": [],
+      "relativePath": "networks/esp32_led_guarded_cycle",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_led_guarded_cycle_01_esp32_led_guarded_cycle": {
+      "id": "network_08_esp32_esp32_led_guarded_cycle_01_esp32_led_guarded_cycle",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 LED Guarded Cycle",
+        "type": "inline",
+        "language": "lua",
+        "description": "Hardware-safe LED cycle with explicit enable guard and 1s dwell times.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "timed",
+          "bytecode-safe",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "LedOn": {
+          "id": "LedOn",
+          "name": "LedOn",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "LedOff": {
+          "id": "LedOff",
+          "name": "LedOff",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_cycle": {
+          "id": "start_cycle",
+          "name": "start_cycle",
+          "from": "Idle",
+          "to": "LedOn",
+          "type": "classic",
+          "condition": "enabled == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_from_on": {
+          "id": "stop_from_on",
+          "name": "stop_from_on",
+          "from": "LedOn",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_from_off": {
+          "id": "stop_from_off",
+          "name": "stop_from_off",
+          "from": "LedOff",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "on_to_off": {
+          "id": "on_to_off",
+          "name": "on_to_off",
+          "from": "LedOn",
+          "to": "LedOff",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "off_to_on": {
+          "id": "off_to_on",
+          "name": "off_to_on",
+          "from": "LedOff",
+          "to": "LedOn",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "enabled"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

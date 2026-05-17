@@ -172,6 +172,9 @@ void LuaScriptEngine::setupBuiltins() {
     });
 
     lua_->set_function("setVal", [this, requireVar](const std::string& name, sol::object obj) {
+        // In replay mode variable mutations are suppressed — hardware calls still run
+        // so physical outputs get re-driven to match the restored snapshot.
+        if (replayMode_) return;
         auto* var = requireVar(name);
         if (var->direction() == VariableDirection::Input) {
             throw std::runtime_error("setVal cannot write input variable: " + name);
@@ -212,6 +215,9 @@ void LuaScriptEngine::setupBuiltins() {
     });
 
     lua_->set_function("setOutput", [this, requireVar](const std::string& name, sol::object obj) {
+        // In replay mode suppress the variable write (already restored) but still
+        // allow the surrounding hardware calls to re-drive physical outputs.
+        if (replayMode_) return;
         auto* var = requireVar(name);
         if (var->direction() != VariableDirection::Output) {
             throw std::runtime_error("setOutput expects output variable: " + name);

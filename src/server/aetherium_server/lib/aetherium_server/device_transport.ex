@@ -87,6 +87,7 @@ defmodule AetheriumServer.DeviceTransport do
       "pause_execution",
       "resume_execution",
       "reset_execution",
+      "set_input",
       "set_variable",
       "black_box_describe",
       "black_box_snapshot",

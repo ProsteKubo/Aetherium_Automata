@@ -286,6 +286,7 @@ interface ProjectActions {
   // Automata in network
   addAutomataToNetwork: (networkId: string, automata: Automata) => void;
   removeAutomataFromNetwork: (networkId: string, automataId: AutomataId) => void;
+  removeAutomataFromProject: (automataId: AutomataId) => void;
   setRootAutomata: (networkId: string, automataId: AutomataId, isRoot: boolean) => void;
   
   // Tree operations
@@ -788,6 +789,47 @@ export const useProjectStore = create<ProjectStore>()(
         }
       });
       
+      get().buildTreeFromProject();
+    },
+
+    removeAutomataFromProject: (automataId: AutomataId) => {
+      set((state) => {
+        if (!state.project) return;
+
+        const idsToDelete = new Set<AutomataId>();
+        const collectNested = (id: AutomataId) => {
+          if (idsToDelete.has(id)) return;
+          idsToDelete.add(id);
+          const automata = state.project?.automata[id];
+          automata?.nestedAutomataIds?.forEach((childId) => collectNested(childId));
+          Object.values(state.project?.automata ?? {}).forEach((candidate) => {
+            if (candidate.parentAutomataId === id) {
+              collectNested(candidate.id);
+            }
+          });
+        };
+
+        collectNested(automataId);
+
+        for (const network of state.project.networks) {
+          network.automataIds = network.automataIds.filter((id) => !idsToDelete.has(id));
+          network.rootAutomataIds = network.rootAutomataIds.filter((id) => !idsToDelete.has(id));
+        }
+
+        for (const automata of Object.values(state.project.automata)) {
+          if (automata.nestedAutomataIds) {
+            automata.nestedAutomataIds = automata.nestedAutomataIds.filter((id) => !idsToDelete.has(id));
+          }
+        }
+
+        for (const id of idsToDelete) {
+          delete state.project.automata[id];
+        }
+
+        state.isDirty = true;
+        state.project.metadata.modified = Date.now();
+      });
+
       get().buildTreeFromProject();
     },
     

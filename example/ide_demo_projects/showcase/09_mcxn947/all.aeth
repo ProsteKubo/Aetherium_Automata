@@ -1,0 +1,397 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Mcxn947 Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/09_mcxn947.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_09_mcxn947",
+      "name": "Mcxn947",
+      "description": "Generated collection for Mcxn947.",
+      "rootAutomataIds": [
+        "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button",
+        "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds",
+        "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
+        "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds"
+      ],
+      "automataIds": [
+        "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button",
+        "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds",
+        "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
+        "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds"
+      ],
+      "inputs": [],
+      "outputs": [
+        "leader_button",
+        "leader_online",
+        "sw2_pressed",
+        "sw3_pressed",
+        "temp_mc",
+        "temp_ok",
+        "temp_warm",
+        "temp_delta_mc",
+        "touch_pressed"
+      ],
+      "relativePath": "networks/mcxn947",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button": {
+      "id": "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Binding Leader Button",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 leader node for IDE bindings. Reads SW2, mirrors it on the local red LED, and exports the button state for another board.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "binding",
+          "leader",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Leader",
+      "states": {
+        "Leader": {
+          "id": "Leader",
+          "name": "Leader",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local pressed = gpio.read(23) == 0\n\ngpio.write(10, pressed)\n\nsetOutput(\"leader_button\", pressed)\nsetOutput(\"leader_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(23, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Leader",
+          "to": "Leader",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "leader_button",
+        "leader_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_binding_leader_button.yaml",
+      "isDirty": false
+    },
+    "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds": {
+      "id": "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 GPIO Buttons to LEDs",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 hardware smoke that mirrors SW2/SW3 onto the red/green LEDs with ESP-style GPIO calls.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local sw2 = gpio.read(23) == 0\nlocal sw3 = gpio.read(6) == 0\n\ngpio.write(10, sw2)\ngpio.write(27, sw3)\n\nsetOutput(\"sw2_pressed\", sw2)\nsetOutput(\"sw3_pressed\", sw3)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sw2_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "sw3_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "sw2_pressed",
+        "sw3_pressed"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml",
+      "isDirty": false
+    },
+    "network_showcase_09_mcxn947_03_mcxn947_temperature_guard": {
+      "id": "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Temperature Guard",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 temperature demo that exposes the built-in board temperature as raw milli-Celsius and simple health flags through automata outputs for IDE inspection.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "temperature",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Sense",
+      "states": {
+        "Sense": {
+          "id": "Sense",
+          "name": "Sense",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local temp_mc = component(\"board_temp\"):read_milli_c()\nlocal temp_ok = temp_mc >= 10000 and temp_mc <= 45000\nlocal temp_warm = temp_mc >= 27000\n\ngpio.write(27, temp_ok)\ngpio.write(10, temp_warm)\n\nsetOutput(\"temp_mc\", temp_mc)\nsetOutput(\"temp_ok\", temp_ok)\nsetOutput(\"temp_warm\", temp_warm)\nsetOutput(\"temp_delta_mc\", 0)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ncomponent(\"board_temp\"):init()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Sense",
+          "to": "Sense",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "temp_mc",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "temp_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "temp_warm",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "temp_delta_mc",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "temp_mc",
+        "temp_ok",
+        "temp_warm",
+        "temp_delta_mc"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml",
+      "isDirty": false
+    },
+    "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds": {
+      "id": "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Touch Pad Press LED",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 touch-pad showcase that lights the red LED while the onboard capacitive pad is pressed.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "touch",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Sense",
+      "states": {
+        "Sense": {
+          "id": "Sense",
+          "name": "Sense",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local pressed = component(\"touch_pad\"):pressed()\ngpio.write(10, pressed)\nsetOutput(\"touch_pressed\", pressed)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ncomponent(\"touch_pad\"):init()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Sense",
+          "to": "Sense",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "touch_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "touch_pressed"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_touch_pad_leds.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

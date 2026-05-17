@@ -206,13 +206,15 @@ bool TransitionResolver::evaluateTimed(const Transition& t) {
     bool ready = false;
     switch (t.timedConfig.mode) {
         case TimedMode::After:
-            ready = timerFired;
+            ready = timerFired ||
+                    elapsed >= static_cast<Timestamp>(t.timedConfig.delayMs);
             break;
         case TimedMode::Every:
             ready = timerFired;
             break;
         case TimedMode::Timeout:
-            ready = timerFired;
+            ready = timerFired ||
+                    elapsed >= static_cast<Timestamp>(t.timedConfig.delayMs);
             break;
         case TimedMode::At:
             // Current representation keeps "at" in delayMs; if delayMs is unset,
@@ -570,6 +572,14 @@ Result<void> Runtime::restoreState(const std::string& stateName,
     if (!wasPaused) {
         ctx_.state = ExecutionState::Paused;
     }
+
+    // Re-drive hardware outputs by replaying the restored state's onEnter hook.
+    // Replay mode suppresses setVal/setOutput variable mutations (variables are
+    // already at their correct historical values) while letting gpio.write,
+    // pwm.write, etc. execute so physical pins match the snapshot.
+    script_->setReplayMode(true);
+    executeOnEnter(*targetState);
+    script_->setReplayMode(false);
 
     return Result<void>::ok();
 }

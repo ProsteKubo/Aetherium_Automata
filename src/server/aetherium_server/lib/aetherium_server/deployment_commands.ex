@@ -27,14 +27,15 @@ defmodule AetheriumServer.DeploymentCommands do
             match?(%{session_ref: %DeviceSessionRef{}, protocol_id: _}, device) ->
               %{session_ref: session_ref, protocol_id: protocol_id} = device
 
-              DeviceTransport.send_message(session_ref, :set_input, %{
-                target_id: protocol_id,
-                run_id: deployment.run_id,
-                name: input_name,
-                value: value
-              })
-
-              :ok
+              case DeviceTransport.send_message(session_ref, :set_input, %{
+                     target_id: protocol_id,
+                     run_id: deployment.run_id,
+                     name: input_name,
+                     value: value
+                   }) do
+                {:ok, _message_id} -> :ok
+                {:error, reason} -> {:error, reason}
+              end
 
             true ->
               {:error, :device_not_connected}

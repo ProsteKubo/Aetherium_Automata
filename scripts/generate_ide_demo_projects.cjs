@@ -8,6 +8,27 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const OUTPUT_DIR = path.join(REPO_ROOT, 'example', 'ide_demo_projects');
 const NEW_PROJECT_PATH = path.join(REPO_ROOT, 'NewProject.aeth');
 const GENERATED_TS = Date.parse('2026-04-01T12:00:00Z');
+const PROJECT_SOURCE_ROOTS = [
+  {
+    sourceRoot: path.join(REPO_ROOT, 'example', 'automata', 'showcase'),
+    outputRoot: path.join(OUTPUT_DIR, 'showcase'),
+    colocatedRoot: path.join(REPO_ROOT, 'example', 'automata', 'showcase'),
+    tag: 'showcase',
+    label: 'Showcase',
+  },
+  {
+    sourceRoot: path.join(REPO_ROOT, 'example', 'automata', 'automata-yaml-examples'),
+    outputRoot: path.join(OUTPUT_DIR, 'examples', 'automata-yaml-examples'),
+    tag: 'yaml-example',
+    label: 'YAML Example',
+  },
+  {
+    sourceRoot: path.join(REPO_ROOT, 'example', 'automata', 'demos'),
+    outputRoot: path.join(OUTPUT_DIR, 'examples', 'demos'),
+    tag: 'demo',
+    label: 'Demo',
+  },
+];
 
 const DEFAULT_PROJECT_SETTINGS = {
   defaultLanguage: 'lua',
@@ -131,6 +152,8 @@ function main() {
   if (flagshipProjects[0]) {
     writeProjectFile(NEW_PROJECT_PATH, flagshipProjects[0]);
   }
+
+  writeImportableProjects();
 }
 
 function purgeLegacyProjects() {
@@ -144,9 +167,18 @@ function purgeLegacyProjects() {
     fs.rmSync(path.join(OUTPUT_DIR, entry.name));
     console.log(`removed ${path.relative(REPO_ROOT, path.join(OUTPUT_DIR, entry.name))}`);
   });
+
+  ['showcase', 'examples'].forEach((generatedDir) => {
+    const absolutePath = path.join(OUTPUT_DIR, generatedDir);
+    if (fs.existsSync(absolutePath)) {
+      fs.rmSync(absolutePath, { recursive: true, force: true });
+      console.log(`removed ${path.relative(REPO_ROOT, absolutePath)}`);
+    }
+  });
 }
 
 function writeProjectFile(targetPath, project) {
+  fs.mkdirSync(path.dirname(targetPath), { recursive: true });
   fs.writeFileSync(targetPath, `${JSON.stringify(project, null, 2)}\n`, 'utf8');
   console.log(`wrote ${path.relative(REPO_ROOT, targetPath)}`);
 }
@@ -167,6 +199,158 @@ function buildProject(demo) {
     settings: DEFAULT_PROJECT_SETTINGS,
     isDirty: false,
   };
+}
+
+function writeImportableProjects() {
+  PROJECT_SOURCE_ROOTS.forEach((rootDefinition) => {
+    if (rootDefinition.colocatedRoot) {
+      purgeGeneratedProjectFiles(rootDefinition.colocatedRoot);
+    }
+
+    const yamlFiles = discoverYamlFiles(rootDefinition.sourceRoot);
+    yamlFiles.forEach((absolutePath) => {
+      const relativeSourcePath = normalizePath(path.relative(REPO_ROOT, absolutePath));
+      const sourceRelativeToRoot = normalizePath(path.relative(rootDefinition.sourceRoot, absolutePath));
+      const automata = loadAutomata(relativeSourcePath, {
+        networkId: `network_${slugify(sourceRelativeToRoot)}`,
+        index: 0,
+      });
+      const project = buildSingleAutomataProject({
+        metadataName: `${automata.config.name} Project`,
+        description: `One-click IDE project for ${relativeSourcePath}.`,
+        tags: [rootDefinition.tag, 'single-automata', 'generated'],
+        networkName: automata.config.name,
+        networkDescription: automata.config.description,
+        automataPaths: [relativeSourcePath],
+        networkId: `network_${slugify(sourceRelativeToRoot)}`,
+      });
+      const targetPath = path.join(
+        rootDefinition.outputRoot,
+        sourceRelativeToRoot.replace(/\.(ya?ml)$/i, '.aeth'),
+      );
+
+      writeProjectFile(targetPath, project);
+      writeColocatedProjectFile(rootDefinition, sourceRelativeToRoot, project);
+    });
+
+    if (yamlFiles.length > 1) {
+      const automataPaths = yamlFiles.map((entry) => normalizePath(path.relative(REPO_ROOT, entry)));
+      const project = buildSingleAutomataProject({
+        metadataName: `${rootDefinition.label} Collection Project`,
+        description: `One-click IDE project containing all automata under ${normalizePath(
+          path.relative(REPO_ROOT, rootDefinition.sourceRoot),
+        )}.`,
+        tags: [rootDefinition.tag, 'collection', 'generated'],
+        networkName: `${rootDefinition.label} Collection`,
+        networkDescription: `Generated collection for all ${rootDefinition.label.toLowerCase()} automata.`,
+        automataPaths,
+        networkId: `network_${slugify(`${rootDefinition.tag}_collection`)}`,
+      });
+
+      writeProjectFile(path.join(rootDefinition.outputRoot, 'all.aeth'), project);
+      if (rootDefinition.colocatedRoot) {
+        writeProjectFile(path.join(rootDefinition.colocatedRoot, 'all.aeth'), project);
+      }
+    }
+
+    const filesByDirectory = groupYamlFilesByDirectory(yamlFiles, rootDefinition.sourceRoot);
+    Object.entries(filesByDirectory)
+      .filter(([directory, entries]) => directory !== '.' && entries.length > 1)
+      .forEach(([directory, entries]) => {
+        const label = directory === '.' ? rootDefinition.label : titleFromSlug(path.basename(directory));
+        const automataPaths = entries.map((entry) => normalizePath(path.relative(REPO_ROOT, entry)));
+        const project = buildSingleAutomataProject({
+          metadataName: `${label} Project`,
+          description: `One-click IDE project containing all automata in ${normalizePath(
+            path.relative(REPO_ROOT, path.join(rootDefinition.sourceRoot, directory)),
+          )}.`,
+          tags: [rootDefinition.tag, 'collection', 'generated'],
+          networkName: label,
+          networkDescription: `Generated collection for ${label}.`,
+          automataPaths,
+          networkId: `network_${slugify(`${rootDefinition.tag}_${directory}`)}`,
+        });
+        const targetPath =
+          directory === '.'
+            ? path.join(rootDefinition.outputRoot, 'all.aeth')
+            : path.join(rootDefinition.outputRoot, directory, 'all.aeth');
+
+        writeProjectFile(targetPath, project);
+        if (rootDefinition.colocatedRoot) {
+          writeProjectFile(path.join(rootDefinition.colocatedRoot, directory, 'all.aeth'), project);
+        }
+      });
+  });
+}
+
+function writeColocatedProjectFile(rootDefinition, sourceRelativeToRoot, project) {
+  if (!rootDefinition.colocatedRoot) return;
+
+  const targetPath = path.join(
+    rootDefinition.colocatedRoot,
+    sourceRelativeToRoot.replace(/\.(ya?ml)$/i, '.aeth'),
+  );
+  writeProjectFile(targetPath, project);
+}
+
+function purgeGeneratedProjectFiles(rootDir) {
+  if (!fs.existsSync(rootDir)) return;
+
+  const visit = (directory) => {
+    fs.readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+        return;
+      }
+      if (!entry.isFile() || path.extname(entry.name) !== '.aeth') {
+        return;
+      }
+      if (!isGeneratedProjectFile(absolutePath)) {
+        return;
+      }
+
+      fs.rmSync(absolutePath);
+      console.log(`removed ${path.relative(REPO_ROOT, absolutePath)}`);
+    });
+  };
+
+  visit(rootDir);
+}
+
+function isGeneratedProjectFile(filePath) {
+  try {
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+    const metadata = asRecord(parsed.metadata);
+    const tags = asStringArray(metadata.tags);
+    return parsed.schemaVersion === '1.0.0' && tags.includes('generated');
+  } catch (_error) {
+    return false;
+  }
+}
+
+function buildSingleAutomataProject({ metadataName, description, tags, networkName, networkDescription, automataPaths, networkId }) {
+  return buildProject({
+    fileName: '',
+    metadata: {
+      name: metadataName,
+      version: '0.1.0',
+      description,
+      author: 'Aetherium Team',
+      tags,
+    },
+    networks: [
+      {
+        id: networkId,
+        name: networkName,
+        description: networkDescription,
+        relativePath: `networks/${slugify(networkName)}`,
+        color: '#2563eb',
+        icon: 'automata',
+        automataPaths,
+      },
+    ],
+  });
 }
 
 function buildNetwork(network, projectAutomata) {
@@ -201,7 +385,7 @@ function loadAutomata(relativePath, context) {
   const raw = fs.readFileSync(absolutePath, 'utf8');
   const parsed = raw.trim().startsWith('{') ? JSON.parse(raw) : jsYaml.load(raw);
   const fallbackId = buildAutomataId(relativePath, context.networkId, context.index);
-  const automata = normalizeAutomataDocument(parsed, fallbackId);
+  const automata = normalizeAutomataDocument(parsed, fallbackId, relativePath);
 
   return {
     ...automata,
@@ -219,14 +403,23 @@ function buildAutomataId(relativePath, networkId, index) {
   return `${networkId}_${String(index + 1).padStart(2, '0')}_${fileSlug}`;
 }
 
-function normalizeAutomataDocument(input, fallbackId) {
+function normalizeAutomataDocument(input, fallbackId, sourcePath) {
   const root = asRecord(input);
   const config = asRecord(root.config);
   const automataSection = asRecord(root.automata);
   const source = Object.keys(automataSection).length > 0 ? automataSection : root;
   const blackBox = normalizeBlackBoxContract(root.black_box ?? root.blackBox);
 
-  const rawStates = asRecord(source.states);
+  let rawStates = asRecord(source.states);
+  if (Object.keys(rawStates).length === 0) {
+    rawStates = Object.entries(source).reduce((acc, [key, value]) => {
+      if (isAutomataSectionKey(key)) return acc;
+      const record = asRecord(value);
+      if (record.from !== undefined || record.to !== undefined) return acc;
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
   const stateRefToId = new Map();
   const states = Object.entries(rawStates).reduce((acc, [stateKey, rawState], index) => {
     const state = asRecord(rawState);
@@ -276,7 +469,16 @@ function normalizeAutomataDocument(input, fallbackId) {
     return stateRefToId.get(key) || key;
   };
 
-  const rawTransitions = asRecord(source.transitions);
+  let rawTransitions = asRecord(source.transitions);
+  if (Object.keys(rawTransitions).length === 0) {
+    rawTransitions = Object.entries(source).reduce((acc, [key, value]) => {
+      if (isAutomataSectionKey(key)) return acc;
+      const record = asRecord(value);
+      if (record.from === undefined && record.to === undefined) return acc;
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
   const transitions = Object.entries(rawTransitions).reduce((acc, [transitionKey, rawTransition]) => {
     const transition = asRecord(rawTransition);
     const id = toStringSafe(transition.id, transitionKey);
@@ -398,8 +600,59 @@ function normalizeAutomataDocument(input, fallbackId) {
     outputs,
     ...(blackBox ? { blackBox } : {}),
     nestedAutomataIds: [],
+    filePath: sourcePath,
     isDirty: false,
   };
+}
+
+function discoverYamlFiles(rootDir) {
+  if (!fs.existsSync(rootDir)) return [];
+
+  const found = [];
+  const visit = (directory) => {
+    fs.readdirSync(directory, { withFileTypes: true }).forEach((entry) => {
+      const absolutePath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        visit(absolutePath);
+      } else if (entry.isFile() && /\.ya?ml$/i.test(entry.name)) {
+        found.push(absolutePath);
+      }
+    });
+  };
+
+  visit(rootDir);
+  return found.sort((a, b) => normalizePath(a).localeCompare(normalizePath(b)));
+}
+
+function groupYamlFilesByDirectory(files, rootDir) {
+  return files.reduce((groups, absolutePath) => {
+    const directory = normalizePath(path.dirname(path.relative(rootDir, absolutePath))) || '.';
+    groups[directory] = groups[directory] || [];
+    groups[directory].push(absolutePath);
+    return groups;
+  }, {});
+}
+
+function slugify(value) {
+  const slug = normalizePath(value)
+    .replace(/\.(ya?ml)$/i, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .toLowerCase();
+  return slug || 'project';
+}
+
+function titleFromSlug(value) {
+  return value
+    .replace(/^\d+_/, '')
+    .split(/[_-]+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function normalizePath(value) {
+  return value.replace(/\\/g, '/');
 }
 
 function normalizeBlackBoxContract(value) {
@@ -547,7 +800,35 @@ function collectBlackBoxPorts(blackBox, direction) {
     : [];
 }
 
+function isAutomataSectionKey(key) {
+  return [
+    'initial_state',
+    'initialState',
+    'states',
+    'transitions',
+    'inputs',
+    'outputs',
+    'variables',
+  ].includes(key);
+}
+
 function asRecord(value) {
+  if (Array.isArray(value)) {
+    const merged = {};
+    let canMerge = value.length > 0;
+
+    value.forEach((entry) => {
+      if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+        canMerge = false;
+        return;
+      }
+
+      Object.assign(merged, entry);
+    });
+
+    return canMerge ? merged : {};
+  }
+
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
 }
 

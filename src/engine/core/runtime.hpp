@@ -102,6 +102,10 @@ public:
     // Optional structured log sink for script-side `log(...)` calls
     virtual void setLogHandler(std::function<void(const std::string& level,
                                                   const std::string& message)> handler) = 0;
+
+    // Replay mode: suppresses setVal/setOutput variable mutations while allowing
+    // hardware calls (gpio.write, pwm.write, etc.) to re-drive physical outputs.
+    virtual void setReplayMode(bool enabled) { (void)enabled; }
 };
 
 // ============================================================================

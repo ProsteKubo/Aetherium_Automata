@@ -298,21 +298,46 @@ export const useAutomataStore = create<AutomataStore>()(
     
     deleteAutomata: async (automataId: AutomataId) => {
       set((state) => {
-        // Remove from parent nested references if present.
-        const toDelete = state.automata.get(automataId);
-        const parentId = toDelete?.parentAutomataId;
-        if (parentId) {
-          const parent = state.automata.get(parentId);
-          if (parent?.nestedAutomataIds) {
-            parent.nestedAutomataIds = parent.nestedAutomataIds.filter((id) => id !== automataId);
+        const idsToDelete = new Set<AutomataId>();
+        const collectNested = (id: AutomataId) => {
+          if (idsToDelete.has(id)) return;
+          idsToDelete.add(id);
+          const automata = state.automata.get(id);
+          automata?.nestedAutomataIds?.forEach((childId) => collectNested(childId));
+          state.automata.forEach((candidate) => {
+            if (candidate.parentAutomataId === id) {
+              collectNested(candidate.id);
+            }
+          });
+        };
+
+        collectNested(automataId);
+
+        for (const id of idsToDelete) {
+          const toDelete = state.automata.get(id);
+          const parentId = toDelete?.parentAutomataId;
+          if (parentId && !idsToDelete.has(parentId)) {
+            const parent = state.automata.get(parentId);
+            if (parent?.nestedAutomataIds) {
+              parent.nestedAutomataIds = parent.nestedAutomataIds.filter((childId) => childId !== id);
+            }
           }
+
+          state.automata.delete(id);
         }
 
-        state.automata.delete(automataId);
-        if (state.activeAutomataId === automataId) {
+        if (state.activeAutomataId && idsToDelete.has(state.activeAutomataId)) {
           state.activeAutomataId = null;
         }
+        state.selectedStateIds = [];
+        state.selectedTransitionIds = [];
       });
+
+      try {
+        projectStoreGetter?.()?.markDirty?.();
+      } catch {
+        // Project store might not be available
+      }
     },
     
     // ========================================================================

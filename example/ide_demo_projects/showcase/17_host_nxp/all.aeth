@@ -1,0 +1,723 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Host Nxp Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/17_host_nxp.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_17_host_nxp",
+      "name": "Host Nxp",
+      "description": "Generated collection for Host Nxp.",
+      "rootAutomataIds": [
+        "network_showcase_17_host_nxp_01_nxp_signal_monitor",
+        "network_showcase_17_host_nxp_02_stochastic_beacon"
+      ],
+      "automataIds": [
+        "network_showcase_17_host_nxp_01_nxp_signal_monitor",
+        "network_showcase_17_host_nxp_02_stochastic_beacon"
+      ],
+      "inputs": [
+        "signal_level",
+        "nxp_temp_mc"
+      ],
+      "outputs": [
+        "nxp_temp_mc",
+        "red_led",
+        "green_led",
+        "signal_level",
+        "signal_strength",
+        "cycle_count"
+      ],
+      "relativePath": "networks/host_nxp",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_17_host_nxp_01_nxp_signal_monitor": {
+      "id": "network_showcase_17_host_nxp_01_nxp_signal_monitor",
+      "version": "0.0.1",
+      "config": {
+        "name": "NXP Signal Monitor",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 automata that monitors signal levels from a host beacon and drives red/green LEDs accordingly, while publishing board temperature back to the host.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "communication",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Init",
+      "states": {
+        "Init": {
+          "id": "Init",
+          "name": "Init",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)\ncomponent(\"board_temp\"):init()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Dormant": {
+          "id": "Dormant",
+          "name": "Dormant",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "hooks": {
+            "onEnter": "gpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Monitoring": {
+          "id": "Monitoring",
+          "name": "Monitoring",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "hooks": {
+            "onEnter": "gpio.write(10, false)\ngpio.write(27, true)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", true)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Alerting": {
+          "id": "Alerting",
+          "name": "Alerting",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "hooks": {
+            "onEnter": "gpio.write(10, true)\ngpio.write(27, false)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", false)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Peaking": {
+          "id": "Peaking",
+          "name": "Peaking",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "hooks": {
+            "onEnter": "gpio.write(10, true)\ngpio.write(27, true)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", true)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "init_to_dormant": {
+          "id": "init_to_dormant",
+          "name": "init_to_dormant",
+          "from": "Init",
+          "to": "Dormant",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "dormant_to_monitoring": {
+          "id": "dormant_to_monitoring",
+          "name": "dormant_to_monitoring",
+          "from": "Dormant",
+          "to": "Monitoring",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "dormant_to_alerting": {
+          "id": "dormant_to_alerting",
+          "name": "dormant_to_alerting",
+          "from": "Dormant",
+          "to": "Alerting",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"high\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "dormant_to_peaking": {
+          "id": "dormant_to_peaking",
+          "name": "dormant_to_peaking",
+          "from": "Dormant",
+          "to": "Peaking",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"surge\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "monitoring_to_dormant": {
+          "id": "monitoring_to_dormant",
+          "name": "monitoring_to_dormant",
+          "from": "Monitoring",
+          "to": "Dormant",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "monitoring_to_alerting": {
+          "id": "monitoring_to_alerting",
+          "name": "monitoring_to_alerting",
+          "from": "Monitoring",
+          "to": "Alerting",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"high\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "monitoring_to_peaking": {
+          "id": "monitoring_to_peaking",
+          "name": "monitoring_to_peaking",
+          "from": "Monitoring",
+          "to": "Peaking",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"surge\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alerting_to_dormant": {
+          "id": "alerting_to_dormant",
+          "name": "alerting_to_dormant",
+          "from": "Alerting",
+          "to": "Dormant",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alerting_to_monitoring": {
+          "id": "alerting_to_monitoring",
+          "name": "alerting_to_monitoring",
+          "from": "Alerting",
+          "to": "Monitoring",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alerting_to_peaking": {
+          "id": "alerting_to_peaking",
+          "name": "alerting_to_peaking",
+          "from": "Alerting",
+          "to": "Peaking",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"surge\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "peaking_to_dormant": {
+          "id": "peaking_to_dormant",
+          "name": "peaking_to_dormant",
+          "from": "Peaking",
+          "to": "Dormant",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "peaking_to_monitoring": {
+          "id": "peaking_to_monitoring",
+          "name": "peaking_to_monitoring",
+          "from": "Peaking",
+          "to": "Monitoring",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "peaking_to_alerting": {
+          "id": "peaking_to_alerting",
+          "name": "peaking_to_alerting",
+          "from": "Peaking",
+          "to": "Alerting",
+          "type": "classic",
+          "condition": "value(\"signal_level\") == \"high\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "signal_level",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        },
+        {
+          "name": "nxp_temp_mc",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "red_led",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "green_led",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "signal_level"
+      ],
+      "outputs": [
+        "nxp_temp_mc",
+        "red_led",
+        "green_led"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/17_host_nxp/nxp_signal_monitor.yaml",
+      "isDirty": false
+    },
+    "network_showcase_17_host_nxp_02_stochastic_beacon": {
+      "id": "network_showcase_17_host_nxp_02_stochastic_beacon",
+      "version": "0.0.1",
+      "config": {
+        "name": "Stochastic Beacon",
+        "type": "inline",
+        "language": "lua",
+        "description": "Probabilistic signal generator that autonomously cycles through signal levels and broadcasts them to a connected NXP device automata.",
+        "tags": [
+          "showcase",
+          "host",
+          "stochastic",
+          "communication"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"idle\")\nsetOutput(\"signal_strength\", 0)\nsetVal(\"cycle_count\", value(\"cycle_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "ChooseLevel": {
+          "id": "ChooseLevel",
+          "name": "ChooseLevel",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "LowSignal": {
+          "id": "LowSignal",
+          "name": "LowSignal",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"low\")\nsetOutput(\"signal_strength\", 20)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "MediumSignal": {
+          "id": "MediumSignal",
+          "name": "MediumSignal",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"medium\")\nsetOutput(\"signal_strength\", 50)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "HighSignal": {
+          "id": "HighSignal",
+          "name": "HighSignal",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"high\")\nsetOutput(\"signal_strength\", 80)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Surge": {
+          "id": "Surge",
+          "name": "Surge",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"surge\")\nsetOutput(\"signal_strength\", 100)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"signal_level\", \"cooldown\")\nsetOutput(\"signal_strength\", 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_choose": {
+          "id": "idle_to_choose",
+          "name": "idle_to_choose",
+          "from": "Idle",
+          "to": "ChooseLevel",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 3000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "choose_low": {
+          "id": "choose_low",
+          "name": "choose_low",
+          "from": "ChooseLevel",
+          "to": "LowSignal",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.4,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.4
+          }
+        },
+        "choose_medium": {
+          "id": "choose_medium",
+          "name": "choose_medium",
+          "from": "ChooseLevel",
+          "to": "MediumSignal",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.3,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.3
+          }
+        },
+        "choose_high": {
+          "id": "choose_high",
+          "name": "choose_high",
+          "from": "ChooseLevel",
+          "to": "HighSignal",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.2,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.2
+          }
+        },
+        "choose_surge": {
+          "id": "choose_surge",
+          "name": "choose_surge",
+          "from": "ChooseLevel",
+          "to": "Surge",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.1,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.1
+          }
+        },
+        "low_to_cooldown": {
+          "id": "low_to_cooldown",
+          "name": "low_to_cooldown",
+          "from": "LowSignal",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 6000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "medium_to_cooldown": {
+          "id": "medium_to_cooldown",
+          "name": "medium_to_cooldown",
+          "from": "MediumSignal",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 6000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "high_to_cooldown": {
+          "id": "high_to_cooldown",
+          "name": "high_to_cooldown",
+          "from": "HighSignal",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 6000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "surge_to_cooldown": {
+          "id": "surge_to_cooldown",
+          "name": "surge_to_cooldown",
+          "from": "Surge",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 6000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooldown_to_idle": {
+          "id": "cooldown_to_idle",
+          "name": "cooldown_to_idle",
+          "from": "Cooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "signal_level",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "signal_strength",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "nxp_temp_mc",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "nxp_temp_mc"
+      ],
+      "outputs": [
+        "signal_level",
+        "signal_strength",
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/17_host_nxp/stochastic_beacon.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

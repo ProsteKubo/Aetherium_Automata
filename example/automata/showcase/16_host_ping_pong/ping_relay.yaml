@@ -1,0 +1,108 @@
+# ============================================================================
+# Ping Relay — device 1 of the host ping-pong pair
+# ============================================================================
+#
+# Deploy on: host_cpp_01
+# Pair with:  pong_relay.yaml on host_cpp_02
+#
+# No manual wiring needed. The gateway auto-routes outputs to any active
+# deployment whose automata definition declares an input with the same name:
+#
+#   relay_signal (output here)  →  relay_signal (input in pong_relay)
+#   ack_signal   (input here)   ←  ack_signal   (output in pong_relay)
+#
+# Just deploy both and start execution — they self-connect by name.
+#
+# Cycle (nominal ~9 s per round trip):
+#   1. Idle (2 s cool-down)
+#   2. Sending — sets relay_signal=true, bumps send_count
+#   3. WaitAck — waits until ack_signal arrives from device 2
+#   4. Clearing — sets relay_signal=false, bumps round_trips (2 s)
+#   → back to Idle
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Ping Relay
+  type: inline
+  description: Initiates a relay handshake loop with pong_relay.yaml on a second device. Fully autonomous once connections are wired.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - communication
+    - ping-pong
+
+variables:
+  - name: relay_signal
+    type: bool
+    direction: output
+    default: false
+
+  - name: ack_signal
+    type: bool
+    direction: input
+    default: false
+
+  - name: send_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: round_trips
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+
+    Sending:
+      on_enter: |
+        setOutput("relay_signal", true)
+        setVal("send_count", value("send_count") + 1)
+
+    WaitAck: {}
+
+    Clearing:
+      on_enter: |
+        setOutput("relay_signal", false)
+        setVal("round_trips", value("round_trips") + 1)
+
+  transitions:
+    idle_to_sending:
+      from: Idle
+      to: Sending
+      type: timed
+      after: 2
+
+    sending_to_wait:
+      from: Sending
+      to: WaitAck
+      type: timed
+      after: 1
+
+    wait_ack_received:
+      from: WaitAck
+      to: Clearing
+      type: classic
+      condition: value("ack_signal") == true
+
+    # Safety timeout — if ack never arrives (e.g. pong not deployed yet),
+    # clear and retry after 12 s so the loop self-recovers.
+    wait_ack_timeout:
+      from: WaitAck
+      to: Clearing
+      type: timed
+      after: 12
+
+    clearing_to_idle:
+      from: Clearing
+      to: Idle
+      type: timed
+      after: 2

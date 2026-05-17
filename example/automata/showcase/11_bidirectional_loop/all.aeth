@@ -1,0 +1,511 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Bidirectional Loop Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/11_bidirectional_loop.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_11_bidirectional_loop",
+      "name": "Bidirectional Loop",
+      "description": "Generated collection for Bidirectional Loop.",
+      "rootAutomataIds": [
+        "network_showcase_11_bidirectional_loop_01_bidirectional_demo_controller",
+        "network_showcase_11_bidirectional_loop_02_bidirectional_signal_conditioner",
+        "network_showcase_11_bidirectional_loop_03_esp32_bidirectional_loop_node",
+        "network_showcase_11_bidirectional_loop_04_mcxn947_bidirectional_loop_node"
+      ],
+      "automataIds": [
+        "network_showcase_11_bidirectional_loop_01_bidirectional_demo_controller",
+        "network_showcase_11_bidirectional_loop_02_bidirectional_signal_conditioner",
+        "network_showcase_11_bidirectional_loop_03_esp32_bidirectional_loop_node",
+        "network_showcase_11_bidirectional_loop_04_mcxn947_bidirectional_loop_node"
+      ],
+      "inputs": [
+        "pot_band",
+        "allow_remote",
+        "manual_boost",
+        "pot_mv",
+        "sw2_pressed",
+        "touch_pressed",
+        "remote_duty",
+        "remote_red",
+        "remote_green"
+      ],
+      "outputs": [
+        "remote_duty",
+        "remote_red",
+        "remote_green",
+        "controller_state",
+        "pot_band",
+        "allow_remote",
+        "manual_boost",
+        "conditioner_state",
+        "pot_raw",
+        "pot_mv",
+        "esp_online",
+        "sw2_pressed",
+        "touch_pressed",
+        "nxp_online"
+      ],
+      "relativePath": "networks/bidirectional_loop",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_11_bidirectional_loop_01_bidirectional_demo_controller": {
+      "id": "network_showcase_11_bidirectional_loop_01_bidirectional_demo_controller",
+      "version": "0.0.1",
+      "config": {
+        "name": "Bidirectional Demo Controller",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that turns normalized cross-device signals into commands for both the ESP LED and FRDM LEDs.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "bidirectional",
+          "controller"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Control",
+      "states": {
+        "Control": {
+          "id": "Control",
+          "name": "Control",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local band = pot_band or 0\nif band < 0 then\n  band = 0\nelseif band > 3 then\n  band = 3\nend\n\nlocal duty = 0\nif allow_remote == true then\n  if band == 1 then\n    duty = 80\n  elseif band == 2 then\n    duty = 160\n  elseif band >= 3 then\n    duty = 255\n  end\nend\n\nif manual_boost == true then\n  duty = 255\nend\n\nlocal red = band >= 2\nlocal green = allow_remote == true\nlocal state_name = \"standby\"\n\nif manual_boost == true then\n  red = true\n  green = true\n  state_name = \"boost\"\nelseif allow_remote == true then\n  state_name = \"armed\"\nend\n\nsetOutput(\"remote_duty\", duty)\nsetOutput(\"remote_red\", red)\nsetOutput(\"remote_green\", green)\nsetOutput(\"controller_state\", state_name)",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Control",
+          "to": "Control",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "pot_band",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "allow_remote",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "manual_boost",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "remote_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "remote_red",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "remote_green",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        }
+      ],
+      "inputs": [
+        "pot_band",
+        "allow_remote",
+        "manual_boost"
+      ],
+      "outputs": [
+        "remote_duty",
+        "remote_red",
+        "remote_green",
+        "controller_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/bidirectional_demo_controller.yaml",
+      "isDirty": false
+    },
+    "network_showcase_11_bidirectional_loop_02_bidirectional_signal_conditioner": {
+      "id": "network_showcase_11_bidirectional_loop_02_bidirectional_signal_conditioner",
+      "version": "0.0.1",
+      "config": {
+        "name": "Bidirectional Signal Conditioner",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that normalizes ESP potentiometer data and FRDM interaction signals into a compact control contract.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "bidirectional",
+          "conditioning"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Monitor",
+      "states": {
+        "Monitor": {
+          "id": "Monitor",
+          "name": "Monitor",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local mv = pot_mv or 0\nlocal band = 0\n\nif mv >= 2600 then\n  band = 3\nelseif mv >= 1800 then\n  band = 2\nelseif mv >= 900 then\n  band = 1\nend\n\nlocal allow = sw2_pressed == true\nlocal boost = touch_pressed == true\nlocal state_name = \"standby\"\n\nif boost then\n  state_name = \"boost\"\nelseif allow then\n  state_name = \"armed\"\nend\n\nsetOutput(\"pot_band\", band)\nsetOutput(\"allow_remote\", allow)\nsetOutput(\"manual_boost\", boost)\nsetOutput(\"conditioner_state\", state_name)",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Monitor",
+          "to": "Monitor",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "pot_mv",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "sw2_pressed",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "touch_pressed",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "pot_band",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "allow_remote",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "manual_boost",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "conditioner_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        }
+      ],
+      "inputs": [
+        "pot_mv",
+        "sw2_pressed",
+        "touch_pressed"
+      ],
+      "outputs": [
+        "pot_band",
+        "allow_remote",
+        "manual_boost",
+        "conditioner_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/bidirectional_signal_conditioner.yaml",
+      "isDirty": false
+    },
+    "network_showcase_11_bidirectional_loop_03_esp32_bidirectional_loop_node": {
+      "id": "network_showcase_11_bidirectional_loop_03_esp32_bidirectional_loop_node",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Bidirectional Loop Node",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 node for the bidirectional loop demo. Samples a potentiometer and drives a local LED from the host command path.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "adc",
+          "pwm",
+          "bidirectional",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Loop",
+      "states": {
+        "Loop": {
+          "id": "Loop",
+          "name": "Loop",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if next_sample_at ~= nil and now() < next_sample_at then\n  return\nend\n\nnext_sample_at = now() + 80\n\nlocal pot = adc.read(34)\nlocal mv = adc.read_mv(34)\nlocal duty = remote_duty or 0\n\nif duty < 0 then\n  duty = 0\nelseif duty > 255 then\n  duty = 255\nend\n\npwm.write(0, duty)\nsetOutput(\"pot_raw\", pot)\nsetOutput(\"pot_mv\", mv)\nsetOutput(\"esp_online\", true)",
+          "hooks": {
+            "onEnter": "pwm.attach(0, 18, 5000, 8)\nnext_sample_at = 0"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Loop",
+          "to": "Loop",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "remote_duty",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "pot_raw",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "pot_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "esp_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "remote_duty"
+      ],
+      "outputs": [
+        "pot_raw",
+        "pot_mv",
+        "esp_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/esp32_bidirectional_loop_node.yaml",
+      "isDirty": false
+    },
+    "network_showcase_11_bidirectional_loop_04_mcxn947_bidirectional_loop_node": {
+      "id": "network_showcase_11_bidirectional_loop_04_mcxn947_bidirectional_loop_node",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Bidirectional Loop Node",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 peer node for the bidirectional loop demo. Exports button and touch input while mirroring host-driven LED commands locally.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "touch",
+          "gpio",
+          "bidirectional",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Loop",
+      "states": {
+        "Loop": {
+          "id": "Loop",
+          "name": "Loop",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local sw2 = gpio.read(23) == 0\nlocal touch = component(\"touch_pad\"):pressed()\n\ngpio.write(10, remote_red == true)\ngpio.write(27, remote_green == true)\n\nsetOutput(\"sw2_pressed\", sw2)\nsetOutput(\"touch_pressed\", touch)\nsetOutput(\"nxp_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ncomponent(\"touch_pad\"):init()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Loop",
+          "to": "Loop",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "remote_red",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "remote_green",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "sw2_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "touch_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "nxp_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "remote_red",
+        "remote_green"
+      ],
+      "outputs": [
+        "sw2_pressed",
+        "touch_pressed",
+        "nxp_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/mcxn947_bidirectional_loop_node.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -1,0 +1,142 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Status LED Probe Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_status_led_probe.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_status_led_probe",
+      "name": "ESP32 Status LED Probe",
+      "description": "IDE-first ESP32 probe that cycles common digital LED pins and exports the currently tested pin so the visible onboard LED can be identified without sketches.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_status_led_probe_01_esp32_status_led_probe"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_status_led_probe_01_esp32_status_led_probe"
+      ],
+      "inputs": [],
+      "outputs": [
+        "probe_pin",
+        "probe_phase"
+      ],
+      "relativePath": "networks/esp32_status_led_probe",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_status_led_probe_01_esp32_status_led_probe": {
+      "id": "network_08_esp32_esp32_status_led_probe_01_esp32_status_led_probe",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Status LED Probe",
+        "type": "inline",
+        "language": "lua",
+        "description": "IDE-first ESP32 probe that cycles common digital LED pins and exports the currently tested pin so the visible onboard LED can be identified without sketches.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "gpio",
+          "diagnostics",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Probe",
+      "states": {
+        "Probe": {
+          "id": "Probe",
+          "name": "Probe",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if probe_next_at ~= nil and now() < probe_next_at then\n  return\nend\n\nlocal current_pin = probe_pins[probe_index]\nprobe_next_at = now() + 700\n\nif probe_phase_high then\n  gpio.write(current_pin, 1)\n  setOutput(\"probe_pin\", current_pin)\n  setOutput(\"probe_phase\", true)\n  probe_phase_high = false\n  return\nend\n\ngpio.write(current_pin, 0)\nsetOutput(\"probe_pin\", current_pin)\nsetOutput(\"probe_phase\", false)\nprobe_phase_high = true\nprobe_index = probe_index + 1\n\nif probe_index > #probe_pins then\n  probe_index = 1\nend",
+          "hooks": {
+            "onEnter": "probe_pins = {2, 4, 5, 18, 19, 21, 22, 23}\nprobe_index = 1\nprobe_phase_high = true\nprobe_next_at = 0\n\nfor i = 1, #probe_pins do\n  gpio.mode(probe_pins[i], \"output\")\n  gpio.write(probe_pins[i], 0)\nend"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Probe",
+          "to": "Probe",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "probe_pin",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "probe_phase",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "probe_pin",
+        "probe_phase"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_status_led_probe.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

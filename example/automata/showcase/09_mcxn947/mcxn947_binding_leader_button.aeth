@@ -1,0 +1,143 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "MCXN947 Binding Leader Button Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/09_mcxn947/mcxn947_binding_leader_button.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_09_mcxn947_mcxn947_binding_leader_button",
+      "name": "MCXN947 Binding Leader Button",
+      "description": "FRDM-MCXN947 leader node for IDE bindings. Reads SW2, mirrors it on the local red LED, and exports the button state for another board.",
+      "rootAutomataIds": [
+        "network_09_mcxn947_mcxn947_binding_leader_button_01_mcxn947_binding_leader_button"
+      ],
+      "automataIds": [
+        "network_09_mcxn947_mcxn947_binding_leader_button_01_mcxn947_binding_leader_button"
+      ],
+      "inputs": [],
+      "outputs": [
+        "leader_button",
+        "leader_online"
+      ],
+      "relativePath": "networks/mcxn947_binding_leader_button",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_09_mcxn947_mcxn947_binding_leader_button_01_mcxn947_binding_leader_button": {
+      "id": "network_09_mcxn947_mcxn947_binding_leader_button_01_mcxn947_binding_leader_button",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Binding Leader Button",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 leader node for IDE bindings. Reads SW2, mirrors it on the local red LED, and exports the button state for another board.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "binding",
+          "leader",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Leader",
+      "states": {
+        "Leader": {
+          "id": "Leader",
+          "name": "Leader",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local pressed = gpio.read(23) == 0\n\ngpio.write(10, pressed)\n\nsetOutput(\"leader_button\", pressed)\nsetOutput(\"leader_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(23, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Leader",
+          "to": "Leader",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "leader_button",
+        "leader_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_binding_leader_button.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

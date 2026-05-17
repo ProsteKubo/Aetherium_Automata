@@ -18,6 +18,7 @@ import {
   IconPlus,
   IconRefresh,
   IconNetwork,
+  IconTrash,
 } from '../common/Icons';
 
 // ============================================================================
@@ -233,17 +234,21 @@ export const ExplorerPanel: React.FC = () => {
   const activeAutomataId = useAutomataStore((state) => state.activeAutomataId);
   const setActiveAutomata = useAutomataStore((state) => state.setActiveAutomata);
   const createAutomata = useAutomataStore((state) => state.createAutomata);
+  const deleteAutomata = useAutomataStore((state) => state.deleteAutomata);
   const setAutomataMap = useAutomataStore((state) => state.setAutomataMap);
   const fetchAutomata = useAutomataStore((state) => state.fetchAutomata);
   const fetchServers = useGatewayStore((state) => state.fetchServers);
   const fetchDevices = useGatewayStore((state) => state.fetchDevices);
   const openTab = useUIStore((state) => state.openTab);
+  const closeTab = useUIStore((state) => state.closeTab);
+  const tabs = useUIStore((state) => state.tabs);
   const addNotification = useUIStore((state) => state.addNotification);
   
   // Project store
   const project = useProjectStore((state) => state.project);
   const createNetwork = useProjectStore((state) => state.createNetwork);
   const addAutomataToNetwork = useProjectStore((state) => state.addAutomataToNetwork);
+  const removeAutomataFromProject = useProjectStore((state) => state.removeAutomataFromProject);
   const markDirty = useProjectStore((state) => state.markDirty);
   
   // Memoize array conversions to prevent infinite re-renders
@@ -402,6 +407,55 @@ export const ExplorerPanel: React.FC = () => {
     setCreateParentId(parentId);
     setShowCreateDialog(true);
   };
+
+  const collectAutomataAndNestedIds = useCallback(
+    (automata: Automata): string[] => {
+      const collected = new Set<string>();
+      const visit = (entry: Automata) => {
+        if (collected.has(entry.id)) return;
+        collected.add(entry.id);
+        getNestedAutomata(entry.id).forEach(visit);
+      };
+
+      visit(automata);
+      return Array.from(collected);
+    },
+    [getNestedAutomata],
+  );
+
+  const handleDeleteAutomata = useCallback(
+    async (automata: Automata, e: React.MouseEvent) => {
+      e.stopPropagation();
+      const idsToDelete = collectAutomataAndNestedIds(automata);
+      const nestedCount = Math.max(0, idsToDelete.length - 1);
+      const confirmed = window.confirm(
+        nestedCount > 0
+          ? `Delete "${automata.config.name}" and ${nestedCount} nested automata from this project?`
+          : `Delete "${automata.config.name}" from this project?`,
+      );
+
+      if (!confirmed) return;
+
+      idsToDelete.forEach((automataId) => {
+        tabs
+          .filter((tab) => tab.type === 'automata' && tab.targetId === automataId)
+          .forEach((tab) => closeTab(tab.id));
+      });
+
+      removeAutomataFromProject(automata.id);
+      await deleteAutomata(automata.id);
+      markDirty();
+
+      addNotification(
+        'success',
+        'Automata Deleted',
+        nestedCount > 0
+          ? `Deleted ${automata.config.name} and ${nestedCount} nested automata.`
+          : `Deleted ${automata.config.name}.`,
+      );
+    },
+    [addNotification, closeTab, collectAutomataAndNestedIds, deleteAutomata, markDirty, removeAutomataFromProject, tabs],
+  );
   
   const handleRefresh = async () => {
     if (isConnected) {
@@ -504,13 +558,25 @@ export const ExplorerPanel: React.FC = () => {
               width: 18, 
               height: 18, 
               padding: 0, 
-              marginLeft: 'auto',
               opacity: 0.6,
             }}
             onClick={(e) => handleCreateNested(automata.id, e)}
             title="Add nested automata"
           >
             <IconPlus size={10} />
+          </button>
+          <button
+            className="btn btn-ghost btn-icon tree-item-action tree-item-danger-action"
+            style={{
+              width: 18,
+              height: 18,
+              padding: 0,
+              opacity: 0.6,
+            }}
+            onClick={(e) => void handleDeleteAutomata(automata, e)}
+            title="Delete automata"
+          >
+            <IconTrash size={10} />
           </button>
         </div>
         

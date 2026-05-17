@@ -1,0 +1,179 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Bidirectional Demo Controller Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/11_bidirectional_loop/bidirectional_demo_controller.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_11_bidirectional_loop_bidirectional_demo_controller",
+      "name": "Bidirectional Demo Controller",
+      "description": "Host automata that turns normalized cross-device signals into commands for both the ESP LED and FRDM LEDs.",
+      "rootAutomataIds": [
+        "network_11_bidirectional_loop_bidirectional_demo_controller_01_bidirectional_demo_controller"
+      ],
+      "automataIds": [
+        "network_11_bidirectional_loop_bidirectional_demo_controller_01_bidirectional_demo_controller"
+      ],
+      "inputs": [
+        "pot_band",
+        "allow_remote",
+        "manual_boost"
+      ],
+      "outputs": [
+        "remote_duty",
+        "remote_red",
+        "remote_green",
+        "controller_state"
+      ],
+      "relativePath": "networks/bidirectional_demo_controller",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_11_bidirectional_loop_bidirectional_demo_controller_01_bidirectional_demo_controller": {
+      "id": "network_11_bidirectional_loop_bidirectional_demo_controller_01_bidirectional_demo_controller",
+      "version": "0.0.1",
+      "config": {
+        "name": "Bidirectional Demo Controller",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host automata that turns normalized cross-device signals into commands for both the ESP LED and FRDM LEDs.",
+        "tags": [
+          "showcase",
+          "host",
+          "ide",
+          "bidirectional",
+          "controller"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Control",
+      "states": {
+        "Control": {
+          "id": "Control",
+          "name": "Control",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local band = pot_band or 0\nif band < 0 then\n  band = 0\nelseif band > 3 then\n  band = 3\nend\n\nlocal duty = 0\nif allow_remote == true then\n  if band == 1 then\n    duty = 80\n  elseif band == 2 then\n    duty = 160\n  elseif band >= 3 then\n    duty = 255\n  end\nend\n\nif manual_boost == true then\n  duty = 255\nend\n\nlocal red = band >= 2\nlocal green = allow_remote == true\nlocal state_name = \"standby\"\n\nif manual_boost == true then\n  red = true\n  green = true\n  state_name = \"boost\"\nelseif allow_remote == true then\n  state_name = \"armed\"\nend\n\nsetOutput(\"remote_duty\", duty)\nsetOutput(\"remote_red\", red)\nsetOutput(\"remote_green\", green)\nsetOutput(\"controller_state\", state_name)",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Control",
+          "to": "Control",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "pot_band",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "allow_remote",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "manual_boost",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "remote_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "remote_red",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "remote_green",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "controller_state",
+          "type": "string",
+          "direction": "output",
+          "default": "standby"
+        }
+      ],
+      "inputs": [
+        "pot_band",
+        "allow_remote",
+        "manual_boost"
+      ],
+      "outputs": [
+        "remote_duty",
+        "remote_red",
+        "remote_green",
+        "controller_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/11_bidirectional_loop/bidirectional_demo_controller.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

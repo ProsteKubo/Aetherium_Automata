@@ -1124,6 +1124,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml",
       "isDirty": false
     },
     "network_signal_chain_01_petri_command_router": {
@@ -1574,6 +1575,7 @@
         "demand_motion"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/13_petri_signal_chain/petri_command_router.yaml",
       "isDirty": false
     },
     "network_signal_chain_02_petri_safety_gate": {
@@ -1907,6 +1909,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml",
       "isDirty": false
     },
     "network_signal_chain_03_petri_drive_unit_black_box": {
@@ -2111,6 +2114,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/13_petri_signal_chain/petri_drive_unit_black_box.yaml",
       "isDirty": false
     },
     "network_signal_chain_04_petri_telemetry_observer": {
@@ -2423,6 +2427,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/13_petri_signal_chain/petri_telemetry_observer.yaml",
       "isDirty": false
     },
     "network_guarded_cell_01_guarded_cell_safety_supervisor": {
@@ -2763,6 +2768,7 @@
         "fault_count"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_safety_supervisor.yaml",
       "isDirty": false
     },
     "network_guarded_cell_02_guarded_cell_actuation_controller": {
@@ -2966,6 +2972,7 @@
         "cycle_count"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_actuation_controller.yaml",
       "isDirty": false
     },
     "network_guarded_cell_03_guarded_cell_signal_conditioner": {
@@ -3157,6 +3164,7 @@
         "pulse_count"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/guarded_cell_signal_conditioner.yaml",
       "isDirty": false
     },
     "network_guarded_cell_04_esp32_guarded_cell_alarm_beacon": {
@@ -3237,6 +3245,7 @@
         "alarm_active"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/esp32_guarded_cell_alarm_beacon.yaml",
       "isDirty": false
     },
     "network_guarded_cell_05_esp32_guarded_cell_primary_actuator": {
@@ -3317,6 +3326,7 @@
         "primary_active"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/esp32_guarded_cell_primary_actuator.yaml",
       "isDirty": false
     },
     "network_guarded_cell_06_mcxn947_guarded_cell_leader": {
@@ -3404,6 +3414,7 @@
         "leader_online"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml",
       "isDirty": false
     },
     "network_power_contention_01_petri_power_allocator": {
@@ -3876,6 +3887,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/14_petri_contention/petri_power_allocator.yaml",
       "isDirty": false
     },
     "network_power_contention_02_petri_charger_node": {
@@ -4178,6 +4190,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/14_petri_contention/petri_charger_node.yaml",
       "isDirty": false
     },
     "network_power_contention_03_petri_motion_axis": {
@@ -4523,6 +4536,7 @@
         ]
       },
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/14_petri_contention/petri_motion_axis.yaml",
       "isDirty": false
     },
     "network_resilience_watchdog_01_sensor_watchdog_recovery": {
@@ -5011,6 +5025,7 @@
         "watchdog_state"
       ],
       "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml",
       "isDirty": false
     }
   },

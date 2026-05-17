@@ -1,0 +1,1433 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Esp32 Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/08_esp32.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_08_esp32",
+      "name": "Esp32",
+      "description": "Generated collection for Esp32.",
+      "rootAutomataIds": [
+        "network_showcase_08_esp32_01_esp32_binding_follower_pwm",
+        "network_showcase_08_esp32_02_esp32_binding_follower_status_led",
+        "network_showcase_08_esp32_03_esp32_binding_leader_oled",
+        "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
+        "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
+        "network_showcase_08_esp32_06_esp32_production_line_safe",
+        "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
+        "network_showcase_08_esp32_08_esp32_status_led_probe",
+        "network_showcase_08_esp32_09_esp32_thermostat_guard"
+      ],
+      "automataIds": [
+        "network_showcase_08_esp32_01_esp32_binding_follower_pwm",
+        "network_showcase_08_esp32_02_esp32_binding_follower_status_led",
+        "network_showcase_08_esp32_03_esp32_binding_leader_oled",
+        "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
+        "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
+        "network_showcase_08_esp32_06_esp32_production_line_safe",
+        "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
+        "network_showcase_08_esp32_08_esp32_status_led_probe",
+        "network_showcase_08_esp32_09_esp32_thermostat_guard"
+      ],
+      "inputs": [
+        "leader_duty",
+        "leader_button",
+        "manual_boost",
+        "enabled",
+        "remote_override",
+        "alarm",
+        "run",
+        "fault",
+        "temp",
+        "low_limit",
+        "high_limit"
+      ],
+      "outputs": [
+        "follower_duty",
+        "follower_led",
+        "leader_duty",
+        "leader_button",
+        "leader_sensor_mv",
+        "pot_raw",
+        "pot_mv",
+        "button_down",
+        "led_duty",
+        "probe_pin",
+        "probe_phase"
+      ],
+      "relativePath": "networks/esp32",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_08_esp32_01_esp32_binding_follower_pwm": {
+      "id": "network_showcase_08_esp32_01_esp32_binding_follower_pwm",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Follower PWM",
+        "type": "inline",
+        "language": "lua",
+        "description": "Follower node for a two-ESP demo. Consumes bound leader inputs and mirrors them to a PWM LED.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "follower",
+          "pwm"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1",
+          "esp32": {
+            "resources": [
+              {
+                "kind": "pwm",
+                "name": "follower_led_pwm",
+                "pin": 23
+              },
+              {
+                "kind": "gpio",
+                "name": "follower_status_led",
+                "pin": 2
+              }
+            ]
+          }
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local duty = math.floor(clamp(leader_duty or 0, 0, 255))\nlocal pressed = leader_button == true\n\nif pressed then\n  duty = 255\nend\n\ngpio.write(2, pressed)\npwm.write(0, duty)\nsetOutput(\"follower_duty\", duty)",
+          "hooks": {
+            "onEnter": "gpio.mode(2, \"output\")\npwm.attach(0, 23, 5000, 8)"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {},
+      "variables": [
+        {
+          "name": "leader_duty",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "follower_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "leader_duty",
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_duty"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_follower_pwm.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_02_esp32_binding_follower_status_led": {
+      "id": "network_showcase_08_esp32_02_esp32_binding_follower_status_led",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Follower Status LED",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 follower node for IDE bindings. Consumes a remote button signal and mirrors it on the ESP status LED.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "follower",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local pressed = leader_button == true\n\ncomponent(\"board_led\"):set(pressed)\nsetOutput(\"follower_led\", pressed)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "follower_led",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_led"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_follower_status_led.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_03_esp32_binding_leader_oled": {
+      "id": "network_showcase_08_esp32_03_esp32_binding_leader_oled",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Leader OLED",
+        "type": "inline",
+        "language": "lua",
+        "description": "Leader node for a two-ESP demo. Samples a potentiometer, updates an OLED, and exposes outputs for gateway binding.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "leader",
+          "oled"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1",
+          "esp32": {
+            "resources": [
+              {
+                "kind": "i2c",
+                "name": "oled_bus",
+                "pins": [
+                  21,
+                  22
+                ]
+              },
+              {
+                "kind": "adc",
+                "name": "pot_input",
+                "pin": 34
+              },
+              {
+                "kind": "gpio",
+                "name": "button_input",
+                "pin": 18
+              },
+              {
+                "kind": "pwm",
+                "name": "local_led_pwm",
+                "pin": 19
+              }
+            ],
+            "components": [
+              {
+                "name": "ssd1306_text",
+                "builtin": true,
+                "manifest": "example/automata/showcase/08_esp32/components/ssd1306_text_component.json"
+              }
+            ]
+          }
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Leader",
+      "states": {
+        "Leader": {
+          "id": "Leader",
+          "name": "Leader",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if leader_next_sample ~= nil and now() < leader_next_sample then\n  return\nend\n\nleader_next_sample = now() + 80\n\nlocal pot = adc.read(34)\nlocal pot_mv_local = adc.read_mv(34)\nlocal button = gpio.read(18) == 0\nlocal duty = math.floor(clamp((pot / 4095.0) * 255, 0, 255))\nlocal boost = manual_boost or 0\n\nif boost > duty then\n  duty = boost\nend\n\nif button then\n  duty = 255\nend\n\npwm.write(0, duty)\nsetOutput(\"leader_duty\", duty)\nsetOutput(\"leader_button\", button)\nsetOutput(\"leader_sensor_mv\", pot_mv_local)\n\nif leader_next_display == nil or now() >= leader_next_display then\n  local display = component(\"ssd1306_text\")\n  display:line(0, \"Leader OLED\")\n  display:line(1, \"Duty: \" .. tostring(duty))\n  display:line(2, \"Button: \" .. tostring(button))\n  display:line(3, \"Sensor mV:\")\n  display:line(4, tostring(pot_mv_local))\n  display:line(5, \"Boost: \" .. tostring(boost))\n  leader_next_display = now() + 250\nend",
+          "hooks": {
+            "onEnter": "gpio.mode(18, \"input_pullup\")\npwm.attach(0, 19, 5000, 8)\n\nlocal display = component(\"ssd1306_text\")\ndisplay:init(128, 64, 60, 0, 21, 22, 400000)\ndisplay:clear()\ndisplay:line(0, \"Leader online\")\ndisplay:line(1, \"Waiting...\")\n\nleader_next_sample = 0\nleader_next_display = 0"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {},
+      "variables": [
+        {
+          "name": "manual_boost",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "leader_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_sensor_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "manual_boost"
+      ],
+      "outputs": [
+        "leader_duty",
+        "leader_button",
+        "leader_sensor_mv"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_leader_oled.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_04_esp32_led_guarded_cycle": {
+      "id": "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 LED Guarded Cycle",
+        "type": "inline",
+        "language": "lua",
+        "description": "Hardware-safe LED cycle with explicit enable guard and 1s dwell times.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "timed",
+          "bytecode-safe",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "LedOn": {
+          "id": "LedOn",
+          "name": "LedOn",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "LedOff": {
+          "id": "LedOff",
+          "name": "LedOff",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_cycle": {
+          "id": "start_cycle",
+          "name": "start_cycle",
+          "from": "Idle",
+          "to": "LedOn",
+          "type": "classic",
+          "condition": "enabled == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_from_on": {
+          "id": "stop_from_on",
+          "name": "stop_from_on",
+          "from": "LedOn",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "stop_from_off": {
+          "id": "stop_from_off",
+          "name": "stop_from_off",
+          "from": "LedOff",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "on_to_off": {
+          "id": "on_to_off",
+          "name": "on_to_off",
+          "from": "LedOn",
+          "to": "LedOff",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "off_to_on": {
+          "id": "off_to_on",
+          "name": "off_to_on",
+          "from": "LedOff",
+          "to": "LedOn",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "enabled"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_05_esp32_oled_pot_dashboard": {
+      "id": "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 OLED Pot Dashboard",
+        "type": "inline",
+        "language": "lua",
+        "description": "IDE-ready rich ESP32 showcase with OLED, potentiometer, button, and PWM LED output.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "lua",
+          "oled",
+          "pwm",
+          "adc"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1",
+          "esp32": {
+            "resources": [
+              {
+                "kind": "i2c",
+                "name": "oled_bus",
+                "pins": [
+                  21,
+                  22
+                ]
+              },
+              {
+                "kind": "adc",
+                "name": "pot_input",
+                "pin": 34
+              },
+              {
+                "kind": "gpio",
+                "name": "button_input",
+                "pin": 18
+              },
+              {
+                "kind": "pwm",
+                "name": "led_pwm",
+                "pin": 19
+              }
+            ],
+            "components": [
+              {
+                "name": "ssd1306_text",
+                "builtin": true,
+                "manifest": "example/automata/showcase/08_esp32/components/ssd1306_text_component.json"
+              }
+            ]
+          }
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Dashboard",
+      "states": {
+        "Dashboard": {
+          "id": "Dashboard",
+          "name": "Dashboard",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if next_sample_at ~= nil and now() < next_sample_at then\n  return\nend\n\nnext_sample_at = now() + 80\n\nlocal pot = adc.read(34)\nlocal pot_mv_local = adc.read_mv(34)\nlocal button = gpio.read(18) == 0\nlocal duty = math.floor(clamp((pot / 4095.0) * 255, 0, 255))\nlocal override = remote_override or 0\n\nif override > duty then\n  duty = override\nend\n\nif button then\n  duty = 255\nend\n\npwm.write(0, duty)\nsetOutput(\"pot_raw\", pot)\nsetOutput(\"pot_mv\", pot_mv_local)\nsetOutput(\"button_down\", button)\nsetOutput(\"led_duty\", duty)\n\nif next_display_at == nil or now() >= next_display_at then\n  local display = component(\"ssd1306_text\")\n  display:line(0, \"Aetherium IDE\")\n  display:line(1, \"Pot: \" .. tostring(pot))\n  display:line(2, \"mV: \" .. tostring(pot_mv_local))\n  display:line(3, \"Button: \" .. tostring(button))\n  display:line(4, \"PWM: \" .. tostring(duty))\n  display:line(5, \"Override: \" .. tostring(override))\n  next_display_at = now() + 250\nend",
+          "hooks": {
+            "onEnter": "gpio.mode(18, \"input_pullup\")\npwm.attach(0, 19, 5000, 8)\n\nlocal display = component(\"ssd1306_text\")\ndisplay:init(128, 64, 60, 0, 21, 22, 400000)\ndisplay:clear()\ndisplay:line(0, \"Aetherium IDE\")\ndisplay:line(1, \"OLED + Pot demo\")\ndisplay:line(2, \"Booting...\")\n\nnext_sample_at = 0\nnext_display_at = 0"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          },
+          "description": "Continuously samples the potentiometer, drives LED PWM, and refreshes the OLED."
+        }
+      },
+      "transitions": {},
+      "variables": [
+        {
+          "name": "remote_override",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "pot_raw",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "pot_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "button_down",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "led_duty",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "remote_override"
+      ],
+      "outputs": [
+        "pot_raw",
+        "pot_mv",
+        "button_down",
+        "led_duty"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_oled_pot_dashboard.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_06_esp32_production_line_safe": {
+      "id": "network_showcase_08_esp32_06_esp32_production_line_safe",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Production Line Safe",
+        "type": "inline",
+        "language": "lua",
+        "description": "Production-line style flow for ESP32 with bounded timed transitions and deterministic lane cycling.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "classic",
+          "timed",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Warmup": {
+          "id": "Warmup",
+          "name": "Warmup",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "LaneA": {
+          "id": "LaneA",
+          "name": "LaneA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "LaneB": {
+          "id": "LaneB",
+          "name": "LaneB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "LaneC": {
+          "id": "LaneC",
+          "name": "LaneC",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Cooldown": {
+          "id": "Cooldown",
+          "name": "Cooldown",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Recovery": {
+          "id": "Recovery",
+          "name": "Recovery",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "wait_until_enabled": {
+          "id": "wait_until_enabled",
+          "name": "wait_until_enabled",
+          "from": "Boot",
+          "to": "Warmup",
+          "type": "classic",
+          "condition": "enabled == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "warmup_to_a": {
+          "id": "warmup_to_a",
+          "name": "warmup_to_a",
+          "from": "Warmup",
+          "to": "LaneA",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 700,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "a_to_b": {
+          "id": "a_to_b",
+          "name": "a_to_b",
+          "from": "LaneA",
+          "to": "LaneB",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_to_c": {
+          "id": "b_to_c",
+          "name": "b_to_c",
+          "from": "LaneB",
+          "to": "LaneC",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "c_to_cooldown": {
+          "id": "c_to_cooldown",
+          "name": "c_to_cooldown",
+          "from": "LaneC",
+          "to": "Cooldown",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooldown_to_recovery": {
+          "id": "cooldown_to_recovery",
+          "name": "cooldown_to_recovery",
+          "from": "Cooldown",
+          "to": "Recovery",
+          "type": "classic",
+          "condition": "alarm == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooldown_to_boot": {
+          "id": "cooldown_to_boot",
+          "name": "cooldown_to_boot",
+          "from": "Cooldown",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1800,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recovery_to_boot": {
+          "id": "recovery_to_boot",
+          "name": "recovery_to_boot",
+          "from": "Recovery",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "alarm",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "enabled",
+        "alarm"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_production_line_safe.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_07_esp32_runtime_led_pulse": {
+      "id": "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Runtime LED Pulse",
+        "type": "inline",
+        "language": "lua",
+        "description": "Bytecode-safe automata for ESP32 demos with deterministic timed cycling and safe dwell time defaults.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "timed",
+          "bytecode-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Running": {
+          "id": "Running",
+          "name": "Running",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Pulse": {
+          "id": "Pulse",
+          "name": "Pulse",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "enable": {
+          "id": "enable",
+          "name": "enable",
+          "from": "Idle",
+          "to": "Running",
+          "type": "classic",
+          "condition": "enabled == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "disable_from_running": {
+          "id": "disable_from_running",
+          "name": "disable_from_running",
+          "from": "Running",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "disable_from_pulse": {
+          "id": "disable_from_pulse",
+          "name": "disable_from_pulse",
+          "from": "Pulse",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "enabled == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "running_to_pulse": {
+          "id": "running_to_pulse",
+          "name": "running_to_pulse",
+          "from": "Running",
+          "to": "Pulse",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "pulse_to_running": {
+          "id": "pulse_to_running",
+          "name": "pulse_to_running",
+          "from": "Pulse",
+          "to": "Running",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "enabled",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        }
+      ],
+      "inputs": [
+        "enabled"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_runtime_led_pulse.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_08_esp32_status_led_probe": {
+      "id": "network_showcase_08_esp32_08_esp32_status_led_probe",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Status LED Probe",
+        "type": "inline",
+        "language": "lua",
+        "description": "IDE-first ESP32 probe that cycles common digital LED pins and exports the currently tested pin so the visible onboard LED can be identified without sketches.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "gpio",
+          "diagnostics",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Probe",
+      "states": {
+        "Probe": {
+          "id": "Probe",
+          "name": "Probe",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "if probe_next_at ~= nil and now() < probe_next_at then\n  return\nend\n\nlocal current_pin = probe_pins[probe_index]\nprobe_next_at = now() + 700\n\nif probe_phase_high then\n  gpio.write(current_pin, 1)\n  setOutput(\"probe_pin\", current_pin)\n  setOutput(\"probe_phase\", true)\n  probe_phase_high = false\n  return\nend\n\ngpio.write(current_pin, 0)\nsetOutput(\"probe_pin\", current_pin)\nsetOutput(\"probe_phase\", false)\nprobe_phase_high = true\nprobe_index = probe_index + 1\n\nif probe_index > #probe_pins then\n  probe_index = 1\nend",
+          "hooks": {
+            "onEnter": "probe_pins = {2, 4, 5, 18, 19, 21, 22, 23}\nprobe_index = 1\nprobe_phase_high = true\nprobe_next_at = 0\n\nfor i = 1, #probe_pins do\n  gpio.mode(probe_pins[i], \"output\")\n  gpio.write(probe_pins[i], 0)\nend"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Probe",
+          "to": "Probe",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "probe_pin",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "probe_phase",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "probe_pin",
+        "probe_phase"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_status_led_probe.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_09_esp32_thermostat_guard": {
+      "id": "network_showcase_08_esp32_09_esp32_thermostat_guard",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Thermostat Guard",
+        "type": "inline",
+        "language": "lua",
+        "description": "Input-driven thermostat state machine for ESP32 subset, with fault override.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "classic",
+          "timed",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Heating": {
+          "id": "Heating",
+          "name": "Heating",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Cooling": {
+          "id": "Cooling",
+          "name": "Cooling",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "standby_to_alarm": {
+          "id": "standby_to_alarm",
+          "name": "standby_to_alarm",
+          "from": "Standby",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "heating_to_alarm": {
+          "id": "heating_to_alarm",
+          "name": "heating_to_alarm",
+          "from": "Heating",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooling_to_alarm": {
+          "id": "cooling_to_alarm",
+          "name": "cooling_to_alarm",
+          "from": "Cooling",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "standby_to_heat": {
+          "id": "standby_to_heat",
+          "name": "standby_to_heat",
+          "from": "Standby",
+          "to": "Heating",
+          "type": "classic",
+          "condition": "run == true and temp <= low_limit",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "standby_to_cool": {
+          "id": "standby_to_cool",
+          "name": "standby_to_cool",
+          "from": "Standby",
+          "to": "Cooling",
+          "type": "classic",
+          "condition": "run == true and temp >= high_limit",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "heating_to_standby": {
+          "id": "heating_to_standby",
+          "name": "heating_to_standby",
+          "from": "Heating",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooling_to_standby": {
+          "id": "cooling_to_standby",
+          "name": "cooling_to_standby",
+          "from": "Cooling",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "alarm_to_standby": {
+          "id": "alarm_to_standby",
+          "name": "alarm_to_standby",
+          "from": "Alarm",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "fault == false and run == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "standby_hold": {
+          "id": "standby_hold",
+          "name": "standby_hold",
+          "from": "Standby",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "run",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "temp",
+          "type": "int",
+          "direction": "input",
+          "default": 22
+        },
+        {
+          "name": "low_limit",
+          "type": "int",
+          "direction": "input",
+          "default": 20
+        },
+        {
+          "name": "high_limit",
+          "type": "int",
+          "direction": "input",
+          "default": 25
+        }
+      ],
+      "inputs": [
+        "run",
+        "fault",
+        "temp",
+        "low_limit",
+        "high_limit"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_thermostat_guard.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -1,0 +1,274 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Probabilistic Balance Loop Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_probabilistic_balance_loop",
+      "name": "Probabilistic Balance Loop",
+      "description": "Covers weighted branching and deterministic completion criteria",
+      "rootAutomataIds": [
+        "network_probabilistic_balance_loop_01_probabilistic_balance_loop"
+      ],
+      "automataIds": [
+        "network_probabilistic_balance_loop_01_probabilistic_balance_loop"
+      ],
+      "inputs": [],
+      "outputs": [
+        "path"
+      ],
+      "relativePath": "networks/probabilistic_balance_loop",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_probabilistic_balance_loop_01_probabilistic_balance_loop": {
+      "id": "network_probabilistic_balance_loop_01_probabilistic_balance_loop",
+      "version": "0.0.1",
+      "config": {
+        "name": "Probabilistic Balance Loop",
+        "type": "inline",
+        "language": "lua",
+        "description": "Covers weighted branching and deterministic completion criteria",
+        "tags": [
+          "probabilistic",
+          "weighted",
+          "loop"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Choose",
+      "states": {
+        "Choose": {
+          "id": "Choose",
+          "name": "Choose",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PathA": {
+          "id": "PathA",
+          "name": "PathA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"path\", \"A\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "PathB": {
+          "id": "PathB",
+          "name": "PathB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"path\", \"B\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "End": {
+          "id": "End",
+          "name": "End",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"cycle_count\", value(\"cycle_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "choose_to_a": {
+          "id": "choose_to_a",
+          "name": "choose_to_a",
+          "from": "Choose",
+          "to": "PathA",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 70,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 70
+          }
+        },
+        "choose_to_b": {
+          "id": "choose_to_b",
+          "name": "choose_to_b",
+          "from": "Choose",
+          "to": "PathB",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 30,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 30
+          }
+        },
+        "a_to_end": {
+          "id": "a_to_end",
+          "name": "a_to_end",
+          "from": "PathA",
+          "to": "End",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_to_end": {
+          "id": "b_to_end",
+          "name": "b_to_end",
+          "from": "PathB",
+          "to": "End",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "end_continue": {
+          "id": "end_continue",
+          "name": "end_continue",
+          "from": "End",
+          "to": "Choose",
+          "type": "classic",
+          "condition": "value(\"cycle_count\") < 10",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "end_done": {
+          "id": "end_done",
+          "name": "end_done",
+          "from": "End",
+          "to": "Done",
+          "type": "classic",
+          "condition": "value(\"cycle_count\") >= 10",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "path"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

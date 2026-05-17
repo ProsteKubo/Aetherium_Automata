@@ -265,6 +265,51 @@ defmodule AetheriumServer.DeviceManagerTargetProfileDeployTest do
              )
   end
 
+  test "mcxn947 serial deploy defaults to board-safe transfer chunks" do
+    previous = System.get_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
+    System.delete_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
+
+    on_exit(fn ->
+      restore_env("AETHERIUM_DEPLOY_CHUNK_SIZE", previous)
+    end)
+
+    suffix = Integer.to_string(:erlang.unique_integer([:positive]))
+    device_id = "mcxn947-default-chunk-#{suffix}"
+    automata_id = "mcxn947-default-chunk-automata-#{suffix}"
+
+    {:ok, _device} =
+      DeviceManager.register_device(
+        %{
+          device_id: device_id,
+          device_type: :mcxn947,
+          capabilities: 0,
+          protocol_version: 1,
+          connector_id: "serial_test",
+          connector_type: :serial,
+          transport: "serial",
+          link: "/dev/cu.debug-console"
+        },
+        self()
+      )
+
+    assert_receive {:send_binary, _hello_ack}, 500
+
+    assert {:ok, _deployment} =
+             DeviceManager.deploy_automata(
+               automata_id,
+               device_id,
+               sample_automata(automata_id, "mcxn947_lua_v1")
+             )
+
+    assert_receive {:send_binary, load_frame}, 500
+    assert {:ok, first_chunk} = extract_load_chunk(load_frame)
+
+    assert first_chunk.chunked == 1
+    assert first_chunk.chunk_index == 0
+    assert first_chunk.total_chunks > 1
+    assert byte_size(first_chunk.payload) <= 128
+  end
+
   test "arduino target deploy splits large payload into chunked load_automata frames" do
     previous = System.get_env("AETHERIUM_DEPLOY_CHUNK_SIZE")
     System.put_env("AETHERIUM_DEPLOY_CHUNK_SIZE", "64")

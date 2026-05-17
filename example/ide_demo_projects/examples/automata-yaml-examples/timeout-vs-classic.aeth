@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Timeout Versus Classic Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/automata-yaml-examples/timeout-vs-classic.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_timeout_vs_classic",
+      "name": "Timeout Versus Classic",
+      "description": "Timeout transition should not preempt an immediately-true classic transition",
+      "rootAutomataIds": [
+        "network_timeout_vs_classic_01_timeout_vs_classic"
+      ],
+      "automataIds": [
+        "network_timeout_vs_classic_01_timeout_vs_classic"
+      ],
+      "inputs": [],
+      "outputs": [],
+      "relativePath": "networks/timeout_versus_classic",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_timeout_vs_classic_01_timeout_vs_classic": {
+      "id": "network_timeout_vs_classic_01_timeout_vs_classic",
+      "version": "0.0.1",
+      "config": {
+        "name": "Timeout Versus Classic",
+        "type": "inline",
+        "language": "lua",
+        "description": "Timeout transition should not preempt an immediately-true classic transition",
+        "tags": [
+          "timeout",
+          "fallback",
+          "priority"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "FastPath": {
+          "id": "FastPath",
+          "name": "FastPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "SlowPath": {
+          "id": "SlowPath",
+          "name": "SlowPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_fast": {
+          "id": "idle_to_fast",
+          "name": "idle_to_fast",
+          "from": "Idle",
+          "to": "FastPath",
+          "type": "classic",
+          "condition": "true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_timeout_fallback": {
+          "id": "idle_timeout_fallback",
+          "name": "idle_timeout_fallback",
+          "from": "Idle",
+          "to": "SlowPath",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "fast_to_done": {
+          "id": "fast_to_done",
+          "name": "fast_to_done",
+          "from": "FastPath",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "slow_to_done": {
+          "id": "slow_to_done",
+          "name": "slow_to_done",
+          "from": "SlowPath",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/timeout-vs-classic.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -926,9 +926,23 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
 
   defp ensure_automata_available(automata_id, automata_payload) do
     case AutomataRegistry.get_automata(automata_id) do
-      {:ok, automata} -> {:ok, automata}
-      {:error, :not_found} -> register_automata_from_payload(automata_id, automata_payload)
-      {:error, reason} -> {:error, reason}
+      {:ok, _} when is_map(automata_payload) ->
+        normalized =
+          automata_payload
+          |> to_gateway_automata(automata_id)
+          |> normalize_automata()
+
+        AutomataRegistry.update_automata(automata_id, normalized)
+        {:ok, normalized}
+
+      {:ok, automata} ->
+        {:ok, automata}
+
+      {:error, :not_found} ->
+        register_automata_from_payload(automata_id, automata_payload)
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

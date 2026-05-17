@@ -1,0 +1,219 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Blinking LED Test Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/automata-yaml-examples/blinking-led-test.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_blinking_led_test",
+      "name": "Blinking LED Test",
+      "description": "Simple 2-state automata for testing - blinks every 2 seconds",
+      "rootAutomataIds": [
+        "network_blinking_led_test_01_blinking_led_test"
+      ],
+      "automataIds": [
+        "network_blinking_led_test_01_blinking_led_test"
+      ],
+      "inputs": [],
+      "outputs": [
+        "blink_count",
+        "current_state_name"
+      ],
+      "relativePath": "networks/blinking_led_test",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_blinking_led_test_01_blinking_led_test": {
+      "id": "network_blinking_led_test_01_blinking_led_test",
+      "version": "0.0.1",
+      "config": {
+        "name": "Blinking LED Test",
+        "type": "inline",
+        "language": "lua",
+        "description": "Simple 2-state automata for testing - blinks every 2 seconds",
+        "tags": [
+          "test",
+          "simple",
+          "timed"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "LED_OFF",
+      "states": {
+        "LED_OFF": {
+          "id": "LED_OFF",
+          "name": "LED_OFF",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "log(\"info\", \"💡 LED is now OFF - blink count: \" .. value(\"blink_count\"))\nsetVal(\"current_state_name\", \"off\")\n",
+            "onTick": "-- Tick every 100ms while in this state\nlog(\"debug\", \"LED_OFF tick\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          },
+          "description": "LED is off, waiting to turn on"
+        },
+        "LED_ON": {
+          "id": "LED_ON",
+          "name": "LED_ON",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "local count = value(\"blink_count\") + 1\nsetVal(\"blink_count\", count)\nsetVal(\"current_state_name\", \"on\")\nlog(\"info\", \"💡 LED is now ON - blink count: \" .. count)\n\n-- Simulated output\nif count % 5 == 0 then\n  log(\"warning\", \"🎉 Milestone! 5 blinks completed!\")\nend\n",
+            "onTick": "log(\"debug\", \"LED_ON tick\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          },
+          "description": "LED is on, waiting to turn off"
+        }
+      },
+      "transitions": {
+        "id": {
+          "id": "id",
+          "name": "id",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "from": {
+          "id": "from",
+          "name": "from",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "to": {
+          "id": "to",
+          "name": "to",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "type": {
+          "id": "type",
+          "name": "type",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "after": {
+          "id": "after",
+          "name": "after",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "description": {
+          "id": "description",
+          "name": "description",
+          "from": "",
+          "to": "",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "blink_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0,
+          "description": "Number of times LED has toggled"
+        },
+        {
+          "name": "current_state_name",
+          "type": "string",
+          "direction": "output",
+          "default": "off",
+          "description": "Current state name for monitoring"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "blink_count",
+        "current_state_name"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/blinking-led-test.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

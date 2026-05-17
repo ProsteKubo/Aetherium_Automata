@@ -1,0 +1,400 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Petri Safety Gate Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_13_petri_signal_chain_petri_safety_gate",
+      "name": "Petri Safety Gate",
+      "description": "Flagship signal-chain safety gate that reviews route phases before granting permit to the downstream drive unit.",
+      "rootAutomataIds": [
+        "network_13_petri_signal_chain_petri_safety_gate_01_petri_safety_gate"
+      ],
+      "automataIds": [
+        "network_13_petri_signal_chain_petri_safety_gate_01_petri_safety_gate"
+      ],
+      "inputs": [
+        "arm_request",
+        "route_state"
+      ],
+      "outputs": [
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "relativePath": "networks/petri_safety_gate",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_13_petri_signal_chain_petri_safety_gate_01_petri_safety_gate": {
+      "id": "network_13_petri_signal_chain_petri_safety_gate_01_petri_safety_gate",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Safety Gate",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship signal-chain safety gate that reviews route phases before granting permit to the downstream drive unit.",
+        "tags": [
+          "showcase",
+          "petri",
+          "signal-chain",
+          "safety",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Inhibit",
+      "states": {
+        "Inhibit": {
+          "id": "Inhibit",
+          "name": "Inhibit",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"reserved\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"inhibit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "VotePending": {
+          "id": "VotePending",
+          "name": "VotePending",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"voting\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"vote_pending\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Permit": {
+          "id": "Permit",
+          "name": "Permit",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"passing\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", true)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"permit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "InterlockHold": {
+          "id": "InterlockHold",
+          "name": "InterlockHold",
+          "inputs": [
+            "arm_request",
+            "route_state"
+          ],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"holding\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", false)\nsetVal(\"supervisor_state\", \"interlock_hold\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [
+            "permit_ok",
+            "alarm_latched",
+            "supervisor_state"
+          ],
+          "variables": [],
+          "code": "local field_bus = \"tripped\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"permit_ok\", false)\nsetVal(\"alarm_latched\", true)\nsetVal(\"supervisor_state\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "inhibit_to_vote_pending": {
+          "id": "inhibit_to_vote_pending",
+          "name": "inhibit_to_vote_pending",
+          "from": "Inhibit",
+          "to": "VotePending",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true and value(\"route_state\") != \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "vote_to_permit": {
+          "id": "vote_to_permit",
+          "name": "vote_to_permit",
+          "from": "VotePending",
+          "to": "Permit",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "vote_to_alarm": {
+          "id": "vote_to_alarm",
+          "name": "vote_to_alarm",
+          "from": "VotePending",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"degraded_watch\" or value(\"route_state\") == \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "permit_to_interlock": {
+          "id": "permit_to_interlock",
+          "name": "permit_to_interlock",
+          "from": "Permit",
+          "to": "InterlockHold",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false or value(\"route_state\") == \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "permit_to_alarm": {
+          "id": "permit_to_alarm",
+          "name": "permit_to_alarm",
+          "from": "Permit",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "value(\"route_state\") == \"fault_isolated\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "interlock_to_vote": {
+          "id": "interlock_to_vote",
+          "name": "interlock_to_vote",
+          "from": "InterlockHold",
+          "to": "VotePending",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == true and value(\"route_state\") == \"backbone_sync\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "interlock_to_inhibit": {
+          "id": "interlock_to_inhibit",
+          "name": "interlock_to_inhibit",
+          "from": "InterlockHold",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "alarm_to_inhibit": {
+          "id": "alarm_to_inhibit",
+          "name": "alarm_to_inhibit",
+          "from": "Alarm",
+          "to": "Inhibit",
+          "type": "classic",
+          "condition": "value(\"arm_request\") == false and value(\"route_state\") == \"standby\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm_request",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "input",
+          "default": "standby"
+        },
+        {
+          "name": "permit_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "alarm_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "supervisor_state",
+          "type": "string",
+          "direction": "output",
+          "default": "inhibit"
+        }
+      ],
+      "inputs": [
+        "arm_request",
+        "route_state"
+      ],
+      "outputs": [
+        "permit_ok",
+        "alarm_latched",
+        "supervisor_state"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm_request",
+            "direction": "input",
+            "type": "bool",
+            "description": "Routed arm request from the operator side"
+          },
+          {
+            "name": "route_state",
+            "direction": "input",
+            "type": "string",
+            "description": "Backbone route phase used during safety voting"
+          },
+          {
+            "name": "permit_ok",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Safety permission for the drive unit"
+          },
+          {
+            "name": "alarm_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "description": "Alarm path consumed by telemetry"
+          }
+        ],
+        "observableStates": [
+          "Inhibit",
+          "VotePending",
+          "Permit",
+          "InterlockHold",
+          "Alarm"
+        ],
+        "emittedEvents": [
+          "supervisor_alarm"
+        ],
+        "resources": [
+          {
+            "name": "field_bus",
+            "kind": "network",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

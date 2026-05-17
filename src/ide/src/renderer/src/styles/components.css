@@ -466,6 +466,14 @@
   white-space: nowrap;
 }
 
+.tree-item-action {
+  flex-shrink: 0;
+}
+
+.tree-item-danger-action:hover {
+  color: var(--color-error);
+}
+
 .tree-children {
   margin-left: var(--spacing-4);
 }

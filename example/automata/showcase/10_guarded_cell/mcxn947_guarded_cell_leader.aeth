@@ -1,0 +1,151 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "MCXN947 Guarded Cell Leader Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_10_guarded_cell_mcxn947_guarded_cell_leader",
+      "name": "MCXN947 Guarded Cell Leader",
+      "description": "FRDM-MCXN947 leader node for the guarded actuation cell. Exports raw request and permit signals while mirroring them on local LEDs.",
+      "rootAutomataIds": [
+        "network_10_guarded_cell_mcxn947_guarded_cell_leader_01_mcxn947_guarded_cell_leader"
+      ],
+      "automataIds": [
+        "network_10_guarded_cell_mcxn947_guarded_cell_leader_01_mcxn947_guarded_cell_leader"
+      ],
+      "inputs": [],
+      "outputs": [
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "relativePath": "networks/mcxn947_guarded_cell_leader",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_10_guarded_cell_mcxn947_guarded_cell_leader_01_mcxn947_guarded_cell_leader": {
+      "id": "network_10_guarded_cell_mcxn947_guarded_cell_leader_01_mcxn947_guarded_cell_leader",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 Guarded Cell Leader",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 leader node for the guarded actuation cell. Exports raw request and permit signals while mirroring them on local LEDs.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "ide",
+          "guarded-cell",
+          "leader",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Monitor",
+      "states": {
+        "Monitor": {
+          "id": "Monitor",
+          "name": "Monitor",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local request = gpio.read(23) == 0\nlocal permit = gpio.read(6) == 0\n\ngpio.write(10, request)\ngpio.write(27, permit)\n\nsetOutput(\"request_raw\", request)\nsetOutput(\"permit_raw\", permit)\nsetOutput(\"leader_online\", true)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Monitor",
+          "to": "Monitor",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "request_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "permit_raw",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "leader_online",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "request_raw",
+        "permit_raw",
+        "leader_online"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/10_guarded_cell/mcxn947_guarded_cell_leader.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

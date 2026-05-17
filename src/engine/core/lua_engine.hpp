@@ -39,6 +39,8 @@ public:
      */
     void collectGarbage() override;
 
+    void setReplayMode(bool enabled) override { replayMode_ = enabled; }
+
 private:
     void setupBuiltins();
     void setLuaGlobalValue(const std::string& name, const Value& value);
@@ -49,6 +51,7 @@ private:
     VariableStore* variables_ = nullptr;
     std::string lastError_;
     std::function<void(const std::string&, const std::string&)> logHandler_;
+    bool replayMode_ = false;
 };
 
 } // namespace aeth

@@ -1,0 +1,541 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Petri Power Allocator Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/14_petri_contention/petri_power_allocator.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_14_petri_contention_petri_power_allocator",
+      "name": "Petri Power Allocator",
+      "description": "Flagship contention allocator that stages the shared dc_bus through queueing, grant, handoff, and contention alarm phases.",
+      "rootAutomataIds": [
+        "network_14_petri_contention_petri_power_allocator_01_petri_power_allocator"
+      ],
+      "automataIds": [
+        "network_14_petri_contention_petri_power_allocator_01_petri_power_allocator"
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion",
+        "route_state"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state",
+        "bus_owner"
+      ],
+      "relativePath": "networks/petri_power_allocator",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_14_petri_contention_petri_power_allocator_01_petri_power_allocator": {
+      "id": "network_14_petri_contention_petri_power_allocator_01_petri_power_allocator",
+      "version": "0.0.1",
+      "config": {
+        "name": "Petri Power Allocator",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship contention allocator that stages the shared dc_bus through queueing, grant, handoff, and contention alarm phases.",
+        "tags": [
+          "showcase",
+          "petri",
+          "contention",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"idle\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"idle\")\nsetVal(\"bus_owner\", \"none\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "ChargeQueue": {
+          "id": "ChargeQueue",
+          "name": "ChargeQueue",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charge_queue\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"charge_queue\")\nsetVal(\"bus_owner\", \"pending_charge\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "MotionQueue": {
+          "id": "MotionQueue",
+          "name": "MotionQueue",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"motion_queue\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"motion_queue\")\nsetVal(\"bus_owner\", \"pending_motion\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "ChargeGranted": {
+          "id": "ChargeGranted",
+          "name": "ChargeGranted",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"charge\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", true)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"charge_granted\")\nsetVal(\"bus_owner\", \"charger\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "MotionGranted": {
+          "id": "MotionGranted",
+          "name": "MotionGranted",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"motion\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", true)\nsetVal(\"allocator_state\", \"motion_granted\")\nsetVal(\"bus_owner\", \"motion_axis\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "HandoffCooldown": {
+          "id": "HandoffCooldown",
+          "name": "HandoffCooldown",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"handoff\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"handoff_cooldown\")\nsetVal(\"bus_owner\", \"handoff\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "ContentionAlarm": {
+          "id": "ContentionAlarm",
+          "name": "ContentionAlarm",
+          "inputs": [],
+          "outputs": [
+            "charge_enable",
+            "drive_enable",
+            "allocator_state",
+            "bus_owner"
+          ],
+          "variables": [],
+          "code": "local dc_bus = \"alarm\"\n",
+          "hooks": {
+            "onEnter": "setVal(\"charge_enable\", false)\nsetVal(\"drive_enable\", false)\nsetVal(\"allocator_state\", \"contention_alarm\")\nsetVal(\"bus_owner\", \"alarm\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "idle_to_charge_queue": {
+          "id": "idle_to_charge_queue",
+          "name": "idle_to_charge_queue",
+          "from": "Idle",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_motion_queue": {
+          "id": "idle_to_motion_queue",
+          "name": "idle_to_motion_queue",
+          "from": "Idle",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_contention": {
+          "id": "idle_to_contention",
+          "name": "idle_to_contention",
+          "from": "Idle",
+          "to": "ContentionAlarm",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == true and value(\"route_state\") == \"permit_streaming\"",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "charge_queue_to_granted": {
+          "id": "charge_queue_to_granted",
+          "name": "charge_queue_to_granted",
+          "from": "ChargeQueue",
+          "to": "ChargeGranted",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "charge_queue_to_motion_queue": {
+          "id": "charge_queue_to_motion_queue",
+          "name": "charge_queue_to_motion_queue",
+          "from": "ChargeQueue",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "motion_queue_to_granted": {
+          "id": "motion_queue_to_granted",
+          "name": "motion_queue_to_granted",
+          "from": "MotionQueue",
+          "to": "MotionGranted",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 120,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "motion_queue_to_contention": {
+          "id": "motion_queue_to_contention",
+          "name": "motion_queue_to_contention",
+          "from": "MotionQueue",
+          "to": "ContentionAlarm",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "charge_granted_to_handoff": {
+          "id": "charge_granted_to_handoff",
+          "name": "charge_granted_to_handoff",
+          "from": "ChargeGranted",
+          "to": "HandoffCooldown",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true or value(\"route_state\") == \"permit_streaming\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "charge_granted_to_idle": {
+          "id": "charge_granted_to_idle",
+          "name": "charge_granted_to_idle",
+          "from": "ChargeGranted",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "motion_granted_to_handoff": {
+          "id": "motion_granted_to_handoff",
+          "name": "motion_granted_to_handoff",
+          "from": "MotionGranted",
+          "to": "HandoffCooldown",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false or value(\"route_state\") == \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "motion_granted_to_contention": {
+          "id": "motion_granted_to_contention",
+          "name": "motion_granted_to_contention",
+          "from": "MotionGranted",
+          "to": "ContentionAlarm",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "handoff_to_charge_queue": {
+          "id": "handoff_to_charge_queue",
+          "name": "handoff_to_charge_queue",
+          "from": "HandoffCooldown",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_charge\") == true and value(\"demand_motion\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "handoff_to_motion_queue": {
+          "id": "handoff_to_motion_queue",
+          "name": "handoff_to_motion_queue",
+          "from": "HandoffCooldown",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "handoff_to_idle": {
+          "id": "handoff_to_idle",
+          "name": "handoff_to_idle",
+          "from": "HandoffCooldown",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "contention_to_motion_queue": {
+          "id": "contention_to_motion_queue",
+          "name": "contention_to_motion_queue",
+          "from": "ContentionAlarm",
+          "to": "MotionQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == true and value(\"route_state\") != \"load_shedding\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "contention_to_charge_queue": {
+          "id": "contention_to_charge_queue",
+          "name": "contention_to_charge_queue",
+          "from": "ContentionAlarm",
+          "to": "ChargeQueue",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false and value(\"demand_charge\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "contention_to_idle": {
+          "id": "contention_to_idle",
+          "name": "contention_to_idle",
+          "from": "ContentionAlarm",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"demand_motion\") == false and value(\"demand_charge\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "demand_charge",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "demand_motion",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "route_state",
+          "type": "string",
+          "direction": "input",
+          "default": "standby"
+        },
+        {
+          "name": "charge_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "drive_enable",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "allocator_state",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        },
+        {
+          "name": "bus_owner",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        }
+      ],
+      "inputs": [
+        "demand_charge",
+        "demand_motion",
+        "route_state"
+      ],
+      "outputs": [
+        "charge_enable",
+        "drive_enable",
+        "allocator_state",
+        "bus_owner"
+      ],
+      "blackBox": {
+        "ports": [],
+        "observableStates": [],
+        "emittedEvents": [],
+        "resources": [
+          {
+            "name": "dc_bus",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/14_petri_contention/petri_power_allocator.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

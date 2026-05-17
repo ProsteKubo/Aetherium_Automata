@@ -1,0 +1,250 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Pong Relay Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/16_host_ping_pong/pong_relay.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_16_host_ping_pong_pong_relay",
+      "name": "Pong Relay",
+      "description": "Responds to the relay handshake initiated by ping_relay.yaml. Fully autonomous once connections are wired.",
+      "rootAutomataIds": [
+        "network_16_host_ping_pong_pong_relay_01_pong_relay"
+      ],
+      "automataIds": [
+        "network_16_host_ping_pong_pong_relay_01_pong_relay"
+      ],
+      "inputs": [
+        "relay_signal"
+      ],
+      "outputs": [
+        "ack_signal",
+        "recv_count",
+        "ack_sent"
+      ],
+      "relativePath": "networks/pong_relay",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_16_host_ping_pong_pong_relay_01_pong_relay": {
+      "id": "network_16_host_ping_pong_pong_relay_01_pong_relay",
+      "version": "0.0.1",
+      "config": {
+        "name": "Pong Relay",
+        "type": "inline",
+        "language": "lua",
+        "description": "Responds to the relay handshake initiated by ping_relay.yaml. Fully autonomous once connections are wired.",
+        "tags": [
+          "showcase",
+          "host",
+          "communication",
+          "ping-pong"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Listening",
+      "states": {
+        "Listening": {
+          "id": "Listening",
+          "name": "Listening",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Processing": {
+          "id": "Processing",
+          "name": "Processing",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"recv_count\", value(\"recv_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Responding": {
+          "id": "Responding",
+          "name": "Responding",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"ack_signal\", true)\nsetVal(\"ack_sent\", value(\"ack_sent\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Resetting": {
+          "id": "Resetting",
+          "name": "Resetting",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"ack_signal\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "listen_to_processing": {
+          "id": "listen_to_processing",
+          "name": "listen_to_processing",
+          "from": "Listening",
+          "to": "Processing",
+          "type": "classic",
+          "condition": "value(\"relay_signal\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "processing_to_responding": {
+          "id": "processing_to_responding",
+          "name": "processing_to_responding",
+          "from": "Processing",
+          "to": "Responding",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "responding_to_resetting": {
+          "id": "responding_to_resetting",
+          "name": "responding_to_resetting",
+          "from": "Responding",
+          "to": "Resetting",
+          "type": "classic",
+          "condition": "value(\"relay_signal\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "resetting_to_listening": {
+          "id": "resetting_to_listening",
+          "name": "resetting_to_listening",
+          "from": "Resetting",
+          "to": "Listening",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "relay_signal",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "ack_signal",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "recv_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "ack_sent",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "relay_signal"
+      ],
+      "outputs": [
+        "ack_signal",
+        "recv_count",
+        "ack_sent"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/16_host_ping_pong/pong_relay.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

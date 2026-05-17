@@ -1,0 +1,989 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Aetherium Gem Cell Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_15_aetherium_gem_aetherium_gem_cell",
+      "name": "Aetherium Gem Cell",
+      "description": "State-heavy flagship cell that exercises TDD checkpoints, fault injection, replay markers, black-box boundaries, and Petri-liftable shared-resource demand.",
+      "rootAutomataIds": [
+        "network_15_aetherium_gem_aetherium_gem_cell_01_aetherium_gem_cell"
+      ],
+      "automataIds": [
+        "network_15_aetherium_gem_aetherium_gem_cell_01_aetherium_gem_cell"
+      ],
+      "inputs": [
+        "operator_enable",
+        "sensor_ok",
+        "petri_bus_grant",
+        "quality_score",
+        "fault_inject_drop",
+        "fault_inject_delay",
+        "reset_fault"
+      ],
+      "outputs": [
+        "phase",
+        "demand_bus",
+        "heartbeat",
+        "black_box_probe",
+        "tdd_step",
+        "tdd_assertion_passed",
+        "replay_marker",
+        "cycle_count",
+        "fault_latched"
+      ],
+      "relativePath": "networks/aetherium_gem_cell",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_15_aetherium_gem_aetherium_gem_cell_01_aetherium_gem_cell": {
+      "id": "network_15_aetherium_gem_aetherium_gem_cell_01_aetherium_gem_cell",
+      "version": "0.0.1",
+      "config": {
+        "name": "Aetherium Gem Cell",
+        "type": "inline",
+        "language": "lua",
+        "description": "State-heavy flagship cell that exercises TDD checkpoints, fault injection, replay markers, black-box boundaries, and Petri-liftable shared-resource demand.",
+        "tags": [
+          "showcase",
+          "flagship",
+          "gem",
+          "tdd",
+          "fault-injection",
+          "petri",
+          "time-travel"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"boot\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"black_box_probe\", false)\nsetVal(\"tdd_step\", 0)\nsetVal(\"tdd_assertion_passed\", false)\nsetVal(\"replay_marker\", \"boot\")\nsetVal(\"fault_latched\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "SelfTestArrange": {
+          "id": "SelfTestArrange",
+          "name": "SelfTestArrange",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_arrange\")\nsetVal(\"tdd_step\", 1)\nsetVal(\"replay_marker\", \"arrange\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "SelfTestAct": {
+          "id": "SelfTestAct",
+          "name": "SelfTestAct",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_act\")\nsetVal(\"tdd_step\", 2)\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "SelfTestAssert": {
+          "id": "SelfTestAssert",
+          "name": "SelfTestAssert",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"tdd_assert\")\nsetVal(\"tdd_step\", 3)\nsetVal(\"tdd_assertion_passed\", value(\"sensor_ok\") == true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"idle\")\nsetVal(\"demand_bus\", false)\nsetVal(\"black_box_probe\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"replay_marker\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "RequestBus": {
+          "id": "RequestBus",
+          "name": "RequestBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"request_bus\")\nsetVal(\"demand_bus\", true)\nsetVal(\"heartbeat\", true)\nsetVal(\"black_box_probe\", true)\nsetVal(\"replay_marker\", \"bus_requested\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "AwaitGrant": {
+          "id": "AwaitGrant",
+          "name": "AwaitGrant",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"await_grant\")\nsetVal(\"demand_bus\", true)\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        },
+        "AcquireBus": {
+          "id": "AcquireBus",
+          "name": "AcquireBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"acquire_bus\")\nsetVal(\"demand_bus\", true)\nsetVal(\"cycle_count\", value(\"cycle_count\") + 1)\nsetVal(\"replay_marker\", \"cycle_\" .. tostring(value(\"cycle_count\")))\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 240
+          }
+        },
+        "ProcessAlpha": {
+          "id": "ProcessAlpha",
+          "name": "ProcessAlpha",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"process_alpha\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 400
+          }
+        },
+        "ProcessBeta": {
+          "id": "ProcessBeta",
+          "name": "ProcessBeta",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"process_beta\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 400
+          }
+        },
+        "DelayCompensation": {
+          "id": "DelayCompensation",
+          "name": "DelayCompensation",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"delay_compensation\")\nsetVal(\"heartbeat\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 400
+          }
+        },
+        "QualityGate": {
+          "id": "QualityGate",
+          "name": "QualityGate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"quality_gate\")\nsetVal(\"black_box_probe\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 400
+          }
+        },
+        "NominalCommit": {
+          "id": "NominalCommit",
+          "name": "NominalCommit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"nominal_commit\")\nsetVal(\"replay_marker\", \"commit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 560
+          }
+        },
+        "MinorRework": {
+          "id": "MinorRework",
+          "name": "MinorRework",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"minor_rework\")\nsetVal(\"replay_marker\", \"rework\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 560
+          }
+        },
+        "FaultInjected": {
+          "id": "FaultInjected",
+          "name": "FaultInjected",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"fault_injected\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\nsetVal(\"fault_latched\", true)\nsetVal(\"replay_marker\", \"fault_injected\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 560
+          }
+        },
+        "Isolate": {
+          "id": "Isolate",
+          "name": "Isolate",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"isolate\")\nsetVal(\"demand_bus\", false)\nsetVal(\"black_box_probe\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 560
+          }
+        },
+        "ReplayCheckpoint": {
+          "id": "ReplayCheckpoint",
+          "name": "ReplayCheckpoint",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"replay_checkpoint\")\nsetVal(\"replay_marker\", \"checkpoint\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 720
+          }
+        },
+        "ReleaseBus": {
+          "id": "ReleaseBus",
+          "name": "ReleaseBus",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"release_bus\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 720
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"phase\", \"done\")\nsetVal(\"demand_bus\", false)\nsetVal(\"heartbeat\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 720
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_arrange": {
+          "id": "boot_to_arrange",
+          "name": "boot_to_arrange",
+          "from": "Boot",
+          "to": "SelfTestArrange",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 100,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "arrange_to_act": {
+          "id": "arrange_to_act",
+          "name": "arrange_to_act",
+          "from": "SelfTestArrange",
+          "to": "SelfTestAct",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "act_to_assert": {
+          "id": "act_to_assert",
+          "name": "act_to_assert",
+          "from": "SelfTestAct",
+          "to": "SelfTestAssert",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 100,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "assert_to_idle": {
+          "id": "assert_to_idle",
+          "name": "assert_to_idle",
+          "from": "SelfTestAssert",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"tdd_assertion_passed\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "assert_to_fault": {
+          "id": "assert_to_fault",
+          "name": "assert_to_fault",
+          "from": "SelfTestAssert",
+          "to": "FaultInjected",
+          "type": "classic",
+          "condition": "value(\"tdd_assertion_passed\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "idle_to_request": {
+          "id": "idle_to_request",
+          "name": "idle_to_request",
+          "from": "Idle",
+          "to": "RequestBus",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "operator_enable",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "request_fault_drop": {
+          "id": "request_fault_drop",
+          "name": "request_fault_drop",
+          "from": "RequestBus",
+          "to": "FaultInjected",
+          "type": "classic",
+          "condition": "value(\"fault_inject_drop\") == true or value(\"sensor_ok\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "request_to_await": {
+          "id": "request_to_await",
+          "name": "request_to_await",
+          "from": "RequestBus",
+          "to": "AwaitGrant",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 120,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "await_to_acquire": {
+          "id": "await_to_acquire",
+          "name": "await_to_acquire",
+          "from": "AwaitGrant",
+          "to": "AcquireBus",
+          "type": "classic",
+          "condition": "value(\"petri_bus_grant\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "await_timeout_to_fault": {
+          "id": "await_timeout_to_fault",
+          "name": "await_timeout_to_fault",
+          "from": "AwaitGrant",
+          "to": "FaultInjected",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "acquire_to_alpha": {
+          "id": "acquire_to_alpha",
+          "name": "acquire_to_alpha",
+          "from": "AcquireBus",
+          "to": "ProcessAlpha",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 60,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 60
+          }
+        },
+        "acquire_to_beta": {
+          "id": "acquire_to_beta",
+          "name": "acquire_to_beta",
+          "from": "AcquireBus",
+          "to": "ProcessBeta",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 40,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 40
+          }
+        },
+        "alpha_delay_fault": {
+          "id": "alpha_delay_fault",
+          "name": "alpha_delay_fault",
+          "from": "ProcessAlpha",
+          "to": "DelayCompensation",
+          "type": "classic",
+          "condition": "value(\"fault_inject_delay\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alpha_to_quality": {
+          "id": "alpha_to_quality",
+          "name": "alpha_to_quality",
+          "from": "ProcessAlpha",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "beta_delay_fault": {
+          "id": "beta_delay_fault",
+          "name": "beta_delay_fault",
+          "from": "ProcessBeta",
+          "to": "DelayCompensation",
+          "type": "classic",
+          "condition": "value(\"fault_inject_delay\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "beta_to_quality": {
+          "id": "beta_to_quality",
+          "name": "beta_to_quality",
+          "from": "ProcessBeta",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 260,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "delay_to_quality": {
+          "id": "delay_to_quality",
+          "name": "delay_to_quality",
+          "from": "DelayCompensation",
+          "to": "QualityGate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "quality_to_commit": {
+          "id": "quality_to_commit",
+          "name": "quality_to_commit",
+          "from": "QualityGate",
+          "to": "NominalCommit",
+          "type": "classic",
+          "condition": "value(\"quality_score\") >= 70",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "quality_to_rework": {
+          "id": "quality_to_rework",
+          "name": "quality_to_rework",
+          "from": "QualityGate",
+          "to": "MinorRework",
+          "type": "classic",
+          "condition": "value(\"quality_score\") < 70",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "rework_to_request": {
+          "id": "rework_to_request",
+          "name": "rework_to_request",
+          "from": "MinorRework",
+          "to": "RequestBus",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 400,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "commit_to_checkpoint": {
+          "id": "commit_to_checkpoint",
+          "name": "commit_to_checkpoint",
+          "from": "NominalCommit",
+          "to": "ReplayCheckpoint",
+          "type": "immediate",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "checkpoint_to_release": {
+          "id": "checkpoint_to_release",
+          "name": "checkpoint_to_release",
+          "from": "ReplayCheckpoint",
+          "to": "ReleaseBus",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "release_continue": {
+          "id": "release_continue",
+          "name": "release_continue",
+          "from": "ReleaseBus",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == true and value(\"cycle_count\") < 4",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "release_done": {
+          "id": "release_done",
+          "name": "release_done",
+          "from": "ReleaseBus",
+          "to": "Done",
+          "type": "classic",
+          "condition": "value(\"operator_enable\") == false or value(\"cycle_count\") >= 4",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "fault_to_isolate": {
+          "id": "fault_to_isolate",
+          "name": "fault_to_isolate",
+          "from": "FaultInjected",
+          "to": "Isolate",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "isolate_to_boot": {
+          "id": "isolate_to_boot",
+          "name": "isolate_to_boot",
+          "from": "Isolate",
+          "to": "Boot",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "reset_fault",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "operator_enable",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "sensor_ok",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "petri_bus_grant",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "quality_score",
+          "type": "int",
+          "direction": "input",
+          "default": 82
+        },
+        {
+          "name": "fault_inject_drop",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault_inject_delay",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "reset_fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        },
+        {
+          "name": "demand_bus",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "black_box_probe",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "tdd_step",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "tdd_assertion_passed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "replay_marker",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "fault_latched",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "operator_enable",
+        "sensor_ok",
+        "petri_bus_grant",
+        "quality_score",
+        "fault_inject_drop",
+        "fault_inject_delay",
+        "reset_fault"
+      ],
+      "outputs": [
+        "phase",
+        "demand_bus",
+        "heartbeat",
+        "black_box_probe",
+        "tdd_step",
+        "tdd_assertion_passed",
+        "replay_marker",
+        "cycle_count",
+        "fault_latched"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "operator_enable",
+            "direction": "input",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true
+          },
+          {
+            "name": "fault_inject_drop",
+            "direction": "input",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true
+          },
+          {
+            "name": "demand_bus",
+            "direction": "output",
+            "type": "bool",
+            "observable": true
+          },
+          {
+            "name": "phase",
+            "direction": "output",
+            "type": "string",
+            "observable": true
+          },
+          {
+            "name": "fault_latched",
+            "direction": "output",
+            "type": "bool",
+            "observable": true
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "RequestBus",
+          "ProcessAlpha",
+          "ProcessBeta",
+          "FaultInjected",
+          "ReplayCheckpoint"
+        ],
+        "emittedEvents": [
+          "tdd_assertion_passed",
+          "fault_latched",
+          "replay_checkpoint"
+        ],
+        "resources": [
+          {
+            "name": "gem_workcell_bus",
+            "kind": "shared-control-channel",
+            "capacity": 1,
+            "shared": true,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

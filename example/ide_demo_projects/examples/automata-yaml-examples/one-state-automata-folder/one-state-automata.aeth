@@ -1,0 +1,139 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "one state automata Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/automata-yaml-examples/one-state-automata-folder/one-state-automata.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_one_state_automata_folder_one_state_automata",
+      "name": "one state automata",
+      "rootAutomataIds": [
+        "network_one_state_automata_folder_one_state_automata_01_one_state_automata"
+      ],
+      "automataIds": [
+        "network_one_state_automata_folder_one_state_automata_01_one_state_automata"
+      ],
+      "inputs": [],
+      "outputs": [],
+      "relativePath": "networks/one_state_automata",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_one_state_automata_folder_one_state_automata_01_one_state_automata": {
+      "id": "network_one_state_automata_folder_one_state_automata_01_one_state_automata",
+      "version": "0.0.1",
+      "config": {
+        "name": "one state automata",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "State1",
+      "states": {
+        "State1": {
+          "id": "State1",
+          "name": "State1",
+          "inputs": [
+            "in1",
+            "in2"
+          ],
+          "outputs": [
+            "out1",
+            "out2"
+          ],
+          "variables": [
+            "var1",
+            "var2"
+          ],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "State2": {
+          "id": "State2",
+          "name": "State2",
+          "inputs": [
+            "in1",
+            "in3"
+          ],
+          "outputs": [
+            "out2",
+            "out3"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "Transition1": {
+          "id": "Transition1",
+          "name": "Transition1",
+          "from": "State1",
+          "to": "State2",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/one-state-automata-folder/one-state-automata.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

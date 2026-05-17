@@ -1,0 +1,101 @@
+# ============================================================================
+# Pong Relay — device 2 of the host ping-pong pair
+# ============================================================================
+#
+# Deploy on: host_cpp_02
+# Pair with:  ping_relay.yaml on host_cpp_01
+#
+# No manual wiring needed. The gateway auto-routes outputs to any active
+# deployment whose automata definition declares an input with the same name:
+#
+#   relay_signal (input here)   ←  relay_signal (output in ping_relay)
+#   ack_signal   (output here)  →  ack_signal   (input in ping_relay)
+#
+# Just deploy both and start execution — they self-connect by name.
+#
+# Cycle (triggered by ping_relay):
+#   1. Listening — waits for relay_signal==true from device 1
+#   2. Processing — bumps recv_count, 1 s processing delay
+#   3. Responding — sets ack_signal=true, waits for relay_signal to clear
+#   4. Resetting — sets ack_signal=false, 1 s settle delay
+#   → back to Listening
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Pong Relay
+  type: inline
+  description: Responds to the relay handshake initiated by ping_relay.yaml. Fully autonomous once connections are wired.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - communication
+    - ping-pong
+
+variables:
+  - name: relay_signal
+    type: bool
+    direction: input
+    default: false
+
+  - name: ack_signal
+    type: bool
+    direction: output
+    default: false
+
+  - name: recv_count
+    type: int
+    direction: output
+    default: 0
+
+  - name: ack_sent
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Listening
+
+  states:
+    Listening: {}
+
+    Processing:
+      on_enter: |
+        setVal("recv_count", value("recv_count") + 1)
+
+    Responding:
+      on_enter: |
+        setOutput("ack_signal", true)
+        setVal("ack_sent", value("ack_sent") + 1)
+
+    Resetting:
+      on_enter: |
+        setOutput("ack_signal", false)
+
+  transitions:
+    listen_to_processing:
+      from: Listening
+      to: Processing
+      type: classic
+      condition: value("relay_signal") == true
+
+    processing_to_responding:
+      from: Processing
+      to: Responding
+      type: timed
+      after: 1
+
+    responding_to_resetting:
+      from: Responding
+      to: Resetting
+      type: classic
+      condition: value("relay_signal") == false
+
+    resetting_to_listening:
+      from: Resetting
+      to: Listening
+      type: timed
+      after: 1

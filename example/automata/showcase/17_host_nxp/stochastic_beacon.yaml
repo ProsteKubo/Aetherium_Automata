@@ -1,0 +1,157 @@
+# ============================================================================
+# Stochastic Beacon — host side of the host↔NXP showcase pair
+# ============================================================================
+#
+# Deploy on: host_cpp_01
+# Pair with:  nxp_signal_monitor.yaml on mcxn947-core0
+#
+# No manual wiring needed. The gateway auto-routes by matching variable names:
+#
+#   signal_level  (output here)  →  signal_level  (input  in nxp_signal_monitor)
+#   nxp_temp_mc   (input  here)  ←  nxp_temp_mc   (output in nxp_signal_monitor)
+#
+# Cycle (nominal ~17 s per round):
+#   1. Idle       (3 s)     — broadcasts signal_level="idle"
+#   2. ChooseLevel (instant) — weighted random pick: low 40%, medium 30%, high 20%, surge 10%
+#   3. Signal state (6 s)    — broadcasts chosen level and strength
+#   4. Cooldown   (2 s)     — broadcasts signal_level="cooldown"
+#   → back to Idle
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: Stochastic Beacon
+  type: inline
+  language: lua
+  description: Probabilistic signal generator that autonomously cycles through signal levels and broadcasts them to a connected NXP device automata.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - host
+    - stochastic
+    - communication
+
+variables:
+  - name: signal_level
+    type: string
+    direction: output
+    default: "idle"
+
+  - name: signal_strength
+    type: int
+    direction: output
+    default: 0
+
+  - name: nxp_temp_mc
+    type: int
+    direction: input
+    default: 0
+
+  - name: cycle_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setOutput("signal_level", "idle")
+        setOutput("signal_strength", 0)
+        setVal("cycle_count", value("cycle_count") + 1)
+
+    ChooseLevel: {}
+
+    LowSignal:
+      on_enter: |
+        setOutput("signal_level", "low")
+        setOutput("signal_strength", 20)
+
+    MediumSignal:
+      on_enter: |
+        setOutput("signal_level", "medium")
+        setOutput("signal_strength", 50)
+
+    HighSignal:
+      on_enter: |
+        setOutput("signal_level", "high")
+        setOutput("signal_strength", 80)
+
+    Surge:
+      on_enter: |
+        setOutput("signal_level", "surge")
+        setOutput("signal_strength", 100)
+
+    Cooldown:
+      on_enter: |
+        setOutput("signal_level", "cooldown")
+        setOutput("signal_strength", 0)
+
+  transitions:
+    idle_to_choose:
+      from: Idle
+      to: ChooseLevel
+      type: timed
+      after: "3s"
+
+    choose_low:
+      from: ChooseLevel
+      to: LowSignal
+      type: probabilistic
+      probabilistic:
+        weight: 0.4
+
+    choose_medium:
+      from: ChooseLevel
+      to: MediumSignal
+      type: probabilistic
+      probabilistic:
+        weight: 0.3
+
+    choose_high:
+      from: ChooseLevel
+      to: HighSignal
+      type: probabilistic
+      probabilistic:
+        weight: 0.2
+
+    choose_surge:
+      from: ChooseLevel
+      to: Surge
+      type: probabilistic
+      probabilistic:
+        weight: 0.1
+
+    low_to_cooldown:
+      from: LowSignal
+      to: Cooldown
+      type: timed
+      after: "6s"
+
+    medium_to_cooldown:
+      from: MediumSignal
+      to: Cooldown
+      type: timed
+      after: "6s"
+
+    high_to_cooldown:
+      from: HighSignal
+      to: Cooldown
+      type: timed
+      after: "6s"
+
+    surge_to_cooldown:
+      from: Surge
+      to: Cooldown
+      type: timed
+      after: "6s"
+
+    cooldown_to_idle:
+      from: Cooldown
+      to: Idle
+      type: timed
+      after: "2s"

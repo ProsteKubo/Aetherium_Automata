@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Binding Follower Status LED Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_binding_follower_status_led.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_binding_follower_status_led",
+      "name": "ESP32 Binding Follower Status LED",
+      "description": "ESP32 follower node for IDE bindings. Consumes a remote button signal and mirrors it on the ESP status LED.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_binding_follower_status_led_01_esp32_binding_follower_status_led"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_binding_follower_status_led_01_esp32_binding_follower_status_led"
+      ],
+      "inputs": [
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_led"
+      ],
+      "relativePath": "networks/esp32_binding_follower_status_led",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_binding_follower_status_led_01_esp32_binding_follower_status_led": {
+      "id": "network_08_esp32_esp32_binding_follower_status_led_01_esp32_binding_follower_status_led",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Binding Follower Status LED",
+        "type": "inline",
+        "language": "lua",
+        "description": "ESP32 follower node for IDE bindings. Consumes a remote button signal and mirrors it on the ESP status LED.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "ide",
+          "binding",
+          "follower",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local pressed = leader_button == true\n\ncomponent(\"board_led\"):set(pressed)\nsetOutput(\"follower_led\", pressed)",
+          "hooks": {
+            "onEnter": "component(\"board_led\"):off()"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "leader_button",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "follower_led",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "leader_button"
+      ],
+      "outputs": [
+        "follower_led"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_binding_follower_status_led.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

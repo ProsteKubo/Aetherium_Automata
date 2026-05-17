@@ -1,0 +1,140 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "MCXN947 GPIO Buttons to LEDs Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_09_mcxn947_mcxn947_gpio_buttons_leds",
+      "name": "MCXN947 GPIO Buttons to LEDs",
+      "description": "FRDM-MCXN947 hardware smoke that mirrors SW2/SW3 onto the red/green LEDs with ESP-style GPIO calls.",
+      "rootAutomataIds": [
+        "network_09_mcxn947_mcxn947_gpio_buttons_leds_01_mcxn947_gpio_buttons_leds"
+      ],
+      "automataIds": [
+        "network_09_mcxn947_mcxn947_gpio_buttons_leds_01_mcxn947_gpio_buttons_leds"
+      ],
+      "inputs": [],
+      "outputs": [
+        "sw2_pressed",
+        "sw3_pressed"
+      ],
+      "relativePath": "networks/mcxn947_gpio_buttons_to_leds",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_09_mcxn947_mcxn947_gpio_buttons_leds_01_mcxn947_gpio_buttons_leds": {
+      "id": "network_09_mcxn947_mcxn947_gpio_buttons_leds_01_mcxn947_gpio_buttons_leds",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 GPIO Buttons to LEDs",
+        "type": "inline",
+        "language": "lua",
+        "description": "FRDM-MCXN947 hardware smoke that mirrors SW2/SW3 onto the red/green LEDs with ESP-style GPIO calls.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Mirror",
+      "states": {
+        "Mirror": {
+          "id": "Mirror",
+          "name": "Mirror",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local sw2 = gpio.read(23) == 0\nlocal sw3 = gpio.read(6) == 0\n\ngpio.write(10, sw2)\ngpio.write(27, sw3)\n\nsetOutput(\"sw2_pressed\", sw2)\nsetOutput(\"sw3_pressed\", sw3)",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay_active": {
+          "id": "stay_active",
+          "name": "stay_active",
+          "from": "Mirror",
+          "to": "Mirror",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sw2_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "sw3_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "sw2_pressed",
+        "sw3_pressed"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -249,7 +249,8 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   @doc "Rewind multiple deployments to the same timestamp (network-level time travel)"
-  @spec rewind_deployment_batch([String.t()], non_neg_integer()) :: {:ok, map()} | {:error, term()}
+  @spec rewind_deployment_batch([String.t()], non_neg_integer()) ::
+          {:ok, map()} | {:error, term()}
   def rewind_deployment_batch(deployment_ids, timestamp_ms) when is_list(deployment_ids) do
     GenServer.call(__MODULE__, {:rewind_deployment_batch, deployment_ids, timestamp_ms}, 30_000)
   end
@@ -817,7 +818,8 @@ defmodule AetheriumServer.DeviceManager do
         end)
 
       {:reply,
-       {:ok, %{deployment_ids: deployment_ids, rewound_to: timestamp_ms, results: per_deployment}},
+       {:ok,
+        %{deployment_ids: deployment_ids, rewound_to: timestamp_ms, results: per_deployment}},
        final_state}
     end
   end
@@ -1032,8 +1034,9 @@ defmodule AetheriumServer.DeviceManager do
 
     Enum.each(changed_device_ids, &DeploymentObservability.persist_device_status(new_state, &1))
 
-    # Refresh device list in gateway after any heartbeat timeouts
-    push_device_list(new_state)
+    if changed_device_ids != [] do
+      push_device_list(new_state)
+    end
 
     Process.send_after(self(), :check_heartbeats, state.heartbeat_timeout)
     {:noreply, new_state}
@@ -1234,6 +1237,8 @@ defmodule AetheriumServer.DeviceManager do
           DeploymentObservability.build_deployment_metadata(device, deployment, payload)
           |> preserve_state_change_cursor(deployment)
 
+        previous_variables = deployment.variables || %{}
+
         new_state =
           state
           |> put_in([:deployments, deployment.id, :status], status)
@@ -1245,19 +1250,30 @@ defmodule AetheriumServer.DeviceManager do
             deployment_metadata
           )
 
-        DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
-          "deployment_id" => deployment.id,
-          "automata_id" => deployment.automata_id,
-          "device_id" => device_id,
-          "status" => Atom.to_string(status),
-          "current_state" => current_state,
-          "variables" => get_in(new_state, [:deployments, deployment.id, :variables]) || %{},
-          "deployment_metadata" =>
-            get_in(new_state, [:deployments, deployment.id, :deployment_metadata]) || %{}
-        })
-
+        current_variables = get_in(new_state, [:deployments, deployment.id, :variables]) || %{}
         new_state = LiveStateRequests.fulfill_request(new_state, deployment.id)
-        DeploymentObservability.snapshot_deployment(new_state, deployment.id, "device_status")
+
+        if deployment_status_changed?(
+             deployment,
+             status,
+             current_state,
+             previous_variables,
+             current_variables
+           ) do
+          DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
+            "deployment_id" => deployment.id,
+            "automata_id" => deployment.automata_id,
+            "device_id" => device_id,
+            "status" => Atom.to_string(status),
+            "current_state" => current_state,
+            "variables" => current_variables,
+            "deployment_metadata" =>
+              get_in(new_state, [:deployments, deployment.id, :deployment_metadata]) || %{}
+          })
+
+          DeploymentObservability.snapshot_deployment(new_state, deployment.id, "device_status")
+        end
+
         new_state
       end
     else
@@ -1438,7 +1454,11 @@ defmodule AetheriumServer.DeviceManager do
           }
         )
 
-        DeploymentObservability.snapshot_deployment(new_state, deployment_id, "time_travel_rewind")
+        DeploymentObservability.snapshot_deployment(
+          new_state,
+          deployment_id,
+          "time_travel_rewind"
+        )
 
         DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
           "deployment_id" => deployment_id,
@@ -1613,6 +1633,18 @@ defmodule AetheriumServer.DeviceManager do
   end
 
   defp normalize_int(_), do: nil
+
+  defp deployment_status_changed?(
+         deployment,
+         status,
+         current_state,
+         previous_variables,
+         current_variables
+       ) do
+    deployment.status != status or
+      deployment.current_state != current_state or
+      previous_variables != current_variables
+  end
 
   defp push_device_list(state) do
     devices =

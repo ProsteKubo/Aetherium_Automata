@@ -7,7 +7,7 @@ REPO_ROOT="$(cd "${SRC_ROOT}/.." && pwd)"
 HOST_GATEWAY_PORT="${HOST_GATEWAY_PORT:-8080}"
 HOST_DEVICE_PORT="${HOST_DEVICE_PORT:-4100}"
 HOST_SERVER_ID="${HOST_SERVER_ID:-svr_host}"
-HOST_DEVICE_COUNT="${HOST_DEVICE_COUNT:-1}"
+HOST_DEVICE_COUNT="${HOST_DEVICE_COUNT:-2}"
 HOST_DEVICE_PREFIX="${HOST_DEVICE_PREFIX:-host_cpp}"
 HOST_RUNTIME_DIR="${HOST_RUNTIME_DIR:-${SRC_ROOT}/var/host-console}"
 HOST_BUILD_ENGINE="${HOST_BUILD_ENGINE:-1}"
@@ -17,6 +17,11 @@ HOST_GATEWAY_LOG="${HOST_GATEWAY_LOG:-filtered}"
 HOST_SERVER_LOG="${HOST_SERVER_LOG:-all}"
 HOST_DEVICE_LOG="${HOST_DEVICE_LOG:-all}"
 HOST_LOG_DIR="${HOST_LOG_DIR:-${HOST_RUNTIME_DIR}/logs}"
+HOST_SERIAL_ENABLED="${HOST_SERIAL_ENABLED:-0}"
+HOST_SERIAL_PORTS="${HOST_SERIAL_PORTS:-}"
+HOST_SERIAL_BAUD="${HOST_SERIAL_BAUD:-115200}"
+HOST_SERIAL_CHUNK_SIZE="${HOST_SERIAL_CHUNK_SIZE:-}"
+HOST_SERIAL_CHUNK_ACK_MS="${HOST_SERIAL_CHUNK_ACK_MS:-}"
 COMPOSE="${COMPOSE:-docker compose}"
 GATEWAY_OPERATOR_TOKEN="${GATEWAY_OPERATOR_TOKEN:-dev_secret_token}"
 GATEWAY_SERVER_TOKEN="${GATEWAY_SERVER_TOKEN:-server_secret_token}"
@@ -100,7 +105,7 @@ start_prefixed() {
   local filter="${3:-all}"
   shift 3
 
-  local gateway_filter='Unchecked dependencies|dependency is not available|Can.t continue|Mix\)|\[(error|warning)\]|error|warning|Server .*connected|Server .*disconnected|Registered automata|Deploying automata|deployment_status|state_changed|transition_fired|command_outcome|device_update|deployment_inventory|JOINED|CONNECTED|Queueing command|Flushed .*queued|Unhandled'
+  local gateway_filter='Unchecked dependencies|dependency is not available|Can.t continue|Mix\)|\[(error|warning)\]|error|warning|Server .*connected|Server .*disconnected|Registered automata|Deploying automata|Stopped automata deployment|state_changed|transition_fired|JOINED|CONNECTED|Queueing command|Flushed .*queued|Unhandled'
   local process_log="${HOST_LOG_DIR}/${name}.log"
 
   log "starting ${name} (log: ${process_log})"
@@ -109,8 +114,9 @@ start_prefixed() {
     if [[ "${filter}" == "gateway" ]]; then
       stdbuf -oL -eL "$@" 2>&1 \
         | sed -u "s/^/[${name}] /" \
-        | tee -a "${process_log}" "${HOST_COMBINED_LOG}" \
-        | grep -E --line-buffered "${gateway_filter}"
+        | tee -a "${process_log}" \
+        | grep -E --line-buffered "${gateway_filter}" \
+        | tee -a "${HOST_COMBINED_LOG}"
     elif [[ "${filter}" == "none" ]]; then
       stdbuf -oL -eL "$@" 2>&1 \
         | sed -u "s/^/[${name}] /" \
@@ -182,18 +188,29 @@ start_prefixed "gateway" "${SRC_ROOT}/gateway/aetherium_gateway" "${gateway_filt
 
 wait_for_port "gateway" "${HOST_GATEWAY_PORT}" 45
 
+server_cmd=(
+  env
+    "SERVER_ID=${HOST_SERVER_ID}"
+    "DEVICE_PORT=${HOST_DEVICE_PORT}"
+    ENABLE_WEBSOCKET_DEVICE_TRANSPORT=1
+    "ENABLE_SERIAL_DEVICE_TRANSPORT=${HOST_SERIAL_ENABLED}"
+    ENABLE_ROS2_DEVICE_TRANSPORT=0
+    ENABLE_HOST_RUNTIME_DEVICE=0
+    "GATEWAY_WS_URL=ws://127.0.0.1:${HOST_GATEWAY_PORT}/socket/websocket"
+    "GATEWAY_AUTH_TOKEN=${GATEWAY_SERVER_TOKEN}"
+    "TIME_SERIES_DATA_DIR=${HOST_RUNTIME_DIR}/server_time_series"
+)
+if [[ "${HOST_SERIAL_ENABLED}" == "1" && -n "${HOST_SERIAL_PORTS}" ]]; then
+  server_cmd+=("SERIAL_PORTS=${HOST_SERIAL_PORTS}" "SERIAL_BAUD_RATE=${HOST_SERIAL_BAUD}")
+  [[ -n "${HOST_SERIAL_CHUNK_SIZE}" ]] && \
+    server_cmd+=("AETHERIUM_DEPLOY_CHUNK_SIZE=${HOST_SERIAL_CHUNK_SIZE}")
+  [[ -n "${HOST_SERIAL_CHUNK_ACK_MS}" ]] && \
+    server_cmd+=("AETHERIUM_DEPLOY_CHUNK_ACK_TIMEOUT_MS=${HOST_SERIAL_CHUNK_ACK_MS}")
+fi
+server_cmd+=(mix run --no-halt)
+
 start_prefixed "server" "${SRC_ROOT}/server/aetherium_server" "${HOST_SERVER_LOG}" \
-  env \
-    SERVER_ID="${HOST_SERVER_ID}" \
-    DEVICE_PORT="${HOST_DEVICE_PORT}" \
-    ENABLE_WEBSOCKET_DEVICE_TRANSPORT=1 \
-    ENABLE_SERIAL_DEVICE_TRANSPORT=0 \
-    ENABLE_ROS2_DEVICE_TRANSPORT=0 \
-    ENABLE_HOST_RUNTIME_DEVICE=0 \
-    GATEWAY_WS_URL="ws://127.0.0.1:${HOST_GATEWAY_PORT}/socket/websocket" \
-    GATEWAY_AUTH_TOKEN="${GATEWAY_SERVER_TOKEN}" \
-    TIME_SERIES_DATA_DIR="${HOST_RUNTIME_DIR}/server_time_series" \
-    mix run --no-halt
+  "${server_cmd[@]}"
 
 wait_for_port "server device websocket" "${HOST_DEVICE_PORT}" 45
 

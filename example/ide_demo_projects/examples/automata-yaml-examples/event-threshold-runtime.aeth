@@ -1,0 +1,288 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Event Threshold Runtime Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/automata-yaml-examples/event-threshold-runtime.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_event_threshold_runtime",
+      "name": "Event Threshold Runtime",
+      "description": "Covers event on_rise/on_threshold plus timed timeout watchdog",
+      "rootAutomataIds": [
+        "network_event_threshold_runtime_01_event_threshold_runtime"
+      ],
+      "automataIds": [
+        "network_event_threshold_runtime_01_event_threshold_runtime"
+      ],
+      "inputs": [
+        "cmd_start",
+        "cmd_stop",
+        "pressure"
+      ],
+      "outputs": [
+        "running",
+        "overload"
+      ],
+      "relativePath": "networks/event_threshold_runtime",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_event_threshold_runtime_01_event_threshold_runtime": {
+      "id": "network_event_threshold_runtime_01_event_threshold_runtime",
+      "version": "0.0.1",
+      "config": {
+        "name": "Event Threshold Runtime",
+        "type": "inline",
+        "language": "lua",
+        "description": "Covers event on_rise/on_threshold plus timed timeout watchdog",
+        "tags": [
+          "event",
+          "threshold",
+          "watchdog"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", false)\nsetVal(\"overload\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Active": {
+          "id": "Active",
+          "name": "Active",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", true)\nsetVal(\"cycles\", value(\"cycles\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Tripped": {
+          "id": "Tripped",
+          "name": "Tripped",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"running\", false)\nsetVal(\"overload\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_event": {
+          "id": "start_event",
+          "name": "start_event",
+          "from": "Idle",
+          "to": "Active",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "cmd_start",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "stop_event": {
+          "id": "stop_event",
+          "name": "stop_event",
+          "from": "Active",
+          "to": "Idle",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "cmd_stop",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "trip_on_pressure": {
+          "id": "trip_on_pressure",
+          "name": "trip_on_pressure",
+          "from": "Active",
+          "to": "Tripped",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "pressure",
+                "trigger": "on_threshold",
+                "threshold": {
+                  "operator": ">=",
+                  "value": 90
+                }
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "active_watchdog": {
+          "id": "active_watchdog",
+          "name": "active_watchdog",
+          "from": "Active",
+          "to": "Tripped",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 5000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "recover_to_idle": {
+          "id": "recover_to_idle",
+          "name": "recover_to_idle",
+          "from": "Tripped",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"pressure\") < 50",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "cmd_start",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "cmd_stop",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "pressure",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "cycles",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "running",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "overload",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "cmd_start",
+        "cmd_stop",
+        "pressure"
+      ],
+      "outputs": [
+        "running",
+        "overload"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/event-threshold-runtime.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

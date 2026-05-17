@@ -1,0 +1,202 @@
+# ============================================================================
+# NXP Signal Monitor — hardware side of the host↔NXP showcase pair
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  stochastic_beacon.yaml on host_cpp_01
+#
+# No manual wiring needed. The gateway auto-routes by matching variable names:
+#
+#   signal_level  (input  here)  ←  signal_level  (output in stochastic_beacon)
+#   nxp_temp_mc   (output here)  →  nxp_temp_mc   (input  in stochastic_beacon)
+#
+# LED mapping (FRDM-MCXN947):
+#   GPIO 10 = red  LED — on during Alerting and Peaking
+#   GPIO 27 = green LED — on during Monitoring and Peaking
+#
+# State machine:
+#   Init      → Dormant  (1 s boot)
+#   Dormant   — both LEDs off  — signal="idle" or "cooldown"
+#   Monitoring — green on       — signal="low" or "medium"
+#   Alerting  — red on          — signal="high"
+#   Peaking   — both on         — signal="surge"
+#
+# Each active state continuously outputs the board temperature so the host
+# beacon can observe it in the IDE timeline.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Signal Monitor
+  type: inline
+  language: lua
+  description: FRDM-MCXN947 automata that monitors signal levels from a host beacon and drives red/green LEDs accordingly, while publishing board temperature back to the host.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - mcxn947
+    - communication
+    - hardware-safe
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: signal_level
+    type: string
+    direction: input
+    default: "idle"
+
+  - name: nxp_temp_mc
+    type: int
+    direction: output
+    default: 0
+
+  - name: red_led
+    type: bool
+    direction: output
+    default: false
+
+  - name: green_led
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      hooks:
+        onEnter: |-
+          gpio.mode(10, "output")
+          gpio.mode(27, "output")
+          gpio.write(10, false)
+          gpio.write(27, false)
+          setOutput("red_led", false)
+          setOutput("green_led", false)
+          component("board_temp"):init()
+
+    Dormant:
+      hooks:
+        onEnter: |-
+          gpio.write(10, false)
+          gpio.write(27, false)
+          setOutput("red_led", false)
+          setOutput("green_led", false)
+      code: |-
+        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+
+    Monitoring:
+      hooks:
+        onEnter: |-
+          gpio.write(10, false)
+          gpio.write(27, true)
+          setOutput("red_led", false)
+          setOutput("green_led", true)
+      code: |-
+        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+
+    Alerting:
+      hooks:
+        onEnter: |-
+          gpio.write(10, true)
+          gpio.write(27, false)
+          setOutput("red_led", true)
+          setOutput("green_led", false)
+      code: |-
+        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+
+    Peaking:
+      hooks:
+        onEnter: |-
+          gpio.write(10, true)
+          gpio.write(27, true)
+          setOutput("red_led", true)
+          setOutput("green_led", true)
+      code: |-
+        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+
+  transitions:
+    init_to_dormant:
+      from: Init
+      to: Dormant
+      type: timed
+      after: "1s"
+
+    # Dormant exits
+    dormant_to_monitoring:
+      from: Dormant
+      to: Monitoring
+      type: classic
+      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+
+    dormant_to_alerting:
+      from: Dormant
+      to: Alerting
+      type: classic
+      condition: value("signal_level") == "high"
+
+    dormant_to_peaking:
+      from: Dormant
+      to: Peaking
+      type: classic
+      condition: value("signal_level") == "surge"
+
+    # Monitoring exits
+    monitoring_to_dormant:
+      from: Monitoring
+      to: Dormant
+      type: classic
+      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+
+    monitoring_to_alerting:
+      from: Monitoring
+      to: Alerting
+      type: classic
+      condition: value("signal_level") == "high"
+
+    monitoring_to_peaking:
+      from: Monitoring
+      to: Peaking
+      type: classic
+      condition: value("signal_level") == "surge"
+
+    # Alerting exits
+    alerting_to_dormant:
+      from: Alerting
+      to: Dormant
+      type: classic
+      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+
+    alerting_to_monitoring:
+      from: Alerting
+      to: Monitoring
+      type: classic
+      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+
+    alerting_to_peaking:
+      from: Alerting
+      to: Peaking
+      type: classic
+      condition: value("signal_level") == "surge"
+
+    # Peaking exits
+    peaking_to_dormant:
+      from: Peaking
+      to: Dormant
+      type: classic
+      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+
+    peaking_to_monitoring:
+      from: Peaking
+      to: Monitoring
+      type: classic
+      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+
+    peaking_to_alerting:
+      from: Peaking
+      to: Alerting
+      type: classic
+      condition: value("signal_level") == "high"

@@ -9,6 +9,10 @@
 #include "lua_engine.hpp"
 #endif
 
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+#include "engine/embedded/platform/EmbeddedPlatformHooks.hpp"
+#endif
+
 #ifdef abs
 #undef abs
 #endif
@@ -34,8 +38,12 @@ struct EngineFrontendLoaderHandle {};
 namespace {
 
 Timestamp wallClockMs() {
+#if defined(ARDUINO) || defined(AETHERIUM_PLATFORM_MCXN947)
+    return embedded::platform::millis();
+#else
     const auto now = std::chrono::system_clock::now().time_since_epoch();
     return static_cast<Timestamp>(std::chrono::duration_cast<std::chrono::milliseconds>(now).count());
+#endif
 }
 
 uint16_t toReasonCode(protocol::ErrorCode code) {
@@ -1517,7 +1525,15 @@ void Engine::registerCommandHandlers() {
         if (result.isError()) {
             return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidVariable), result.error());
         }
-        return engine.ackWithStatus(request, "input_set");
+
+        protocol::AckMessage ack;
+        ack.targetId = request.sourceId;
+        ack.relatedMessageId = request.messageId;
+        ack.info = "input_set";
+
+        Engine::Replies replies;
+        replies.push_back(std::make_unique<protocol::AckMessage>(ack));
+        return replies;
     });
 
     commandBus_.registerHandler(protocol::MessageType::Output, [](Engine& engine, const protocol::Message& request) {

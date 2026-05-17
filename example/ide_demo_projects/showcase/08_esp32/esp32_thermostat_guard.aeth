@@ -1,0 +1,317 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "ESP32 Thermostat Guard Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project for example/automata/showcase/08_esp32/esp32_thermostat_guard.yaml.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "single-automata",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_08_esp32_esp32_thermostat_guard",
+      "name": "ESP32 Thermostat Guard",
+      "description": "Input-driven thermostat state machine for ESP32 subset, with fault override.",
+      "rootAutomataIds": [
+        "network_08_esp32_esp32_thermostat_guard_01_esp32_thermostat_guard"
+      ],
+      "automataIds": [
+        "network_08_esp32_esp32_thermostat_guard_01_esp32_thermostat_guard"
+      ],
+      "inputs": [
+        "run",
+        "fault",
+        "temp",
+        "low_limit",
+        "high_limit"
+      ],
+      "outputs": [],
+      "relativePath": "networks/esp32_thermostat_guard",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_08_esp32_esp32_thermostat_guard_01_esp32_thermostat_guard": {
+      "id": "network_08_esp32_esp32_thermostat_guard_01_esp32_thermostat_guard",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 Thermostat Guard",
+        "type": "inline",
+        "language": "lua",
+        "description": "Input-driven thermostat state machine for ESP32 subset, with fault override.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "classic",
+          "timed",
+          "hardware-safe"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Standby",
+      "states": {
+        "Standby": {
+          "id": "Standby",
+          "name": "Standby",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Heating": {
+          "id": "Heating",
+          "name": "Heating",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Cooling": {
+          "id": "Cooling",
+          "name": "Cooling",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "standby_to_alarm": {
+          "id": "standby_to_alarm",
+          "name": "standby_to_alarm",
+          "from": "Standby",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "heating_to_alarm": {
+          "id": "heating_to_alarm",
+          "name": "heating_to_alarm",
+          "from": "Heating",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "cooling_to_alarm": {
+          "id": "cooling_to_alarm",
+          "name": "cooling_to_alarm",
+          "from": "Cooling",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "standby_to_heat": {
+          "id": "standby_to_heat",
+          "name": "standby_to_heat",
+          "from": "Standby",
+          "to": "Heating",
+          "type": "classic",
+          "condition": "run == true and temp <= low_limit",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "standby_to_cool": {
+          "id": "standby_to_cool",
+          "name": "standby_to_cool",
+          "from": "Standby",
+          "to": "Cooling",
+          "type": "classic",
+          "condition": "run == true and temp >= high_limit",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "heating_to_standby": {
+          "id": "heating_to_standby",
+          "name": "heating_to_standby",
+          "from": "Heating",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "cooling_to_standby": {
+          "id": "cooling_to_standby",
+          "name": "cooling_to_standby",
+          "from": "Cooling",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "alarm_to_standby": {
+          "id": "alarm_to_standby",
+          "name": "alarm_to_standby",
+          "from": "Alarm",
+          "to": "Standby",
+          "type": "classic",
+          "condition": "fault == false and run == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "standby_hold": {
+          "id": "standby_hold",
+          "name": "standby_hold",
+          "from": "Standby",
+          "to": "Standby",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1200,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "run",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "temp",
+          "type": "int",
+          "direction": "input",
+          "default": 22
+        },
+        {
+          "name": "low_limit",
+          "type": "int",
+          "direction": "input",
+          "default": 20
+        },
+        {
+          "name": "high_limit",
+          "type": "int",
+          "direction": "input",
+          "default": 25
+        }
+      ],
+      "inputs": [
+        "run",
+        "fault",
+        "temp",
+        "low_limit",
+        "high_limit"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_thermostat_guard.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}
