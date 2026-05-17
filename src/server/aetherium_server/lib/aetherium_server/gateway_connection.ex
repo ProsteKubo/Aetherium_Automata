@@ -517,6 +517,39 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
+  def handle_info(%PhoenixClient.Message{event: "rewind_deployment_batch", payload: payload}, state) do
+    {payload, envelope} = split_envelope(payload)
+
+    deployment_ids =
+      payload["deployment_ids"]
+      |> List.wrap()
+      |> Enum.filter(&(is_binary(&1) and &1 != ""))
+
+    target_ts =
+      parse_optional_non_negative_int(
+        payload["target_timestamp"] || payload["target_ts"] || payload["timestamp"]
+      )
+
+    result =
+      cond do
+        deployment_ids == [] ->
+          {:nak, :invalid_payload, %{"reason" => "empty_deployment_ids"}}
+
+        is_nil(target_ts) ->
+          {:nak, :invalid_payload, %{"reason" => "missing_target_timestamp"}}
+
+        true ->
+          case AetheriumServer.DeviceManager.rewind_deployment_batch(deployment_ids, target_ts) do
+            {:ok, rewind} -> {:ack, :ok, stringify_keys(rewind)}
+            {:error, reason} -> {:error, reason, %{"deployment_ids" => deployment_ids}}
+          end
+      end
+
+    push_command_outcome(state, envelope, "rewind_deployment_batch", result)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(%PhoenixClient.Message{event: "analyzer_query", payload: payload}, state) do
     {payload, envelope} = split_envelope(payload)
 

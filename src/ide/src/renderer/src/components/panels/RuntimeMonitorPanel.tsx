@@ -1,6 +1,4 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import ReactFlow, { Background, BackgroundVariant, Edge, MiniMap, Node } from 'reactflow';
-import 'reactflow/dist/style.css';
 import {
   useAutomataStore,
   useExecutionStore,
@@ -18,7 +16,6 @@ import type {
 } from '../../types';
 import type { RuntimeDeploymentTransfer, RuntimeRenderFrame } from '../../types/runtimeView';
 import { normalizeImportedAutomata } from '../../utils/importedAutomata';
-import { StateNode } from '../editor/StateNode';
 import {
   IconCheck,
   IconDevice,
@@ -59,11 +56,17 @@ type LogicalRuntimeGroup = {
   serverNames: string[];
 };
 
-const runtimeNodeTypes = {
-  stateNode: StateNode,
-};
+const FSM_STATE_W = 80;
+const FSM_STATE_H = 28;
+const FSM_ARROW_SZ = 6;
 
-const runtimeEdgeTypes = {};
+function fmtVarVal(v: unknown): string {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'boolean') return v ? 'true' : 'false';
+  if (typeof v === 'number') return Number.isInteger(v) ? String(v) : v.toFixed(3);
+  if (typeof v === 'string') return v.slice(0, 24);
+  return JSON.stringify(v).slice(0, 24);
+}
 
 const statusOrder: Record<string, number> = {
   running: 6,
@@ -138,90 +141,99 @@ function snapshotToBlackBoxSnapshot(snapshot: ExecutionSnapshot | null): BlackBo
   };
 }
 
-function RuntimeGraphCard({
+const FSM_STATUS_COLORS: Record<string, string> = {
+  running: '#3d8fe9',
+  loading: '#3de9e9',
+  paused: '#e9d63d',
+  error: '#e93d3d',
+  stopped: '#8fe93d',
+};
+
+const RuntimeFsmCard = React.memo(function RuntimeFsmCard({
   item,
   frame,
   transfer,
-  now,
+  liveVariables,
+  automata,
 }: {
   item: DisplayItem;
   frame?: RuntimeRenderFrame;
   transfer?: RuntimeDeploymentTransfer;
-  now: number;
+  liveVariables?: Record<string, unknown>;
+  automata?: Automata;
 }) {
-  const automata = useAutomataStore((state) => state.automata.get(item.automataId as any));
+  const activeState = frame?.activeStateId || item.currentState || null;
+  const color = FSM_STATUS_COLORS[item.status] ?? '#8fe93d';
 
-  // Derive the live current state: frame tracks the most recently animated transition,
-  // falling back to the item's currentState from the deployment store.
-  const liveCurrentState = frame?.activeStateId || item.currentState || 'unknown';
+  const states = useMemo(
+    () => automata ? Object.values(automata.states).filter(Boolean) : [],
+    [automata],
+  );
+  const transitions = useMemo(
+    () => automata ? Object.values(automata.transitions).filter(Boolean) : [],
+    [automata],
+  );
 
-  const nodes = useMemo<Node[]>(() => {
-    if (!automata?.states) return [];
+  const TILE_W = 320;
+  const TILE_H = 200;
 
-    return Object.values(automata.states)
-      .filter((state) => state?.id && state?.position)
-      .map((state) => {
-        const active = frame?.activeStateId === state.id;
-        const pulsing = Boolean(active && now <= (frame?.statePulseUntil || 0));
-        return {
-          id: state.id,
-          type: 'stateNode',
-          position: state.position ?? { x: 0, y: 0 },
-          data: {
-            ...state,
-            isActive: active,
-            isExecuting: pulsing,
-          },
-          draggable: false,
-          selectable: false,
-        } as Node;
-      });
-  }, [automata, frame?.activeStateId, frame?.statePulseUntil, now]);
+  const { scale, offsetX, offsetY } = useMemo(() => {
+    if (!states.length) return { scale: 1, offsetX: 0, offsetY: 0 };
+    const pad = 20;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const s of states) {
+      const { x, y } = s.position ?? { x: 0, y: 0 };
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x + FSM_STATE_W > maxX) maxX = x + FSM_STATE_W;
+      if (y + FSM_STATE_H > maxY) maxY = y + FSM_STATE_H;
+    }
+    const rawW = maxX - minX || 1;
+    const rawH = maxY - minY || 1;
+    const availW = TILE_W - pad * 2;
+    const availH = TILE_H - pad * 2;
+    const s = Math.min(availW / rawW, availH / rawH, 1.4);
+    return {
+      scale: s,
+      offsetX: pad + (availW - rawW * s) / 2 - minX * s,
+      offsetY: pad + (availH - rawH * s) / 2 - minY * s,
+    };
+  }, [states]);
 
-  const edges = useMemo<Edge[]>(() => {
-    if (!automata?.transitions) return [];
+  const sw = FSM_STATE_W * scale;
+  const sh = FSM_STATE_H * scale;
+  const px = (x: number) => x * scale + offsetX;
+  const py = (y: number) => y * scale + offsetY;
+  const markerId = `arr-rt-${item.automataId.replace(/[^a-z0-9]/gi, '_')}`;
 
-    return Object.values(automata.transitions)
-      .filter((transition) => transition?.id && transition?.from && transition?.to)
-      .map((transition) => {
-        const hot = frame?.activeTransitionId === transition.id && now <= (frame?.edgePulseUntil || 0);
-        const className = `transition-edge ${hot ? 'active animating' : ''}`;
-        return {
-          id: transition.id,
-          source: transition.from,
-          target: transition.to,
-          className,
-          style: hot ? { stroke: 'var(--color-success)', strokeWidth: 3 } : undefined,
-          selectable: false,
-        } as Edge;
-      });
-  }, [automata, frame?.activeTransitionId, frame?.edgePulseUntil, now]);
-
-  if (!automata) {
-    return (
-      <div className="runtime-card">
-        <div className="runtime-card-header">
-          <span className="runtime-card-title">{item.label}</span>
-          {item.currentState && <span className="runtime-state">{item.currentState}</span>}
-        </div>
-        <div className="runtime-card-empty">
-          Automata <code>{item.automataId}</code> is not loaded in editor. Open the automata file to see the state graph.
-        </div>
-      </div>
-    );
-  }
+  const varEntries = useMemo(
+    () => (liveVariables ? Object.entries(liveVariables) : []),
+    [liveVariables],
+  );
 
   return (
     <div className="runtime-card">
-      <div className="runtime-card-header">
-        <span className="runtime-card-title">{item.label}</span>
-        <span className={`runtime-status status-${item.status}`}>{item.status}</span>
-        <span className="runtime-state">{liveCurrentState}</span>
-        {frame && frame.droppedEvents > 0 && (
-          <span className="runtime-dropped" title="Visual decimation under burst load">
-            dropped {frame.droppedEvents}
+      <div className="runtime-card-header" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 2, padding: '6px 10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%' }}>
+          <div style={{ width: 7, height: 7, borderRadius: '50%', background: color, flexShrink: 0 }} />
+          <span className="runtime-card-title" style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 11 }}>{item.automataId}</span>
+          <span className={`runtime-status status-${item.status}`} style={{ fontSize: 9, flexShrink: 0 }}>{item.status}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, width: '100%', paddingLeft: 13 }}>
+          <span style={{ fontSize: 10, fontFamily: 'monospace', color, fontWeight: 600, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {activeState ?? 'unknown'}
           </span>
-        )}
+          {item.deviceId && (
+            <span style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-text-disabled)', flexShrink: 0 }}>
+              {String(item.deviceId).slice(0, 12)}
+            </span>
+          )}
+          {frame && frame.droppedEvents > 0 && (
+            <span className="runtime-dropped" title="Visual decimation under burst load" style={{ flexShrink: 0 }}>
+              −{frame.droppedEvents}
+            </span>
+          )}
+        </div>
       </div>
       {transfer && (
         <div className={`runtime-transfer runtime-transfer-${transfer.status}`}>
@@ -237,29 +249,124 @@ function RuntimeGraphCard({
           </div>
         </div>
       )}
-      <div className="runtime-flow">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          nodeTypes={runtimeNodeTypes}
-          edgeTypes={runtimeEdgeTypes}
-          fitView
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          panOnDrag={false}
-          zoomOnScroll={false}
-          zoomOnPinch={false}
-          zoomOnDoubleClick={false}
-          proOptions={{ hideAttribution: true }}
-        >
-          <MiniMap zoomable pannable />
-          <Background variant={BackgroundVariant.Dots} gap={16} size={1} />
-        </ReactFlow>
-      </div>
+      {!automata ? (
+        <div className="runtime-card-empty">
+          Automata <code>{item.automataId}</code> definition not available. Open the automata file in the editor.
+        </div>
+      ) : (
+        <div className="runtime-flow" style={{ overflow: 'hidden', flex: 1, position: 'relative' }}>
+          <svg width="100%" height="100%" viewBox={`0 0 ${TILE_W} ${TILE_H}`}
+            style={{ display: 'block', opacity: (item.status === 'stopped' || item.status === 'error') ? 0.6 : 1 }}>
+            <defs>
+              <marker id={markerId} markerWidth={FSM_ARROW_SZ} markerHeight={FSM_ARROW_SZ} refX={FSM_ARROW_SZ - 1} refY={FSM_ARROW_SZ / 2} orient="auto">
+                <path d={`M0,0 L${FSM_ARROW_SZ},${FSM_ARROW_SZ / 2} L0,${FSM_ARROW_SZ} Z`} fill="var(--color-text-disabled)" />
+              </marker>
+            </defs>
+            {transitions.map((tr) => {
+              const fs = automata.states[tr.from];
+              const ts = automata.states[tr.to];
+              if (!fs || !ts) return null;
+              const fp = fs.position ?? { x: 0, y: 0 };
+              const tp = ts.position ?? { x: 0, y: 0 };
+              const x1 = px(fp.x) + sw / 2, y1 = py(fp.y) + sh / 2;
+              const x2 = px(tp.x) + sw / 2, y2 = py(tp.y) + sh / 2;
+              if (tr.from === tr.to) {
+                return (
+                  <path key={tr.id}
+                    d={`M${x1 + sw / 2},${y1} C${x1 + sw / 2 + 20},${y1 - 25} ${x1 + sw / 2 + 20},${y1 + 5} ${x1 + sw / 2},${y1}`}
+                    fill="none" stroke="var(--color-text-disabled)" strokeWidth={1} opacity={0.35}
+                    markerEnd={`url(#${markerId})`}
+                  />
+                );
+              }
+              const dist = Math.hypot(x2 - x1, y2 - y1);
+              if (dist < 2) return null;
+              const ux = (x2 - x1) / dist, uy = (y2 - y1) / dist;
+              return (
+                <line key={tr.id}
+                  x1={x1 + ux * (sw / 2 + 2)} y1={y1 + uy * (sh / 2 + 2)}
+                  x2={x2 - ux * (sw / 2 + FSM_ARROW_SZ + 2)} y2={y2 - uy * (sh / 2 + FSM_ARROW_SZ + 2)}
+                  stroke="var(--color-text-disabled)" strokeWidth={1} opacity={0.38}
+                  markerEnd={`url(#${markerId})`}
+                />
+              );
+            })}
+            {states.map((s) => {
+              const { x, y } = s.position ?? { x: 0, y: 0 };
+              const isActive = s.id === activeState || s.name === activeState;
+              const isInitial = s.id === automata.initialState;
+              const fs = Math.max(7, Math.min(11, sh * 0.45));
+              return (
+                <g key={s.id}>
+                  {isInitial && (
+                    <circle cx={px(x) - 6} cy={py(y) + sh / 2} r={3} fill="var(--color-text-disabled)" opacity={0.5} />
+                  )}
+                  <rect
+                    x={px(x)} y={py(y)} width={sw} height={sh} rx={sh * 0.28}
+                    fill={isActive ? color : 'var(--color-bg-3)'}
+                    stroke={isActive ? color : 'var(--color-border)'}
+                    strokeWidth={isActive ? 1.5 : 0.8}
+                    opacity={isActive ? 0.9 : 0.65}
+                  />
+                  <text
+                    x={px(x) + sw / 2} y={py(y) + sh / 2 + 1}
+                    textAnchor="middle" dominantBaseline="middle"
+                    fontSize={fs} fontFamily="monospace"
+                    fill={isActive ? '#fff' : 'var(--color-text-secondary)'}
+                    fontWeight={isActive ? 700 : 400}
+                  >
+                    {s.name.slice(0, 15)}
+                  </text>
+                </g>
+              );
+            })}
+          </svg>
+          {(item.status === 'stopped' || item.status === 'error') && (
+            <div style={{
+              position: 'absolute', bottom: 0, left: 0, right: 0,
+              padding: '4px 0',
+              background: item.status === 'error'
+                ? 'rgba(233, 61, 61, 0.12)'
+                : 'rgba(143, 233, 61, 0.08)',
+              borderTop: `1px solid ${item.status === 'error' ? 'rgba(233,61,61,0.3)' : 'rgba(143,233,61,0.25)'}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+            }}>
+              <span style={{ fontSize: 8, fontFamily: 'monospace', letterSpacing: '0.1em', color }}>
+                {item.status === 'error' ? '✕ ERROR' : '✓ FINISHED'}
+              </span>
+              {activeState && (
+                <span style={{ fontSize: 8, fontFamily: 'monospace', color: 'var(--color-text-disabled)' }}>
+                  @ {activeState}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+      {varEntries.length > 0 && (
+        <div style={{ borderTop: '1px solid var(--color-border)', padding: '4px 8px', background: 'var(--color-bg-2)' }}>
+          <div style={{ fontSize: 8, fontFamily: 'monospace', color: 'var(--color-text-disabled)', letterSpacing: '0.06em', marginBottom: 3 }}>
+            VARIABLES (LIVE)
+          </div>
+          <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+            <tbody>
+              {varEntries.map(([k, v]) => (
+                <tr key={k}>
+                  <td style={{ fontSize: 9, fontFamily: 'monospace', color: 'var(--color-text-secondary)', paddingRight: 6, whiteSpace: 'nowrap' }}>
+                    {k}
+                  </td>
+                  <td style={{ fontSize: 9, fontFamily: 'monospace', color, fontWeight: 600, whiteSpace: 'nowrap' }}>
+                    {fmtVarVal(v)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
-}
+});
 
 export const RuntimeMonitorPanel: React.FC = () => {
   const [varName, setVarName] = useState('');
@@ -281,7 +388,6 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const [timeTravelBookmarkName, setTimeTravelBookmarkName] = useState('');
   const [manualSnapshot, setManualSnapshot] = useState<ExecutionSnapshot | null>(null);
   const [lastSnapshotAt, setLastSnapshotAt] = useState<number | null>(null);
-  const [now, setNow] = useState(Date.now());
   const lastFocusedDeviceIdRef = useRef<string | null>(null);
 
   const automataMap = useAutomataStore((state) => state.automata);
@@ -310,6 +416,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
   const tickAnimator = useRuntimeViewStore((state) => state.tickAnimator);
   const clearStale = useRuntimeViewStore((state) => state.clearStale);
   const upsertRuntimeDeployment = useRuntimeViewStore((state) => state.upsertDeployment);
+  const setTimeTravelFrame = useRuntimeViewStore((state) => state.setTimeTravelFrame);
   const focusedDeviceId = useExecutionStore((state) => state.selectedDeviceId);
   const selectDevice = useExecutionStore((state) => state.selectDevice);
   const focusedExecution = useExecutionStore((state) =>
@@ -325,12 +432,8 @@ export const RuntimeMonitorPanel: React.FC = () => {
   }, [tickAnimator, visualHz]);
 
   useEffect(() => {
-    const clock = setInterval(() => setNow(Date.now()), 120);
     const stale = setInterval(() => clearStale(Date.now(), 30_000), 5000);
-    return () => {
-      clearInterval(clock);
-      clearInterval(stale);
-    };
+    return () => clearInterval(stale);
   }, [clearStale]);
 
   const deployments = useMemo(
@@ -437,7 +540,11 @@ export const RuntimeMonitorPanel: React.FC = () => {
 
     if (scope === 'running') {
       items = deployments
-        .filter((deployment) => isRunningLike(deployment.status))
+        .filter((deployment) =>
+          isRunningLike(deployment.status) ||
+          deployment.status === 'stopped' ||
+          deployment.status === 'error'
+        )
         .map((deployment) => {
           const device = devicesMap.get(deployment.deviceId as any);
           return {
@@ -893,6 +1000,9 @@ export const RuntimeMonitorPanel: React.FC = () => {
         ),
         updatedAt: Date.now(),
       });
+      if (snapshot.currentState) {
+        setTimeTravelFrame(selectedFocusDeployment.deploymentId, snapshot.currentState);
+      }
     }
 
     if (options?.refreshBlackBox) {
@@ -907,7 +1017,15 @@ export const RuntimeMonitorPanel: React.FC = () => {
       setTimeTravelLoading(true);
       const parsed = Number.parseInt(timeTravelMaxSnapshots, 10);
       const maxSnapshots = Number.isFinite(parsed) && parsed > 0 ? parsed : 500;
-      const { session } = await gatewayService.startTimeTravel(focusedDevice.id, { maxSnapshots });
+
+      // Collect all device IDs currently deployed — rewind the full network together
+      const allDeviceIds = Array.from(deploymentsMap.values())
+        .map((d) => d.deviceId)
+        .filter(Boolean);
+      const networkDeviceIds =
+        allDeviceIds.length > 0 ? ([...new Set(allDeviceIds)] as typeof allDeviceIds) : [focusedDevice.id];
+
+      const { session } = await gatewayService.startTimeTravel(networkDeviceIds, { maxSnapshots });
       setTimeTravelSession(session);
 
       const initialSnapshot =
@@ -1214,9 +1332,9 @@ export const RuntimeMonitorPanel: React.FC = () => {
     Boolean(focusedDevice && selectedFocusDeployment) &&
     isDeviceReachable(focusedDevice?.status ?? 'unknown') &&
     supportsRuntimeCommand(focusedDevice?.supportedCommands, 'request_state');
-  const timeTravelCanRun =
-    Boolean(focusedDevice && selectedFocusDeployment) &&
-    isDeviceReachable(focusedDevice?.status ?? 'unknown');
+  // Time travel queries the server's persisted time-series — the device doesn't
+  // need to be live. Allow it whenever there's a focused deployment.
+  const timeTravelCanRun = Boolean(focusedDevice && selectedFocusDeployment);
   const timeTravelCurrentSnapshot =
     timeTravelSession?.history.snapshots[timeTravelSession.currentReplayIndex] ?? null;
   const timeTravelCanGoBackward = Boolean(timeTravelSession && timeTravelSession.currentReplayIndex > 0);
@@ -1258,7 +1376,7 @@ export const RuntimeMonitorPanel: React.FC = () => {
               <option value={12}>12</option>
             </select>
           </label>
-          <span className="runtime-now">{new Date(now).toLocaleTimeString()}</span>
+          <span className="runtime-now">{new Date().toLocaleTimeString()}</span>
         </div>
       </div>
 
@@ -1370,16 +1488,29 @@ export const RuntimeMonitorPanel: React.FC = () => {
             <div className="runtime-empty">Select one or more deployments from the left.</div>
           ) : (
             selectedItems.map((item) => (
-              <RuntimeGraphCard
+              <RuntimeFsmCard
                 key={item.id}
                 item={item}
-                now={now}
                 frame={item.deploymentId ? renderFrames.get(item.deploymentId) : undefined}
                 transfer={item.deploymentId ? transfersMap.get(item.deploymentId) : undefined}
+                liveVariables={item.deploymentId ? deploymentsMap.get(item.deploymentId)?.variables : undefined}
+                automata={
+                  (project?.automata as Record<string, Automata> | undefined)?.[item.automataId] ??
+                  automataMap.get(item.automataId as any)
+                }
               />
             ))
           )}
         </section>
+
+        {!focusedDevice && (
+          <aside className="runtime-focus-panel">
+            <div className="runtime-inline-empty" style={{ padding: '24px 16px', textAlign: 'center' }}>
+              <strong>Click a device</strong> in the left column to focus it. The focus panel provides
+              time travel debugging, snapshot control, black box inspection, and deployment commands.
+            </div>
+          </aside>
+        )}
 
         {focusedDevice && (
           <aside className="runtime-focus-panel">

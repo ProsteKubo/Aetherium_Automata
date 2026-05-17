@@ -355,6 +355,40 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
   end
 
   @impl true
+  def handle_in("rewind_network", payload, socket) do
+    with_command("rewind_network", payload, socket, fn envelope ->
+      device_ids = payload["device_ids"] |> List.wrap() |> Enum.filter(&is_binary/1)
+      target_timestamp =
+        payload["target_timestamp"] || payload["target_ts"] || payload["timestamp"]
+
+      if is_nil(target_timestamp) do
+        {:nak, :invalid_payload, %{"reason" => "missing_target_timestamp"}}
+      else
+        {deployment_ids, server_id} =
+          Enum.reduce(device_ids, {[], nil}, fn device_id, {ids, srv} ->
+            case resolve_device_deployment(device_id, payload) do
+              {:ok, deployment} ->
+                {[deployment_id_for(deployment) | ids], deployment.server_id || srv}
+              {:error, _} ->
+                {ids, srv}
+            end
+          end)
+
+        if deployment_ids == [] or is_nil(server_id) do
+          {:nak, :no_deployment_found, %{"device_ids" => device_ids}}
+        else
+          command_payload = %{
+            "deployment_ids" => deployment_ids,
+            "target_timestamp" => target_timestamp
+          }
+
+          dispatch_server_command(server_id, "rewind_deployment_batch", command_payload, envelope)
+        end
+      end
+    end)
+  end
+
+  @impl true
   def handle_in("analyzer_query", payload, socket) do
     with_command("analyzer_query", payload, socket, fn envelope ->
       deployments = AutomataRegistry.list_deployments()

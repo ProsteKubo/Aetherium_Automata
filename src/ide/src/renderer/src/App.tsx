@@ -32,6 +32,7 @@ import {
   PetriNetPanel,
   PropertiesPanel,
   RuntimeMonitorPanel,
+  TimelinePanel,
   TransitionGroupPanel,
   VariableManagementPanel,
 } from './components/panels';
@@ -40,7 +41,7 @@ import { GatewayEventBridge } from './components/runtime/GatewayEventBridge';
 import './styles/index.css';
 
 type SidebarPanelId = 'explorer' | 'devices' | 'gateway';
-type CenterPanelId = 'automata' | 'analyzer' | 'blackboxes' | 'petri' | 'network' | 'runtime';
+type CenterPanelId = 'automata' | 'analyzer' | 'blackboxes' | 'petri' | 'network' | 'runtime' | 'timeline';
 type RightPanelId = 'properties' | 'transitions' | 'variables' | 'connections';
 
 const PanelContent: React.FC<{ panelId: string }> = ({ panelId }) => {
@@ -426,7 +427,7 @@ const App: React.FC = () => {
   }, [layout.panels]);
 
   const activeCenterPanel = useMemo<CenterPanelId | null>(() => {
-    const order: CenterPanelId[] = ['network', 'petri', 'runtime', 'analyzer', 'blackboxes', 'automata'];
+    const order: CenterPanelId[] = ['network', 'petri', 'runtime', 'timeline', 'analyzer', 'blackboxes', 'automata'];
     return order.find((panelId) => layout.panels[panelId]?.isVisible) ?? null;
   }, [layout.panels]);
 
@@ -472,7 +473,8 @@ const App: React.FC = () => {
     activeCenterPanel === 'petri' ||
     activeCenterPanel === 'network' ||
     activeCenterPanel === 'blackboxes' ||
-    activeCenterPanel === 'analyzer';
+    activeCenterPanel === 'analyzer' ||
+    activeCenterPanel === 'timeline';
   const showRightInline = Boolean(activeRightPanel && !isNarrowViewport && !centerOwnsInspector);
   const showRightOverlay = Boolean(
     activeRightPanel && isNarrowViewport && !showSidebarOverlay && !centerOwnsInspector,
@@ -526,6 +528,12 @@ const App: React.FC = () => {
         return (
           <div className="runtime-view-container runtime-debugger-shell">
             <RuntimeMonitorPanel />
+          </div>
+        );
+      case 'timeline':
+        return (
+          <div className="runtime-view-container timeline-view-shell">
+            <TimelinePanel />
           </div>
         );
       case 'automata':

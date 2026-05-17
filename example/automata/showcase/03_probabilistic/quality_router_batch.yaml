@@ -99,50 +99,50 @@ automata:
       from: LaneA
       to: Inspect
       type: timed
-      after: 20
+      after: 5
 
     lane_b_to_inspect:
       from: LaneB
       to: Inspect
       type: timed
-      after: 20
+      after: 5
 
     lane_c_to_inspect:
       from: LaneC
       to: Inspect
       type: timed
-      after: 20
+      after: 5
 
     inspect_reject:
       from: Inspect
       to: Rework
-      type: classic
-      priority: 0
+      type: timed
+      after: 1
       condition: value("quality_score") < value("quality_target")
 
     inspect_accept:
       from: Inspect
       to: CompletedItem
-      type: classic
-      priority: 1
+      type: timed
+      after: 1
       condition: value("quality_score") >= value("quality_target")
 
     rework_to_choose:
       from: Rework
       to: ChooseLane
       type: timed
-      after: 30
+      after: 5
 
     completed_continue:
       from: CompletedItem
       to: ChooseLane
-      type: classic
-      priority: 0
+      type: timed
+      after: 1
       condition: value("batch_count") < 12
 
     completed_done:
       from: CompletedItem
       to: BatchDone
-      type: classic
-      priority: 1
+      type: timed
+      after: 1
       condition: value("batch_count") >= 12

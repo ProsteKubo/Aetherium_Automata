@@ -248,6 +248,12 @@ defmodule AetheriumServer.DeviceManager do
     GenServer.call(__MODULE__, {:rewind_deployment, deployment_id, timestamp_ms})
   end
 
+  @doc "Rewind multiple deployments to the same timestamp (network-level time travel)"
+  @spec rewind_deployment_batch([String.t()], non_neg_integer()) :: {:ok, map()} | {:error, term()}
+  def rewind_deployment_batch(deployment_ids, timestamp_ms) when is_list(deployment_ids) do
+    GenServer.call(__MODULE__, {:rewind_deployment_batch, deployment_ids, timestamp_ms}, 30_000)
+  end
+
   @doc "Query a deployment-aware analyzer bundle"
   @spec query_analyzer(map()) :: {:ok, map()} | {:error, term()}
   def query_analyzer(query) when is_map(query) do
@@ -783,103 +789,36 @@ defmodule AetheriumServer.DeviceManager do
       _deployment when not is_integer(timestamp_ms) or timestamp_ms < 0 ->
         {:reply, {:error, :invalid_timestamp}, state}
 
-      deployment ->
-        case TimeSeriesQuery.replay_state_at(deployment_id, timestamp_ms) do
-          {:ok, replay} ->
-            replay_state = replay["state"] || %{}
-
-            new_state =
-              state
-              |> put_in(
-                [:deployments, deployment_id, :status],
-                replay_status_atom(replay_state["status"] || deployment.status)
-              )
-              |> put_in(
-                [:deployments, deployment_id, :current_state],
-                replay_state["current_state"]
-              )
-              |> put_in(
-                [:deployments, deployment_id, :variables],
-                replay_state["variables"] || %{}
-              )
-              |> put_in([:deployments, deployment_id, :error], replay_state["error"])
-
-            DeploymentObservability.append_time_series_event(
-              deployment_id,
-              "time_travel_rewind_marker",
-              %{
-                "automata_id" => deployment.automata_id,
-                "device_id" => deployment.device_id,
-                "rewound_to" => timestamp_ms,
-                "state" => replay_state
-              }
-            )
-
-            DeploymentObservability.snapshot_deployment(
-              new_state,
-              deployment_id,
-              "time_travel_rewind"
-            )
-
-            DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
-              "deployment_id" => deployment_id,
-              "automata_id" => deployment.automata_id,
-              "device_id" => deployment.device_id,
-              "status" =>
-                Atom.to_string(replay_status_atom(replay_state["status"] || deployment.status)),
-              "current_state" => replay_state["current_state"],
-              "variables" => replay_state["variables"] || %{},
-              "error" => replay_state["error"],
-              "source" => "time_travel_rewind",
-              "rewound_to" => timestamp_ms
-            })
-
-            # Send RestoreState to the physical device if connected
-            device_send_result =
-              with target_state when is_binary(target_state) <- replay_state["current_state"],
-                   {:ok, protocol_id, session_ref} <-
-                     DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
-                DeviceTransport.send_message(session_ref, :restore_state, %{
-                  target_id: protocol_id,
-                  run_id: deployment.run_id || 0,
-                  state: target_state,
-                  variables: replay_state["variables"] || %{}
-                })
-              else
-                nil -> {:error, :no_target_state}
-                err -> err
-              end
-
-            Logger.info(
-              "time_travel rewind #{deployment_id} to #{timestamp_ms}: device_send=#{inspect(device_send_result)}"
-            )
-
-            device_restore_json =
-              case device_send_result do
-                {:ok, message_id} -> %{ok: true, message_id: message_id}
-                {:error, reason} -> %{ok: false, error: to_string(reason)}
-                other -> %{ok: false, error: inspect(other)}
-              end
-
-            {:reply,
-             {:ok,
-              %{
-                deployment_id: deployment_id,
-                rewound_to: timestamp_ms,
-                state: replay_state,
-                events_replayed: replay["events_replayed"] || 0,
-                requested_timestamp: replay["requested_timestamp"],
-                state_fingerprint: replay["state_fingerprint"],
-                event_cursor_start: replay["event_cursor_start"],
-                event_cursor_end: replay["event_cursor_end"],
-                source: replay["source"],
-                backend_error: replay["backend_error"],
-                device_restore: device_restore_json
-              }}, new_state}
+      _deployment ->
+        case do_rewind_deployment(state, deployment_id, timestamp_ms) do
+          {:ok, new_state, result} ->
+            {:reply, {:ok, result}, new_state}
 
           {:error, reason} ->
             {:reply, {:error, reason}, state}
         end
+    end
+  end
+
+  @impl true
+  def handle_call({:rewind_deployment_batch, deployment_ids, timestamp_ms}, _from, state) do
+    if not is_integer(timestamp_ms) or timestamp_ms < 0 do
+      {:reply, {:error, :invalid_timestamp}, state}
+    else
+      {final_state, per_deployment} =
+        Enum.reduce(deployment_ids, {state, %{}}, fn deployment_id, {cur_state, acc} ->
+          case do_rewind_deployment(cur_state, deployment_id, timestamp_ms) do
+            {:ok, next_state, result} ->
+              {next_state, Map.put(acc, deployment_id, %{ok: true, result: result})}
+
+            {:error, reason} ->
+              {cur_state, Map.put(acc, deployment_id, %{ok: false, error: to_string(reason)})}
+          end
+        end)
+
+      {:reply,
+       {:ok, %{deployment_ids: deployment_ids, rewound_to: timestamp_ms, results: per_deployment}},
+       final_state}
     end
   end
 
@@ -1468,6 +1407,95 @@ defmodule AetheriumServer.DeviceManager do
         start_after_load: false,
         replace_existing: true
       })
+    end
+  end
+
+  defp do_rewind_deployment(state, deployment_id, timestamp_ms) do
+    deployment = Map.get(state.deployments, deployment_id)
+
+    case TimeSeriesQuery.replay_state_at(deployment_id, timestamp_ms) do
+      {:ok, replay} ->
+        replay_state = replay["state"] || %{}
+
+        new_state =
+          state
+          |> put_in(
+            [:deployments, deployment_id, :status],
+            replay_status_atom(replay_state["status"] || deployment.status)
+          )
+          |> put_in([:deployments, deployment_id, :current_state], replay_state["current_state"])
+          |> put_in([:deployments, deployment_id, :variables], replay_state["variables"] || %{})
+          |> put_in([:deployments, deployment_id, :error], replay_state["error"])
+
+        DeploymentObservability.append_time_series_event(
+          deployment_id,
+          "time_travel_rewind_marker",
+          %{
+            "automata_id" => deployment.automata_id,
+            "device_id" => deployment.device_id,
+            "rewound_to" => timestamp_ms,
+            "state" => replay_state
+          }
+        )
+
+        DeploymentObservability.snapshot_deployment(new_state, deployment_id, "time_travel_rewind")
+
+        DeploymentObservability.push_to_gateway(new_state, "deployment_status", %{
+          "deployment_id" => deployment_id,
+          "automata_id" => deployment.automata_id,
+          "device_id" => deployment.device_id,
+          "status" =>
+            Atom.to_string(replay_status_atom(replay_state["status"] || deployment.status)),
+          "current_state" => replay_state["current_state"],
+          "variables" => replay_state["variables"] || %{},
+          "error" => replay_state["error"],
+          "source" => "time_travel_rewind",
+          "rewound_to" => timestamp_ms
+        })
+
+        device_send_result =
+          with target_state when is_binary(target_state) <- replay_state["current_state"],
+               {:ok, protocol_id, session_ref} <-
+                 DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+            DeviceTransport.send_message(session_ref, :restore_state, %{
+              target_id: protocol_id,
+              run_id: deployment.run_id || 0,
+              state: target_state,
+              variables: replay_state["variables"] || %{}
+            })
+          else
+            nil -> {:error, :no_target_state}
+            err -> err
+          end
+
+        Logger.info(
+          "time_travel rewind #{deployment_id} to #{timestamp_ms}: device_send=#{inspect(device_send_result)}"
+        )
+
+        device_restore_json =
+          case device_send_result do
+            {:ok, message_id} -> %{ok: true, message_id: message_id}
+            {:error, reason} -> %{ok: false, error: to_string(reason)}
+            other -> %{ok: false, error: inspect(other)}
+          end
+
+        {:ok, new_state,
+         %{
+           deployment_id: deployment_id,
+           rewound_to: timestamp_ms,
+           state: replay_state,
+           events_replayed: replay["events_replayed"] || 0,
+           requested_timestamp: replay["requested_timestamp"],
+           state_fingerprint: replay["state_fingerprint"],
+           event_cursor_start: replay["event_cursor_start"],
+           event_cursor_end: replay["event_cursor_end"],
+           source: replay["source"],
+           backend_error: replay["backend_error"],
+           device_restore: device_restore_json
+         }}
+
+      {:error, reason} ->
+        {:error, reason}
     end
   end
 

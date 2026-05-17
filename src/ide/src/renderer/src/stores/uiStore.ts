@@ -120,7 +120,7 @@ type UIStore = UIState & UIActions;
 // ============================================================================
 
 const SIDEBAR_PANELS: PanelId[] = ['explorer', 'devices', 'gateway'];
-const CENTER_VIEW_PANELS: PanelId[] = ['automata', 'analyzer', 'blackboxes', 'petri', 'network', 'runtime'];
+const CENTER_VIEW_PANELS: PanelId[] = ['automata', 'analyzer', 'blackboxes', 'petri', 'network', 'runtime', 'timeline'];
 const RIGHT_PANEL_PANELS: PanelId[] = ['properties', 'transitions', 'variables', 'connections'];
 
 const defaultLayout: LayoutConfig = {
@@ -187,6 +187,13 @@ const defaultLayout: LayoutConfig = {
       size: 300,
       position: 'center',
       isCollapsed: true,
+    },
+    timeline: {
+      id: 'timeline',
+      isVisible: false,
+      size: 100,
+      position: 'center',
+      isCollapsed: false,
     },
     properties: {
       id: 'properties',

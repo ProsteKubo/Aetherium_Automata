@@ -36,6 +36,7 @@ export interface RuntimeSnapshotPoint {
   timestamp: number;
   state: string;
   transitionId?: string;
+  variables?: Record<string, unknown>;
 }
 
 export interface RuntimeRenderFrame {

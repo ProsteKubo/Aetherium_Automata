@@ -17,6 +17,7 @@ import {
   IconGateway,
   IconNetwork,
   IconRuntime,
+  IconTimeTravel,
 } from './Icons';
 
 interface ToolbarButtonProps {
@@ -75,6 +76,8 @@ export const ActivityBar: React.FC = () => {
 
   const modePanel: PanelId = layout.panels.runtime.isVisible
     ? 'runtime'
+    : layout.panels.timeline.isVisible
+      ? 'timeline'
     : layout.panels.network.isVisible
       ? 'network'
     : layout.panels.analyzer.isVisible
@@ -117,6 +120,12 @@ export const ActivityBar: React.FC = () => {
           label="Debugger"
           active={modePanel === 'runtime'}
           onClick={() => activatePanel('runtime')}
+        />
+        <ToolbarButton
+          icon={<IconTimeTravel size={20} />}
+          label="Timeline"
+          active={modePanel === 'timeline'}
+          onClick={() => activatePanel('timeline')}
         />
         <ToolbarButton
           icon={<IconAnalyzer size={20} />}

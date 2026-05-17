@@ -18,3 +18,4 @@ export { AnalyzerPanel } from './AnalyzerPanel';
 export { TransitionGroupPanel } from './TransitionGroupPanel';
 export { VariableManagementPanel } from './VariableManagementPanel';
 export { AutomataConnectionsPanel } from './AutomataConnectionsPanel';
+export { TimelinePanel } from './TimelinePanel';

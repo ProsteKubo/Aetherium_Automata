@@ -38,6 +38,7 @@ interface RuntimeViewActions {
   seedFromDevices: (devices: RuntimeSeedDevice[]) => void;
   clearStale: (now?: number, staleMs?: number) => void;
   tickAnimator: (now?: number) => void;
+  setTimeTravelFrame: (deploymentId: string, activeStateId: string) => void;
   setVisualHz: (hz: number) => void;
   reset: () => void;
 }
@@ -122,6 +123,21 @@ function cloneRecord(value: unknown): Record<string, unknown> | undefined {
   } catch {
     return undefined;
   }
+}
+
+// Flatten VariableValue meta-objects ({ name, value, type, ... }) to plain {name: value}.
+// Also handles already-flat records where values are plain primitives/objects.
+function flattenVariables(vars: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (!vars) return undefined;
+  const flat: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(vars)) {
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) && 'value' in (v as object)) {
+      flat[k] = (v as Record<string, unknown>).value;
+    } else {
+      flat[k] = v;
+    }
+  }
+  return Object.keys(flat).length > 0 ? flat : undefined;
 }
 
 function normalizeTransitionEvent(event: RuntimeTransitionEvent): RuntimeTransitionEvent {
@@ -278,6 +294,19 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
         });
       });
 
+      // Preserve recently stopped/error deployments not in the new inventory so the
+      // UI can show the final state instead of blanking out.
+      const LINGER_MS = 5 * 60_000;
+      state.deployments.forEach((existing, deploymentId) => {
+        if (
+          !nextDeployments.has(deploymentId) &&
+          (existing.status === 'stopped' || existing.status === 'error') &&
+          now - existing.updatedAt < LINGER_MS
+        ) {
+          nextDeployments.set(deploymentId, existing);
+        }
+      });
+
       const previousEntries = Array.from(state.deployments.entries());
       const nextEntries = Array.from(nextDeployments.entries());
 
@@ -311,52 +340,24 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
     const plainEvent = normalizeTransitionEvent(event);
 
     set((state) => {
-      const transitionQueues = new Map(state.transitionQueues);
-      const existingQueue = transitionQueues.get(plainEvent.deploymentId) ?? [];
+      const existingQueue = state.transitionQueues.get(plainEvent.deploymentId) ?? [];
       const queue = [...existingQueue, plainEvent];
-      let dropped = 0;
 
+      let compacted: typeof queue;
       if (queue.length > state.maxQueueBurst) {
-        const first = queue[0];
-        const middle = queue[Math.floor(queue.length / 2)];
-        const last = queue[queue.length - 1];
-        const compacted = [first, middle, last];
-        dropped = queue.length - compacted.length;
-        transitionQueues.set(plainEvent.deploymentId, compacted);
+        compacted = [queue[0]!, queue[Math.floor(queue.length / 2)]!, queue[queue.length - 1]!];
       } else {
-        transitionQueues.set(plainEvent.deploymentId, queue);
+        compacted = queue;
       }
 
-      const renderFrames = new Map(state.renderFrames);
-      if (dropped > 0) {
-        const frame = { ...ensureFrame(renderFrames, plainEvent.deploymentId) };
-        frame.droppedEvents += dropped;
-        renderFrames.set(plainEvent.deploymentId, frame);
-      }
+      const transitionQueues = new Map(state.transitionQueues);
+      transitionQueues.set(plainEvent.deploymentId, compacted);
 
-      const deployments = new Map(state.deployments);
-      const existing = deployments.get(plainEvent.deploymentId);
-      // Only merge variables if the event actually carries them (non-empty payload).
-      // An empty variables object from events that don't include variables should NOT
-      // wipe the previously-known variable values.
-      const incomingVars = cloneRecord(plainEvent.variables);
-      const hasIncomingVars = incomingVars !== undefined && Object.keys(incomingVars).length > 0;
-      deployments.set(plainEvent.deploymentId, {
-        deploymentId: plainEvent.deploymentId,
-        deviceId: plainEvent.deviceId,
-        automataId: plainEvent.automataId,
-        status: 'running',
-        currentState: plainEvent.toState,
-        variables: hasIncomingVars ? incomingVars : (existing?.variables),
-        updatedAt: plainEvent.timestamp || Date.now(),
-      });
-
-      return {
-        ...state,
-        transitionQueues,
-        renderFrames,
-        deployments,
-      };
+      // Only transitionQueues is updated here. deployments, renderFrames, and
+      // snapshots are all updated in tickAnimator at the configured Hz rate.
+      // This keeps ingestTransition cheap and prevents UI subscribers from
+      // re-rendering at raw event rate.
+      return { ...state, transitionQueues };
     });
   },
 
@@ -381,13 +382,17 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
       // processed by ingestTransition. Only overwrite if the incoming data is newer.
       const incomingState = String(payload.current_state ?? payload.currentState ?? '');
       const useIncomingState = !existing || proposedUpdatedAt >= existing.updatedAt;
+      const incomingVars = flattenVariables(cloneRecord(payload.variables));
       const next: RuntimeDeployment = {
         deploymentId,
         deviceId: deviceId as RuntimeDeployment['deviceId'],
         automataId: (automataId || existing?.automataId || 'unknown') as RuntimeDeployment['automataId'],
-        status: mapStatus(payload.status),
+        // Preserve existing status when payload doesn't include one (e.g. variable-only patches)
+        status: payload.status !== undefined && payload.status !== null
+          ? mapStatus(payload.status)
+          : (existing?.status ?? 'unknown'),
         currentState: (useIncomingState && incomingState) ? incomingState : (existing?.currentState ?? incomingState),
-        variables: cloneRecord(payload.variables) ?? existing?.variables,
+        variables: incomingVars ?? existing?.variables,
         updatedAt: Math.max(proposedUpdatedAt, existing?.updatedAt ?? 0),
       };
 
@@ -396,6 +401,16 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
       }
 
       deployments.set(deploymentId, next);
+
+      // When a deployment stops/errors, drain its pending transition queue so stale
+      // highlights don't keep playing out on a dead deployment.
+      const isTerminal = next.status === 'stopped' || next.status === 'error' || next.status === 'offline';
+      if (isTerminal) {
+        const transitionQueues = new Map(state.transitionQueues);
+        transitionQueues.delete(deploymentId);
+        return { ...state, deployments, transitionQueues };
+      }
+
       return { ...state, deployments };
     });
   },
@@ -565,7 +580,12 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
       const transfers = new Map(state.transfers);
       let changed = false;
       deployments.forEach((deployment, deploymentId) => {
-        if (now - deployment.updatedAt > staleMs && deployment.status !== 'error' && deployment.status !== 'offline') {
+        if (deployment.status === 'offline') return;
+        // Stopped/error deployments linger for 5 minutes so the UI can show the final state.
+        const threshold = deployment.status === 'stopped' || deployment.status === 'error'
+          ? 5 * 60_000
+          : staleMs;
+        if (now - deployment.updatedAt > threshold) {
           deployments.set(deploymentId, { ...deployment, status: 'offline' });
           changed = true;
         }
@@ -598,34 +618,37 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
           return;
         }
 
-        const [event, ...rest] = queue;
-        transitionQueues.set(deploymentId, rest);
+        // Drain the whole queue in one tick — intermediate frames are skipped visually
+        // so the graph always shows the actual current state, not a lagging one.
+        const lastEvent = queue[queue.length - 1];
+        const skipped = queue.length - 1;
+        transitionQueues.set(deploymentId, []);
 
         const frame = { ...ensureFrame(renderFrames, deploymentId) };
-        frame.previousStateId = event.fromState;
-        frame.activeStateId = event.toState;
-        frame.activeTransitionId = event.transitionId;
-        frame.lastTransitionAt = event.timestamp;
+        frame.previousStateId = skipped > 0 ? queue[queue.length - 2].toState : lastEvent.fromState;
+        frame.activeStateId = lastEvent.toState;
+        frame.activeTransitionId = lastEvent.transitionId;
+        frame.lastTransitionAt = lastEvent.timestamp;
         frame.edgePulseUntil = now + state.transitionHighlightMs;
         frame.statePulseUntil = now + state.statePulseMs;
+        frame.droppedEvents += skipped;
         renderFrames.set(deploymentId, frame);
 
         const previousHistory = transitionHistory.get(deploymentId) ?? [];
-        const history = [...previousHistory, event];
+        const history = [...previousHistory, ...queue];
         if (history.length > state.maxEvents) {
           history.splice(0, history.length - state.maxEvents);
         }
         transitionHistory.set(deploymentId, history);
 
         const previousSnapshots = snapshots.get(deploymentId) ?? [];
-        const nextSnapshots = [
-          ...previousSnapshots,
-          {
-            timestamp: event.timestamp,
-            state: event.toState,
-            transitionId: event.transitionId,
-          } as RuntimeSnapshotPoint,
-        ];
+        const newPoints: RuntimeSnapshotPoint[] = queue.map((event) => ({
+          timestamp: event.timestamp,
+          state: event.toState,
+          transitionId: event.transitionId,
+          variables: flattenVariables(event.variables),
+        }));
+        const nextSnapshots = [...previousSnapshots, ...newPoints];
         if (nextSnapshots.length > state.maxEvents) {
           nextSnapshots.splice(0, nextSnapshots.length - state.maxEvents);
         }
@@ -633,11 +656,13 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
 
         const deployment = deployments.get(deploymentId);
         if (deployment) {
+          const transitionVars = flattenVariables(lastEvent.variables);
           deployments.set(deploymentId, {
             ...deployment,
-            currentState: event.toState,
+            currentState: lastEvent.toState,
             status: 'running',
             updatedAt: now,
+            variables: transitionVars ?? deployment.variables,
           });
         }
 
@@ -656,6 +681,25 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
         renderFrames,
         deployments,
       };
+    });
+  },
+
+  setTimeTravelFrame: (deploymentId, activeStateId) => {
+    set((state) => {
+      const renderFrames = new Map(state.renderFrames);
+      const existing = renderFrames.get(deploymentId);
+      const frame: RuntimeRenderFrame = {
+        deploymentId,
+        droppedEvents: existing?.droppedEvents ?? 0,
+        lastTransitionAt: existing?.lastTransitionAt,
+        previousStateId: existing?.activeStateId,
+        activeStateId,
+        activeTransitionId: undefined,
+        statePulseUntil: 0,
+        edgePulseUntil: 0,
+      };
+      renderFrames.set(deploymentId, frame);
+      return { ...state, renderFrames };
     });
   },
 

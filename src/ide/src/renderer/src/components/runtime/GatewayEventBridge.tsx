@@ -2,6 +2,18 @@ import { useEffect, useRef } from 'react';
 import type { FC } from 'react';
 import { useExecutionStore, useGatewayStore, useLogStore, useRuntimeViewStore } from '../../stores';
 import type { PersistedGatewayEvent } from '../../services/gateway/IGatewayService';
+import type { VariableValue } from '../../types/automata';
+
+function flattenSnapshotVariables(
+  vars: Record<string, VariableValue> | undefined,
+): Record<string, unknown> | undefined {
+  if (!vars || typeof vars !== 'object') return undefined;
+  const flat: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(vars)) {
+    flat[k] = v?.value ?? v;
+  }
+  return Object.keys(flat).length > 0 ? flat : undefined;
+}
 
 function isRunningLike(status: string): boolean {
   return status === 'running' || status === 'loading' || status === 'paused';
@@ -91,9 +103,13 @@ export const GatewayEventBridge: FC = () => {
   const applyDeploymentStatus = useExecutionStore((state) => state.applyDeploymentStatus);
   const ingestTransition = useRuntimeViewStore((state) => state.ingestTransition);
   const ingestDeploymentStatus = useRuntimeViewStore((state) => state.ingestDeploymentStatus);
+  const ingestDeploymentStatusRef = useRef(ingestDeploymentStatus);
+  ingestDeploymentStatusRef.current = ingestDeploymentStatus;
   const ingestDeploymentTransfer = useRuntimeViewStore((state) => state.ingestDeploymentTransfer);
   const replaceDeploymentInventory = useRuntimeViewStore((state) => state.replaceDeploymentInventory);
   const clearStale = useRuntimeViewStore((state) => state.clearStale);
+  const tickAnimator = useRuntimeViewStore((state) => state.tickAnimator);
+  const visualHz = useRuntimeViewStore((state) => state.visualHz);
   const addLog = useLogStore((state) => state.addLog);
   const previousStatusRef = useRef<string>('disconnected');
   const eventCursorRef = useRef<number>(0);
@@ -123,6 +139,22 @@ export const GatewayEventBridge: FC = () => {
     unsubs.push(
       service.on('onExecutionSnapshot', (event) => {
         updateSnapshot(event.deviceId, event.snapshot);
+
+        // Push flattened variable values into the runtime view store so the
+        // Timeline and Debugger panels can display them without requiring
+        // the server to include variables in state_changed events.
+        const vars = flattenSnapshotVariables(event.snapshot?.variables as any);
+        if (vars) {
+          const automataId = String(event.automataId ?? '');
+          const deviceId = String(event.deviceId ?? '');
+          if (automataId && deviceId) {
+            ingestDeploymentStatusRef.current({
+              automata_id: automataId,
+              device_id: deviceId,
+              variables: vars,
+            });
+          }
+        }
       }),
     );
 
@@ -247,6 +279,15 @@ export const GatewayEventBridge: FC = () => {
 
     return () => clearInterval(interval);
   }, [clearStale]);
+
+  // Drive the animator independent of which panel is visible, at the user-configured Hz.
+  useEffect(() => {
+    const interval = setInterval(() => {
+      tickAnimator(Date.now());
+    }, Math.max(50, Math.round(1000 / visualHz)));
+
+    return () => clearInterval(interval);
+  }, [tickAnimator, visualHz]);
 
   useEffect(() => {
     const previous = previousStatusRef.current;

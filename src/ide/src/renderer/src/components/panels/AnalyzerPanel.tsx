@@ -138,6 +138,7 @@ export const AnalyzerPanel: React.FC = () => {
   const ensureLocalProject = useProjectStore((state) => state.ensureLocalProject);
   const markProjectDirty = useProjectStore((state) => state.markDirty);
   const setSelectedDeployments = useRuntimeViewStore((state) => state.setSelected);
+  const deployments = useRuntimeViewStore((state) => state.deployments);
   const [timeWindow, setTimeWindow] = useState<string>('all');
   const [selectedGraphId, setSelectedGraphId] = useState<string | null>(null);
   const [selectedGraphType, setSelectedGraphType] = useState<'node' | 'edge' | null>(null);
@@ -146,6 +147,21 @@ export const AnalyzerPanel: React.FC = () => {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Re-run analysis whenever deployment statuses change (e.g. automata stopped/started)
+  // so the analyzer reflects the latest timeline data without a manual Refresh.
+  const deploymentStatusKey = useMemo(
+    () =>
+      Array.from(deployments.values())
+        .map((d) => `${d.deploymentId}:${d.status}`)
+        .sort()
+        .join(','),
+    [deployments],
+  );
+  useEffect(() => {
+    void refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deploymentStatusKey]);
 
   const filteredFindings = useMemo(() => {
     const findings = bundle?.findings ?? [];
@@ -537,7 +553,25 @@ export const AnalyzerPanel: React.FC = () => {
               </button>
             ))}
 
-            {!filteredFindings.length && <div className="analyzer-empty-state">No findings match the current filters.</div>}
+            {!filteredFindings.length && (
+              <div className="analyzer-empty-state">
+                {loading
+                  ? 'Running analysis…'
+                  : bundle
+                    ? 'No findings match the current filters. Try clearing filters or broadening the scope.'
+                    : 'No analysis loaded. Click Refresh to run the analyzer against deployed automata.'}
+                {!loading && !bundle && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-sm"
+                    style={{ marginTop: 8 }}
+                    onClick={() => void refresh()}
+                  >
+                    Run Analysis
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </aside>
 

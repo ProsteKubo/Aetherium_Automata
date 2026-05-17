@@ -342,6 +342,8 @@ export interface TimeTravelBookmark {
 export interface TimeTravelSession {
   id: string;
   deviceId: DeviceId;
+  /** All device IDs in the network being time-travelled together */
+  networkDeviceIds: DeviceId[];
   automataId: AutomataId;
   startTime: number;
   endTime?: number;
@@ -496,6 +498,7 @@ export type PanelId =
   | 'network'
   | 'petri'
   | 'runtime'
+  | 'timeline'
   | 'properties'
   | 'console'
   | 'explorer'

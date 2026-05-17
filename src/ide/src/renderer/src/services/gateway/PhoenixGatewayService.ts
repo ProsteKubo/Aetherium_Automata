@@ -2645,10 +2645,12 @@ export class PhoenixGatewayService implements IGatewayService {
         limit: input.limit ?? 5000,
       },
       30_000,
+      { awaitDeferredOutcome: true }
     );
 
     const rawBundle =
       (outcome.data?.bundle as Record<string, any> | undefined) ??
+      (outcome.data as Record<string, any> | undefined) ??
       ((response as any)?.result?.bundle as Record<string, any> | undefined) ??
       ((response as any)?.bundle as Record<string, any> | undefined) ??
       {};
@@ -2674,15 +2676,19 @@ export class PhoenixGatewayService implements IGatewayService {
     return normalized;
   }
   
-  async startTimeTravel(deviceId: DeviceId, options?: any): Promise<TimeTravelStartResponse> {
+  async startTimeTravel(deviceId: DeviceId | DeviceId[], options?: any): Promise<TimeTravelStartResponse> {
+    const networkDeviceIds: DeviceId[] = Array.isArray(deviceId) ? deviceId : [deviceId];
+    const primaryDeviceId: DeviceId = networkDeviceIds[0];
+
     const maxSnapshots = Number.isFinite(options?.maxSnapshots)
       ? Math.max(1, Math.floor(options.maxSnapshots))
       : 500;
 
     const { response, outcome } = await this.sendAutomataCommandWithOutcome(
       'time_travel_query',
-      { device_id: deviceId, limit: maxSnapshots },
-      15_000
+      { device_id: primaryDeviceId, limit: maxSnapshots },
+      15_000,
+      { awaitDeferredOutcome: true }
     );
 
     const timeline =
@@ -2702,7 +2708,7 @@ export class PhoenixGatewayService implements IGatewayService {
       const timestamp = Number(entry?.timestamp ?? Date.now());
       const automataId =
         (state?.automata_id as AutomataId | undefined) ??
-        (this.devices.get(String(deviceId))?.assignedAutomataId as AutomataId | undefined) ??
+        (this.devices.get(String(primaryDeviceId))?.assignedAutomataId as AutomataId | undefined) ??
         ('unknown' as AutomataId);
 
       const variables = Object.entries(state?.variables ?? {}).reduce((acc, [name, value]) => {
@@ -2716,10 +2722,10 @@ export class PhoenixGatewayService implements IGatewayService {
       }, {} as ExecutionSnapshot['variables']);
 
       return {
-        id: `${String(deviceId)}:tt:${entry?.snapshot_cursor ?? index}`,
+        id: `${String(primaryDeviceId)}:tt:${entry?.snapshot_cursor ?? index}`,
         timestamp,
         automataId,
-        deviceId,
+        deviceId: primaryDeviceId,
         currentState: String(state?.current_state ?? 'unknown'),
         variables,
         inputs: this.buildSignalMap(state?.inputs, timestamp),
@@ -2730,17 +2736,18 @@ export class PhoenixGatewayService implements IGatewayService {
     });
 
     const latestSnapshot =
-      snapshots[snapshots.length - 1] ?? (await this.getSnapshot(deviceId)).snapshot;
+      snapshots[snapshots.length - 1] ?? (await this.getSnapshot(primaryDeviceId)).snapshot;
 
     const sessionId = this.makeId('tt');
     const session: TimeTravelSession = {
       id: sessionId,
-      deviceId,
+      deviceId: primaryDeviceId,
+      networkDeviceIds,
       automataId: latestSnapshot.automataId,
       startTime: Date.now(),
       history: {
         automataId: latestSnapshot.automataId,
-        deviceId,
+        deviceId: primaryDeviceId,
         snapshots: snapshots.length > 0 ? snapshots : [latestSnapshot],
         maxSnapshots,
         currentIndex: Math.max((snapshots.length > 0 ? snapshots.length : 1) - 1, 0),
@@ -2805,10 +2812,12 @@ export class PhoenixGatewayService implements IGatewayService {
     targetIndex = Math.max(0, Math.min(snapshots.length - 1, targetIndex));
     const snapshot = snapshots[targetIndex];
 
+    const networkDeviceIds = session.networkDeviceIds ?? [session.deviceId];
     const { outcome } = await this.sendAutomataCommandWithOutcome(
-      'rewind_deployment',
-      { device_id: session.deviceId, target_timestamp: snapshot.timestamp },
-      15_000
+      'rewind_network',
+      { device_ids: networkDeviceIds, target_timestamp: snapshot.timestamp },
+      15_000,
+      { awaitDeferredOutcome: true }
     );
 
     const rewindSource =
