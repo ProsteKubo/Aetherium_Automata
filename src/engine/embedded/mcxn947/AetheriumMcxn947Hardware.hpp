@@ -405,7 +405,8 @@ public:
         static GPIO_Type* const gpioPorts[] = GPIO_BASE_PTRS;
         GPIO_Type* gpio = gpioPorts[portIndex];
         const uint32_t mask = (1UL << pinIndex);
-        if (high) {
+        const bool driveHigh = isActiveLowBoardLed(pin) ? !high : high;
+        if (driveHigh) {
             gpio->PSOR = mask;
         } else {
             gpio->PCOR = mask;
@@ -428,7 +429,8 @@ public:
         static GPIO_Type* const gpioPorts[] = GPIO_BASE_PTRS;
         GPIO_Type* gpio = gpioPorts[portIndex];
         const uint32_t value = (gpio->PDIR >> pinIndex) & 0x1U;
-        return Result<int64_t>::ok(static_cast<int64_t>(value));
+        const bool logicalHigh = isActiveLowBoardLed(pin) ? value == 0U : value != 0U;
+        return Result<int64_t>::ok(logicalHigh ? 1 : 0);
 #else
         return Result<int64_t>::error("mcxn947 gpio unavailable outside target build");
 #endif
@@ -478,6 +480,10 @@ private:
             }
         }
         return lowered;
+    }
+
+    static bool isActiveLowBoardLed(int pin) {
+        return pin == 10 || pin == 27 || pin == 34;
     }
 
     std::unordered_map<std::string, std::unique_ptr<IComponent>> components_;

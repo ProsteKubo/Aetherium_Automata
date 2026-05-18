@@ -254,6 +254,7 @@ public:
     Timestamp startTime = 0;
     Timestamp stateEntryTime = 0;
     Timestamp lastTickTime = 0;
+    uint64_t stateEntryTickCount = 0;  // tickCount when the current state was entered
 
     // Variable store
     VariableStore variables;
@@ -567,6 +568,7 @@ inline void ExecutionContext::reset() {
     transitionCount = 0;
     errorCount = 0;
     stateEntryTime = 0;
+    stateEntryTickCount = 0;
     variables.resetAll();
 }
 

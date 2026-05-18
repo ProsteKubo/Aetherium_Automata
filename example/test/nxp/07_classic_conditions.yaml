@@ -1,0 +1,172 @@
+# ============================================================================
+# NXP Test 07 — Classic Condition Transitions
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  host automata or manual gateway commands setting `level`
+# Tests: TransitionType::Classic — condition evaluated every tick
+#
+# Classic conditions are level-sensitive: the transition fires and re-fires
+# as long as the condition holds, each tick.  This test verifies:
+#
+#   1. Classic condition with a numeric comparison
+#   2. Classic condition with a string comparison
+#   3. Touch pad classic condition (hardware input, sampled each tick)
+#
+# Expected behavior:
+#   Idle        — both off; waits for level != 0 OR touch
+#   TouchOverride — both on; while touch pad held (classic, every tick)
+#   LevelLow    — green on; level in [1..49] (classic)
+#   LevelHigh   — red on; level >= 50 (classic)
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 07 - Classic Conditions
+  type: inline
+  language: lua
+  description: Verifies classic (level-sensitive) condition transitions using a numeric input, a string input, and the touch pad hardware component.
+  author: Aetherium Team
+  tags: [test, nxp, classic, conditions, touch, communication]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: level
+    type: int
+    direction: input
+    default: 0
+
+  - name: current_zone
+    type: string
+    direction: output
+    default: "idle"
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+        component("touch_pad"):init()
+
+    Idle:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("current_zone", "idle")
+
+    TouchOverride:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("current_zone", "touch")
+
+    LevelLow:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("current_zone", "low")
+
+    LevelHigh:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("current_zone", "high")
+
+  transitions:
+    init_to_idle:
+      from: Init
+      to: Idle
+      type: timed
+      after: "500ms"
+
+    # Touch has priority 0 (highest) — overrides level transitions
+    idle_to_touch:
+      from: Idle
+      to: TouchOverride
+      type: classic
+      priority: 0
+      condition: component("touch_pad"):pressed()
+
+    low_to_touch:
+      from: LevelLow
+      to: TouchOverride
+      type: classic
+      priority: 0
+      condition: component("touch_pad"):pressed()
+
+    high_to_touch:
+      from: LevelHigh
+      to: TouchOverride
+      type: classic
+      priority: 0
+      condition: component("touch_pad"):pressed()
+
+    # Level transitions (priority 1, evaluated only when touch is not held)
+    idle_to_low:
+      from: Idle
+      to: LevelLow
+      type: classic
+      priority: 1
+      condition: level > 0 and level < 50
+
+    idle_to_high:
+      from: Idle
+      to: LevelHigh
+      type: classic
+      priority: 1
+      condition: level >= 50
+
+    low_to_idle:
+      from: LevelLow
+      to: Idle
+      type: classic
+      priority: 1
+      condition: level == 0
+
+    low_to_high:
+      from: LevelLow
+      to: LevelHigh
+      type: classic
+      priority: 1
+      condition: level >= 50
+
+    high_to_idle:
+      from: LevelHigh
+      to: Idle
+      type: classic
+      priority: 1
+      condition: level == 0
+
+    high_to_low:
+      from: LevelHigh
+      to: LevelLow
+      type: classic
+      priority: 1
+      condition: level > 0 and level < 50
+
+    # Touch release returns to level-appropriate state
+    touch_to_idle:
+      from: TouchOverride
+      to: Idle
+      type: classic
+      condition: not component("touch_pad"):pressed() and level == 0
+
+    touch_to_low:
+      from: TouchOverride
+      to: LevelLow
+      type: classic
+      condition: not component("touch_pad"):pressed() and level > 0 and level < 50
+
+    touch_to_high:
+      from: TouchOverride
+      to: LevelHigh
+      type: classic
+      condition: not component("touch_pad"):pressed() and level >= 50

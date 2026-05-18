@@ -751,20 +751,38 @@ inline EventConfig AutomataParser::parseEventConfig(ryml::ConstNodeRef node,
                                                      ParseContext& ctx) {
     EventConfig config;
 
+    if (!node.is_map() && !node.is_seq()) {
+        SignalTrigger trigger;
+        trigger.signalName = getString(node);
+        trigger.triggerType = EventTrigger::OnChange;
+        config.triggers.push_back(std::move(trigger));
+        return config;
+    }
+
     if (auto triggersNode = findChild(node, "triggers"); triggersNode && (*triggersNode).is_seq()) {
         for (auto triggerNode : (*triggersNode).children()) {
             SignalTrigger trigger;
             
             if (auto signalNode = findChild(triggerNode, "signal")) {
                 trigger.signalName = getString(*signalNode);
+            } else if (auto signalNode = findChild(triggerNode, "signal_name")) {
+                trigger.signalName = getString(*signalNode);
+            } else if (auto signalNode = findChild(triggerNode, "signalName")) {
+                trigger.signalName = getString(*signalNode);
             }
             if (auto triggerTypeNode = findChild(triggerNode, "trigger")) {
+                trigger.triggerType = parseEventTrigger(getString(*triggerTypeNode));
+            } else if (auto triggerTypeNode = findChild(triggerNode, "trigger_type")) {
+                trigger.triggerType = parseEventTrigger(getString(*triggerTypeNode));
+            } else if (auto triggerTypeNode = findChild(triggerNode, "triggerType")) {
                 trigger.triggerType = parseEventTrigger(getString(*triggerTypeNode));
             }
             if (auto threshNodeOpt = findChild(triggerNode, "threshold")) {
                 auto threshNode = *threshNodeOpt;
                 ThresholdConfig thresh;
                 if (auto opNode = findChild(threshNode, "operator")) {
+                    thresh.op = parseCompareOp(getString(*opNode));
+                } else if (auto opNode = findChild(threshNode, "op")) {
                     thresh.op = parseCompareOp(getString(*opNode));
                 }
                 if (auto valueNode = findChild(threshNode, "value")) {

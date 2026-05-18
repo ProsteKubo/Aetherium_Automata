@@ -1,0 +1,72 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 05 - Host IR Driver"
+  type: inline
+  description: "Host-side arm and pulse driver for the bytecode subset IR fixture."
+  tags: [engine, verification, host, bytecode, ir]
+
+variables:
+  - name: armed
+    type: bool
+    direction: output
+    default: false
+  - name: pulse
+    type: bool
+    direction: output
+    default: false
+  - name: driver_phase
+    type: string
+    direction: output
+    default: "idle"
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setOutput("armed", false)
+        setOutput("pulse", false)
+        setOutput("driver_phase", "idle")
+
+    Arm:
+      on_enter: |
+        setOutput("armed", true)
+        setOutput("pulse", false)
+        setOutput("driver_phase", "armed")
+
+    Pulse:
+      on_enter: |
+        setOutput("pulse", true)
+        setOutput("driver_phase", "pulse")
+
+    Done:
+      on_enter: |
+        setOutput("pulse", false)
+        setOutput("driver_phase", "done")
+
+  transitions:
+    arm:
+      from: Idle
+      to: Arm
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 750ms
+
+    pulse:
+      from: Arm
+      to: Pulse
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 750ms
+
+    finish:
+      from: Pulse
+      to: Done
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 250ms

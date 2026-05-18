@@ -395,6 +395,53 @@ defmodule AetheriumGateway.ConnectionManagerTest do
       sync_managers()
       refute_receive {:dispatch_command, "set_input", %{"automata_id" => ^target}, _}, 100
     end
+
+    test "does not propagate outputs into non-running target deployments", %{
+      auto_a: auto_a,
+      auto_b: auto_b,
+      prefix: prefix,
+      server_a: server_a
+    } do
+      source = deploy_running(auto_a, "#{prefix}-source-device", server_a)
+      loading_target = deploy_with_status(auto_b, "#{prefix}-loading-target", server_a, :loading)
+      stopped_target = deploy_with_status(auto_b, "#{prefix}-stopped-target", server_a, :stopped)
+
+      {:ok, conn} =
+        ConnectionManager.create_connection(%{
+          source_automata: auto_a,
+          source_output: "result",
+          target_automata: auto_b,
+          target_input: "input_val"
+        })
+
+      ConnectionManager.propagate_output(source, "result", 42)
+      sync_managers()
+
+      refute_receive {:dispatch_command, "set_input", _, _}, 100
+
+      :ok =
+        AutomataRegistry.update_deployment_status(
+          auto_b,
+          loading_target.device_id,
+          :running
+        )
+
+      ConnectionManager.propagate_output(source, "result", 43)
+      sync_managers()
+
+      assert_receive {:dispatch_command, "set_input",
+                      %{"deployment_id" => deployment_id, "value" => 43}, _},
+                     500
+
+      assert deployment_id == loading_target.deployment_id
+      stopped_deployment_id = stopped_target.deployment_id
+
+      refute_receive {:dispatch_command, "set_input",
+                      %{"deployment_id" => ^stopped_deployment_id}, _},
+                     100
+
+      ConnectionManager.delete_connection(conn.id)
+    end
   end
 
   # Helper to create automata with I/O variables
@@ -431,10 +478,14 @@ defmodule AetheriumGateway.ConnectionManagerTest do
   end
 
   defp deploy_running(automata_id, device_id, server_id) do
+    deploy_with_status(automata_id, device_id, server_id, :running)
+  end
+
+  defp deploy_with_status(automata_id, device_id, server_id, status) do
     {:ok, deployment} =
       AutomataRegistry.deploy_automata(automata_id, device_id, server_id, dispatch: false)
 
-    :ok = AutomataRegistry.update_deployment_status(automata_id, device_id, :running)
+    :ok = AutomataRegistry.update_deployment_status(automata_id, device_id, status)
     _ = :sys.get_state(AutomataRegistry)
     deployment
   end

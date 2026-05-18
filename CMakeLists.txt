@@ -88,10 +88,7 @@ add_library(aetherium_runtime_core STATIC
   src/engine/core/execution_trace.cpp
   src/engine/core/telemetry_log_hub.cpp
   src/engine/core/command_bus.cpp
-  src/engine/core/engine.cpp
 )
-
-target_compile_definitions(aetherium_runtime_core PUBLIC AETHERIUM_RUNTIME_CORE_ONLY=1)
 
 if(AETHERIUM_ENABLE_LUA_SCRIPT_ENGINE)
   target_sources(aetherium_runtime_core PRIVATE src/engine/core/lua_engine.cpp)
@@ -132,6 +129,19 @@ target_link_libraries(aetherium_compile_frontend PUBLIC
   ryml::ryml
 )
 
+# Desktop engine orchestration layer (YAML/file loader enabled).
+add_library(aetherium_engine_core STATIC
+  src/engine/core/engine.cpp
+)
+target_include_directories(aetherium_engine_core PUBLIC
+  ${CMAKE_SOURCE_DIR}/src/engine
+  ${CMAKE_SOURCE_DIR}/src
+)
+target_link_libraries(aetherium_engine_core PUBLIC
+  aetherium_runtime_core
+  aetherium_compile_frontend
+)
+
 # WebSocket transport module (desktop/server-side engine client transport)
 add_library(aetherium_transport_ws STATIC
   src/engine/core/websocket_transport.cpp
@@ -149,6 +159,7 @@ target_link_libraries(aetherium_transport_ws PUBLIC
 add_library(aetherium_platform_desktop INTERFACE)
 target_link_libraries(aetherium_platform_desktop INTERFACE
   aetherium_runtime_core
+  aetherium_engine_core
   aetherium_compile_frontend
   aetherium_transport_ws
 )
@@ -214,5 +225,22 @@ if(AETHERIUM_BUILD_ENGINE_SMOKE)
     )
   else()
     message(WARNING "AETHERIUM_BUILD_ENGINE_SMOKE=ON but tests/engine_command_smoke.cpp was not found; skipping smoke target.")
+  endif()
+
+  if(EXISTS "${CMAKE_SOURCE_DIR}/tests/engine_verification_smoke.cpp")
+    add_executable(aetherium_engine_verification_smoke
+      tests/engine_verification_smoke.cpp
+    )
+
+    target_include_directories(aetherium_engine_verification_smoke PRIVATE
+      ${CMAKE_SOURCE_DIR}/src
+      ${CMAKE_SOURCE_DIR}/src/engine
+    )
+
+    target_link_libraries(aetherium_engine_verification_smoke PRIVATE
+      aetherium_platform_desktop
+    )
+  else()
+    message(WARNING "AETHERIUM_BUILD_ENGINE_SMOKE=ON but tests/engine_verification_smoke.cpp was not found; skipping verification smoke target.")
   endif()
 endif()

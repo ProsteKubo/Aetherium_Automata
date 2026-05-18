@@ -804,6 +804,16 @@ export const PropertiesPanel: React.FC = () => {
           </div>
 
           <div className="property-group">
+            <label className="property-label">Triggered Callback (Lua)</label>
+            <textarea
+              className="property-textarea"
+              rows={3}
+              value={selectedTransition.triggered || ''}
+              onChange={(e) => updateTransition(selectedTransition.id, { triggered: e.target.value })}
+            />
+          </div>
+
+          <div className="property-group">
             <label className="property-label">Description</label>
             <textarea
               className="property-textarea"

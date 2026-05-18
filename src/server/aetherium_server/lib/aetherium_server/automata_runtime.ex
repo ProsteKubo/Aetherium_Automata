@@ -53,6 +53,12 @@ defmodule AetheriumServer.AutomataRuntime do
     GenServer.cast(via_tuple(deployment_id), {:set_input, input_name, value})
   end
 
+  @doc "Set output or internal variable value"
+  @spec set_variable(String.t(), String.t(), any()) :: :ok
+  def set_variable(deployment_id, variable_name, value) do
+    GenServer.cast(via_tuple(deployment_id), {:set_variable, variable_name, value})
+  end
+
   @doc "Get current state"
   @spec get_state(String.t()) :: {:ok, map()} | {:error, term()}
   def get_state(deployment_id) do
@@ -234,6 +240,28 @@ defmodule AetheriumServer.AutomataRuntime do
   end
 
   @impl true
+  def handle_cast({:set_variable, variable_name, value}, state) do
+    cond do
+      Map.has_key?(state.inputs, variable_name) ->
+        {:noreply, state}
+
+      Map.has_key?(state.outputs, variable_name) ->
+        new_state =
+          state
+          |> put_in([:outputs, variable_name], value)
+          |> put_in([:variables, variable_name], value)
+
+        {:noreply, new_state}
+
+      Map.has_key?(state.variables, variable_name) ->
+        {:noreply, put_in(state, [:variables, variable_name], value)}
+
+      true ->
+        {:noreply, state}
+    end
+  end
+
+  @impl true
   def handle_call(:get_state, _from, state) do
     result = %{
       current_state: state.current_state,
@@ -293,8 +321,14 @@ defmodule AetheriumServer.AutomataRuntime do
         transition ->
           # Verify we're still in the source state
           if transition[:from] == state.current_state do
+            priority_transitions =
+              state.current_state
+              |> get_outgoing_transitions(new_state)
+              |> highest_priority_group()
+
             # Check condition if any
-            if evaluate_condition(transition[:condition], new_state) do
+            if Enum.any?(priority_transitions, &(&1[:id] == transition_id)) &&
+                 evaluate_condition(transition[:condition], new_state) do
               final_state =
                 do_transition(state.current_state, transition[:to], transition_id, new_state)
 
@@ -318,27 +352,34 @@ defmodule AetheriumServer.AutomataRuntime do
   defp check_and_fire_transitions(state) do
     transitions = get_outgoing_transitions(state.current_state, state)
 
-    condition_transitions =
-      transitions
-      |> Enum.filter(&(&1[:type] in [:classic, :immediate, nil]))
-      |> Enum.filter(&evaluate_condition(&1[:condition], state))
-      |> Enum.sort_by(&(-(&1[:priority] || 0)))
+    transitions
+    |> priority_groups()
+    |> Enum.reduce_while(state, fn priority_transitions, acc ->
+      condition_transitions =
+        priority_transitions
+        |> Enum.filter(&(&1[:type] in [:classic, :immediate, nil]))
+        |> Enum.filter(&evaluate_condition(&1[:condition], acc))
 
-    if not Enum.empty?(condition_transitions) do
-      select_and_fire_transition(condition_transitions, state, nil)
-    else
-      # When no condition-based transitions apply, evaluate probabilistic ones
-      prob_transitions =
-        transitions
-        |> Enum.filter(&(&1[:type] == :probabilistic))
-        |> Enum.sort_by(&(-(&1[:priority] || 0)))
+      cond do
+        not Enum.empty?(condition_transitions) ->
+          {:halt, select_and_fire_transition(condition_transitions, acc, nil)}
 
-      if Enum.empty?(prob_transitions) do
-        state
-      else
-        select_and_fire_transition(prob_transitions, state, nil)
+        Enum.any?(priority_transitions, &(&1[:type] == :timed)) ->
+          {:halt, acc}
+
+        true ->
+          # When no condition-based transitions apply, evaluate probabilistic ones.
+          prob_transitions =
+            priority_transitions
+            |> Enum.filter(&(&1[:type] == :probabilistic))
+
+          if Enum.empty?(prob_transitions) do
+            {:cont, acc}
+          else
+            {:halt, select_and_fire_transition(prob_transitions, acc, nil)}
+          end
       end
-    end
+    end)
   end
 
   defp get_outgoing_transitions(state_id, state) do
@@ -347,6 +388,24 @@ defmodule AetheriumServer.AutomataRuntime do
     transitions
     |> Map.values()
     |> Enum.filter(&(&1[:from] == state_id))
+  end
+
+  defp highest_priority_group([]), do: []
+
+  defp highest_priority_group(transitions) do
+    min_priority =
+      transitions
+      |> Enum.map(&(&1[:priority] || 0))
+      |> Enum.min()
+
+    Enum.filter(transitions, &((&1[:priority] || 0) == min_priority))
+  end
+
+  defp priority_groups(transitions) do
+    transitions
+    |> Enum.group_by(&(&1[:priority] || 0))
+    |> Enum.sort_by(fn {priority, _group} -> priority end)
+    |> Enum.map(fn {_priority, group} -> group end)
   end
 
   defp get_event_transitions(state_id, event_name, state) do
@@ -486,7 +545,7 @@ defmodule AetheriumServer.AutomataRuntime do
       end
 
     case mode do
-      :after ->
+      mode when mode in [:after, :timeout] ->
         ref = Process.send_after(self(), {:timed_transition, transition[:id]}, actual_delay)
         put_in(state, [:timers, transition[:id]], ref)
 
@@ -1336,8 +1395,10 @@ defmodule AetheriumServer.AutomataRuntime do
 
   defp normalize_timed_mode("after"), do: :after
   defp normalize_timed_mode("every"), do: :every
+  defp normalize_timed_mode("timeout"), do: :timeout
   defp normalize_timed_mode(:after), do: :after
   defp normalize_timed_mode(:every), do: :every
+  defp normalize_timed_mode(:timeout), do: :timeout
   defp normalize_timed_mode(_), do: :after
 
   defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do

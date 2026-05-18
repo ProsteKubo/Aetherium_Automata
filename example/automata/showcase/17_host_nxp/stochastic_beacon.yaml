@@ -8,14 +8,16 @@
 # No manual wiring needed. The gateway auto-routes by matching variable names:
 #
 #   signal_level  (output here)  →  signal_level  (input  in nxp_signal_monitor)
-#   nxp_temp_mc   (input  here)  ←  nxp_temp_mc   (output in nxp_signal_monitor)
+#   nxp_touch_pressed (input here) ← nxp_touch_pressed (output in nxp_signal_monitor)
 #
 # Cycle (nominal ~17 s per round):
 #   1. Idle       (3 s)     — broadcasts signal_level="idle"
-#   2. ChooseLevel (instant) — weighted random pick: low 40%, medium 30%, high 20%, surge 10%
+#   2. ChooseLevel (instant) — weighted random pick: low 45%, medium 35%, high 20%
 #   3. Signal state (6 s)    — broadcasts chosen level and strength
 #   4. Cooldown   (2 s)     — broadcasts signal_level="cooldown"
 #   → back to Idle
+#   Touch pad press is handled locally by the NXP automata and mirrored here
+#   only for IDE timeline inspection.
 #
 # ============================================================================
 
@@ -25,7 +27,7 @@ config:
   name: Stochastic Beacon
   type: inline
   language: lua
-  description: Probabilistic signal generator that autonomously cycles through signal levels and broadcasts them to a connected NXP device automata.
+  description: Probabilistic signal generator that autonomously cycles through low, medium, and high signal levels while observing NXP touch-pad presses and broadcasting LED mode commands to the connected NXP device automata.
   author: Aetherium Team
   tags:
     - showcase
@@ -44,10 +46,10 @@ variables:
     direction: output
     default: 0
 
-  - name: nxp_temp_mc
-    type: int
+  - name: nxp_touch_pressed
+    type: bool
     direction: input
-    default: 0
+    default: false
 
   - name: cycle_count
     type: int
@@ -81,11 +83,6 @@ automata:
         setOutput("signal_level", "high")
         setOutput("signal_strength", 80)
 
-    Surge:
-      on_enter: |
-        setOutput("signal_level", "surge")
-        setOutput("signal_strength", 100)
-
     Cooldown:
       on_enter: |
         setOutput("signal_level", "cooldown")
@@ -103,14 +100,14 @@ automata:
       to: LowSignal
       type: probabilistic
       probabilistic:
-        weight: 0.4
+        weight: 0.45
 
     choose_medium:
       from: ChooseLevel
       to: MediumSignal
       type: probabilistic
       probabilistic:
-        weight: 0.3
+        weight: 0.35
 
     choose_high:
       from: ChooseLevel
@@ -118,13 +115,6 @@ automata:
       type: probabilistic
       probabilistic:
         weight: 0.2
-
-    choose_surge:
-      from: ChooseLevel
-      to: Surge
-      type: probabilistic
-      probabilistic:
-        weight: 0.1
 
     low_to_cooldown:
       from: LowSignal
@@ -140,12 +130,6 @@ automata:
 
     high_to_cooldown:
       from: HighSignal
-      to: Cooldown
-      type: timed
-      after: "6s"
-
-    surge_to_cooldown:
-      from: Surge
       to: Cooldown
       type: timed
       after: "6s"

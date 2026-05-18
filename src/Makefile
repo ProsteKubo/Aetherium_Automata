@@ -70,7 +70,7 @@ MCXN947_PROBE_UID ?=
 MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
 MCXN947_SHOWCASE ?= example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml
 MCXN947_DEVICE_ID ?= mcxn947-core0
-MCXN947_DEPLOY_CHUNK_SIZE ?= 128
+MCXN947_DEPLOY_CHUNK_SIZE ?= 64
 
 .PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps host-console hc host-console-nxp hc-n hn up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke mcxn947-demo mdemo
 

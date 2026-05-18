@@ -1,0 +1,142 @@
+# ============================================================================
+# NXP Test 03 — Event on_change from Host
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  a host automata or manual gateway command that sets `command`
+# Tests: event transition with on_change trigger and additional condition
+#
+# Input `command` (string) is sent by the host. Values tested:
+#   "a"  → CommandA state (red on)
+#   "b"  → CommandB state (green on)
+#   "done" → Done state (both off, test_done=true)
+#
+# Expected sequence:
+#   1. WaitCommand (green fast blink via body — only if body works on NXP)
+#      Green slow blink not possible without body; green is on in WaitCommand.
+#   2. Host sends command="a" → CommandA (red on, green off)
+#   3. Host sends command="b" → CommandB (red off, green on)
+#   4. Host sends command="done" → Done (both off)
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 03 - Event on_change
+  type: inline
+  language: lua
+  description: Verifies event transitions triggered by on_change of a host-supplied string input.
+  author: Aetherium Team
+  tags: [test, nxp, event, on_change, communication]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: command
+    type: string
+    direction: input
+    default: "wait"
+
+  - name: test_done
+    type: bool
+    direction: output
+    default: false
+
+  - name: current_phase
+    type: string
+    direction: output
+    default: "wait"
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+
+    WaitCommand:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("current_phase", "wait")
+
+    CommandA:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("current_phase", "a")
+
+    CommandB:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("current_phase", "b")
+
+    Done:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("current_phase", "done")
+        setOutput("test_done", true)
+
+  transitions:
+    init_to_wait:
+      from: Init
+      to: WaitCommand
+      type: timed
+      after: "500ms"
+
+    wait_to_a:
+      from: WaitCommand
+      to: CommandA
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_change
+        condition: value("command") == "a"
+
+    wait_to_b:
+      from: WaitCommand
+      to: CommandB
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_change
+        condition: value("command") == "b"
+
+    wait_to_done:
+      from: WaitCommand
+      to: Done
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_change
+        condition: value("command") == "done"
+
+    a_to_wait:
+      from: CommandA
+      to: WaitCommand
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_change
+        condition: value("command") ~= "a"
+
+    b_to_wait:
+      from: CommandB
+      to: WaitCommand
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_change
+        condition: value("command") ~= "b"

@@ -1,0 +1,74 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 03 - Event Edges Threshold"
+  type: inline
+  description: "Checks input change flags for on_rise, on_fall, and threshold event transitions."
+  tags: [engine, verification, event, threshold]
+
+variables:
+  - name: command
+    type: bool
+    direction: input
+    default: false
+  - name: pressure
+    type: int
+    direction: input
+    default: 0
+  - name: event_seen
+    type: string
+    direction: output
+    default: "none"
+
+automata:
+  initial_state: WaitingRise
+
+  states:
+    WaitingRise:
+      on_enter: |
+        setOutput("event_seen", "waiting-rise")
+
+    WaitingFall:
+      on_enter: |
+        setOutput("event_seen", "rise")
+
+    PressureTrip:
+      on_enter: |
+        setOutput("event_seen", "pressure")
+
+    Complete:
+      on_enter: |
+        setOutput("event_seen", "fall")
+
+  transitions:
+    command_rise:
+      from: WaitingRise
+      to: WaitingFall
+      type: event
+      event:
+        triggers:
+          - signal: command
+            trigger: on_rise
+
+    pressure_threshold:
+      from: WaitingFall
+      to: PressureTrip
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: pressure
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 90
+
+    command_fall:
+      from: PressureTrip
+      to: Complete
+      type: event
+      priority: 1
+      event:
+        triggers:
+          - signal: command
+            trigger: on_fall

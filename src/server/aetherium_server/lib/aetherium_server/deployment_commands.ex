@@ -10,6 +10,17 @@ defmodule AetheriumServer.DeploymentCommands do
   @spec set_input(map(), map(), String.t(), any(), map()) :: {:ok, map()} | {:error, term()}
   def set_input(state, deployment, input_name, value, opts)
       when is_map(state) and is_map(deployment) and is_binary(input_name) and is_map(opts) do
+    set_value(state, deployment, input_name, value, opts, :set_input)
+  end
+
+  @spec set_variable(map(), map(), String.t(), any(), map()) :: {:ok, map()} | {:error, term()}
+  def set_variable(state, deployment, variable_name, value, opts)
+      when is_map(state) and is_map(deployment) and is_binary(variable_name) and is_map(opts) do
+    set_value(state, deployment, variable_name, value, opts, :set_variable)
+  end
+
+  defp set_value(state, deployment, value_name, value, opts, command)
+       when command in [:set_input, :set_variable] do
     cond do
       duplicate_topic_delivery?(state, deployment.id, opts) ->
         {:ok, state}
@@ -21,16 +32,23 @@ defmodule AetheriumServer.DeploymentCommands do
         result =
           cond do
             runtime_registered?(deployment.id) ->
-              AetheriumServer.AutomataRuntime.set_input(deployment.id, input_name, value)
-              :ok
+              case command do
+                :set_input ->
+                  AetheriumServer.AutomataRuntime.set_input(deployment.id, value_name, value)
+                  :ok
+
+                :set_variable ->
+                  AetheriumServer.AutomataRuntime.set_variable(deployment.id, value_name, value)
+                  :ok
+              end
 
             match?(%{session_ref: %DeviceSessionRef{}, protocol_id: _}, device) ->
               %{session_ref: session_ref, protocol_id: protocol_id} = device
 
-              case DeviceTransport.send_message(session_ref, :set_input, %{
+              case DeviceTransport.send_message(session_ref, command, %{
                      target_id: protocol_id,
                      run_id: deployment.run_id,
-                     name: input_name,
+                     name: value_name,
                      value: value
                    }) do
                 {:ok, _message_id} -> :ok
@@ -45,7 +63,7 @@ defmodule AetheriumServer.DeploymentCommands do
           :ok ->
             DeploymentObservability.maybe_record_set_input_event(
               deployment,
-              input_name,
+              value_name,
               value,
               opts
             )

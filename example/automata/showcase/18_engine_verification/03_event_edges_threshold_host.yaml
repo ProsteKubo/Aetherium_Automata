@@ -1,0 +1,91 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 03 - Host Event Driver"
+  type: inline
+  description: "Host-side signal driver for the event edge and threshold fixture with visible paced steps."
+  tags: [engine, verification, host, event, threshold]
+
+variables:
+  - name: command
+    type: bool
+    direction: output
+    default: false
+  - name: pressure
+    type: int
+    direction: output
+    default: 0
+  - name: driver_step
+    type: string
+    direction: output
+    default: "idle"
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setOutput("command", false)
+        setOutput("pressure", 0)
+        setOutput("driver_step", "idle")
+
+    RaiseCommand:
+      on_enter: |
+        setOutput("command", true)
+        setOutput("driver_step", "rise")
+
+    RaisePressure:
+      on_enter: |
+        setOutput("pressure", 95)
+        setOutput("driver_step", "pressure")
+
+    DropCommand:
+      on_enter: |
+        setOutput("command", false)
+        setOutput("driver_step", "fall")
+
+    Done:
+      on_enter: |
+        setOutput("driver_step", "done")
+
+  transitions:
+    start:
+      from: Idle
+      to: RaiseCommand
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 2500ms
+
+    pressure:
+      from: RaiseCommand
+      to: RaisePressure
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1500ms
+
+    fall:
+      from: RaisePressure
+      to: DropCommand
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1500ms
+
+    finish:
+      from: DropCommand
+      to: Done
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1500ms
+
+    repeat:
+      from: Done
+      to: Idle
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 2500ms

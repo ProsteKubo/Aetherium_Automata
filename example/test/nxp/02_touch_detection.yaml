@@ -1,0 +1,78 @@
+# ============================================================================
+# NXP Test 02 — Touch Pad Detection
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Tests: component("touch_pad"):pressed(), classic condition polling
+#        (no host required)
+#
+# Expected behavior (visual pass/fail):
+#   Idle        — green LED on, red off (waiting for touch)
+#   TouchHeld   — both LEDs on while pad held
+#   Released    — green on, red off (back to idle)
+#
+# Press and hold the onboard capacitive touch pad, then release.
+# LEDs must track touch state in real-time.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 02 - Touch Detection
+  type: inline
+  language: lua
+  description: Verifies the capacitive touch pad component by toggling LEDs when the pad is pressed or released.
+  author: Aetherium Team
+  tags: [test, nxp, touch, gpio]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: touch_active
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+        component("touch_pad"):init()
+
+    Idle:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("touch_active", false)
+
+    TouchHeld:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("touch_active", true)
+
+  transitions:
+    init_to_idle:
+      from: Init
+      to: Idle
+      type: timed
+      after: "500ms"
+
+    idle_to_touch:
+      from: Idle
+      to: TouchHeld
+      type: classic
+      condition: component("touch_pad"):pressed()
+
+    touch_to_idle:
+      from: TouchHeld
+      to: Idle
+      type: classic
+      condition: not component("touch_pad"):pressed()

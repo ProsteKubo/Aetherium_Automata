@@ -212,6 +212,16 @@ defmodule AetheriumServer.DeviceManager do
     )
   end
 
+  @doc "Set non-input variable value for deployment"
+  @spec set_variable(String.t(), String.t(), any(), map()) :: :ok | {:error, term()}
+  def set_variable(deployment_id, variable_name, value, opts \\ %{}) do
+    GenServer.call(
+      __MODULE__,
+      {:set_variable, deployment_id, variable_name, value, normalize_set_input_opts(opts)},
+      30_000
+    )
+  end
+
   @doc "Trigger event on deployment"
   @spec trigger_event(String.t(), String.t(), any()) :: :ok | {:error, term()}
   def trigger_event(deployment_id, event_name, data) do
@@ -664,6 +674,23 @@ defmodule AetheriumServer.DeviceManager do
 
       deployment ->
         case DeploymentCommands.set_input(state, deployment, input_name, value, opts) do
+          {:ok, next_state} ->
+            {:reply, :ok, next_state}
+
+          {:error, reason} ->
+            {:reply, {:error, reason}, state}
+        end
+    end
+  end
+
+  @impl true
+  def handle_call({:set_variable, deployment_id, variable_name, value, opts}, _from, state) do
+    case Map.get(state.deployments, deployment_id) do
+      nil ->
+        {:reply, {:error, :deployment_not_found}, state}
+
+      deployment ->
+        case DeploymentCommands.set_variable(state, deployment, variable_name, value, opts) do
           {:ok, next_state} ->
             {:reply, :ok, next_state}
 
@@ -1587,9 +1614,20 @@ defmodule AetheriumServer.DeviceManager do
     status_timestamp = status_handle_timestamp(payload)
     state_change_timestamp = last_state_change_timestamp(deployment)
 
-    is_integer(status_timestamp) and is_integer(state_change_timestamp) and
+    comparable_timestamps?(status_timestamp, state_change_timestamp) and
       status_timestamp < state_change_timestamp
   end
+
+  defp comparable_timestamps?(left, right) when is_integer(left) and is_integer(right) do
+    clock_domain(left) == clock_domain(right)
+  end
+
+  defp comparable_timestamps?(_left, _right), do: false
+
+  defp clock_domain(timestamp) when is_integer(timestamp) and timestamp >= 1_000_000_000_000,
+    do: :epoch_ms
+
+  defp clock_domain(timestamp) when is_integer(timestamp), do: :device_uptime_ms
 
   defp last_state_change_timestamp(deployment) when is_map(deployment) do
     deployment

@@ -333,6 +333,14 @@ defmodule AetheriumServer.GatewayConnection do
   end
 
   @impl true
+  def handle_info(%PhoenixClient.Message{event: "set_variable", payload: payload}, state) do
+    {payload, envelope} = split_envelope(payload)
+    result = handle_set_variable(payload)
+    push_command_outcome(state, envelope, "set_variable", result)
+    {:noreply, state}
+  end
+
+  @impl true
   def handle_info(%PhoenixClient.Message{event: "trigger_event", payload: payload}, state) do
     {payload, envelope} = split_envelope(payload)
     deployment_id = resolve_deployment_id(payload)
@@ -635,6 +643,47 @@ defmodule AetheriumServer.GatewayConnection do
     end
   end
 
+  defp handle_set_variable(payload) do
+    command_opts = propagated_input_opts(payload)
+
+    case payload do
+      %{"deployment_id" => deployment_id, "name" => name, "value" => value}
+      when is_binary(deployment_id) and deployment_id != "" ->
+        case AetheriumServer.DeviceManager.set_variable(deployment_id, name, value, command_opts) do
+          :ok -> {:ack, :ok, %{"target_count" => 1}}
+          {:error, reason} -> {:error, reason, %{"target_count" => 0}}
+        end
+
+      %{"deployment_id" => deployment_id, "input" => name, "value" => value}
+      when is_binary(deployment_id) and deployment_id != "" ->
+        case AetheriumServer.DeviceManager.set_variable(deployment_id, name, value, command_opts) do
+          :ok -> {:ack, :ok, %{"target_count" => 1}}
+          {:error, reason} -> {:error, reason, %{"target_count" => 0}}
+        end
+
+      %{"device_id" => device_id, "name" => name, "value" => value}
+      when is_binary(device_id) and device_id != "" ->
+        apply_variable_to_deployments(
+          resolve_deployments_for_device(device_id),
+          name,
+          value,
+          command_opts
+        )
+
+      %{"automata_id" => automata_id, "name" => name, "value" => value}
+      when is_binary(automata_id) and automata_id != "" ->
+        apply_variable_to_deployments(
+          find_deployments_by_automata(automata_id),
+          name,
+          value,
+          command_opts
+        )
+
+      _ ->
+        {:nak, :invalid_payload, %{}}
+    end
+  end
+
   defp apply_to_deployments([], _input, _value, _opts),
     do: {:nak, :deployment_not_found, %{"target_count" => 0}}
 
@@ -642,6 +691,25 @@ defmodule AetheriumServer.GatewayConnection do
     {ok_count, errors} =
       Enum.reduce(deployments, {0, []}, fn deployment, {oks, errs} ->
         case AetheriumServer.DeviceManager.set_input(deployment.id, input, value, opts) do
+          :ok -> {oks + 1, errs}
+          {:error, reason} -> {oks, [{deployment.id, reason} | errs]}
+        end
+      end)
+
+    if errors == [] do
+      {:ack, :ok, %{"target_count" => ok_count}}
+    else
+      {:error, :partial_failure, %{"target_count" => ok_count, "errors" => Enum.reverse(errors)}}
+    end
+  end
+
+  defp apply_variable_to_deployments([], _name, _value, _opts),
+    do: {:nak, :deployment_not_found, %{"target_count" => 0}}
+
+  defp apply_variable_to_deployments(deployments, name, value, opts) do
+    {ok_count, errors} =
+      Enum.reduce(deployments, {0, []}, fn deployment, {oks, errs} ->
+        case AetheriumServer.DeviceManager.set_variable(deployment.id, name, value, opts) do
           :ok -> {oks + 1, errs}
           {:error, reason} -> {oks, [{deployment.id, reason} | errs]}
         end

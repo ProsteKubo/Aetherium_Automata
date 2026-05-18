@@ -1,0 +1,96 @@
+# ============================================================================
+# NXP Test 01 — GPIO LED Control
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Tests: GPIO write, active-low LED control (no host required)
+#
+# LED mapping (FRDM-MCXN947):
+#   GPIO 10 = red  LED (active-low: gpio.write(10, true) turns it ON)
+#   GPIO 27 = green LED (active-low: gpio.write(27, true) turns it ON)
+#
+# Expected sequence (visual pass/fail):
+#   Init        — both LEDs off
+#   RedOn       — red on, green off (2 s)
+#   GreenOn     — red off, green on (2 s)
+#   BothOn      — both on (2 s)
+#   Done        — both off (stays here)
+#
+# If LEDs cycle correctly, GPIO + timed transitions both work.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 01 - GPIO LEDs
+  type: inline
+  language: lua
+  description: Sequences the two on-board LEDs through four states to verify GPIO write and active-low inversion.
+  author: Aetherium Team
+  tags: [test, nxp, gpio, leds]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: test_done
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+
+    RedOn:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+
+    GreenOn:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+
+    BothOn:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+
+    Done:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("test_done", true)
+
+  transitions:
+    init_to_red:
+      from: Init
+      to: RedOn
+      type: timed
+      after: "1s"
+
+    red_to_green:
+      from: RedOn
+      to: GreenOn
+      type: timed
+      after: "2s"
+
+    green_to_both:
+      from: GreenOn
+      to: BothOn
+      type: timed
+      after: "2s"
+
+    both_to_done:
+      from: BothOn
+      to: Done
+      type: timed
+      after: "2s"

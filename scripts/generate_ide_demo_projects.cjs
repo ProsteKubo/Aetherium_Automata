@@ -208,54 +208,9 @@ function writeImportableProjects() {
     }
 
     const yamlFiles = discoverYamlFiles(rootDefinition.sourceRoot);
-    yamlFiles.forEach((absolutePath) => {
-      const relativeSourcePath = normalizePath(path.relative(REPO_ROOT, absolutePath));
-      const sourceRelativeToRoot = normalizePath(path.relative(rootDefinition.sourceRoot, absolutePath));
-      const automata = loadAutomata(relativeSourcePath, {
-        networkId: `network_${slugify(sourceRelativeToRoot)}`,
-        index: 0,
-      });
-      const project = buildSingleAutomataProject({
-        metadataName: `${automata.config.name} Project`,
-        description: `One-click IDE project for ${relativeSourcePath}.`,
-        tags: [rootDefinition.tag, 'single-automata', 'generated'],
-        networkName: automata.config.name,
-        networkDescription: automata.config.description,
-        automataPaths: [relativeSourcePath],
-        networkId: `network_${slugify(sourceRelativeToRoot)}`,
-      });
-      const targetPath = path.join(
-        rootDefinition.outputRoot,
-        sourceRelativeToRoot.replace(/\.(ya?ml)$/i, '.aeth'),
-      );
-
-      writeProjectFile(targetPath, project);
-      writeColocatedProjectFile(rootDefinition, sourceRelativeToRoot, project);
-    });
-
-    if (yamlFiles.length > 1) {
-      const automataPaths = yamlFiles.map((entry) => normalizePath(path.relative(REPO_ROOT, entry)));
-      const project = buildSingleAutomataProject({
-        metadataName: `${rootDefinition.label} Collection Project`,
-        description: `One-click IDE project containing all automata under ${normalizePath(
-          path.relative(REPO_ROOT, rootDefinition.sourceRoot),
-        )}.`,
-        tags: [rootDefinition.tag, 'collection', 'generated'],
-        networkName: `${rootDefinition.label} Collection`,
-        networkDescription: `Generated collection for all ${rootDefinition.label.toLowerCase()} automata.`,
-        automataPaths,
-        networkId: `network_${slugify(`${rootDefinition.tag}_collection`)}`,
-      });
-
-      writeProjectFile(path.join(rootDefinition.outputRoot, 'all.aeth'), project);
-      if (rootDefinition.colocatedRoot) {
-        writeProjectFile(path.join(rootDefinition.colocatedRoot, 'all.aeth'), project);
-      }
-    }
-
     const filesByDirectory = groupYamlFilesByDirectory(yamlFiles, rootDefinition.sourceRoot);
     Object.entries(filesByDirectory)
-      .filter(([directory, entries]) => directory !== '.' && entries.length > 1)
+      .filter(([, entries]) => entries.length > 0)
       .forEach(([directory, entries]) => {
         const label = directory === '.' ? rootDefinition.label : titleFromSlug(path.basename(directory));
         const automataPaths = entries.map((entry) => normalizePath(path.relative(REPO_ROOT, entry)));
@@ -281,16 +236,6 @@ function writeImportableProjects() {
         }
       });
   });
-}
-
-function writeColocatedProjectFile(rootDefinition, sourceRelativeToRoot, project) {
-  if (!rootDefinition.colocatedRoot) return;
-
-  const targetPath = path.join(
-    rootDefinition.colocatedRoot,
-    sourceRelativeToRoot.replace(/\.(ya?ml)$/i, '.aeth'),
-  );
-  writeProjectFile(targetPath, project);
 }
 
 function purgeGeneratedProjectFiles(rootDir) {

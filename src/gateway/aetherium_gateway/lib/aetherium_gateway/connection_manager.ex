@@ -762,7 +762,7 @@ defmodule AetheriumGateway.ConnectionManager do
 
   defp active_deployment?(deployment) when is_map(deployment) do
     status = Map.get(deployment, :status) || Map.get(deployment, "status")
-    status in [:loading, :running, :paused, "loading", "running", "paused"]
+    status in [:running, "running"]
   end
 
   defp active_deployment?(_), do: false

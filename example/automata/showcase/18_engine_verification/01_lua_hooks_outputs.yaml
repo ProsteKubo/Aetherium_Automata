@@ -1,0 +1,46 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 01 - Lua Hooks Outputs"
+  type: inline
+  description: "Small Lua hook/body fixture for repeated variable writes and output events."
+  tags: [engine, verification, lua, outputs]
+
+variables:
+  - name: tick_count
+    type: int
+    direction: internal
+    default: 0
+  - name: phase
+    type: string
+    direction: output
+    default: "boot"
+  - name: done
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Counting
+
+  states:
+    Counting:
+      on_enter: |
+        setVal("tick_count", 0)
+        setOutput("phase", "counting")
+        setOutput("done", false)
+      code: |
+        setVal("tick_count", value("tick_count") + 1)
+        setOutput("phase", "counting-" .. tostring(value("tick_count")))
+
+    Done:
+      on_enter: |
+        setOutput("phase", "done")
+        setOutput("done", true)
+
+  transitions:
+    counted_enough:
+      from: Counting
+      to: Done
+      type: classic
+      condition: value("tick_count") >= 10

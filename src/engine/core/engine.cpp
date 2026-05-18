@@ -1525,6 +1525,9 @@ void Engine::registerCommandHandlers() {
         if (result.isError()) {
             return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidVariable), result.error());
         }
+        if (engine.isRunning()) {
+            engine.tick();
+        }
 
         protocol::AckMessage ack;
         ack.targetId = request.sourceId;
@@ -1552,7 +1555,14 @@ void Engine::registerCommandHandlers() {
         if (result.isError()) {
             return engine.nakWithStatus(request, toReasonCode(protocol::ErrorCode::InvalidVariable), result.error());
         }
-        return engine.ackWithStatus(request, "variable_set");
+        protocol::AckMessage ack;
+        ack.targetId = request.sourceId;
+        ack.relatedMessageId = request.messageId;
+        ack.info = "variable_set";
+
+        Engine::Replies replies;
+        replies.push_back(std::make_unique<protocol::AckMessage>(ack));
+        return replies;
     });
 
     commandBus_.registerHandler(protocol::MessageType::StateChange, [](Engine& engine, const protocol::Message& request) {

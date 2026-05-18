@@ -507,6 +507,7 @@ function automataToYaml(automata: unknown): string {
       triggered: transition.triggered || '',
       priority: toNumber(transition.priority, 0),
       weight: toNumber(transition.weight, 1),
+      description: transition.description || '',
     };
 
     if (Object.keys(timed).length > 0) {
@@ -514,6 +515,10 @@ function automataToYaml(automata: unknown): string {
         mode: timed.mode || 'after',
         delay_ms: toNumber(timed.delay_ms ?? timed.delayMs, 0),
         jitter_ms: toNumber(timed.jitter_ms ?? timed.jitterMs, 0),
+        repeat_count: toOptionalNumber(timed.repeat_count ?? timed.repeatCount),
+        window_end_ms: toOptionalNumber(timed.window_end_ms ?? timed.windowEndMs),
+        additional_condition:
+          toOptionalString(timed.additional_condition ?? timed.additionalCondition ?? timed.condition),
       };
     }
     if (Object.keys(event).length > 0) {
@@ -521,6 +526,15 @@ function automataToYaml(automata: unknown): string {
         triggers: Array.isArray(event.triggers) ? event.triggers : [],
         require_all: Boolean(event.require_all ?? event.requireAll),
         debounce_ms: toNumber(event.debounce_ms ?? event.debounceMs, 0),
+        additional_condition:
+          toOptionalString(event.additional_condition ?? event.additionalCondition),
+      };
+    }
+    const probabilistic = asRecord(transition.probabilistic);
+    if (Object.keys(probabilistic).length > 0) {
+      entry.probabilistic = {
+        weight: toNumber(probabilistic.weight, toNumber(transition.weight, 1)),
+        condition: toOptionalString(probabilistic.condition),
       };
     }
 

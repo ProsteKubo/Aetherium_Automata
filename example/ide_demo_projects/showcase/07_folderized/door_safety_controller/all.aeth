@@ -1,0 +1,213 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Door Safety Controller Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/07_folderized/door_safety_controller.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_07_folderized_door_safety_controller",
+      "name": "Door Safety Controller",
+      "description": "Generated collection for Door Safety Controller.",
+      "rootAutomataIds": [
+        "network_showcase_07_folderized_door_safety_controller_01_door_safety_controller"
+      ],
+      "automataIds": [
+        "network_showcase_07_folderized_door_safety_controller_01_door_safety_controller"
+      ],
+      "inputs": [
+        "door_sensor",
+        "alarm_ack"
+      ],
+      "outputs": [
+        "siren",
+        "door_open_ticks"
+      ],
+      "relativePath": "networks/door_safety_controller",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_07_folderized_door_safety_controller_01_door_safety_controller": {
+      "id": "network_showcase_07_folderized_door_safety_controller_01_door_safety_controller",
+      "version": "0.0.1",
+      "config": {
+        "name": "door safety controller",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "description": "Folder-based automata example with state/transition Lua split for maintainability.",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Closed",
+      "states": {
+        "Closed": {
+          "id": "Closed",
+          "name": "Closed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Open": {
+          "id": "Open",
+          "name": "Open",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Alarm": {
+          "id": "Alarm",
+          "name": "Alarm",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "OpenDoor": {
+          "id": "OpenDoor",
+          "name": "OpenDoor",
+          "from": "Closed",
+          "to": "Open",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "CloseDoor": {
+          "id": "CloseDoor",
+          "name": "CloseDoor",
+          "from": "Open",
+          "to": "Closed",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "AlarmDoorTooLong": {
+          "id": "AlarmDoorTooLong",
+          "name": "AlarmDoorTooLong",
+          "from": "Open",
+          "to": "Alarm",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "ResetAlarm": {
+          "id": "ResetAlarm",
+          "name": "ResetAlarm",
+          "from": "Alarm",
+          "to": "Closed",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "door_sensor",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "alarm_ack",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "siren",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "door_open_ticks",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "door_sensor",
+        "alarm_ack"
+      ],
+      "outputs": [
+        "siren",
+        "door_open_ticks"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/07_folderized/door_safety_controller/door_safety_controller.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

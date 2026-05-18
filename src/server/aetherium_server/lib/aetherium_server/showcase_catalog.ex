@@ -13,8 +13,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
         "Canonical desktop-runnable bundle spanning the Aetherium gem cell, signal chain, guarded cell host orchestration, power contention, resilience, and one docker black-box participant.",
       members: [
         %{
-          relative_path:
-            "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml",
+          relative_path: "example/automata/showcase/15_aetherium_gem/aetherium_gem_cell.yaml",
           network: "Aetherium Gem Cell",
           device_role: "host"
         },
@@ -25,8 +24,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
           device_role: "host"
         },
         %{
-          relative_path:
-            "example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml",
+          relative_path: "example/automata/showcase/13_petri_signal_chain/petri_safety_gate.yaml",
           network: "Signal Chain Backbone",
           device_role: "host"
         },
@@ -67,14 +65,12 @@ defmodule AetheriumServer.ShowcaseCatalog do
           device_role: "host"
         },
         %{
-          relative_path:
-            "example/automata/showcase/14_petri_contention/petri_charger_node.yaml",
+          relative_path: "example/automata/showcase/14_petri_contention/petri_charger_node.yaml",
           network: "Power Contention Ring",
           device_role: "host"
         },
         %{
-          relative_path:
-            "example/automata/showcase/14_petri_contention/petri_motion_axis.yaml",
+          relative_path: "example/automata/showcase/14_petri_contention/petri_motion_axis.yaml",
           network: "Power Contention Ring",
           device_role: "host"
         },
@@ -218,8 +214,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
 
           :error ->
             {:halt,
-             {:error,
-              {:showcase_bundle_member_not_found, bundle_id, member_spec.relative_path}}}
+             {:error, {:showcase_bundle_member_not_found, bundle_id, member_spec.relative_path}}}
         end
       end)
       |> case do
@@ -389,7 +384,7 @@ defmodule AetheriumServer.ShowcaseCatalog do
             "priority" => transition["priority"],
             "weight" => transition["weight"],
             "timed" => timed,
-            "event" => as_non_empty_map(transition["event"]),
+            "event" => normalize_event_config(transition["event"]),
             "probabilistic" => as_non_empty_map(transition["probabilistic"]),
             "description" => transition["description"]
           }
@@ -456,6 +451,9 @@ defmodule AetheriumServer.ShowcaseCatalog do
   end
 
   defp normalize_variable_list(_other, _fallback), do: []
+
+  defp normalize_event_config(event) when is_binary(event), do: event
+  defp normalize_event_config(event), do: as_non_empty_map(event)
 
   defp extract_automata_source(root) do
     case root["automata"] do

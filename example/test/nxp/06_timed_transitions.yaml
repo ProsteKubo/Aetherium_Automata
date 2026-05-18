@@ -1,0 +1,155 @@
+# ============================================================================
+# NXP Test 06 — Timed Transitions (after + timeout)
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Tests: TimedMode::After, TimedMode::Timeout, priority-based suppression
+#        (no host required)
+#
+# Part A — timed after:
+#   Seq0 → Seq1 → Seq2 → Seq3 → SeqDone  (1 s each via `after`)
+#   LEDs count in binary: Seq0=00, Seq1=01, Seq2=10, Seq3=11, SeqDone=off
+#
+# Part B — timeout race (starts after SeqDone):
+#   Race state: two timed transitions compete
+#     - timeout  5 s (lower priority 0) → TimeoutWon (red on)
+#     - after    2 s (higher priority 1) → AfterWon  (green on)
+#   Expected: AfterWon wins (priority 1 takes it before timeout fires)
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 06 - Timed Transitions
+  type: inline
+  language: lua
+  description: Tests timed `after` sequencing and the `timeout` vs `after` priority race.
+  author: Aetherium Team
+  tags: [test, nxp, timed, after, timeout]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: step
+    type: int
+    direction: output
+    default: 0
+
+  - name: race_winner
+    type: string
+    direction: output
+    default: "none"
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("step", 0)
+
+    Seq0:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("step", 0)
+
+    Seq1:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("step", 1)
+
+    Seq2:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("step", 2)
+
+    Seq3:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("step", 3)
+
+    SeqDone:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("step", 4)
+
+    Race:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("race_winner", "racing")
+
+    AfterWon:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("race_winner", "after")
+
+    TimeoutWon:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("race_winner", "timeout")
+
+  transitions:
+    init_to_seq0:
+      from: Init
+      to: Seq0
+      type: timed
+      after: "500ms"
+
+    seq0_to_seq1:
+      from: Seq0
+      to: Seq1
+      type: timed
+      after: "1s"
+
+    seq1_to_seq2:
+      from: Seq1
+      to: Seq2
+      type: timed
+      after: "1s"
+
+    seq2_to_seq3:
+      from: Seq2
+      to: Seq3
+      type: timed
+      after: "1s"
+
+    seq3_to_done:
+      from: Seq3
+      to: SeqDone
+      type: timed
+      after: "1s"
+
+    done_to_race:
+      from: SeqDone
+      to: Race
+      type: timed
+      after: "500ms"
+
+    # priority 1 (higher) fires after 2 s — should win before timeout
+    race_after_wins:
+      from: Race
+      to: AfterWon
+      type: timed
+      priority: 1
+      after: "2s"
+
+    # priority 0 (lower) is a timeout at 5 s — should be suppressed by after
+    race_timeout_loses:
+      from: Race
+      to: TimeoutWon
+      type: timed
+      priority: 0
+      timeout: "5s"

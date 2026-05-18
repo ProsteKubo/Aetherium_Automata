@@ -2499,7 +2499,7 @@ export class PhoenixGatewayService implements IGatewayService {
       15_000,
       { awaitDeferredOutcome: true },
     );
-    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true })).snapshot;
     return { started: outcome.status === 'ACK', snapshot };
   }
   
@@ -2510,7 +2510,7 @@ export class PhoenixGatewayService implements IGatewayService {
       15_000,
       { awaitDeferredOutcome: true },
     );
-    const finalSnapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    const finalSnapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true })).snapshot;
     return { stopped: outcome.status === 'ACK', finalSnapshot };
   }
   
@@ -2539,7 +2539,7 @@ export class PhoenixGatewayService implements IGatewayService {
       15_000,
       { awaitDeferredOutcome: true },
     );
-    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true, silent: true })).snapshot;
+    const snapshot = (await this.getSnapshot(_deviceId, target, { bypassCache: true })).snapshot;
     return { reset: outcome.status === 'ACK', snapshot };
   }
   

@@ -1,0 +1,142 @@
+# ============================================================================
+# NXP Test 08 — Full Host ↔ NXP Signal Roundtrip
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  example/test/nxp/08_signal_roundtrip_host.yaml on host_cpp_01
+#
+# Gateway auto-routes variables by name:
+#   ping   (input  here) ← ping   (output in host counterpart)
+#   pong   (output here) → pong   (input  in host counterpart)
+#   touch  (output here) → touch  (input  in host counterpart)
+#
+# Full roundtrip test:
+#   1. Host sends ping="start" → NXP enters Active
+#   2. NXP sends pong="ready" → host observes and sends ping="step1"
+#   3. NXP sends pong="ack1"  → host sends ping="step2"
+#   4. NXP sends pong="ack2"  → host sends ping="done"
+#   5. NXP sends pong="complete" → both sides finish
+#
+# Touch pad is monitored throughout and forwarded as the `touch` output.
+# LED state mirrors roundtrip progress.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 08 - Signal Roundtrip
+  type: inline
+  language: lua
+  description: End-to-end signal roundtrip test between host and NXP — verifies gateway routing, event-driven transitions, and output emission across both directions.
+  author: Aetherium Team
+  tags: [test, nxp, roundtrip, communication, event, touch]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: ping
+    type: string
+    direction: input
+    default: "idle"
+
+  - name: pong
+    type: string
+    direction: output
+    default: "idle"
+
+  - name: touch
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+        component("touch_pad"):init()
+        setOutput("pong", "idle")
+        setOutput("touch", false)
+
+    Standby:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("pong", "standby")
+
+    Active:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("pong", "ready")
+
+    Step1:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("pong", "ack1")
+
+    Step2:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("pong", "ack2")
+
+    Complete:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("pong", "complete")
+
+  transitions:
+    init_to_standby:
+      from: Init
+      to: Standby
+      type: timed
+      after: "500ms"
+
+    standby_to_active:
+      from: Standby
+      to: Active
+      type: event
+      event:
+        triggers:
+          - signal: ping
+            trigger: on_change
+        condition: value("ping") == "start"
+
+    active_to_step1:
+      from: Active
+      to: Step1
+      type: event
+      event:
+        triggers:
+          - signal: ping
+            trigger: on_change
+        condition: value("ping") == "step1"
+
+    step1_to_step2:
+      from: Step1
+      to: Step2
+      type: event
+      event:
+        triggers:
+          - signal: ping
+            trigger: on_change
+        condition: value("ping") == "step2"
+
+    step2_to_complete:
+      from: Step2
+      to: Complete
+      type: event
+      event:
+        triggers:
+          - signal: ping
+            trigger: on_change
+        condition: value("ping") == "done"

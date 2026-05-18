@@ -1,0 +1,50 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 02 - Timed Priority Timeout"
+  type: inline
+  description: "Checks that a higher-priority timeout suppresses a lower-priority classic fallback until the timer is ready and visible."
+  tags: [engine, verification, timed, priority, timeout]
+
+variables:
+  - name: gate_open
+    type: bool
+    direction: input
+    default: true
+  - name: path
+    type: string
+    direction: output
+    default: "armed"
+
+automata:
+  initial_state: Armed
+
+  states:
+    Armed:
+      on_enter: |
+        setOutput("path", "armed")
+
+    FastPath:
+      on_enter: |
+        setOutput("path", "fast")
+
+    TimeoutPath:
+      on_enter: |
+        setOutput("path", "timeout")
+
+  transitions:
+    fast_when_gate_open:
+      from: Armed
+      to: FastPath
+      type: classic
+      priority: 1
+      condition: value("gate_open") == true
+
+    timeout_fallback:
+      from: Armed
+      to: TimeoutPath
+      type: timed
+      priority: 0
+      timed:
+        mode: timeout
+        delay_ms: 3000ms

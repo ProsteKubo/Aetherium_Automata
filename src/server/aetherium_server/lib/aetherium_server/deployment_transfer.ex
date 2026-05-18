@@ -462,7 +462,7 @@ defmodule AetheriumServer.DeploymentTransfer do
 
     default_size =
       case {device[:connector_type], device[:device_type]} do
-        {:serial, :mcxn947} -> 128
+        {:serial, :mcxn947} -> 64
         {:serial, _} -> 1024
         _ -> 16_384
       end

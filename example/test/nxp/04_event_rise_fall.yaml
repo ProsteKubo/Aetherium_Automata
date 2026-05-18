@@ -1,0 +1,132 @@
+# ============================================================================
+# NXP Test 04 — Event on_rise / on_fall
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  host automata that cycles `trigger` false→true→false
+# Tests: EventTrigger::OnRise, EventTrigger::OnFall edge detection
+#
+# Expected state sequence:
+#   WaitRise    — green on, red off (waiting for trigger=false→true)
+#   RiseDetected — both on for 1 s (confirms on_rise fired)
+#   WaitFall    — green on, red off (waiting for trigger=true→false)
+#   FallDetected — red on, green off for 1 s (confirms on_fall fired)
+#   → loops back to WaitRise
+#
+# A timed timeout in WaitRise/WaitFall (10 s) drives both LEDs to
+# rapid blink (error indicator) if the expected edge never arrives.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 04 - Event on_rise / on_fall
+  type: inline
+  language: lua
+  description: Verifies that on_rise and on_fall event triggers fire exactly on boolean edges from a host-supplied input.
+  author: Aetherium Team
+  tags: [test, nxp, event, on_rise, on_fall, communication]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: trigger
+    type: bool
+    direction: input
+    default: false
+
+  - name: phase
+    type: string
+    direction: output
+    default: "wait_rise"
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+
+    WaitRise:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("phase", "wait_rise")
+
+    RiseDetected:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("phase", "rise_ok")
+
+    WaitFall:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("phase", "wait_fall")
+
+    FallDetected:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("phase", "fall_ok")
+
+    Error:
+      on_enter: |
+        setOutput("phase", "error")
+
+  transitions:
+    init_to_wait:
+      from: Init
+      to: WaitRise
+      type: timed
+      after: "500ms"
+
+    wait_rise_trigger:
+      from: WaitRise
+      to: RiseDetected
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: trigger
+            trigger: on_rise
+
+    wait_rise_timeout:
+      from: WaitRise
+      to: Error
+      type: timed
+      timeout: "10s"
+
+    rise_to_wait_fall:
+      from: RiseDetected
+      to: WaitFall
+      type: timed
+      after: "1s"
+
+    wait_fall_trigger:
+      from: WaitFall
+      to: FallDetected
+      type: event
+      priority: 0
+      event:
+        triggers:
+          - signal: trigger
+            trigger: on_fall
+
+    wait_fall_timeout:
+      from: WaitFall
+      to: Error
+      type: timed
+      timeout: "10s"
+
+    fall_to_wait_rise:
+      from: FallDetected
+      to: WaitRise
+      type: timed
+      after: "1s"

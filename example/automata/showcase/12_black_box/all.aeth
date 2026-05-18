@@ -1,0 +1,253 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Black Box Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/12_black_box.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_12_black_box",
+      "name": "Black Box",
+      "description": "Generated collection for Black Box.",
+      "rootAutomataIds": [
+        "network_showcase_12_black_box_01_docker_black_box_probe"
+      ],
+      "automataIds": [
+        "network_showcase_12_black_box_01_docker_black_box_probe"
+      ],
+      "inputs": [
+        "arm",
+        "fault"
+      ],
+      "outputs": [
+        "armed",
+        "status_code"
+      ],
+      "relativePath": "networks/black_box",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_12_black_box_01_docker_black_box_probe": {
+      "id": "network_showcase_12_black_box_01_docker_black_box_probe",
+      "version": "0.0.1",
+      "config": {
+        "name": "Docker Black Box Probe",
+        "type": "inline",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", false)\nsetVal(\"status_code\", 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", true)\nsetVal(\"status_code\", 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Faulted": {
+          "id": "Faulted",
+          "name": "Faulted",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"armed\", false)\nsetVal(\"status_code\", 2)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "arm_box": {
+          "id": "arm_box",
+          "name": "arm_box",
+          "from": "Idle",
+          "to": "Armed",
+          "type": "classic",
+          "condition": "arm == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "trip_fault": {
+          "id": "trip_fault",
+          "name": "trip_fault",
+          "from": "Armed",
+          "to": "Faulted",
+          "type": "classic",
+          "condition": "fault == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "reset_fault": {
+          "id": "reset_fault",
+          "name": "reset_fault",
+          "from": "Faulted",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "fault == false and arm == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "arm",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "armed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "status_code",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "arm",
+        "fault"
+      ],
+      "outputs": [
+        "armed",
+        "status_code"
+      ],
+      "blackBox": {
+        "ports": [
+          {
+            "name": "arm",
+            "direction": "input",
+            "type": "bool",
+            "description": "External arming command"
+          },
+          {
+            "name": "fault",
+            "direction": "input",
+            "type": "bool",
+            "description": "External injected fault signal"
+          },
+          {
+            "name": "armed",
+            "direction": "output",
+            "type": "bool",
+            "observable": true,
+            "faultInjectable": true,
+            "description": "Public arming indicator"
+          },
+          {
+            "name": "status_code",
+            "direction": "output",
+            "type": "int",
+            "observable": true,
+            "description": "Coarse external status register"
+          }
+        ],
+        "observableStates": [
+          "Idle",
+          "Armed",
+          "Faulted"
+        ],
+        "emittedEvents": [
+          "black_box_fault"
+        ],
+        "resources": [
+          {
+            "name": "battery_pack",
+            "kind": "energy",
+            "capacity": 1,
+            "shared": false,
+            "latencySensitive": true
+          }
+        ]
+      },
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/12_black_box/docker_black_box_probe.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

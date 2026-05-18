@@ -1,0 +1,127 @@
+# ============================================================================
+# NXP Test 05 — Event on_threshold
+# ============================================================================
+#
+# Deploy on: mcxn947-core0
+# Pair with:  host automata that increments `level` from 0 upward
+# Tests: EventTrigger::OnThreshold (>= 50, >= 90)
+#        Also tests the state-entry behaviour fixed in runtime.cpp:
+#        if `level` is already above threshold when entering a state,
+#        the threshold event fires on the first tick (no value change needed).
+#
+# Expected state sequence:
+#   WaitLow     — both LEDs off (level < 50)
+#   MediumLevel — green on  (level crossed 50, fires on_threshold >= 50)
+#   HighLevel   — red on    (level crossed 90, fires on_threshold >= 90)
+#   → stays in HighLevel until level drops back below 50
+#   DropToLow   — both off  (level dropped below 50, on_threshold < 50)
+#   → back to WaitLow
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 05 - Event on_threshold
+  type: inline
+  language: lua
+  description: Verifies on_threshold event triggers, including the state-entry level check that fires when the threshold is already met on entering a new state.
+  author: Aetherium Team
+  tags: [test, nxp, event, on_threshold, communication]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: level
+    type: int
+    direction: input
+    default: 0
+
+  - name: phase
+    type: string
+    direction: output
+    default: "low"
+
+automata:
+  initial_state: Init
+
+  states:
+    Init:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+
+    WaitLow:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("phase", "low")
+
+    MediumLevel:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("phase", "medium")
+
+    HighLevel:
+      on_enter: |
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("phase", "high")
+
+    DropToLow:
+      on_enter: |
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("phase", "drop")
+
+  transitions:
+    init_to_wait:
+      from: Init
+      to: WaitLow
+      type: timed
+      after: "500ms"
+
+    low_to_medium:
+      from: WaitLow
+      to: MediumLevel
+      type: event
+      event:
+        triggers:
+          - signal: level
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 50
+
+    medium_to_high:
+      from: MediumLevel
+      to: HighLevel
+      type: event
+      event:
+        triggers:
+          - signal: level
+            trigger: on_threshold
+            threshold:
+              operator: ">="
+              value: 90
+
+    high_to_drop:
+      from: HighLevel
+      to: DropToLow
+      type: event
+      event:
+        triggers:
+          - signal: level
+            trigger: on_threshold
+            threshold:
+              operator: "<"
+              value: 50
+
+    drop_to_wait:
+      from: DropToLow
+      to: WaitLow
+      type: timed
+      after: "1s"

@@ -1,0 +1,72 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 04 - Weighted Probabilistic"
+  type: inline
+  description: "Small weighted branch fixture for probabilistic transition selection."
+  tags: [engine, verification, probabilistic, weighted]
+
+variables:
+  - name: selected_path
+    type: string
+    direction: output
+    default: "none"
+  - name: a_count
+    type: int
+    direction: output
+    default: 0
+  - name: b_count
+    type: int
+    direction: output
+    default: 0
+
+automata:
+  initial_state: Choose
+
+  states:
+    Choose:
+      on_enter: |
+        setOutput("selected_path", "choosing")
+
+    PathA:
+      on_enter: |
+        setOutput("selected_path", "A")
+        setOutput("a_count", value("a_count") + 1)
+
+    PathB:
+      on_enter: |
+        setOutput("selected_path", "B")
+        setOutput("b_count", value("b_count") + 1)
+
+  transitions:
+    choose_a:
+      from: Choose
+      to: PathA
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 0.75
+
+    choose_b:
+      from: Choose
+      to: PathB
+      type: probabilistic
+      priority: 0
+      probabilistic:
+        weight: 0.25
+
+    a_return:
+      from: PathA
+      to: Choose
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1ms
+
+    b_return:
+      from: PathB
+      to: Choose
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1ms

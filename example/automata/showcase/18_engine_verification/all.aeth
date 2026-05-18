@@ -1,0 +1,1372 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Engine Verification Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/18_engine_verification.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_18_engine_verification",
+      "name": "Engine Verification",
+      "description": "Generated collection for Engine Verification.",
+      "rootAutomataIds": [
+        "network_showcase_18_engine_verification_01_01_lua_hooks_outputs",
+        "network_showcase_18_engine_verification_02_02_timed_priority_timeout",
+        "network_showcase_18_engine_verification_03_03_event_edges_threshold_host",
+        "network_showcase_18_engine_verification_04_03_event_edges_threshold",
+        "network_showcase_18_engine_verification_05_04_weighted_probabilistic_host",
+        "network_showcase_18_engine_verification_06_04_weighted_probabilistic",
+        "network_showcase_18_engine_verification_07_05_bytecode_subset_ir_host",
+        "network_showcase_18_engine_verification_08_05_bytecode_subset_ir"
+      ],
+      "automataIds": [
+        "network_showcase_18_engine_verification_01_01_lua_hooks_outputs",
+        "network_showcase_18_engine_verification_02_02_timed_priority_timeout",
+        "network_showcase_18_engine_verification_03_03_event_edges_threshold_host",
+        "network_showcase_18_engine_verification_04_03_event_edges_threshold",
+        "network_showcase_18_engine_verification_05_04_weighted_probabilistic_host",
+        "network_showcase_18_engine_verification_06_04_weighted_probabilistic",
+        "network_showcase_18_engine_verification_07_05_bytecode_subset_ir_host",
+        "network_showcase_18_engine_verification_08_05_bytecode_subset_ir"
+      ],
+      "inputs": [
+        "gate_open",
+        "command",
+        "pressure",
+        "selected_path",
+        "a_count",
+        "b_count",
+        "armed",
+        "pulse"
+      ],
+      "outputs": [
+        "phase",
+        "done",
+        "path",
+        "command",
+        "pressure",
+        "driver_step",
+        "event_seen",
+        "observed_path",
+        "observed_total",
+        "selected_path",
+        "a_count",
+        "b_count",
+        "armed",
+        "pulse",
+        "driver_phase"
+      ],
+      "relativePath": "networks/engine_verification",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_18_engine_verification_01_01_lua_hooks_outputs": {
+      "id": "network_showcase_18_engine_verification_01_01_lua_hooks_outputs",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 01 - Lua Hooks Outputs",
+        "type": "inline",
+        "language": "lua",
+        "description": "Small Lua hook/body fixture for repeated variable writes and output events.",
+        "tags": [
+          "engine",
+          "verification",
+          "lua",
+          "outputs"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Counting",
+      "states": {
+        "Counting": {
+          "id": "Counting",
+          "name": "Counting",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setVal(\"tick_count\", value(\"tick_count\") + 1)\nsetOutput(\"phase\", \"counting-\" .. tostring(value(\"tick_count\")))\n",
+          "hooks": {
+            "onEnter": "setVal(\"tick_count\", 0)\nsetOutput(\"phase\", \"counting\")\nsetOutput(\"done\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"phase\", \"done\")\nsetOutput(\"done\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "counted_enough": {
+          "id": "counted_enough",
+          "name": "counted_enough",
+          "from": "Counting",
+          "to": "Done",
+          "type": "classic",
+          "condition": "value(\"tick_count\") >= 10",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "tick_count",
+          "type": "int",
+          "direction": "internal",
+          "default": 0
+        },
+        {
+          "name": "phase",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        },
+        {
+          "name": "done",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "phase",
+        "done"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/01_lua_hooks_outputs.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_02_02_timed_priority_timeout": {
+      "id": "network_showcase_18_engine_verification_02_02_timed_priority_timeout",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 02 - Timed Priority Timeout",
+        "type": "inline",
+        "language": "lua",
+        "description": "Checks that a higher-priority timeout suppresses a lower-priority classic fallback until the timer is ready and visible.",
+        "tags": [
+          "engine",
+          "verification",
+          "timed",
+          "priority",
+          "timeout"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Armed",
+      "states": {
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"path\", \"armed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "FastPath": {
+          "id": "FastPath",
+          "name": "FastPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"path\", \"fast\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "TimeoutPath": {
+          "id": "TimeoutPath",
+          "name": "TimeoutPath",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"path\", \"timeout\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "fast_when_gate_open": {
+          "id": "fast_when_gate_open",
+          "name": "fast_when_gate_open",
+          "from": "Armed",
+          "to": "FastPath",
+          "type": "classic",
+          "condition": "value(\"gate_open\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "timeout_fallback": {
+          "id": "timeout_fallback",
+          "name": "timeout_fallback",
+          "from": "Armed",
+          "to": "TimeoutPath",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 3000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "gate_open",
+          "type": "bool",
+          "direction": "input",
+          "default": true
+        },
+        {
+          "name": "path",
+          "type": "string",
+          "direction": "output",
+          "default": "armed"
+        }
+      ],
+      "inputs": [
+        "gate_open"
+      ],
+      "outputs": [
+        "path"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/02_timed_priority_timeout.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_03_03_event_edges_threshold_host": {
+      "id": "network_showcase_18_engine_verification_03_03_event_edges_threshold_host",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 03 - Host Event Driver",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host-side signal driver for the event edge and threshold fixture with visible paced steps.",
+        "tags": [
+          "engine",
+          "verification",
+          "host",
+          "event",
+          "threshold"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"command\", false)\nsetOutput(\"pressure\", 0)\nsetOutput(\"driver_step\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "RaiseCommand": {
+          "id": "RaiseCommand",
+          "name": "RaiseCommand",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"command\", true)\nsetOutput(\"driver_step\", \"rise\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "RaisePressure": {
+          "id": "RaisePressure",
+          "name": "RaisePressure",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"pressure\", 95)\nsetOutput(\"driver_step\", \"pressure\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "DropCommand": {
+          "id": "DropCommand",
+          "name": "DropCommand",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"command\", false)\nsetOutput(\"driver_step\", \"fall\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"driver_step\", \"done\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        }
+      },
+      "transitions": {
+        "start": {
+          "id": "start",
+          "name": "start",
+          "from": "Idle",
+          "to": "RaiseCommand",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "pressure": {
+          "id": "pressure",
+          "name": "pressure",
+          "from": "RaiseCommand",
+          "to": "RaisePressure",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "fall": {
+          "id": "fall",
+          "name": "fall",
+          "from": "RaisePressure",
+          "to": "DropCommand",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "finish": {
+          "id": "finish",
+          "name": "finish",
+          "from": "DropCommand",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "repeat": {
+          "id": "repeat",
+          "name": "repeat",
+          "from": "Done",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "command",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "pressure",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "driver_step",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "command",
+        "pressure",
+        "driver_step"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/03_event_edges_threshold_host.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_04_03_event_edges_threshold": {
+      "id": "network_showcase_18_engine_verification_04_03_event_edges_threshold",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 03 - Event Edges Threshold",
+        "type": "inline",
+        "language": "lua",
+        "description": "Checks input change flags for on_rise, on_fall, and threshold event transitions.",
+        "tags": [
+          "engine",
+          "verification",
+          "event",
+          "threshold"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "WaitingRise",
+      "states": {
+        "WaitingRise": {
+          "id": "WaitingRise",
+          "name": "WaitingRise",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"event_seen\", \"waiting-rise\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "WaitingFall": {
+          "id": "WaitingFall",
+          "name": "WaitingFall",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"event_seen\", \"rise\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "PressureTrip": {
+          "id": "PressureTrip",
+          "name": "PressureTrip",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"event_seen\", \"pressure\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Complete": {
+          "id": "Complete",
+          "name": "Complete",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"event_seen\", \"fall\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "command_rise": {
+          "id": "command_rise",
+          "name": "command_rise",
+          "from": "WaitingRise",
+          "to": "WaitingFall",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "command",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "pressure_threshold": {
+          "id": "pressure_threshold",
+          "name": "pressure_threshold",
+          "from": "WaitingFall",
+          "to": "PressureTrip",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "pressure",
+                "trigger": "on_threshold",
+                "threshold": {
+                  "operator": ">=",
+                  "value": 90
+                }
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "command_fall": {
+          "id": "command_fall",
+          "name": "command_fall",
+          "from": "PressureTrip",
+          "to": "Complete",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "command",
+                "trigger": "on_fall"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "command",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "pressure",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "event_seen",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        }
+      ],
+      "inputs": [
+        "command",
+        "pressure"
+      ],
+      "outputs": [
+        "event_seen"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/03_event_edges_threshold.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_05_04_weighted_probabilistic_host": {
+      "id": "network_showcase_18_engine_verification_05_04_weighted_probabilistic_host",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 04 - Host Probability Observer",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host-side observer for weighted probabilistic branch outputs.",
+        "tags": [
+          "engine",
+          "verification",
+          "host",
+          "probabilistic",
+          "weighted"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Watching",
+      "states": {
+        "Watching": {
+          "id": "Watching",
+          "name": "Watching",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "setOutput(\"observed_path\", value(\"selected_path\"))\nsetOutput(\"observed_total\", value(\"a_count\") + value(\"b_count\"))\n",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "SeenBranch": {
+          "id": "SeenBranch",
+          "name": "SeenBranch",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"observed_path\", value(\"selected_path\"))\nsetOutput(\"observed_total\", value(\"a_count\") + value(\"b_count\"))\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "branch_seen": {
+          "id": "branch_seen",
+          "name": "branch_seen",
+          "from": "Watching",
+          "to": "SeenBranch",
+          "type": "classic",
+          "condition": "value(\"a_count\") + value(\"b_count\") >= 1",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "selected_path",
+          "type": "string",
+          "direction": "input",
+          "default": "none"
+        },
+        {
+          "name": "a_count",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "b_count",
+          "type": "int",
+          "direction": "input",
+          "default": 0
+        },
+        {
+          "name": "observed_path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        },
+        {
+          "name": "observed_total",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "selected_path",
+        "a_count",
+        "b_count"
+      ],
+      "outputs": [
+        "observed_path",
+        "observed_total"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/04_weighted_probabilistic_host.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_06_04_weighted_probabilistic": {
+      "id": "network_showcase_18_engine_verification_06_04_weighted_probabilistic",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 04 - Weighted Probabilistic",
+        "type": "inline",
+        "language": "lua",
+        "description": "Small weighted branch fixture for probabilistic transition selection.",
+        "tags": [
+          "engine",
+          "verification",
+          "probabilistic",
+          "weighted"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Choose",
+      "states": {
+        "Choose": {
+          "id": "Choose",
+          "name": "Choose",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"selected_path\", \"choosing\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PathA": {
+          "id": "PathA",
+          "name": "PathA",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"selected_path\", \"A\")\nsetOutput(\"a_count\", value(\"a_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "PathB": {
+          "id": "PathB",
+          "name": "PathB",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"selected_path\", \"B\")\nsetOutput(\"b_count\", value(\"b_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "choose_a": {
+          "id": "choose_a",
+          "name": "choose_a",
+          "from": "Choose",
+          "to": "PathA",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.75,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.75
+          }
+        },
+        "choose_b": {
+          "id": "choose_b",
+          "name": "choose_b",
+          "from": "Choose",
+          "to": "PathB",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 0.25,
+          "probabilistic": {
+            "enabled": true,
+            "weight": 0.25
+          }
+        },
+        "a_return": {
+          "id": "a_return",
+          "name": "a_return",
+          "from": "PathA",
+          "to": "Choose",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "b_return": {
+          "id": "b_return",
+          "name": "b_return",
+          "from": "PathB",
+          "to": "Choose",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "selected_path",
+          "type": "string",
+          "direction": "output",
+          "default": "none"
+        },
+        {
+          "name": "a_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "b_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "selected_path",
+        "a_count",
+        "b_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/04_weighted_probabilistic.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_07_05_bytecode_subset_ir_host": {
+      "id": "network_showcase_18_engine_verification_07_05_bytecode_subset_ir_host",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 05 - Host IR Driver",
+        "type": "inline",
+        "language": "lua",
+        "description": "Host-side arm and pulse driver for the bytecode subset IR fixture.",
+        "tags": [
+          "engine",
+          "verification",
+          "host",
+          "bytecode",
+          "ir"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"armed\", false)\nsetOutput(\"pulse\", false)\nsetOutput(\"driver_phase\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Arm": {
+          "id": "Arm",
+          "name": "Arm",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"armed\", true)\nsetOutput(\"pulse\", false)\nsetOutput(\"driver_phase\", \"armed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Pulse": {
+          "id": "Pulse",
+          "name": "Pulse",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"pulse\", true)\nsetOutput(\"driver_phase\", \"pulse\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Done": {
+          "id": "Done",
+          "name": "Done",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"pulse\", false)\nsetOutput(\"driver_phase\", \"done\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "arm": {
+          "id": "arm",
+          "name": "arm",
+          "from": "Idle",
+          "to": "Arm",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 750,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "pulse": {
+          "id": "pulse",
+          "name": "pulse",
+          "from": "Arm",
+          "to": "Pulse",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 750,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "finish": {
+          "id": "finish",
+          "name": "finish",
+          "from": "Pulse",
+          "to": "Done",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "armed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "pulse",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "driver_phase",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "armed",
+        "pulse",
+        "driver_phase"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/05_bytecode_subset_ir_host.yaml",
+      "isDirty": false
+    },
+    "network_showcase_18_engine_verification_08_05_bytecode_subset_ir": {
+      "id": "network_showcase_18_engine_verification_08_05_bytecode_subset_ir",
+      "version": "0.0.1",
+      "config": {
+        "name": "Engine Verify 05 - Bytecode Subset IR",
+        "type": "inline",
+        "language": "lua",
+        "description": "Bytecode-compatible fixture with timed, classic, and shorthand event transitions.",
+        "tags": [
+          "engine",
+          "verification",
+          "bytecode",
+          "ir"
+        ],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Armed": {
+          "id": "Armed",
+          "name": "Armed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Pulsed": {
+          "id": "Pulsed",
+          "name": "Pulsed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Expired": {
+          "id": "Expired",
+          "name": "Expired",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "arm_when_enabled": {
+          "id": "arm_when_enabled",
+          "name": "arm_when_enabled",
+          "from": "Idle",
+          "to": "Armed",
+          "type": "classic",
+          "condition": "value(\"armed\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "pulse_event_shorthand": {
+          "id": "pulse_event_shorthand",
+          "name": "pulse_event_shorthand",
+          "from": "Armed",
+          "to": "Pulsed",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "armed_timeout": {
+          "id": "armed_timeout",
+          "name": "armed_timeout",
+          "from": "Armed",
+          "to": "Expired",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "reset_from_pulsed": {
+          "id": "reset_from_pulsed",
+          "name": "reset_from_pulsed",
+          "from": "Pulsed",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "reset_from_expired": {
+          "id": "reset_from_expired",
+          "name": "reset_from_expired",
+          "from": "Expired",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "armed",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "pulse",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "armed",
+        "pulse"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/18_engine_verification/05_bytecode_subset_ir.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

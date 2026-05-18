@@ -35,6 +35,8 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
   const [toState, setToState] = useState<string>('');
   const [name, setName] = useState<string>('');
   const [condition, setCondition] = useState<string>('');
+  const [body, setBody] = useState<string>('');
+  const [triggered, setTriggered] = useState<string>('');
   const [priority, setPriority] = useState<number>(0);
   
   // Track if we've initialized for this dialog session
@@ -63,12 +65,16 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
       setToState(existingTransition.to);
       setName(existingTransition.name);
       setCondition(existingTransition.condition || '');
+      setBody(existingTransition.body || '');
+      setTriggered(existingTransition.triggered || '');
       setPriority(existingTransition.priority || 0);
     } else {
       setFromState(states[0]?.id || '');
       setToState(states[1]?.id || states[0]?.id || '');
       setName('');
       setCondition('');
+      setBody('');
+      setTriggered('');
       setPriority(0);
     }
   }, [isOpen, editTransitionId]);
@@ -86,6 +92,8 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
         to: toState,
         name: transitionName,
         condition,
+        body,
+        triggered,
         priority,
       });
     } else {
@@ -94,7 +102,8 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
         to: toState,
         name: transitionName,
         condition,
-        body: '',
+        body,
+        triggered,
         priority,
         weight: 1,
       });
@@ -199,6 +208,32 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
                   />
                   <span className="form-hint">Lua expression that must be true for transition</span>
                 </div>
+
+                <div className="form-group">
+                  <label htmlFor="body">
+                    Action Body (Lua) <span className="optional">(optional)</span>
+                  </label>
+                  <textarea
+                    id="body"
+                    value={body}
+                    onChange={e => setBody(e.target.value)}
+                    rows={5}
+                    placeholder="setOutput('phase', 'done')"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label htmlFor="triggered">
+                    Triggered Callback (Lua) <span className="optional">(optional)</span>
+                  </label>
+                  <textarea
+                    id="triggered"
+                    value={triggered}
+                    onChange={e => setTriggered(e.target.value)}
+                    rows={3}
+                    placeholder="log('info', 'transition fired')"
+                  />
+                </div>
                 
                 <div className="form-group">
                   <label htmlFor="priority">Priority</label>
@@ -210,7 +245,7 @@ export const TransitionDialog: React.FC<TransitionDialogProps> = ({
                     min={0}
                     max={100}
                   />
-                  <span className="form-hint">Higher priority transitions are evaluated first</span>
+                  <span className="form-hint">Lower values are evaluated first</span>
                 </div>
               </>
             )}

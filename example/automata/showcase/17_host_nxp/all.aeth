@@ -28,10 +28,10 @@
       ],
       "inputs": [
         "signal_level",
-        "nxp_temp_mc"
+        "nxp_touch_pressed"
       ],
       "outputs": [
-        "nxp_temp_mc",
+        "nxp_touch_pressed",
         "red_led",
         "green_led",
         "signal_level",
@@ -52,7 +52,7 @@
         "name": "NXP Signal Monitor",
         "type": "inline",
         "language": "lua",
-        "description": "FRDM-MCXN947 automata that monitors signal levels from a host beacon and drives red/green LEDs accordingly, while publishing board temperature back to the host.",
+        "description": "FRDM-MCXN947 automata that monitors low, medium, and high signal levels from a host beacon, drives red/green LEDs accordingly, and locally overrides both LEDs while the onboard touch pad is pressed.",
         "tags": [
           "showcase",
           "mcxn947",
@@ -77,7 +77,7 @@
           "variables": [],
           "code": "",
           "hooks": {
-            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)\ncomponent(\"board_temp\"):init()"
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)\ncomponent(\"touch_pad\"):init()"
           },
           "isComposite": false,
           "position": {
@@ -91,9 +91,9 @@
           "inputs": [],
           "outputs": [],
           "variables": [],
-          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "code": "",
           "hooks": {
-            "onEnter": "gpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)"
+            "onEnter": "gpio.write(10, false)\ngpio.write(27, false)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", false)\nsetOutput(\"nxp_touch_pressed\", false)"
           },
           "isComposite": false,
           "position": {
@@ -107,9 +107,9 @@
           "inputs": [],
           "outputs": [],
           "variables": [],
-          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "code": "",
           "hooks": {
-            "onEnter": "gpio.write(10, false)\ngpio.write(27, true)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", true)"
+            "onEnter": "gpio.write(10, false)\ngpio.write(27, true)\nsetOutput(\"red_led\", false)\nsetOutput(\"green_led\", true)\nsetOutput(\"nxp_touch_pressed\", false)"
           },
           "isComposite": false,
           "position": {
@@ -123,9 +123,9 @@
           "inputs": [],
           "outputs": [],
           "variables": [],
-          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "code": "",
           "hooks": {
-            "onEnter": "gpio.write(10, true)\ngpio.write(27, false)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", false)"
+            "onEnter": "gpio.write(10, true)\ngpio.write(27, false)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", false)\nsetOutput(\"nxp_touch_pressed\", false)"
           },
           "isComposite": false,
           "position": {
@@ -133,15 +133,15 @@
             "y": 80
           }
         },
-        "Peaking": {
-          "id": "Peaking",
-          "name": "Peaking",
+        "TouchActive": {
+          "id": "TouchActive",
+          "name": "TouchActive",
           "inputs": [],
           "outputs": [],
           "variables": [],
-          "code": "setOutput(\"nxp_temp_mc\", component(\"board_temp\"):read_milli_c())",
+          "code": "",
           "hooks": {
-            "onEnter": "gpio.write(10, true)\ngpio.write(27, true)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", true)"
+            "onEnter": "gpio.write(10, true)\ngpio.write(27, true)\nsetOutput(\"red_led\", true)\nsetOutput(\"green_led\", true)\nsetOutput(\"nxp_touch_pressed\", true)"
           },
           "isComposite": false,
           "position": {
@@ -174,140 +174,200 @@
           "name": "dormant_to_monitoring",
           "from": "Dormant",
           "to": "Monitoring",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "type": "event",
+          "condition": "",
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "dormant_to_alerting": {
           "id": "dormant_to_alerting",
           "name": "dormant_to_alerting",
           "from": "Dormant",
           "to": "Alerting",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"high\"",
+          "type": "event",
+          "condition": "",
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
-        },
-        "dormant_to_peaking": {
-          "id": "dormant_to_peaking",
-          "name": "dormant_to_peaking",
-          "from": "Dormant",
-          "to": "Peaking",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"surge\"",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "monitoring_to_dormant": {
           "id": "monitoring_to_dormant",
           "name": "monitoring_to_dormant",
           "from": "Monitoring",
           "to": "Dormant",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "type": "event",
+          "condition": "",
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "monitoring_to_alerting": {
           "id": "monitoring_to_alerting",
           "name": "monitoring_to_alerting",
           "from": "Monitoring",
           "to": "Alerting",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"high\"",
+          "type": "event",
+          "condition": "",
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
-        },
-        "monitoring_to_peaking": {
-          "id": "monitoring_to_peaking",
-          "name": "monitoring_to_peaking",
-          "from": "Monitoring",
-          "to": "Peaking",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"surge\"",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "alerting_to_dormant": {
           "id": "alerting_to_dormant",
           "name": "alerting_to_dormant",
           "from": "Alerting",
           "to": "Dormant",
-          "type": "classic",
-          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "type": "event",
+          "condition": "",
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "alerting_to_monitoring": {
           "id": "alerting_to_monitoring",
           "name": "alerting_to_monitoring",
           "from": "Alerting",
           "to": "Monitoring",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "signal_level",
+                "trigger": "on_change"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "dormant_to_touch": {
+          "id": "dormant_to_touch",
+          "name": "dormant_to_touch",
+          "from": "Dormant",
+          "to": "TouchActive",
           "type": "classic",
-          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "condition": "component(\"touch_pad\"):pressed()",
           "body": "",
           "triggered": "",
           "priority": 0,
           "weight": 1
         },
-        "alerting_to_peaking": {
-          "id": "alerting_to_peaking",
-          "name": "alerting_to_peaking",
+        "monitoring_to_touch": {
+          "id": "monitoring_to_touch",
+          "name": "monitoring_to_touch",
+          "from": "Monitoring",
+          "to": "TouchActive",
+          "type": "classic",
+          "condition": "component(\"touch_pad\"):pressed()",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alerting_to_touch": {
+          "id": "alerting_to_touch",
+          "name": "alerting_to_touch",
           "from": "Alerting",
-          "to": "Peaking",
+          "to": "TouchActive",
           "type": "classic",
-          "condition": "value(\"signal_level\") == \"surge\"",
+          "condition": "component(\"touch_pad\"):pressed()",
           "body": "",
           "triggered": "",
           "priority": 0,
           "weight": 1
         },
-        "peaking_to_dormant": {
-          "id": "peaking_to_dormant",
-          "name": "peaking_to_dormant",
-          "from": "Peaking",
+        "touch_to_dormant": {
+          "id": "touch_to_dormant",
+          "name": "touch_to_dormant",
+          "from": "TouchActive",
           "to": "Dormant",
           "type": "classic",
-          "condition": "value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\"",
+          "condition": "not component(\"touch_pad\"):pressed() and (value(\"signal_level\") == \"idle\" or value(\"signal_level\") == \"cooldown\")",
           "body": "",
           "triggered": "",
           "priority": 0,
           "weight": 1
         },
-        "peaking_to_monitoring": {
-          "id": "peaking_to_monitoring",
-          "name": "peaking_to_monitoring",
-          "from": "Peaking",
+        "touch_to_monitoring": {
+          "id": "touch_to_monitoring",
+          "name": "touch_to_monitoring",
+          "from": "TouchActive",
           "to": "Monitoring",
           "type": "classic",
-          "condition": "value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\"",
+          "condition": "not component(\"touch_pad\"):pressed() and (value(\"signal_level\") == \"low\" or value(\"signal_level\") == \"medium\")",
           "body": "",
           "triggered": "",
           "priority": 0,
           "weight": 1
         },
-        "peaking_to_alerting": {
-          "id": "peaking_to_alerting",
-          "name": "peaking_to_alerting",
-          "from": "Peaking",
+        "touch_to_alerting": {
+          "id": "touch_to_alerting",
+          "name": "touch_to_alerting",
+          "from": "TouchActive",
           "to": "Alerting",
           "type": "classic",
-          "condition": "value(\"signal_level\") == \"high\"",
+          "condition": "not component(\"touch_pad\"):pressed() and value(\"signal_level\") == \"high\"",
           "body": "",
           "triggered": "",
           "priority": 0,
@@ -322,10 +382,10 @@
           "default": "idle"
         },
         {
-          "name": "nxp_temp_mc",
-          "type": "int",
+          "name": "nxp_touch_pressed",
+          "type": "bool",
           "direction": "output",
-          "default": 0
+          "default": false
         },
         {
           "name": "red_led",
@@ -344,7 +404,7 @@
         "signal_level"
       ],
       "outputs": [
-        "nxp_temp_mc",
+        "nxp_touch_pressed",
         "red_led",
         "green_led"
       ],
@@ -359,7 +419,7 @@
         "name": "Stochastic Beacon",
         "type": "inline",
         "language": "lua",
-        "description": "Probabilistic signal generator that autonomously cycles through signal levels and broadcasts them to a connected NXP device automata.",
+        "description": "Probabilistic signal generator that autonomously cycles through low, medium, and high signal levels while observing NXP touch-pad presses and broadcasting LED mode commands to the connected NXP device automata.",
         "tags": [
           "showcase",
           "host",
@@ -452,22 +512,6 @@
             "y": 240
           }
         },
-        "Surge": {
-          "id": "Surge",
-          "name": "Surge",
-          "inputs": [],
-          "outputs": [],
-          "variables": [],
-          "code": "",
-          "hooks": {
-            "onEnter": "setOutput(\"signal_level\", \"surge\")\nsetOutput(\"signal_strength\", 100)\n"
-          },
-          "isComposite": false,
-          "position": {
-            "x": 400,
-            "y": 240
-          }
-        },
         "Cooldown": {
           "id": "Cooldown",
           "name": "Cooldown",
@@ -480,7 +524,7 @@
           },
           "isComposite": false,
           "position": {
-            "x": 620,
+            "x": 400,
             "y": 240
           }
         }
@@ -514,10 +558,10 @@
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 0.4,
+          "weight": 0.45,
           "probabilistic": {
             "enabled": true,
-            "weight": 0.4
+            "weight": 0.45
           }
         },
         "choose_medium": {
@@ -530,10 +574,10 @@
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 0.3,
+          "weight": 0.35,
           "probabilistic": {
             "enabled": true,
-            "weight": 0.3
+            "weight": 0.35
           }
         },
         "choose_high": {
@@ -550,22 +594,6 @@
           "probabilistic": {
             "enabled": true,
             "weight": 0.2
-          }
-        },
-        "choose_surge": {
-          "id": "choose_surge",
-          "name": "choose_surge",
-          "from": "ChooseLevel",
-          "to": "Surge",
-          "type": "probabilistic",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 0.1,
-          "probabilistic": {
-            "enabled": true,
-            "weight": 0.1
           }
         },
         "low_to_cooldown": {
@@ -622,24 +650,6 @@
             "showCountdown": true
           }
         },
-        "surge_to_cooldown": {
-          "id": "surge_to_cooldown",
-          "name": "surge_to_cooldown",
-          "from": "Surge",
-          "to": "Cooldown",
-          "type": "timed",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1,
-          "timed": {
-            "mode": "after",
-            "delayMs": 6000,
-            "jitterMs": 0,
-            "showCountdown": true
-          }
-        },
         "cooldown_to_idle": {
           "id": "cooldown_to_idle",
           "name": "cooldown_to_idle",
@@ -673,10 +683,10 @@
           "default": 0
         },
         {
-          "name": "nxp_temp_mc",
-          "type": "int",
+          "name": "nxp_touch_pressed",
+          "type": "bool",
           "direction": "input",
-          "default": 0
+          "default": false
         },
         {
           "name": "cycle_count",
@@ -686,7 +696,7 @@
         }
       ],
       "inputs": [
-        "nxp_temp_mc"
+        "nxp_touch_pressed"
       ],
       "outputs": [
         "signal_level",

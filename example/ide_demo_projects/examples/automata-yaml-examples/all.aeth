@@ -1,9 +1,9 @@
 {
   "schemaVersion": "1.0.0",
   "metadata": {
-    "name": "YAML Example Collection Project",
+    "name": "YAML Example Project",
     "version": "0.1.0",
-    "description": "One-click IDE project containing all automata under example/automata/automata-yaml-examples.",
+    "description": "One-click IDE project containing all automata in example/automata/automata-yaml-examples.",
     "author": "Aetherium Team",
     "tags": [
       "yaml-example",
@@ -15,40 +15,34 @@
   },
   "networks": [
     {
-      "id": "network_yaml_example_collection",
-      "name": "YAML Example Collection",
-      "description": "Generated collection for all yaml example automata.",
+      "id": "network_yaml_example",
+      "name": "YAML Example",
+      "description": "Generated collection for YAML Example.",
       "rootAutomataIds": [
-        "network_yaml_example_collection_01_blinking_led_test",
-        "network_yaml_example_collection_02_command_event_gate",
-        "network_yaml_example_collection_03_event_threshold_runtime",
-        "network_yaml_example_collection_04_high_churn_immediate",
-        "network_yaml_example_collection_05_one_state_automata",
-        "network_yaml_example_collection_06_one_state_automata_inline",
-        "network_yaml_example_collection_07_probabilistic_balance_loop",
-        "network_yaml_example_collection_08_production_line_stress_seconds",
-        "network_yaml_example_collection_09_production_line_stress",
-        "network_yaml_example_collection_10_reactor",
-        "network_yaml_example_collection_11_thermostat",
-        "network_yaml_example_collection_12_timed_seconds_modes",
-        "network_yaml_example_collection_13_timeout_vs_classic",
-        "network_yaml_example_collection_14_weighted_transitions"
+        "network_yaml_example_01_blinking_led_test",
+        "network_yaml_example_02_command_event_gate",
+        "network_yaml_example_03_event_threshold_runtime",
+        "network_yaml_example_04_high_churn_immediate",
+        "network_yaml_example_05_one_state_automata_inline",
+        "network_yaml_example_06_probabilistic_balance_loop",
+        "network_yaml_example_07_production_line_stress_seconds",
+        "network_yaml_example_08_production_line_stress",
+        "network_yaml_example_09_timed_seconds_modes",
+        "network_yaml_example_10_timeout_vs_classic",
+        "network_yaml_example_11_weighted_transitions"
       ],
       "automataIds": [
-        "network_yaml_example_collection_01_blinking_led_test",
-        "network_yaml_example_collection_02_command_event_gate",
-        "network_yaml_example_collection_03_event_threshold_runtime",
-        "network_yaml_example_collection_04_high_churn_immediate",
-        "network_yaml_example_collection_05_one_state_automata",
-        "network_yaml_example_collection_06_one_state_automata_inline",
-        "network_yaml_example_collection_07_probabilistic_balance_loop",
-        "network_yaml_example_collection_08_production_line_stress_seconds",
-        "network_yaml_example_collection_09_production_line_stress",
-        "network_yaml_example_collection_10_reactor",
-        "network_yaml_example_collection_11_thermostat",
-        "network_yaml_example_collection_12_timed_seconds_modes",
-        "network_yaml_example_collection_13_timeout_vs_classic",
-        "network_yaml_example_collection_14_weighted_transitions"
+        "network_yaml_example_01_blinking_led_test",
+        "network_yaml_example_02_command_event_gate",
+        "network_yaml_example_03_event_threshold_runtime",
+        "network_yaml_example_04_high_churn_immediate",
+        "network_yaml_example_05_one_state_automata_inline",
+        "network_yaml_example_06_probabilistic_balance_loop",
+        "network_yaml_example_07_production_line_stress_seconds",
+        "network_yaml_example_08_production_line_stress",
+        "network_yaml_example_09_timed_seconds_modes",
+        "network_yaml_example_10_timeout_vs_classic",
+        "network_yaml_example_11_weighted_transitions"
       ],
       "inputs": [
         "sensor_temp",
@@ -59,7 +53,6 @@
         "cmd_stop",
         "pressure",
         "target_quality",
-        "target_temp",
         "gate_open",
         "a"
       ],
@@ -75,18 +68,17 @@
         "path",
         "cycle_count",
         "selected_path",
-        "alarm",
-        "heater_on"
+        "alarm"
       ],
-      "relativePath": "networks/yaml_example_collection",
+      "relativePath": "networks/yaml_example",
       "color": "#2563eb",
       "icon": "automata",
       "isExpanded": true
     }
   ],
   "automata": {
-    "network_yaml_example_collection_01_blinking_led_test": {
-      "id": "network_yaml_example_collection_01_blinking_led_test",
+    "network_yaml_example_01_blinking_led_test": {
+      "id": "network_yaml_example_01_blinking_led_test",
       "version": "0.0.1",
       "config": {
         "name": "Blinking LED Test",
@@ -242,8 +234,8 @@
       "filePath": "example/automata/automata-yaml-examples/blinking-led-test.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_02_command_event_gate": {
-      "id": "network_yaml_example_collection_02_command_event_gate",
+    "network_yaml_example_02_command_event_gate": {
+      "id": "network_yaml_example_02_command_event_gate",
       "version": "0.0.1",
       "config": {
         "name": "Command Event Gate",
@@ -483,8 +475,8 @@
       "filePath": "example/automata/automata-yaml-examples/command-event-gate.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_03_event_threshold_runtime": {
-      "id": "network_yaml_example_collection_03_event_threshold_runtime",
+    "network_yaml_example_03_event_threshold_runtime": {
+      "id": "network_yaml_example_03_event_threshold_runtime",
       "version": "0.0.1",
       "config": {
         "name": "Event Threshold Runtime",
@@ -705,8 +697,8 @@
       "filePath": "example/automata/automata-yaml-examples/event-threshold-runtime.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_04_high_churn_immediate": {
-      "id": "network_yaml_example_collection_04_high_churn_immediate",
+    "network_yaml_example_04_high_churn_immediate": {
+      "id": "network_yaml_example_04_high_churn_immediate",
       "version": "0.0.1",
       "config": {
         "name": "High Churn Immediate",
@@ -791,89 +783,8 @@
       "filePath": "example/automata/automata-yaml-examples/high-churn-immediate.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_05_one_state_automata": {
-      "id": "network_yaml_example_collection_05_one_state_automata",
-      "version": "0.0.1",
-      "config": {
-        "name": "one state automata",
-        "type": "folder",
-        "location": ".",
-        "language": "lua",
-        "tags": [],
-        "version": "1.0.0",
-        "target": {},
-        "created": 1775044800000,
-        "modified": 1775044800000
-      },
-      "initialState": "State1",
-      "states": {
-        "State1": {
-          "id": "State1",
-          "name": "State1",
-          "inputs": [
-            "in1",
-            "in2"
-          ],
-          "outputs": [
-            "out1",
-            "out2"
-          ],
-          "variables": [
-            "var1",
-            "var2"
-          ],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 180,
-            "y": 80
-          }
-        },
-        "State2": {
-          "id": "State2",
-          "name": "State2",
-          "inputs": [
-            "in1",
-            "in3"
-          ],
-          "outputs": [
-            "out2",
-            "out3"
-          ],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 400,
-            "y": 80
-          }
-        }
-      },
-      "transitions": {
-        "Transition1": {
-          "id": "Transition1",
-          "name": "Transition1",
-          "from": "State1",
-          "to": "State2",
-          "type": "classic",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
-        }
-      },
-      "variables": [],
-      "inputs": [],
-      "outputs": [],
-      "nestedAutomataIds": [],
-      "filePath": "example/automata/automata-yaml-examples/one-state-automata-folder/one-state-automata.yaml",
-      "isDirty": false
-    },
-    "network_yaml_example_collection_06_one_state_automata_inline": {
-      "id": "network_yaml_example_collection_06_one_state_automata_inline",
+    "network_yaml_example_05_one_state_automata_inline": {
+      "id": "network_yaml_example_05_one_state_automata_inline",
       "version": "0.0.1",
       "config": {
         "name": "one state automata",
@@ -953,8 +864,8 @@
       "filePath": "example/automata/automata-yaml-examples/one-state-automata-inline.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_07_probabilistic_balance_loop": {
-      "id": "network_yaml_example_collection_07_probabilistic_balance_loop",
+    "network_yaml_example_06_probabilistic_balance_loop": {
+      "id": "network_yaml_example_06_probabilistic_balance_loop",
       "version": "0.0.1",
       "config": {
         "name": "Probabilistic Balance Loop",
@@ -1166,8 +1077,8 @@
       "filePath": "example/automata/automata-yaml-examples/probabilistic-balance-loop.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_08_production_line_stress_seconds": {
-      "id": "network_yaml_example_collection_08_production_line_stress_seconds",
+    "network_yaml_example_07_production_line_stress_seconds": {
+      "id": "network_yaml_example_07_production_line_stress_seconds",
       "version": "0.0.1",
       "config": {
         "name": "Production Line Stress (Seconds)",
@@ -1521,8 +1432,8 @@
       "filePath": "example/automata/automata-yaml-examples/production-line-stress-seconds.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_09_production_line_stress": {
-      "id": "network_yaml_example_collection_09_production_line_stress",
+    "network_yaml_example_08_production_line_stress": {
+      "id": "network_yaml_example_08_production_line_stress",
       "version": "0.0.1",
       "config": {
         "name": "Production Line Stress",
@@ -1876,241 +1787,8 @@
       "filePath": "example/automata/automata-yaml-examples/production-line-stress.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_10_reactor": {
-      "id": "network_yaml_example_collection_10_reactor",
-      "version": "0.0.1",
-      "config": {
-        "name": "Reactor Folder Stress",
-        "type": "folder",
-        "location": ".",
-        "language": "lua",
-        "description": "Folder layout stress case for loader and Lua hook resolution",
-        "tags": [],
-        "version": "1.0.0",
-        "target": {},
-        "created": 1775044800000,
-        "modified": 1775044800000
-      },
-      "initialState": "Idle",
-      "states": {
-        "Idle": {
-          "id": "Idle",
-          "name": "Idle",
-          "inputs": [],
-          "outputs": [],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 180,
-            "y": 80
-          }
-        },
-        "Heat": {
-          "id": "Heat",
-          "name": "Heat",
-          "inputs": [],
-          "outputs": [],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 400,
-            "y": 80
-          }
-        },
-        "Hold": {
-          "id": "Hold",
-          "name": "Hold",
-          "inputs": [],
-          "outputs": [],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 620,
-            "y": 80
-          }
-        }
-      },
-      "transitions": {
-        "start_heat": {
-          "id": "start_heat",
-          "name": "start_heat",
-          "from": "Idle",
-          "to": "Heat",
-          "type": "timed",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1,
-          "timed": {
-            "mode": "after",
-            "delayMs": 15,
-            "jitterMs": 0,
-            "showCountdown": true
-          }
-        },
-        "reach_target": {
-          "id": "reach_target",
-          "name": "reach_target",
-          "from": "Heat",
-          "to": "Hold",
-          "type": "classic",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
-        },
-        "hold_done": {
-          "id": "hold_done",
-          "name": "hold_done",
-          "from": "Hold",
-          "to": "Idle",
-          "type": "timed",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1,
-          "timed": {
-            "mode": "after",
-            "delayMs": 20,
-            "jitterMs": 0,
-            "showCountdown": true
-          }
-        }
-      },
-      "variables": [
-        {
-          "name": "core_temp",
-          "type": "int",
-          "direction": "internal",
-          "default": 20
-        },
-        {
-          "name": "target_temp",
-          "type": "int",
-          "direction": "input",
-          "default": 70
-        },
-        {
-          "name": "heater_on",
-          "type": "bool",
-          "direction": "output",
-          "default": false
-        },
-        {
-          "name": "cycle_count",
-          "type": "int",
-          "direction": "output",
-          "default": 0
-        }
-      ],
-      "inputs": [
-        "target_temp"
-      ],
-      "outputs": [
-        "heater_on",
-        "cycle_count"
-      ],
-      "nestedAutomataIds": [],
-      "filePath": "example/automata/automata-yaml-examples/reactor-folder/reactor.yaml",
-      "isDirty": false
-    },
-    "network_yaml_example_collection_11_thermostat": {
-      "id": "network_yaml_example_collection_11_thermostat",
-      "version": "0.0.1",
-      "config": {
-        "name": "thermostat automata",
-        "type": "folder",
-        "location": ".",
-        "language": "lua",
-        "tags": [],
-        "version": "1.0.0",
-        "target": {},
-        "created": 1775044800000,
-        "modified": 1775044800000
-      },
-      "initialState": "Idle",
-      "states": {
-        "Idle": {
-          "id": "Idle",
-          "name": "Idle",
-          "inputs": [
-            "temp"
-          ],
-          "outputs": [
-            "cooler_on"
-          ],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 180,
-            "y": 80
-          }
-        },
-        "Cooling": {
-          "id": "Cooling",
-          "name": "Cooling",
-          "inputs": [
-            "temp"
-          ],
-          "outputs": [
-            "cooler_on"
-          ],
-          "variables": [],
-          "code": "",
-          "hooks": {},
-          "isComposite": false,
-          "position": {
-            "x": 400,
-            "y": 80
-          }
-        }
-      },
-      "transitions": {
-        "StartCooling": {
-          "id": "StartCooling",
-          "name": "StartCooling",
-          "from": "Idle",
-          "to": "Cooling",
-          "type": "classic",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
-        },
-        "StopCooling": {
-          "id": "StopCooling",
-          "name": "StopCooling",
-          "from": "Cooling",
-          "to": "Idle",
-          "type": "classic",
-          "condition": "",
-          "body": "",
-          "triggered": "",
-          "priority": 0,
-          "weight": 1
-        }
-      },
-      "variables": [],
-      "inputs": [],
-      "outputs": [],
-      "nestedAutomataIds": [],
-      "filePath": "example/automata/automata-yaml-examples/thermostat-folder/thermostat.yaml",
-      "isDirty": false
-    },
-    "network_yaml_example_collection_12_timed_seconds_modes": {
-      "id": "network_yaml_example_collection_12_timed_seconds_modes",
+    "network_yaml_example_09_timed_seconds_modes": {
+      "id": "network_yaml_example_09_timed_seconds_modes",
       "version": "0.0.1",
       "config": {
         "name": "Timed Seconds Modes",
@@ -2349,8 +2027,8 @@
       "filePath": "example/automata/automata-yaml-examples/timed-seconds-modes.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_13_timeout_vs_classic": {
-      "id": "network_yaml_example_collection_13_timeout_vs_classic",
+    "network_yaml_example_10_timeout_vs_classic": {
+      "id": "network_yaml_example_10_timeout_vs_classic",
       "version": "0.0.1",
       "config": {
         "name": "Timeout Versus Classic",
@@ -2501,8 +2179,8 @@
       "filePath": "example/automata/automata-yaml-examples/timeout-vs-classic.yaml",
       "isDirty": false
     },
-    "network_yaml_example_collection_14_weighted_transitions": {
-      "id": "network_yaml_example_collection_14_weighted_transitions",
+    "network_yaml_example_11_weighted_transitions": {
+      "id": "network_yaml_example_11_weighted_transitions",
       "version": "0.0.1",
       "config": {
         "name": "Weighted Transitions Demo",

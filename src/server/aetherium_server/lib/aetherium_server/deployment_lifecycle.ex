@@ -35,8 +35,8 @@ defmodule AetheriumServer.DeploymentLifecycle do
       "automata_id" => deployment.automata_id,
       "device_id" => deployment.device_id,
       "status" => "running",
-      "current_state" => runtime_state && runtime_state.current_state,
-      "variables" => runtime_state && runtime_state.variables
+      "current_state" => command_current_state(new_state, deployment.id, runtime_state),
+      "variables" => command_variables(new_state, deployment.id, runtime_state)
     })
 
     DeploymentObservability.snapshot_deployment(new_state, deployment.id, reason)
@@ -78,10 +78,11 @@ defmodule AetheriumServer.DeploymentLifecycle do
       "automata_id" => deployment.automata_id,
       "device_id" => deployment.device_id,
       "status" => "stopped",
-      "current_state" => runtime_state && runtime_state.current_state,
-      "variables" => runtime_state && runtime_state.variables
+      "current_state" => command_current_state(new_state, deployment.id, runtime_state),
+      "variables" => command_variables(new_state, deployment.id, runtime_state)
     })
 
+    DeploymentObservability.snapshot_deployment(new_state, deployment.id, "reset_automata")
     new_state
   end
 
@@ -153,4 +154,16 @@ defmodule AetheriumServer.DeploymentLifecycle do
   end
 
   defp maybe_put_runtime_state(state, _deployment_id, _runtime_state), do: state
+
+  defp command_current_state(_state, _deployment_id, runtime_state) when is_map(runtime_state),
+    do: runtime_state.current_state
+
+  defp command_current_state(state, deployment_id, _runtime_state),
+    do: get_in(state, [:deployments, deployment_id, :current_state])
+
+  defp command_variables(_state, _deployment_id, runtime_state) when is_map(runtime_state),
+    do: runtime_state.variables
+
+  defp command_variables(state, deployment_id, _runtime_state),
+    do: get_in(state, [:deployments, deployment_id, :variables])
 end

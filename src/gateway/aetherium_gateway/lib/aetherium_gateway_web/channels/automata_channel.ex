@@ -498,11 +498,11 @@ defmodule AetheriumGatewayWeb.AutomataChannel do
             "deployment_id" => deployment_id_for(deployment),
             "device_id" => device_id,
             "automata_id" => deployment.automata_id,
-            "input" => name,
+            "name" => name,
             "value" => value
           }
 
-          dispatch_server_command(deployment.server_id, "set_input", command_payload, envelope)
+          dispatch_server_command(deployment.server_id, "set_variable", command_payload, envelope)
 
         {:error, :not_found} ->
           {:nak, :no_deployment_found, %{"device_id" => device_id}}

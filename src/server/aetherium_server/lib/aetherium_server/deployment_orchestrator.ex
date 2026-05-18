@@ -3,6 +3,7 @@ defmodule AetheriumServer.DeploymentOrchestrator do
 
   require Logger
 
+  alias AetheriumServer.DeviceTransport
   alias AetheriumServer.DeploymentObservability
   alias AetheriumServer.DeploymentTransfer
 
@@ -44,6 +45,11 @@ defmodule AetheriumServer.DeploymentOrchestrator do
         transition_id_map,
         profile_id
       )
+
+    state =
+      state
+      |> stop_remote_device_deployments(device_id, deployment_id, device)
+      |> DeploymentTransfer.clear_for_device(device_id)
 
     new_state =
       state
@@ -316,6 +322,34 @@ defmodule AetheriumServer.DeploymentOrchestrator do
         acc
     end)
   end
+
+  defp stop_remote_device_deployments(state, device_id, keep_deployment_id, device)
+       when is_map(state) and is_binary(device_id) and is_binary(keep_deployment_id) and
+              is_map(device) do
+    session_ref = device[:session_ref]
+    protocol_id = device[:protocol_id]
+
+    if is_nil(session_ref) or is_nil(protocol_id) do
+      state
+    else
+      state.deployments
+      |> Map.values()
+      |> Enum.filter(fn deployment ->
+        deployment.id != keep_deployment_id and deployment.device_id == device_id and
+          deployment.status in [:loading, :running, :paused]
+      end)
+      |> Enum.each(fn deployment ->
+        DeviceTransport.send_message(session_ref, :stop, %{
+          target_id: protocol_id,
+          run_id: deployment.run_id
+        })
+      end)
+
+      state
+    end
+  end
+
+  defp stop_remote_device_deployments(state, _device_id, _keep_deployment_id, _device), do: state
 
   defp field(data, key, default \\ nil) when is_map(data) and is_atom(key) do
     Map.get(data, key, Map.get(data, Atom.to_string(key), default))

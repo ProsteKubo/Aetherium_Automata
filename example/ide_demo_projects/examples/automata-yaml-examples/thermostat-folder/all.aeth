@@ -1,0 +1,145 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Thermostat Folder Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/automata-yaml-examples/thermostat-folder.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_yaml_example_thermostat_folder",
+      "name": "Thermostat Folder",
+      "description": "Generated collection for Thermostat Folder.",
+      "rootAutomataIds": [
+        "network_yaml_example_thermostat_folder_01_thermostat"
+      ],
+      "automataIds": [
+        "network_yaml_example_thermostat_folder_01_thermostat"
+      ],
+      "inputs": [],
+      "outputs": [],
+      "relativePath": "networks/thermostat_folder",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_yaml_example_thermostat_folder_01_thermostat": {
+      "id": "network_yaml_example_thermostat_folder_01_thermostat",
+      "version": "0.0.1",
+      "config": {
+        "name": "thermostat automata",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [
+            "temp"
+          ],
+          "outputs": [
+            "cooler_on"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Cooling": {
+          "id": "Cooling",
+          "name": "Cooling",
+          "inputs": [
+            "temp"
+          ],
+          "outputs": [
+            "cooler_on"
+          ],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "StartCooling": {
+          "id": "StartCooling",
+          "name": "StartCooling",
+          "from": "Idle",
+          "to": "Cooling",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "StopCooling": {
+          "id": "StopCooling",
+          "name": "StopCooling",
+          "from": "Cooling",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [],
+      "inputs": [],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/thermostat-folder/thermostat.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

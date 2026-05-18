@@ -1,0 +1,109 @@
+# ============================================================================
+# NXP Test 08 — Host counterpart for Signal Roundtrip
+# ============================================================================
+#
+# Deploy on: host_cpp_01
+# Pair with:  example/test/nxp/08_signal_roundtrip.yaml on mcxn947-core0
+#
+# Drives `ping` and waits for `pong` responses from the NXP side.
+# The `touch` input mirrors the NXP touch pad state.
+#
+# ============================================================================
+
+version: 0.0.1
+
+config:
+  name: NXP Test 08 Host - Signal Roundtrip
+  type: inline
+  language: lua
+  description: Host driver for the NXP roundtrip test — sequences ping commands and verifies pong responses.
+  author: Aetherium Team
+  tags: [test, host, roundtrip, communication]
+
+variables:
+  - name: ping
+    type: string
+    direction: output
+    default: "idle"
+
+  - name: pong
+    type: string
+    direction: input
+    default: "idle"
+
+  - name: touch
+    type: bool
+    direction: input
+    default: false
+
+  - name: test_passed
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: WaitReady
+
+  states:
+    WaitReady:
+      on_enter: |
+        setOutput("ping", "start")
+        setOutput("test_passed", false)
+
+    WaitAck1:
+      on_enter: |
+        setOutput("ping", "step1")
+
+    WaitAck2:
+      on_enter: |
+        setOutput("ping", "step2")
+
+    WaitComplete:
+      on_enter: |
+        setOutput("ping", "done")
+
+    Done:
+      on_enter: |
+        setOutput("ping", "idle")
+        setOutput("test_passed", true)
+
+  transitions:
+    wait_to_ack1:
+      from: WaitReady
+      to: WaitAck1
+      type: event
+      event:
+        triggers:
+          - signal: pong
+            trigger: on_change
+        condition: value("pong") == "ready"
+
+    ack1_to_ack2:
+      from: WaitAck1
+      to: WaitAck2
+      type: event
+      event:
+        triggers:
+          - signal: pong
+            trigger: on_change
+        condition: value("pong") == "ack1"
+
+    ack2_to_complete:
+      from: WaitAck2
+      to: WaitComplete
+      type: event
+      event:
+        triggers:
+          - signal: pong
+            trigger: on_change
+        condition: value("pong") == "ack2"
+
+    complete_to_done:
+      from: WaitComplete
+      to: Done
+      type: event
+      event:
+        triggers:
+          - signal: pong
+            trigger: on_change
+        condition: value("pong") == "complete"

@@ -80,21 +80,35 @@ const Transition* TransitionResolver::resolve(const Automata& automata,
         return nullptr;
     }
 
-    // Group by priority and find first group with enabled transitions
     std::vector<EvaluatedTransition> candidates;
+    std::vector<EvaluatedTransition> groupCandidates;
     uint8_t currentPriority = transitions[0]->priority;
+    bool groupHasTimed = false;
 
     for (const auto* t : transitions) {
-        // If we moved to lower priority and have candidates, stop
-        if (t->priority > currentPriority && !candidates.empty()) {
-            break;
+        if (t->priority > currentPriority) {
+            if (!groupCandidates.empty()) {
+                candidates = std::move(groupCandidates);
+                break;
+            }
+            if (groupHasTimed) {
+                return nullptr;
+            }
+            currentPriority = t->priority;
+            groupHasTimed = false;
         }
-        currentPriority = t->priority;
 
+        groupHasTimed = groupHasTimed || t->type == TransitionType::Timed;
         auto eval = evaluate(*t);
         if (eval.conditionMet) {
-            candidates.push_back(eval);
+            groupCandidates.push_back(eval);
         }
+    }
+
+    if (candidates.empty() && !groupCandidates.empty()) {
+        candidates = std::move(groupCandidates);
+    } else if (candidates.empty() && groupHasTimed) {
+        return nullptr;
     }
 
     if (candidates.empty()) {
@@ -284,18 +298,22 @@ bool TransitionResolver::evaluateEvent(const Transition& t) {
                 break;
 
             case EventTrigger::OnThreshold:
-                if (trigger.threshold && var->hasChanged()) {
-                    // Compare current value with threshold
-                    double curr = var->value().toDouble();
-                    double threshold = trigger.threshold->value.toDouble();
-                    
-                    switch (trigger.threshold->op) {
-                        case CompareOp::Gt: triggered = curr > threshold; break;
-                        case CompareOp::Ge: triggered = curr >= threshold; break;
-                        case CompareOp::Lt: triggered = curr < threshold; break;
-                        case CompareOp::Le: triggered = curr <= threshold; break;
-                        case CompareOp::Eq: triggered = curr == threshold; break;
-                        case CompareOp::Ne: triggered = curr != threshold; break;
+                if (trigger.threshold) {
+                    // Fire if value changed OR on the first tick after entering this state
+                    // (so a threshold already met at state entry is not silently missed).
+                    const bool isEntryTick = context_ &&
+                        context_->tickCount == context_->stateEntryTickCount + 1;
+                    if (var->hasChanged() || isEntryTick) {
+                        double curr = var->value().toDouble();
+                        double threshold = trigger.threshold->value.toDouble();
+                        switch (trigger.threshold->op) {
+                            case CompareOp::Gt: triggered = curr > threshold; break;
+                            case CompareOp::Ge: triggered = curr >= threshold; break;
+                            case CompareOp::Lt: triggered = curr < threshold; break;
+                            case CompareOp::Le: triggered = curr <= threshold; break;
+                            case CompareOp::Eq: triggered = curr == threshold; break;
+                            case CompareOp::Ne: triggered = curr != threshold; break;
+                        }
                     }
                 }
                 break;
@@ -454,6 +472,7 @@ Result<void> Runtime::start(std::optional<StateId> fromState) {
     ctx_.startTime = clock_->now();
     ctx_.stateEntryTime = ctx_.startTime;
     ctx_.tickCount = 0;
+    ctx_.stateEntryTickCount = 0;
     ctx_.transitionCount = 0;
     pausedAt_ = 0;
 
@@ -563,6 +582,7 @@ Result<void> Runtime::restoreState(const std::string& stateName,
 
     ctx_.currentState = targetState->id;
     ctx_.stateEntryTime = clock_->now();
+    ctx_.stateEntryTickCount = ctx_.tickCount;
     timers_->cancelAll();
 
     for (const auto& [name, value] : variables) {
@@ -622,6 +642,7 @@ bool Runtime::tick() {
 
     if (transition) {
         fireTransition(*transition);
+        ctx_.variables.clearAllChanged();
         return true;
     }
 
@@ -762,6 +783,7 @@ void Runtime::fireTransition(const Transition& t) {
     ctx_.currentState = t.to;
     ctx_.transitionCount++;
     ctx_.stateEntryTime = clock_->now();
+    ctx_.stateEntryTickCount = ctx_.tickCount;
 
     // Setup timers for new state
     setupTimersForState(*toState);

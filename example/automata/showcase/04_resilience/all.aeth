@@ -1,0 +1,557 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Resilience Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/04_resilience.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_04_resilience",
+      "name": "Resilience",
+      "description": "Generated collection for Resilience.",
+      "rootAutomataIds": [
+        "network_showcase_04_resilience_01_sensor_watchdog_recovery"
+      ],
+      "automataIds": [
+        "network_showcase_04_resilience_01_sensor_watchdog_recovery"
+      ],
+      "inputs": [
+        "heartbeat",
+        "manual_reset",
+        "max_retries"
+      ],
+      "outputs": [
+        "retry_count",
+        "watchdog_ok",
+        "fault",
+        "watchdog_state"
+      ],
+      "relativePath": "networks/resilience",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_04_resilience_01_sensor_watchdog_recovery": {
+      "id": "network_showcase_04_resilience_01_sensor_watchdog_recovery",
+      "version": "0.0.1",
+      "config": {
+        "name": "Sensor Watchdog Recovery",
+        "type": "inline",
+        "language": "lua",
+        "description": "Flagship heartbeat watchdog with priming, missed-beat detection, retry windows, backoff, failure, and reset-audit phases.",
+        "tags": [
+          "showcase",
+          "resilience",
+          "watchdog",
+          "timeout",
+          "flagship"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Boot",
+      "states": {
+        "Boot": {
+          "id": "Boot",
+          "name": "Boot",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"retry_count\", 0)\nsetVal(\"watchdog_state\", \"boot\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "PrimeSensors": {
+          "id": "PrimeSensors",
+          "name": "PrimeSensors",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"prime_sensors\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Healthy": {
+          "id": "Healthy",
+          "name": "Healthy",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", true)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"healthy\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "MissedBeat": {
+          "id": "MissedBeat",
+          "name": "MissedBeat",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"missed_beat\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        },
+        "RetryWindow": {
+          "id": "RetryWindow",
+          "name": "RetryWindow",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"retry_window\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 240
+          }
+        },
+        "Recovering": {
+          "id": "Recovering",
+          "name": "Recovering",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"retry_count\", value(\"retry_count\") + 1)\nsetVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"recovering\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 240
+          }
+        },
+        "Backoff": {
+          "id": "Backoff",
+          "name": "Backoff",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"backoff\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 240
+          }
+        },
+        "Failed": {
+          "id": "Failed",
+          "name": "Failed",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", true)\nsetVal(\"watchdog_state\", \"failed\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 240
+          }
+        },
+        "ResetAudit": {
+          "id": "ResetAudit",
+          "name": "ResetAudit",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"watchdog_ok\", false)\nsetVal(\"fault\", false)\nsetVal(\"watchdog_state\", \"reset_audit\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 400
+          }
+        }
+      },
+      "transitions": {
+        "boot_to_prime": {
+          "id": "boot_to_prime",
+          "name": "boot_to_prime",
+          "from": "Boot",
+          "to": "PrimeSensors",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "prime_to_healthy": {
+          "id": "prime_to_healthy",
+          "name": "prime_to_healthy",
+          "from": "PrimeSensors",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "prime_to_missed": {
+          "id": "prime_to_missed",
+          "name": "prime_to_missed",
+          "from": "PrimeSensors",
+          "to": "MissedBeat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 600,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "healthy_timeout": {
+          "id": "healthy_timeout",
+          "name": "healthy_timeout",
+          "from": "Healthy",
+          "to": "MissedBeat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "timeout",
+            "delayMs": 5000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "missed_on_heartbeat": {
+          "id": "missed_on_heartbeat",
+          "name": "missed_on_heartbeat",
+          "from": "MissedBeat",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "missed_to_retry_window": {
+          "id": "missed_to_retry_window",
+          "name": "missed_to_retry_window",
+          "from": "MissedBeat",
+          "to": "RetryWindow",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 300,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "retry_on_heartbeat": {
+          "id": "retry_on_heartbeat",
+          "name": "retry_on_heartbeat",
+          "from": "RetryWindow",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "retry_to_recovering": {
+          "id": "retry_to_recovering",
+          "name": "retry_to_recovering",
+          "from": "RetryWindow",
+          "to": "Recovering",
+          "type": "classic",
+          "condition": "value(\"retry_count\") < value(\"max_retries\")",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1
+        },
+        "retry_to_failed": {
+          "id": "retry_to_failed",
+          "name": "retry_to_failed",
+          "from": "RetryWindow",
+          "to": "Failed",
+          "type": "classic",
+          "condition": "value(\"retry_count\") >= value(\"max_retries\")",
+          "body": "",
+          "triggered": "",
+          "priority": 2,
+          "weight": 1
+        },
+        "recovering_to_backoff": {
+          "id": "recovering_to_backoff",
+          "name": "recovering_to_backoff",
+          "from": "Recovering",
+          "to": "Backoff",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 250,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "backoff_on_heartbeat": {
+          "id": "backoff_on_heartbeat",
+          "name": "backoff_on_heartbeat",
+          "from": "Backoff",
+          "to": "Healthy",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "heartbeat",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "backoff_to_retry_window": {
+          "id": "backoff_to_retry_window",
+          "name": "backoff_to_retry_window",
+          "from": "Backoff",
+          "to": "RetryWindow",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 800,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "failed_to_reset_audit": {
+          "id": "failed_to_reset_audit",
+          "name": "failed_to_reset_audit",
+          "from": "Failed",
+          "to": "ResetAudit",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "manual_reset",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "reset_audit_to_boot": {
+          "id": "reset_audit_to_boot",
+          "name": "reset_audit_to_boot",
+          "from": "ResetAudit",
+          "to": "Boot",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 150,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "heartbeat",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "manual_reset",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "max_retries",
+          "type": "int",
+          "direction": "input",
+          "default": 3
+        },
+        {
+          "name": "retry_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "watchdog_ok",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "fault",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "watchdog_state",
+          "type": "string",
+          "direction": "output",
+          "default": "boot"
+        }
+      ],
+      "inputs": [
+        "heartbeat",
+        "manual_reset",
+        "max_retries"
+      ],
+      "outputs": [
+        "retry_count",
+        "watchdog_ok",
+        "fault",
+        "watchdog_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/04_resilience/sensor_watchdog_recovery.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

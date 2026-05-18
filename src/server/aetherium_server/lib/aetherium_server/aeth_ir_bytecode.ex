@@ -416,6 +416,16 @@ defmodule AetheriumServer.AethIrBytecode do
     {:ok, @transition_immediate, 0, "", %{}, []}
   end
 
+  defp normalize_transition_kind(%{type: "classic", raw: raw}, :full_lua) do
+    condition_expr = normalize_source(Map.get(raw, :condition) || Map.get(raw, "condition"))
+
+    if condition_expr == "" do
+      {:unsupported, ["Classic transitions require a `condition` expression."]}
+    else
+      {:ok, @transition_classic, 0, condition_expr, %{}, []}
+    end
+  end
+
   defp normalize_transition_kind(%{type: "classic", raw: raw}, _mode) do
     with {:ok, condition_expr} <-
            normalize_classic_condition(Map.get(raw, :condition) || Map.get(raw, "condition")) do
@@ -465,8 +475,7 @@ defmodule AetheriumServer.AethIrBytecode do
     with {:ok, delay_ms} <- normalize_delay_ms(delay),
          true <-
            kind != :unsupported or
-             {:unsupported,
-              ["Timed bytecode subset supports `after` and `timeout` modes only."]} do
+             {:unsupported, ["Timed bytecode subset supports `after` and `timeout` modes only."]} do
       {:ok, kind, delay_ms, additional_condition, %{}, []}
     end
   end
@@ -512,6 +521,15 @@ defmodule AetheriumServer.AethIrBytecode do
 
   defp normalize_event_transition(raw, mode) do
     event = Map.get(raw, :event) || Map.get(raw, "event") || %{}
+
+    event =
+      if is_binary(event) do
+        %{
+          "triggers" => [%{"signal" => event, "trigger" => "on_change", "signal_type" => "input"}]
+        }
+      else
+        event
+      end
 
     triggers = Map.get(event, :triggers) || Map.get(event, "triggers") || []
 
@@ -675,7 +693,10 @@ defmodule AetheriumServer.AethIrBytecode do
   end
 
   defp normalize_threshold_config(threshold) when is_map(threshold) do
-    op = Map.get(threshold, :op) || Map.get(threshold, "op")
+    op =
+      Map.get(threshold, :op) || Map.get(threshold, "op") ||
+        Map.get(threshold, :operator) || Map.get(threshold, "operator")
+
     value = Map.get(threshold, :value) || Map.get(threshold, "value")
 
     one_shot =
@@ -1271,11 +1292,22 @@ defmodule AetheriumServer.AethIrBytecode do
   defp normalize_weight(v) when is_integer(v) and v >= 0 and v <= 0xFFFF, do: v
   defp normalize_weight(v) when is_integer(v) and v < 0, do: 0
   defp normalize_weight(v) when is_integer(v) and v > 0xFFFF, do: 0xFFFF
+  defp normalize_weight(v) when is_float(v) and v >= 0.0 and v <= 1.0, do: round(v * 10_000)
+  defp normalize_weight(v) when is_float(v) and v > 1.0, do: normalize_weight(round(v))
+  defp normalize_weight(v) when is_float(v) and v < 0.0, do: 0
 
   defp normalize_weight(v) when is_binary(v) do
-    case Integer.parse(String.trim(v)) do
-      {int, ""} -> normalize_weight(int)
-      _ -> 100
+    trimmed = String.trim(v)
+
+    case Integer.parse(trimmed) do
+      {int, ""} ->
+        normalize_weight(int)
+
+      _ ->
+        case Float.parse(trimmed) do
+          {float, ""} -> normalize_weight(float)
+          _ -> 100
+        end
     end
   end
 

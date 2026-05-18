@@ -1,0 +1,64 @@
+version: "0.0.1"
+
+config:
+  name: "Engine Verify 05 - Bytecode Subset IR"
+  type: inline
+  description: "Bytecode-compatible fixture with timed, classic, and shorthand event transitions."
+  tags: [engine, verification, bytecode, ir]
+
+variables:
+  - name: armed
+    type: bool
+    direction: input
+    default: false
+  - name: pulse
+    type: bool
+    direction: input
+    default: false
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle: {}
+    Armed: {}
+    Pulsed: {}
+    Expired: {}
+
+  transitions:
+    arm_when_enabled:
+      from: Idle
+      to: Armed
+      type: classic
+      condition: value("armed") == true
+
+    pulse_event_shorthand:
+      from: Armed
+      to: Pulsed
+      type: event
+      event: pulse
+
+    armed_timeout:
+      from: Armed
+      to: Expired
+      type: timed
+      timed:
+        mode: timeout
+        delay_ms: 2s
+
+    reset_from_pulsed:
+      from: Pulsed
+      to: Idle
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 250ms
+
+    reset_from_expired:
+      from: Expired
+      to: Idle
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 250ms
+

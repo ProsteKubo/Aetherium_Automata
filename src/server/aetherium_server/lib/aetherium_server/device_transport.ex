@@ -31,6 +31,9 @@ defmodule AetheriumServer.DeviceTransport do
         :set_input ->
           EngineProtocol.encode(:input, Map.merge(payload, %{message_id: message_id}))
 
+        :set_variable ->
+          EngineProtocol.encode(:variable, Map.merge(payload, %{message_id: message_id}))
+
         :pause ->
           EngineProtocol.encode(:pause, Map.merge(payload, %{message_id: message_id}))
 

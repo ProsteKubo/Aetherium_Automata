@@ -8,21 +8,23 @@
 # No manual wiring needed. The gateway auto-routes by matching variable names:
 #
 #   signal_level  (input  here)  ←  signal_level  (output in stochastic_beacon)
-#   nxp_temp_mc   (output here)  →  nxp_temp_mc   (input  in stochastic_beacon)
+#   nxp_touch_pressed (output here) → nxp_touch_pressed (input in stochastic_beacon)
 #
 # LED mapping (FRDM-MCXN947):
-#   GPIO 10 = red  LED — on during Alerting and Peaking
-#   GPIO 27 = green LED — on during Monitoring and Peaking
+#   GPIO 10 = red  LED — on during Alerting / TouchActive
+#   GPIO 27 = green LED — on during Monitoring / TouchActive
 #
 # State machine:
-#   Init      → Dormant  (1 s boot)
-#   Dormant   — both LEDs off  — signal="idle" or "cooldown"
-#   Monitoring — green on       — signal="low" or "medium"
-#   Alerting  — red on          — signal="high"
-#   Peaking   — both on         — signal="surge"
+#   Init        → Dormant      (1 s boot)
+#   Dormant     — both off     — signal_level = "idle" or "cooldown"
+#   Monitoring  — green on     — signal_level = "low" or "medium"
+#   Alerting    — red on       — signal_level = "high"
+#   TouchActive — both on      — touch pad held (any signal level)
 #
-# Each active state continuously outputs the board temperature so the host
-# beacon can observe it in the IDE timeline.
+# Signal transitions fire the instant signal_level changes (event/on_change),
+# so LED changes are immediate and there is no per-tick condition polling.
+# Touch transitions use classic conditions; the touch pad is sampled only
+# during transition evaluation and is the only hardware I/O in this file.
 #
 # ============================================================================
 
@@ -32,7 +34,7 @@ config:
   name: NXP Signal Monitor
   type: inline
   language: lua
-  description: FRDM-MCXN947 automata that monitors signal levels from a host beacon and drives red/green LEDs accordingly, while publishing board temperature back to the host.
+  description: FRDM-MCXN947 automata that monitors low, medium, and high signal levels from a host beacon, drives red/green LEDs accordingly, and locally overrides both LEDs while the onboard touch pad is pressed.
   author: Aetherium Team
   tags:
     - showcase
@@ -48,10 +50,10 @@ variables:
     direction: input
     default: "idle"
 
-  - name: nxp_temp_mc
-    type: int
+  - name: nxp_touch_pressed
+    type: bool
     direction: output
-    default: 0
+    default: false
 
   - name: red_led
     type: bool
@@ -68,55 +70,46 @@ automata:
 
   states:
     Init:
-      hooks:
-        onEnter: |-
-          gpio.mode(10, "output")
-          gpio.mode(27, "output")
-          gpio.write(10, false)
-          gpio.write(27, false)
-          setOutput("red_led", false)
-          setOutput("green_led", false)
-          component("board_temp"):init()
+      on_enter: |-
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("red_led", false)
+        setOutput("green_led", false)
+        component("touch_pad"):init()
 
     Dormant:
-      hooks:
-        onEnter: |-
-          gpio.write(10, false)
-          gpio.write(27, false)
-          setOutput("red_led", false)
-          setOutput("green_led", false)
-      code: |-
-        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+      on_enter: |-
+        gpio.write(10, false)
+        gpio.write(27, false)
+        setOutput("red_led", false)
+        setOutput("green_led", false)
+        setOutput("nxp_touch_pressed", false)
 
     Monitoring:
-      hooks:
-        onEnter: |-
-          gpio.write(10, false)
-          gpio.write(27, true)
-          setOutput("red_led", false)
-          setOutput("green_led", true)
-      code: |-
-        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+      on_enter: |-
+        gpio.write(10, false)
+        gpio.write(27, true)
+        setOutput("red_led", false)
+        setOutput("green_led", true)
+        setOutput("nxp_touch_pressed", false)
 
     Alerting:
-      hooks:
-        onEnter: |-
-          gpio.write(10, true)
-          gpio.write(27, false)
-          setOutput("red_led", true)
-          setOutput("green_led", false)
-      code: |-
-        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+      on_enter: |-
+        gpio.write(10, true)
+        gpio.write(27, false)
+        setOutput("red_led", true)
+        setOutput("green_led", false)
+        setOutput("nxp_touch_pressed", false)
 
-    Peaking:
-      hooks:
-        onEnter: |-
-          gpio.write(10, true)
-          gpio.write(27, true)
-          setOutput("red_led", true)
-          setOutput("green_led", true)
-      code: |-
-        setOutput("nxp_temp_mc", component("board_temp"):read_milli_c())
+    TouchActive:
+      on_enter: |-
+        gpio.write(10, true)
+        gpio.write(27, true)
+        setOutput("red_led", true)
+        setOutput("green_led", true)
+        setOutput("nxp_touch_pressed", true)
 
   transitions:
     init_to_dormant:
@@ -125,78 +118,102 @@ automata:
       type: timed
       after: "1s"
 
-    # Dormant exits
+    # ── Signal-level transitions (event-driven: fire on signal_level change) ──
+
     dormant_to_monitoring:
       from: Dormant
       to: Monitoring
-      type: classic
-      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "low" or value("signal_level") == "medium"
 
     dormant_to_alerting:
       from: Dormant
       to: Alerting
-      type: classic
-      condition: value("signal_level") == "high"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "high"
 
-    dormant_to_peaking:
-      from: Dormant
-      to: Peaking
-      type: classic
-      condition: value("signal_level") == "surge"
-
-    # Monitoring exits
     monitoring_to_dormant:
       from: Monitoring
       to: Dormant
-      type: classic
-      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
 
     monitoring_to_alerting:
       from: Monitoring
       to: Alerting
-      type: classic
-      condition: value("signal_level") == "high"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "high"
 
-    monitoring_to_peaking:
-      from: Monitoring
-      to: Peaking
-      type: classic
-      condition: value("signal_level") == "surge"
-
-    # Alerting exits
     alerting_to_dormant:
       from: Alerting
       to: Dormant
-      type: classic
-      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
 
     alerting_to_monitoring:
       from: Alerting
       to: Monitoring
-      type: classic
-      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+      type: event
+      event:
+        triggers:
+          - signal: signal_level
+            trigger: on_change
+        condition: value("signal_level") == "low" or value("signal_level") == "medium"
 
-    alerting_to_peaking:
+    # ── Touch-pad transitions (classic: condition evaluated each tick) ──
+
+    dormant_to_touch:
+      from: Dormant
+      to: TouchActive
+      type: classic
+      condition: component("touch_pad"):pressed()
+
+    monitoring_to_touch:
+      from: Monitoring
+      to: TouchActive
+      type: classic
+      condition: component("touch_pad"):pressed()
+
+    alerting_to_touch:
       from: Alerting
-      to: Peaking
+      to: TouchActive
       type: classic
-      condition: value("signal_level") == "surge"
+      condition: component("touch_pad"):pressed()
 
-    # Peaking exits
-    peaking_to_dormant:
-      from: Peaking
+    touch_to_dormant:
+      from: TouchActive
       to: Dormant
       type: classic
-      condition: value("signal_level") == "idle" or value("signal_level") == "cooldown"
+      condition: not component("touch_pad"):pressed() and (value("signal_level") == "idle" or value("signal_level") == "cooldown")
 
-    peaking_to_monitoring:
-      from: Peaking
+    touch_to_monitoring:
+      from: TouchActive
       to: Monitoring
       type: classic
-      condition: value("signal_level") == "low" or value("signal_level") == "medium"
+      condition: not component("touch_pad"):pressed() and (value("signal_level") == "low" or value("signal_level") == "medium")
 
-    peaking_to_alerting:
-      from: Peaking
+    touch_to_alerting:
+      from: TouchActive
       to: Alerting
       type: classic
-      condition: value("signal_level") == "high"
+      condition: not component("touch_pad"):pressed() and value("signal_level") == "high"

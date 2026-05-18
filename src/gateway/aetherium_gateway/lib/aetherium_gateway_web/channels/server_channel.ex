@@ -438,7 +438,7 @@ defmodule AetheriumGatewayWeb.ServerChannel do
 
   @impl true
   def handle_info({:set_variable, device_id, name, value}, socket) do
-    push(socket, "set_input", %{"device_id" => device_id, "input" => name, "value" => value})
+    push(socket, "set_variable", %{"device_id" => device_id, "name" => name, "value" => value})
     {:noreply, socket}
   end
 

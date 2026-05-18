@@ -183,6 +183,25 @@ defmodule AetheriumServer.EngineProtocol do
     {:ok, frame(@mt_input, payload)}
   end
 
+  def encode(:variable, %{
+        message_id: message_id,
+        target_id: target_id,
+        run_id: run_id,
+        name: name,
+        value: value
+      })
+      when is_binary(name) do
+    var_id = 0
+    {value_type, value_bin} = encode_value(value)
+    timestamp = System.system_time(:millisecond)
+
+    payload =
+      <<message_id::32, 0::32, target_id::32, run_id::32, var_id::16, byte_size(name)::16,
+        name::binary, value_type::8, value_bin::binary, timestamp::64>>
+
+    {:ok, frame(@mt_variable, payload)}
+  end
+
   def encode(:restore_state, %{
         message_id: message_id,
         target_id: target_id,
@@ -200,7 +219,9 @@ defmodule AetheriumServer.EngineProtocol do
         acc <> <<byte_size(name)::16, name::binary, vtype::8, vbin::binary>>
       end)
 
-    payload = <<message_id::32, 0::32, target_id::32, run_id::32, state_bin::binary, vars_bin::binary>>
+    payload =
+      <<message_id::32, 0::32, target_id::32, run_id::32, state_bin::binary, vars_bin::binary>>
+
     {:ok, frame(@mt_restore_state, payload)}
   end
 

@@ -1,0 +1,211 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Reactor Folder Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/automata-yaml-examples/reactor-folder.",
+    "author": "Aetherium Team",
+    "tags": [
+      "yaml-example",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_yaml_example_reactor_folder",
+      "name": "Reactor Folder",
+      "description": "Generated collection for Reactor Folder.",
+      "rootAutomataIds": [
+        "network_yaml_example_reactor_folder_01_reactor"
+      ],
+      "automataIds": [
+        "network_yaml_example_reactor_folder_01_reactor"
+      ],
+      "inputs": [
+        "target_temp"
+      ],
+      "outputs": [
+        "heater_on",
+        "cycle_count"
+      ],
+      "relativePath": "networks/reactor_folder",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_yaml_example_reactor_folder_01_reactor": {
+      "id": "network_yaml_example_reactor_folder_01_reactor",
+      "version": "0.0.1",
+      "config": {
+        "name": "Reactor Folder Stress",
+        "type": "folder",
+        "location": ".",
+        "language": "lua",
+        "description": "Folder layout stress case for loader and Lua hook resolution",
+        "tags": [],
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Heat": {
+          "id": "Heat",
+          "name": "Heat",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Hold": {
+          "id": "Hold",
+          "name": "Hold",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "start_heat": {
+          "id": "start_heat",
+          "name": "start_heat",
+          "from": "Idle",
+          "to": "Heat",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 15,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "reach_target": {
+          "id": "reach_target",
+          "name": "reach_target",
+          "from": "Heat",
+          "to": "Hold",
+          "type": "classic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "hold_done": {
+          "id": "hold_done",
+          "name": "hold_done",
+          "from": "Hold",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 20,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "core_temp",
+          "type": "int",
+          "direction": "internal",
+          "default": 20
+        },
+        {
+          "name": "target_temp",
+          "type": "int",
+          "direction": "input",
+          "default": 70
+        },
+        {
+          "name": "heater_on",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "cycle_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "target_temp"
+      ],
+      "outputs": [
+        "heater_on",
+        "cycle_count"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/automata-yaml-examples/reactor-folder/reactor.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

@@ -1,0 +1,312 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Pipeline Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/06_pipeline.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_06_pipeline",
+      "name": "Pipeline",
+      "description": "Generated collection for Pipeline.",
+      "rootAutomataIds": [
+        "network_showcase_06_pipeline_01_line_buffer_dispatcher"
+      ],
+      "automataIds": [
+        "network_showcase_06_pipeline_01_line_buffer_dispatcher"
+      ],
+      "inputs": [
+        "part_arrived",
+        "downstream_ready",
+        "manual_clear"
+      ],
+      "outputs": [
+        "buffer_count",
+        "dispatch_signal",
+        "total_dispatched"
+      ],
+      "relativePath": "networks/pipeline",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_06_pipeline_01_line_buffer_dispatcher": {
+      "id": "network_showcase_06_pipeline_01_line_buffer_dispatcher",
+      "version": "0.0.1",
+      "config": {
+        "name": "Line Buffer Dispatcher",
+        "type": "inline",
+        "language": "lua",
+        "description": "Pipeline coordination with part arrival, buffering, and dispatch gating.",
+        "tags": [
+          "showcase",
+          "pipeline",
+          "event",
+          "coordination"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "WaitingForPart",
+      "states": {
+        "WaitingForPart": {
+          "id": "WaitingForPart",
+          "name": "WaitingForPart",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dispatch_signal\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Buffered": {
+          "id": "Buffered",
+          "name": "Buffered",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"buffer_count\", value(\"buffer_count\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Dispatching": {
+          "id": "Dispatching",
+          "name": "Dispatching",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dispatch_signal\", true)\nsetVal(\"buffer_count\", value(\"buffer_count\") - 1)\nsetVal(\"total_dispatched\", value(\"total_dispatched\") + 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Hold": {
+          "id": "Hold",
+          "name": "Hold",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setVal(\"dispatch_signal\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "part_rise_to_buffered": {
+          "id": "part_rise_to_buffered",
+          "name": "part_rise_to_buffered",
+          "from": "WaitingForPart",
+          "to": "Buffered",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "part_arrived",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "buffered_to_dispatching": {
+          "id": "buffered_to_dispatching",
+          "name": "buffered_to_dispatching",
+          "from": "Buffered",
+          "to": "Dispatching",
+          "type": "classic",
+          "condition": "value(\"downstream_ready\") == true and value(\"buffer_count\") > 0",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "buffered_to_hold": {
+          "id": "buffered_to_hold",
+          "name": "buffered_to_hold",
+          "from": "Buffered",
+          "to": "Hold",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "hold_to_dispatching": {
+          "id": "hold_to_dispatching",
+          "name": "hold_to_dispatching",
+          "from": "Hold",
+          "to": "Dispatching",
+          "type": "classic",
+          "condition": "value(\"downstream_ready\") == true and value(\"buffer_count\") > 0",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "hold_manual_clear": {
+          "id": "hold_manual_clear",
+          "name": "hold_manual_clear",
+          "from": "Hold",
+          "to": "WaitingForPart",
+          "type": "event",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 1,
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "manual_clear",
+                "trigger": "on_rise"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
+        },
+        "dispatch_done": {
+          "id": "dispatch_done",
+          "name": "dispatch_done",
+          "from": "Dispatching",
+          "to": "WaitingForPart",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 100,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "part_arrived",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "downstream_ready",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "manual_clear",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        },
+        {
+          "name": "buffer_count",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "dispatch_signal",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "total_dispatched",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        }
+      ],
+      "inputs": [
+        "part_arrived",
+        "downstream_ready",
+        "manual_clear"
+      ],
+      "outputs": [
+        "buffer_count",
+        "dispatch_signal",
+        "total_dispatched"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/06_pipeline/line_buffer_dispatcher.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

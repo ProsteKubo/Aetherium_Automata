@@ -86,6 +86,11 @@ void expectAck(const Engine::Replies& replies, const std::string& ctx) {
     require(findMessage<protocol::StatusMessage>(replies) != nullptr, ctx + ": expected STATUS snapshot");
 }
 
+void expectAckOnly(const Engine::Replies& replies, const std::string& ctx) {
+    require(findMessage<protocol::AckMessage>(replies) != nullptr, ctx + ": expected ACK");
+    require(findMessage<protocol::StatusMessage>(replies) == nullptr, ctx + ": expected no STATUS snapshot");
+}
+
 void expectNak(const Engine::Replies& replies, const std::string& ctx) {
     require(findMessage<protocol::NakMessage>(replies) != nullptr, ctx + ": expected NAK");
     require(findMessage<protocol::StatusMessage>(replies) != nullptr, ctx + ": expected STATUS snapshot");
@@ -432,7 +437,7 @@ int main() {
         inputReq->variableName = "sensor_temp";
         inputReq->value = aeth::Value(int32_t{90});
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input sensor_temp");
+        expectAckOnly(replies, "set-input sensor_temp");
     }
     engine.tick();
 
@@ -442,7 +447,7 @@ int main() {
         inputReq->variableName = "door_open";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input door_open");
+        expectAckOnly(replies, "set-input door_open");
     }
     engine.tick();
 
@@ -471,7 +476,7 @@ int main() {
         inputReq->variableName = "cmd_reset";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input cmd_reset");
+        expectAckOnly(replies, "set-input cmd_reset");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(8));
@@ -483,7 +488,7 @@ int main() {
         varReq->variableName = "manual_override";
         varReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(varReq));
-        expectAck(replies, "set-variable manual_override");
+        expectAckOnly(replies, "set-variable manual_override");
     }
 
     {
@@ -627,7 +632,7 @@ int main() {
         inputReq->variableName = "enabled";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input enabled bytecode");
+        expectAckOnly(replies, "set-input enabled bytecode");
     }
 
     {
@@ -683,7 +688,7 @@ int main() {
         inputReq->variableName = "enabled";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input enabled classic bytecode");
+        expectAckOnly(replies, "set-input enabled classic bytecode");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -704,7 +709,7 @@ int main() {
         inputReq->variableName = "armed";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input armed classic bytecode");
+        expectAckOnly(replies, "set-input armed classic bytecode");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -762,7 +767,7 @@ int main() {
         inputReq->variableName = "pulse";
         inputReq->value = aeth::Value(true);
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input pulse event bytecode");
+        expectAckOnly(replies, "set-input pulse event bytecode");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -811,7 +816,7 @@ int main() {
         inputReq->variableName = "temp";
         inputReq->value = aeth::Value(int32_t{9});
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input temp=9 event threshold bytecode");
+        expectAckOnly(replies, "set-input temp=9 event threshold bytecode");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));
@@ -832,7 +837,7 @@ int main() {
         inputReq->variableName = "temp";
         inputReq->value = aeth::Value(int32_t{11});
         auto replies = send(engine, std::move(inputReq));
-        expectAck(replies, "set-input temp=11 event threshold bytecode");
+        expectAckOnly(replies, "set-input temp=11 event threshold bytecode");
     }
     engine.tick();
     std::this_thread::sleep_for(std::chrono::milliseconds(2));

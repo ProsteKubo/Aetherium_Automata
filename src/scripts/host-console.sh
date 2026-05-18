@@ -10,6 +10,8 @@ HOST_SERVER_ID="${HOST_SERVER_ID:-svr_host}"
 HOST_DEVICE_COUNT="${HOST_DEVICE_COUNT:-2}"
 HOST_DEVICE_PREFIX="${HOST_DEVICE_PREFIX:-host_cpp}"
 HOST_RUNTIME_DIR="${HOST_RUNTIME_DIR:-${SRC_ROOT}/var/host-console}"
+HOST_CLEAN_RUNTIME_DIR="${HOST_CLEAN_RUNTIME_DIR:-1}"
+HOST_KILL_PORT_OWNERS="${HOST_KILL_PORT_OWNERS:-1}"
 HOST_BUILD_ENGINE="${HOST_BUILD_ENGINE:-1}"
 HOST_STOP_COMPOSE="${HOST_STOP_COMPOSE:-1}"
 HOST_DEPS_GET="${HOST_DEPS_GET:-1}"
@@ -36,6 +38,10 @@ fi
 HOST_COMBINED_LOG="${HOST_COMBINED_LOG:-${HOST_LOG_DIR}/host-console.log}"
 if [[ "${HOST_COMBINED_LOG}" != /* ]]; then
   HOST_COMBINED_LOG="${SRC_ROOT}/${HOST_COMBINED_LOG}"
+fi
+HOST_PID_FILE="${HOST_PID_FILE:-${HOST_RUNTIME_DIR}/host-console.pids}"
+if [[ "${HOST_PID_FILE}" != /* ]]; then
+  HOST_PID_FILE="${SRC_ROOT}/${HOST_PID_FILE}"
 fi
 
 pids=()
@@ -80,6 +86,62 @@ ensure_port_free() {
     log "Run 'make down' or override the port, e.g. HOST_GATEWAY_PORT=4080."
     exit 1
   fi
+}
+
+kill_pid_list() {
+  local source="$1"
+  shift
+  local targets=("$@")
+  if ((${#targets[@]} == 0)); then
+    return
+  fi
+
+  log "stopping stale ${source} process(es): ${targets[*]}"
+  kill "${targets[@]}" >/dev/null 2>&1 || true
+  sleep 0.5
+  kill -0 "${targets[@]}" >/dev/null 2>&1 && kill -9 "${targets[@]}" >/dev/null 2>&1 || true
+}
+
+port_owner_pids() {
+  local port="$1"
+  if command -v lsof >/dev/null 2>&1; then
+    lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | sort -u
+  elif command -v fuser >/dev/null 2>&1; then
+    fuser -n tcp "${port}" 2>/dev/null | tr ' ' '\n' | sed '/^$/d' | sort -u
+  fi
+}
+
+stop_stale_host_console() {
+  if [[ -f "${HOST_PID_FILE}" ]]; then
+    mapfile -t old_pids < <(grep -Eo '^[0-9]+' "${HOST_PID_FILE}" 2>/dev/null | sort -u)
+    kill_pid_list "host-console pidfile" "${old_pids[@]}"
+  fi
+
+  if [[ "${HOST_KILL_PORT_OWNERS}" == "1" ]]; then
+    mapfile -t gateway_pids < <(port_owner_pids "${HOST_GATEWAY_PORT}")
+    kill_pid_list "gateway port ${HOST_GATEWAY_PORT}" "${gateway_pids[@]}"
+    mapfile -t device_pids < <(port_owner_pids "${HOST_DEVICE_PORT}")
+    kill_pid_list "device port ${HOST_DEVICE_PORT}" "${device_pids[@]}"
+  fi
+}
+
+prepare_runtime_dir() {
+  if [[ "${HOST_CLEAN_RUNTIME_DIR}" != "1" ]]; then
+    mkdir -p "${HOST_RUNTIME_DIR}/gateway" "${HOST_RUNTIME_DIR}/server_time_series" "${HOST_RUNTIME_DIR}/traces" "${HOST_LOG_DIR}"
+    : >"${HOST_COMBINED_LOG}"
+    return
+  fi
+
+  if [[ -z "${HOST_RUNTIME_DIR}" || "${HOST_RUNTIME_DIR}" == "/" ]]; then
+    printf '%s\n' "[host-console] ERROR: refusing to remove unsafe HOST_RUNTIME_DIR='${HOST_RUNTIME_DIR}'" >&2
+    exit 1
+  fi
+
+  stop_stale_host_console
+  rm -rf "${HOST_RUNTIME_DIR}"
+  mkdir -p "${HOST_RUNTIME_DIR}/gateway" "${HOST_RUNTIME_DIR}/server_time_series" "${HOST_RUNTIME_DIR}/traces" "${HOST_LOG_DIR}"
+  : >"${HOST_COMBINED_LOG}"
+  : >"${HOST_PID_FILE}"
 }
 
 cleanup() {
@@ -128,6 +190,7 @@ start_prefixed() {
     fi
   ) &
   pids+=("$!")
+  printf '%s\n' "$!" >>"${HOST_PID_FILE}"
 }
 
 prepare_mix_app() {
@@ -145,8 +208,7 @@ prepare_mix_app() {
   )
 }
 
-mkdir -p "${HOST_RUNTIME_DIR}/gateway" "${HOST_RUNTIME_DIR}/server_time_series" "${HOST_RUNTIME_DIR}/traces" "${HOST_LOG_DIR}"
-: >"${HOST_COMBINED_LOG}"
+prepare_runtime_dir
 
 if [[ "${HOST_STOP_COMPOSE}" == "1" ]]; then
   log "stopping compose gateway/server/device containers to avoid mixed host/container state"

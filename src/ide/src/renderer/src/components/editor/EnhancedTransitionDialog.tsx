@@ -481,6 +481,7 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
   const [name, setName] = useState<string>('');
   const [condition, setCondition] = useState<string>('');
   const [body, setBody] = useState<string>('');
+  const [triggered, setTriggered] = useState<string>('');
   const [priority, setPriority] = useState<number>(0);
   
   // Type-specific configs
@@ -553,6 +554,7 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
       setName(existingTransition.name);
       setCondition(existingTransition.condition || '');
       setBody(existingTransition.body || '');
+      setTriggered(existingTransition.triggered || '');
       setPriority(existingTransition.priority || 0);
       setTransitionType(existingType);
       setTimedConfig(normalizeTimedConfig(existingTransition.timed));
@@ -596,6 +598,7 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
       setName('');
       setCondition('');
       setBody('');
+      setTriggered('');
       setPriority(0);
       setTransitionType('classic');
       setTimedConfig({
@@ -712,6 +715,7 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
       type: transitionType,
       condition: finalCondition,
       body,
+      triggered,
       priority,
       weight: finalWeight,
       timed: finalTimed,
@@ -901,6 +905,28 @@ export const EnhancedTransitionDialog: React.FC<EnhancedTransitionDialogProps> =
                 <strong>ε-transition:</strong> This transition fires immediately when the source state is entered, with no guard condition.
               </div>
             )}
+
+            <div className="form-group" style={{ marginTop: 'var(--spacing-3)' }}>
+              <label htmlFor="transitionBody">Action Body (Lua)</label>
+              <textarea
+                id="transitionBody"
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={5}
+                placeholder="setOutput('phase', 'done')"
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="transitionTriggered">Triggered Callback (Lua)</label>
+              <textarea
+                id="transitionTriggered"
+                value={triggered}
+                onChange={(e) => setTriggered(e.target.value)}
+                rows={3}
+                placeholder="log('info', 'transition fired')"
+              />
+            </div>
             
             {/* Priority */}
             <div className="form-group" style={{ marginTop: 'var(--spacing-3)' }}>
