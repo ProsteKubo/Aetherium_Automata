@@ -44,7 +44,7 @@ automata:
       type: timed
       timed:
         mode: timeout
-        delay_ms: 2s
+        delay_ms: 5s
 
     reset_from_pulsed:
       from: Pulsed

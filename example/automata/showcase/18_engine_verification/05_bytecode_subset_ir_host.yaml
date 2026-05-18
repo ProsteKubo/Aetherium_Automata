@@ -53,7 +53,7 @@ automata:
       type: timed
       timed:
         mode: after
-        delay_ms: 750ms
+        delay_ms: 2000ms
 
     pulse:
       from: Arm
@@ -61,7 +61,7 @@ automata:
       type: timed
       timed:
         mode: after
-        delay_ms: 750ms
+        delay_ms: 1000ms
 
     finish:
       from: Pulse

@@ -429,7 +429,10 @@ function normalizeAutomataDocument(input, fallbackId, sourcePath) {
     const id = toStringSafe(transition.id, transitionKey);
     const timedRaw = asRecord(transition.timed);
     const timedSource = Object.keys(timedRaw).length > 0 ? timedRaw : inferTimedConfigFromTransition(transition);
-    const event = asRecord(transition.event);
+    const eventRaw = typeof transition.event === 'string' && transition.event.trim()
+      ? { triggers: [{ signal: transition.event.trim(), trigger: 'on_change', signal_type: 'input' }] }
+      : transition.event;
+    const event = asRecord(eventRaw);
     const probabilistic = asRecord(transition.probabilistic);
 
     const hasExplicitDelayMs =
@@ -664,7 +667,7 @@ function normalizeVariables(value) {
 function inferTransitionTypeFromData(transition) {
   if (transition.timed && Object.keys(asRecord(transition.timed)).length > 0) return 'timed';
   if (inferTimedConfigFromTransition(transition)) return 'timed';
-  if (transition.event && Object.keys(asRecord(transition.event)).length > 0) return 'event';
+  if (transition.event && (typeof transition.event === 'string' || Object.keys(asRecord(transition.event)).length > 0)) return 'event';
   if (transition.probabilistic && Object.keys(asRecord(transition.probabilistic)).length > 0) {
     return 'probabilistic';
   }

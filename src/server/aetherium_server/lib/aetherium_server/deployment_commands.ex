@@ -35,12 +35,25 @@ defmodule AetheriumServer.DeploymentCommands do
               case command do
                 :set_input ->
                   AetheriumServer.AutomataRuntime.set_input(deployment.id, value_name, value)
-                  :ok
 
                 :set_variable ->
                   AetheriumServer.AutomataRuntime.set_variable(deployment.id, value_name, value)
+              end
+
+              case device do
+                %{session_ref: %DeviceSessionRef{} = session_ref, protocol_id: protocol_id} ->
+                  DeviceTransport.send_message(session_ref, command, %{
+                    target_id: protocol_id,
+                    run_id: deployment.run_id,
+                    name: value_name,
+                    value: value
+                  })
+
+                _ ->
                   :ok
               end
+
+              :ok
 
             match?(%{session_ref: %DeviceSessionRef{}, protocol_id: _}, device) ->
               %{session_ref: session_ref, protocol_id: protocol_id} = device

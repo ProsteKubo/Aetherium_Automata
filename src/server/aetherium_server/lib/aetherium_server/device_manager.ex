@@ -491,6 +491,17 @@ defmodule AetheriumServer.DeviceManager do
               "start_automata"
             )
 
+          case DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+            {:ok, protocol_id, session_ref} ->
+              DeviceTransport.send_message(session_ref, :start, %{
+                target_id: protocol_id,
+                run_id: deployment.run_id
+              })
+
+            _ ->
+              :ok
+          end
+
           {:reply, :ok, new_state}
         else
           with {:ok, protocol_id, session_ref} <-
@@ -528,6 +539,17 @@ defmodule AetheriumServer.DeviceManager do
 
           new_state =
             DeploymentLifecycle.paused_command_applied(state, deployment, "pause_automata")
+
+          case DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+            {:ok, protocol_id, session_ref} ->
+              DeviceTransport.send_message(session_ref, :pause, %{
+                target_id: protocol_id,
+                run_id: deployment.run_id
+              })
+
+            _ ->
+              :ok
+          end
 
           {:reply, :ok, new_state}
         else
@@ -568,6 +590,17 @@ defmodule AetheriumServer.DeviceManager do
               "resume_automata"
             )
 
+          case DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+            {:ok, protocol_id, session_ref} ->
+              DeviceTransport.send_message(session_ref, :resume, %{
+                target_id: protocol_id,
+                run_id: deployment.run_id
+              })
+
+            _ ->
+              :ok
+          end
+
           {:reply, :ok, new_state}
         else
           with {:ok, protocol_id, session_ref} <-
@@ -605,6 +638,17 @@ defmodule AetheriumServer.DeviceManager do
           {:ok, runtime_state} = AetheriumServer.AutomataRuntime.get_state(deployment_id)
 
           new_state = DeploymentLifecycle.reset_command_applied(state, deployment, runtime_state)
+
+          case DeviceTransport.resolve_device_transport(new_state, deployment.device_id) do
+            {:ok, protocol_id, session_ref} ->
+              DeviceTransport.send_message(session_ref, :reset, %{
+                target_id: protocol_id,
+                run_id: deployment.run_id
+              })
+
+            _ ->
+              :ok
+          end
 
           {:reply, :ok, new_state}
         else

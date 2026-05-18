@@ -1093,7 +1093,7 @@
           "weight": 1,
           "timed": {
             "mode": "after",
-            "delayMs": 750,
+            "delayMs": 2000,
             "jitterMs": 0,
             "showCountdown": true
           }
@@ -1111,7 +1111,7 @@
           "weight": 1,
           "timed": {
             "mode": "after",
-            "delayMs": 750,
+            "delayMs": 1000,
             "jitterMs": 0,
             "showCountdown": true
           }
@@ -1266,7 +1266,18 @@
           "body": "",
           "triggered": "",
           "priority": 0,
-          "weight": 1
+          "weight": 1,
+          "event": {
+            "triggers": [
+              {
+                "signal": "pulse",
+                "trigger": "on_change",
+                "signal_type": "input"
+              }
+            ],
+            "requireAll": false,
+            "debounceMs": 0
+          }
         },
         "armed_timeout": {
           "id": "armed_timeout",
@@ -1281,7 +1292,7 @@
           "weight": 1,
           "timed": {
             "mode": "timeout",
-            "delayMs": 2000,
+            "delayMs": 5000,
             "jitterMs": 0,
             "showCountdown": true
           }
