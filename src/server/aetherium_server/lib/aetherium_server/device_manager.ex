@@ -675,7 +675,25 @@ defmodule AetheriumServer.DeviceManager do
       deployment ->
         case DeploymentCommands.set_input(state, deployment, input_name, value, opts) do
           {:ok, next_state} ->
-            {:reply, :ok, next_state}
+            updated_state =
+              put_in(next_state, [:deployments, deployment_id, :variables, input_name], value)
+
+            DeploymentObservability.push_to_gateway(updated_state, "variable_updated", %{
+              "deployment_id" => deployment_id,
+              "automata_id" => deployment.automata_id,
+              "device_id" => deployment.device_id,
+              "direction" => "input",
+              "name" => input_name,
+              "value" => value
+            })
+
+            DeploymentObservability.snapshot_deployment(
+              updated_state,
+              deployment_id,
+              "variable_updated"
+            )
+
+            {:reply, :ok, updated_state}
 
           {:error, reason} ->
             {:reply, {:error, reason}, state}

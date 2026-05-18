@@ -61,7 +61,7 @@ automata:
       type: timed
       timed:
         mode: after
-        delay_ms: 1ms
+        delay_ms: 1000ms
 
     b_return:
       from: PathB
@@ -69,4 +69,4 @@ automata:
       type: timed
       timed:
         mode: after
-        delay_ms: 1ms
+        delay_ms: 1000ms

@@ -41,6 +41,9 @@ automata:
       on_enter: |
         setOutput("observed_path", value("selected_path"))
         setOutput("observed_total", value("a_count") + value("b_count"))
+      code: |
+        setOutput("observed_path", value("selected_path"))
+        setOutput("observed_total", value("a_count") + value("b_count"))
 
   transitions:
     branch_seen:
