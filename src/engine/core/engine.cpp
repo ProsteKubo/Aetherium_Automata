@@ -850,6 +850,18 @@ void Engine::configureRuntimeCallbacks() {
         msg.variableName = var.name();
         msg.value = var.value();
         msg.timestamp = eventAt;
+
+        for (auto it = eventQueue_.begin(); it != eventQueue_.end();) {
+            if (*it && (*it)->type() == protocol::MessageType::Output) {
+                const auto* pending = static_cast<const protocol::OutputMessage*>(it->get());
+                if (pending->runId == msg.runId && pending->variableId == msg.variableId) {
+                    it = eventQueue_.erase(it);
+                    continue;
+                }
+            }
+            ++it;
+        }
+
         eventQueue_.push_back(std::make_unique<protocol::OutputMessage>(msg));
     };
 
