@@ -12,6 +12,7 @@ Mcxn947NodeOptions makeNodeOptions() {
     Mcxn947NodeOptions opts;
     opts.engineInit.maxTickRate = 200;
     opts.engineInit.logCapacity = 256;
+    opts.engineInit.traceCapacity = 48;
     opts.engineInit.deviceId = 1;
     opts.engineInit.deviceName = "mcxn947-core0";
     opts.tickPeriodMs = 5;

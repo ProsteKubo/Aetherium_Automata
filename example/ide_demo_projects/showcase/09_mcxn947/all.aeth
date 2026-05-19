@@ -21,14 +21,16 @@
       "rootAutomataIds": [
         "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button",
         "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds",
-        "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
-        "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds"
+        "network_showcase_09_mcxn947_03_mcxn947_gpio_led_blink",
+        "network_showcase_09_mcxn947_04_mcxn947_temperature_guard",
+        "network_showcase_09_mcxn947_05_mcxn947_touch_pad_leds"
       ],
       "automataIds": [
         "network_showcase_09_mcxn947_01_mcxn947_binding_leader_button",
         "network_showcase_09_mcxn947_02_mcxn947_gpio_buttons_leds",
-        "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
-        "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds"
+        "network_showcase_09_mcxn947_03_mcxn947_gpio_led_blink",
+        "network_showcase_09_mcxn947_04_mcxn947_temperature_guard",
+        "network_showcase_09_mcxn947_05_mcxn947_touch_pad_leds"
       ],
       "inputs": [],
       "outputs": [
@@ -36,6 +38,7 @@
         "leader_online",
         "sw2_pressed",
         "sw3_pressed",
+        "led_state",
         "temp_mc",
         "temp_ok",
         "temp_warm",
@@ -208,8 +211,153 @@
       "filePath": "example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml",
       "isDirty": false
     },
-    "network_showcase_09_mcxn947_03_mcxn947_temperature_guard": {
-      "id": "network_showcase_09_mcxn947_03_mcxn947_temperature_guard",
+    "network_showcase_09_mcxn947_03_mcxn947_gpio_led_blink": {
+      "id": "network_showcase_09_mcxn947_03_mcxn947_gpio_led_blink",
+      "version": "0.0.1",
+      "config": {
+        "name": "MCXN947 GPIO LED Blink",
+        "type": "inline",
+        "language": "lua",
+        "description": "Alternates red and green LEDs on FRDM-MCXN947 (pins 10 and 27) to verify GPIO output without needing button input.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Red",
+      "states": {
+        "Red": {
+          "id": "Red",
+          "name": "Red",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, 1)\ngpio.write(27, 0)\nsetOutput(\"led_state\", \"red\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Green": {
+          "id": "Green",
+          "name": "Green",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 0)\ngpio.write(27, 1)\nsetOutput(\"led_state\", \"green\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Off": {
+          "id": "Off",
+          "name": "Off",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 0)\ngpio.write(27, 0)\nsetOutput(\"led_state\", \"off\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "red_to_green": {
+          "id": "red_to_green",
+          "name": "red_to_green",
+          "from": "Red",
+          "to": "Green",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "green_to_off": {
+          "id": "green_to_off",
+          "name": "green_to_off",
+          "from": "Green",
+          "to": "Off",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "off_to_red": {
+          "id": "off_to_red",
+          "name": "off_to_red",
+          "from": "Off",
+          "to": "Red",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "led_state",
+          "type": "string",
+          "direction": "output",
+          "default": "off"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "led_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/09_mcxn947/mcxn947_gpio_led_blink.yaml",
+      "isDirty": false
+    },
+    "network_showcase_09_mcxn947_04_mcxn947_temperature_guard": {
+      "id": "network_showcase_09_mcxn947_04_mcxn947_temperature_guard",
       "version": "0.0.1",
       "config": {
         "name": "MCXN947 Temperature Guard",
@@ -300,8 +448,8 @@
       "filePath": "example/automata/showcase/09_mcxn947/mcxn947_temperature_guard.yaml",
       "isDirty": false
     },
-    "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds": {
-      "id": "network_showcase_09_mcxn947_04_mcxn947_touch_pad_leds",
+    "network_showcase_09_mcxn947_05_mcxn947_touch_pad_leds": {
+      "id": "network_showcase_09_mcxn947_05_mcxn947_touch_pad_leds",
       "version": "0.0.1",
       "config": {
         "name": "MCXN947 Touch Pad Press LED",

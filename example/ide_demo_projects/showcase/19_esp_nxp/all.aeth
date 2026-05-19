@@ -1,0 +1,1070 @@
+{
+  "schemaVersion": "1.0.0",
+  "metadata": {
+    "name": "Esp Nxp Project",
+    "version": "0.1.0",
+    "description": "One-click IDE project containing all automata in example/automata/showcase/19_esp_nxp.",
+    "author": "Aetherium Team",
+    "tags": [
+      "showcase",
+      "collection",
+      "generated"
+    ],
+    "created": 1775044800000,
+    "modified": 1775044800000
+  },
+  "networks": [
+    {
+      "id": "network_showcase_19_esp_nxp",
+      "name": "Esp Nxp",
+      "description": "Generated collection for Esp Nxp.",
+      "rootAutomataIds": [
+        "network_showcase_19_esp_nxp_01_01_gpio_write_esp32",
+        "network_showcase_19_esp_nxp_02_01_gpio_write_nxp",
+        "network_showcase_19_esp_nxp_03_02_gpio_read_esp32",
+        "network_showcase_19_esp_nxp_04_02_gpio_read_nxp",
+        "network_showcase_19_esp_nxp_05_03_comms_esp32",
+        "network_showcase_19_esp_nxp_06_03_comms_nxp",
+        "network_showcase_19_esp_nxp_07_04_trio_esp32",
+        "network_showcase_19_esp_nxp_08_04_trio_host",
+        "network_showcase_19_esp_nxp_09_04_trio_nxp"
+      ],
+      "automataIds": [
+        "network_showcase_19_esp_nxp_01_01_gpio_write_esp32",
+        "network_showcase_19_esp_nxp_02_01_gpio_write_nxp",
+        "network_showcase_19_esp_nxp_03_02_gpio_read_esp32",
+        "network_showcase_19_esp_nxp_04_02_gpio_read_nxp",
+        "network_showcase_19_esp_nxp_05_03_comms_esp32",
+        "network_showcase_19_esp_nxp_06_03_comms_nxp",
+        "network_showcase_19_esp_nxp_07_04_trio_esp32",
+        "network_showcase_19_esp_nxp_08_04_trio_host",
+        "network_showcase_19_esp_nxp_09_04_trio_nxp"
+      ],
+      "inputs": [
+        "sensor_high",
+        "mode"
+      ],
+      "outputs": [
+        "led_on",
+        "led_state",
+        "sensor_mv",
+        "sensor_high",
+        "sw2_pressed",
+        "sw3_pressed",
+        "mode"
+      ],
+      "relativePath": "networks/esp_nxp",
+      "color": "#2563eb",
+      "icon": "automata",
+      "isExpanded": true
+    }
+  ],
+  "automata": {
+    "network_showcase_19_esp_nxp_01_01_gpio_write_esp32": {
+      "id": "network_showcase_19_esp_nxp_01_01_gpio_write_esp32",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 01 - ESP32 GPIO Write",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 1: Blinks LED on IO23 every 1s. Verifies GPIO output on ESP32. Wire: LED+ to IO23, LED- through 330Ω to GND.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "gpio",
+          "output",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Off",
+      "states": {
+        "Off": {
+          "id": "Off",
+          "name": "Off",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(23, \"output\")\ngpio.write(23, 0)\nsetOutput(\"led_on\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "On": {
+          "id": "On",
+          "name": "On",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(23, 1)\nsetOutput(\"led_on\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "turn_on": {
+          "id": "turn_on",
+          "name": "turn_on",
+          "from": "Off",
+          "to": "On",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "turn_off": {
+          "id": "turn_off",
+          "name": "turn_off",
+          "from": "On",
+          "to": "Off",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "led_on",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "led_on"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/01_gpio_write_esp32.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_02_01_gpio_write_nxp": {
+      "id": "network_showcase_19_esp_nxp_02_01_gpio_write_nxp",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 01 - NXP GPIO Write",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 1 (NXP): Alternates red (pin 10) and green (pin 27) LEDs on FRDM-MCXN947 every 1s. Verifies GPIO output. Pins are active-low on the board.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "output",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Red",
+      "states": {
+        "Red": {
+          "id": "Red",
+          "name": "Red",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, 1)\ngpio.write(27, 0)\nsetOutput(\"led_state\", \"red\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Green": {
+          "id": "Green",
+          "name": "Green",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 0)\ngpio.write(27, 1)\nsetOutput(\"led_state\", \"green\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "red_to_green": {
+          "id": "red_to_green",
+          "name": "red_to_green",
+          "from": "Red",
+          "to": "Green",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "green_to_red": {
+          "id": "green_to_red",
+          "name": "green_to_red",
+          "from": "Green",
+          "to": "Red",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "led_state",
+          "type": "string",
+          "direction": "output",
+          "default": "off"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "led_state"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/01_gpio_write_nxp.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_03_02_gpio_read_esp32": {
+      "id": "network_showcase_19_esp_nxp_03_02_gpio_read_esp32",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 02 - ESP32 GPIO Read (ADC IO34)",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 2: Reads analog sensor on IO34 via ADC. Above 1650mV (half of 3.3V) sets sensor_high=true and lights LED on IO23. Wire sensor signal to IO34, VCC to 3.3V, GND to GND.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "gpio",
+          "input",
+          "adc",
+          "sensor",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Sense",
+      "states": {
+        "Sense": {
+          "id": "Sense",
+          "name": "Sense",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local mv = adc.read_mv(34)\nlocal high = mv > 1650\ngpio.write(23, high and 1 or 0)\nsetOutput(\"sensor_mv\", mv)\nsetOutput(\"sensor_high\", high)\n",
+          "hooks": {
+            "onEnter": "gpio.mode(23, \"output\")\ngpio.write(23, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay": {
+          "id": "stay",
+          "name": "stay",
+          "from": "Sense",
+          "to": "Sense",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sensor_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "sensor_high",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "sensor_mv",
+        "sensor_high"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/02_gpio_read_esp32.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_04_02_gpio_read_nxp": {
+      "id": "network_showcase_19_esp_nxp_04_02_gpio_read_nxp",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 02 - NXP GPIO Read (Buttons)",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 2 (NXP): Reads SW2 (pin 23) and SW3 (pin 6) onboard buttons. SW2 pressed = red LED (pin 10), SW3 pressed = green LED (pin 27), neither = both off. Buttons are active-low with internal pullup.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "input",
+          "button",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Monitor",
+      "states": {
+        "Monitor": {
+          "id": "Monitor",
+          "name": "Monitor",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local sw2 = gpio.read(23) == 0\nlocal sw3 = gpio.read(6) == 0\ngpio.write(10, sw2 and 1 or 0)\ngpio.write(27, sw3 and 1 or 0)\nsetOutput(\"sw2_pressed\", sw2)\nsetOutput(\"sw3_pressed\", sw3)\n",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.mode(23, \"input_pullup\")\ngpio.mode(6, \"input_pullup\")\ngpio.write(10, 0)\ngpio.write(27, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay": {
+          "id": "stay",
+          "name": "stay",
+          "from": "Monitor",
+          "to": "Monitor",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sw2_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        },
+        {
+          "name": "sw3_pressed",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "sw2_pressed",
+        "sw3_pressed"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/02_gpio_read_nxp.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_05_03_comms_esp32": {
+      "id": "network_showcase_19_esp_nxp_05_03_comms_esp32",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 03 - Comms ESP32 Side",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 3 (ESP side): Reads ADC sensor on IO34, publishes sensor_mv and sensor_high outputs. The gateway wires sensor_high to the NXP partner. LED on IO23 mirrors sensor state.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "gpio",
+          "adc",
+          "sensor",
+          "comms"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Sense",
+      "states": {
+        "Sense": {
+          "id": "Sense",
+          "name": "Sense",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local mv = adc.read_mv(34)\nlocal high = mv > 1650\ngpio.write(23, high and 1 or 0)\nsetOutput(\"sensor_mv\", mv)\nsetOutput(\"sensor_high\", high)\n",
+          "hooks": {
+            "onEnter": "gpio.mode(23, \"output\")\ngpio.write(23, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay": {
+          "id": "stay",
+          "name": "stay",
+          "from": "Sense",
+          "to": "Sense",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sensor_mv",
+          "type": "int",
+          "direction": "output",
+          "default": 0
+        },
+        {
+          "name": "sensor_high",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "sensor_mv",
+        "sensor_high"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/03_comms_esp32.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_06_03_comms_nxp": {
+      "id": "network_showcase_19_esp_nxp_06_03_comms_nxp",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 03 - Comms NXP Side",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 3 (NXP side): Receives sensor_high input wired from ESP32. Green LED (pin 27) when low, Red LED (pin 10) when high. Pins 10 and 27 are active-low on FRDM-MCXN947.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "led",
+          "comms"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Low",
+      "states": {
+        "Low": {
+          "id": "Low",
+          "name": "Low",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, 0)\ngpio.write(27, 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "High": {
+          "id": "High",
+          "name": "High",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 1)\ngpio.write(27, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "go_high": {
+          "id": "go_high",
+          "name": "go_high",
+          "from": "Low",
+          "to": "High",
+          "type": "classic",
+          "condition": "value(\"sensor_high\") == true",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "go_low": {
+          "id": "go_low",
+          "name": "go_low",
+          "from": "High",
+          "to": "Low",
+          "type": "classic",
+          "condition": "value(\"sensor_high\") == false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "sensor_high",
+          "type": "bool",
+          "direction": "input",
+          "default": false
+        }
+      ],
+      "inputs": [
+        "sensor_high"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/03_comms_nxp.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_07_04_trio_esp32": {
+      "id": "network_showcase_19_esp_nxp_07_04_trio_esp32",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 04 - Trio ESP32 Side",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 4 (ESP side): Receives mode from the stochastic host via gateway. LED on IO23: off=idle, slow 1s blink=active, fast 250ms blink=alert.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "gpio",
+          "led",
+          "comms",
+          "stochastic"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Running",
+      "states": {
+        "Running": {
+          "id": "Running",
+          "name": "Running",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "local m = value(\"mode\")\nlocal t = now()\n\nif m == \"idle\" then\n  gpio.write(23, 0)\n  led_state = 0\n  last_toggle = t\nelseif m == \"active\" then\n  if t - last_toggle >= 1000 then\n    led_state = 1 - led_state\n    gpio.write(23, led_state)\n    last_toggle = t\n  end\nelseif m == \"alert\" then\n  if t - last_toggle >= 250 then\n    led_state = 1 - led_state\n    gpio.write(23, led_state)\n    last_toggle = t\n  end\nend\n",
+          "hooks": {
+            "onEnter": "gpio.mode(23, \"output\")\ngpio.write(23, 0)\nlast_toggle = 0\nled_state = 0\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "stay": {
+          "id": "stay",
+          "name": "stay",
+          "from": "Running",
+          "to": "Running",
+          "type": "classic",
+          "condition": "false",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "mode",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        }
+      ],
+      "inputs": [
+        "mode"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/04_trio_esp32.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_08_04_trio_host": {
+      "id": "network_showcase_19_esp_nxp_08_04_trio_host",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 04 - Trio Host Stochastic",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 4 (host): Stochastic automata that randomly cycles Idle/Active/Alert. Publishes mode output wired by gateway to both ESP32 and NXP partners.",
+        "tags": [
+          "showcase",
+          "host",
+          "stochastic",
+          "comms"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {},
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"mode\", \"idle\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Deciding": {
+          "id": "Deciding",
+          "name": "Deciding",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {},
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Active": {
+          "id": "Active",
+          "name": "Active",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"mode\", \"active\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        },
+        "Alert": {
+          "id": "Alert",
+          "name": "Alert",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "setOutput(\"mode\", \"alert\")\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 840,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "idle_wait": {
+          "id": "idle_wait",
+          "name": "idle_wait",
+          "from": "Idle",
+          "to": "Deciding",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 2000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "decide_active": {
+          "id": "decide_active",
+          "name": "decide_active",
+          "from": "Deciding",
+          "to": "Active",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 65
+        },
+        "decide_alert": {
+          "id": "decide_alert",
+          "name": "decide_alert",
+          "from": "Deciding",
+          "to": "Alert",
+          "type": "probabilistic",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 35
+        },
+        "active_back": {
+          "id": "active_back",
+          "name": "active_back",
+          "from": "Active",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 3000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "alert_back": {
+          "id": "alert_back",
+          "name": "alert_back",
+          "from": "Alert",
+          "to": "Idle",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1500,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "mode",
+          "type": "string",
+          "direction": "output",
+          "default": "idle"
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "mode"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/04_trio_host.yaml",
+      "isDirty": false
+    },
+    "network_showcase_19_esp_nxp_09_04_trio_nxp": {
+      "id": "network_showcase_19_esp_nxp_09_04_trio_nxp",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP-NXP 04 - Trio NXP Side",
+        "type": "inline",
+        "language": "lua",
+        "description": "Step 4 (NXP side): Receives mode from the stochastic host via gateway. Both LEDs off=idle, green (pin 27)=active, red (pin 10)=alert.",
+        "tags": [
+          "showcase",
+          "mcxn947",
+          "gpio",
+          "led",
+          "comms",
+          "stochastic"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "mcxn947_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Idle",
+      "states": {
+        "Idle": {
+          "id": "Idle",
+          "name": "Idle",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(10, \"output\")\ngpio.mode(27, \"output\")\ngpio.write(10, 0)\ngpio.write(27, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "Active": {
+          "id": "Active",
+          "name": "Active",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 0)\ngpio.write(27, 1)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        },
+        "Alert": {
+          "id": "Alert",
+          "name": "Alert",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(10, 1)\ngpio.write(27, 0)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 620,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "to_active": {
+          "id": "to_active",
+          "name": "to_active",
+          "from": "Idle",
+          "to": "Active",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"active\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "to_alert": {
+          "id": "to_alert",
+          "name": "to_alert",
+          "from": "Idle",
+          "to": "Alert",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"alert\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "active_to_idle": {
+          "id": "active_to_idle",
+          "name": "active_to_idle",
+          "from": "Active",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"idle\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "active_to_alert": {
+          "id": "active_to_alert",
+          "name": "active_to_alert",
+          "from": "Active",
+          "to": "Alert",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"alert\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alert_to_idle": {
+          "id": "alert_to_idle",
+          "name": "alert_to_idle",
+          "from": "Alert",
+          "to": "Idle",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"idle\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        },
+        "alert_to_active": {
+          "id": "alert_to_active",
+          "name": "alert_to_active",
+          "from": "Alert",
+          "to": "Active",
+          "type": "classic",
+          "condition": "value(\"mode\") == \"active\"",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1
+        }
+      },
+      "variables": [
+        {
+          "name": "mode",
+          "type": "string",
+          "direction": "input",
+          "default": "idle"
+        }
+      ],
+      "inputs": [
+        "mode"
+      ],
+      "outputs": [],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/19_esp_nxp/04_trio_nxp.yaml",
+      "isDirty": false
+    }
+  },
+  "settings": {
+    "defaultLanguage": "lua",
+    "autoSaveInterval": 30000,
+    "defaultLayoutType": "inline",
+    "codeFolderPath": "src",
+    "editor": {
+      "snapToGrid": true,
+      "gridSize": 20,
+      "autoLayout": true,
+      "showMinimap": true,
+      "transitionStyle": "bezier",
+      "animationSpeed": 300
+    },
+    "build": {
+      "outputFormat": "yaml",
+      "includeDebugInfo": true,
+      "targetPlatforms": [
+        "linux"
+      ]
+    }
+  },
+  "isDirty": false
+}

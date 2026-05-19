@@ -299,6 +299,7 @@ Result<void> Engine::initialize(const EngineInitOptions& options) {
         faultRandom_.seed(*options.faultRandomSeed);
     }
     batteryPercent_ = std::clamp(options.deployment.battery.chargePercent, 0.0, 100.0);
+    traceStore_.setMaxRecords(options.traceCapacity);
     traceStore_.clear();
     traceLifecycleEvent("engine initialized", "engine");
     return Result<void>::ok();

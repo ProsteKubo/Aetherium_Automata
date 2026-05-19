@@ -1,0 +1,49 @@
+version: "0.0.1"
+
+config:
+  name: "ESP-NXP 01 - ESP32 GPIO Write"
+  type: inline
+  language: lua
+  description: "Step 1: Blinks LED on IO23 every 1s. Verifies GPIO output on ESP32. Wire: LED+ to IO23, LED- through 330Ω to GND."
+  author: Aetherium Team
+  tags: [showcase, esp32, gpio, output, led]
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: led_on
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Off
+
+  states:
+    Off:
+      on_enter: |
+        gpio.mode(23, "output")
+        gpio.write(23, 0)
+        setOutput("led_on", false)
+
+    On:
+      on_enter: |
+        gpio.write(23, 1)
+        setOutput("led_on", true)
+
+  transitions:
+    turn_on:
+      from: Off
+      to: On
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1000ms
+
+    turn_off:
+      from: On
+      to: Off
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1000ms

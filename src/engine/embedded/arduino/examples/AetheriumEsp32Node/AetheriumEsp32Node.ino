@@ -21,6 +21,9 @@ aeth::embedded::arduino::Esp32NodeOptions makeNodeOptions() {
   aeth::embedded::arduino::Esp32NodeOptions opts;
   opts.engineInit.maxTickRate = 200;
   opts.engineInit.logCapacity = 256;
+  // Cap the trace store to prevent heap exhaustion on embedded.
+  // The device's own trace is never used for time-travel (the host shadow drives that).
+  opts.engineInit.traceCapacity = 48;
   opts.engineInit.deviceId = 1;
   opts.engineInit.deviceName = "esp32-v1";
   opts.tickPeriodMs = 5;

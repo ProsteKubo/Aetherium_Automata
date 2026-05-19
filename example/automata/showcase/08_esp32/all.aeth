@@ -22,23 +22,25 @@
         "network_showcase_08_esp32_01_esp32_binding_follower_pwm",
         "network_showcase_08_esp32_02_esp32_binding_follower_status_led",
         "network_showcase_08_esp32_03_esp32_binding_leader_oled",
-        "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
-        "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
-        "network_showcase_08_esp32_06_esp32_production_line_safe",
-        "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
-        "network_showcase_08_esp32_08_esp32_status_led_probe",
-        "network_showcase_08_esp32_09_esp32_thermostat_guard"
+        "network_showcase_08_esp32_04_esp32_gpio_led_io23",
+        "network_showcase_08_esp32_05_esp32_led_guarded_cycle",
+        "network_showcase_08_esp32_06_esp32_oled_pot_dashboard",
+        "network_showcase_08_esp32_07_esp32_production_line_safe",
+        "network_showcase_08_esp32_08_esp32_runtime_led_pulse",
+        "network_showcase_08_esp32_09_esp32_status_led_probe",
+        "network_showcase_08_esp32_10_esp32_thermostat_guard"
       ],
       "automataIds": [
         "network_showcase_08_esp32_01_esp32_binding_follower_pwm",
         "network_showcase_08_esp32_02_esp32_binding_follower_status_led",
         "network_showcase_08_esp32_03_esp32_binding_leader_oled",
-        "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
-        "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
-        "network_showcase_08_esp32_06_esp32_production_line_safe",
-        "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
-        "network_showcase_08_esp32_08_esp32_status_led_probe",
-        "network_showcase_08_esp32_09_esp32_thermostat_guard"
+        "network_showcase_08_esp32_04_esp32_gpio_led_io23",
+        "network_showcase_08_esp32_05_esp32_led_guarded_cycle",
+        "network_showcase_08_esp32_06_esp32_oled_pot_dashboard",
+        "network_showcase_08_esp32_07_esp32_production_line_safe",
+        "network_showcase_08_esp32_08_esp32_runtime_led_pulse",
+        "network_showcase_08_esp32_09_esp32_status_led_probe",
+        "network_showcase_08_esp32_10_esp32_thermostat_guard"
       ],
       "inputs": [
         "leader_duty",
@@ -59,6 +61,7 @@
         "leader_duty",
         "leader_button",
         "leader_sensor_mv",
+        "led_on",
         "pot_raw",
         "pot_mv",
         "button_down",
@@ -360,8 +363,119 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_binding_leader_oled.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_04_esp32_led_guarded_cycle": {
-      "id": "network_showcase_08_esp32_04_esp32_led_guarded_cycle",
+    "network_showcase_08_esp32_04_esp32_gpio_led_io23": {
+      "id": "network_showcase_08_esp32_04_esp32_gpio_led_io23",
+      "version": "0.0.1",
+      "config": {
+        "name": "ESP32 GPIO LED Blink IO23",
+        "type": "inline",
+        "language": "lua",
+        "description": "Blinks a LED on IO23 to verify GPIO output on ESP32 WROOM-32.",
+        "tags": [
+          "showcase",
+          "esp32",
+          "gpio",
+          "led"
+        ],
+        "author": "Aetherium Team",
+        "version": "1.0.0",
+        "target": {
+          "profile": "esp32_lua_v1"
+        },
+        "created": 1775044800000,
+        "modified": 1775044800000
+      },
+      "initialState": "Off",
+      "states": {
+        "Off": {
+          "id": "Off",
+          "name": "Off",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.mode(23, \"output\")\ngpio.write(23, 0)\nsetOutput(\"led_on\", false)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 180,
+            "y": 80
+          }
+        },
+        "On": {
+          "id": "On",
+          "name": "On",
+          "inputs": [],
+          "outputs": [],
+          "variables": [],
+          "code": "",
+          "hooks": {
+            "onEnter": "gpio.write(23, 1)\nsetOutput(\"led_on\", true)\n"
+          },
+          "isComposite": false,
+          "position": {
+            "x": 400,
+            "y": 80
+          }
+        }
+      },
+      "transitions": {
+        "turn_on": {
+          "id": "turn_on",
+          "name": "turn_on",
+          "from": "Off",
+          "to": "On",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        },
+        "turn_off": {
+          "id": "turn_off",
+          "name": "turn_off",
+          "from": "On",
+          "to": "Off",
+          "type": "timed",
+          "condition": "",
+          "body": "",
+          "triggered": "",
+          "priority": 0,
+          "weight": 1,
+          "timed": {
+            "mode": "after",
+            "delayMs": 1000,
+            "jitterMs": 0,
+            "showCountdown": true
+          }
+        }
+      },
+      "variables": [
+        {
+          "name": "led_on",
+          "type": "bool",
+          "direction": "output",
+          "default": false
+        }
+      ],
+      "inputs": [],
+      "outputs": [
+        "led_on"
+      ],
+      "nestedAutomataIds": [],
+      "filePath": "example/automata/showcase/08_esp32/esp32_gpio_led_io23.yaml",
+      "isDirty": false
+    },
+    "network_showcase_08_esp32_05_esp32_led_guarded_cycle": {
+      "id": "network_showcase_08_esp32_05_esp32_led_guarded_cycle",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 LED Guarded Cycle",
@@ -516,8 +630,8 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_led_guarded_cycle.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_05_esp32_oled_pot_dashboard": {
-      "id": "network_showcase_08_esp32_05_esp32_oled_pot_dashboard",
+    "network_showcase_08_esp32_06_esp32_oled_pot_dashboard": {
+      "id": "network_showcase_08_esp32_06_esp32_oled_pot_dashboard",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 OLED Pot Dashboard",
@@ -641,8 +755,8 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_oled_pot_dashboard.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_06_esp32_production_line_safe": {
-      "id": "network_showcase_08_esp32_06_esp32_production_line_safe",
+    "network_showcase_08_esp32_07_esp32_production_line_safe": {
+      "id": "network_showcase_08_esp32_07_esp32_production_line_safe",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 Production Line Safe",
@@ -920,8 +1034,8 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_production_line_safe.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_07_esp32_runtime_led_pulse": {
-      "id": "network_showcase_08_esp32_07_esp32_runtime_led_pulse",
+    "network_showcase_08_esp32_08_esp32_runtime_led_pulse": {
+      "id": "network_showcase_08_esp32_08_esp32_runtime_led_pulse",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 Runtime LED Pulse",
@@ -1075,8 +1189,8 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_runtime_led_pulse.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_08_esp32_status_led_probe": {
-      "id": "network_showcase_08_esp32_08_esp32_status_led_probe",
+    "network_showcase_08_esp32_09_esp32_status_led_probe": {
+      "id": "network_showcase_08_esp32_09_esp32_status_led_probe",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 Status LED Probe",
@@ -1155,8 +1269,8 @@
       "filePath": "example/automata/showcase/08_esp32/esp32_status_led_probe.yaml",
       "isDirty": false
     },
-    "network_showcase_08_esp32_09_esp32_thermostat_guard": {
-      "id": "network_showcase_08_esp32_09_esp32_thermostat_guard",
+    "network_showcase_08_esp32_10_esp32_thermostat_guard": {
+      "id": "network_showcase_08_esp32_10_esp32_thermostat_guard",
       "version": "0.0.1",
       "config": {
         "name": "ESP32 Thermostat Guard",

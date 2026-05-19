@@ -566,31 +566,27 @@ Result<void> Runtime::restoreState(const std::string& stateName,
     if (!isLoaded()) {
         return Result<void>::error("No automata loaded");
     }
-    if (ctx_.state == ExecutionState::Unloaded || ctx_.state == ExecutionState::Stopped) {
-        return Result<void>::error("Cannot restore state: automata not running or paused");
-    }
 
     const State* targetState = automata_->getStateByName(stateName);
     if (!targetState) {
         return Result<void>::error("Unknown state: " + stateName);
     }
 
-    bool wasPaused = (ctx_.state == ExecutionState::Paused);
-    if (!wasPaused) {
-        pause();
-    }
+    // Remember what we were doing so we can resume correctly afterwards.
+    const bool wasPaused = (ctx_.state == ExecutionState::Paused);
+
+    // Move to Paused for the swap — bypass the running check for Stopped.
+    ctx_.state = ExecutionState::Paused;
+    pausedAt_ = clock_->now();
 
     ctx_.currentState = targetState->id;
     ctx_.stateEntryTime = clock_->now();
     ctx_.stateEntryTickCount = ctx_.tickCount;
     timers_->cancelAll();
+    setupTimersForState(*targetState);
 
     for (const auto& [name, value] : variables) {
         ctx_.variables.setValue(name, value);
-    }
-
-    if (!wasPaused) {
-        ctx_.state = ExecutionState::Paused;
     }
 
     // Re-drive hardware outputs by replaying the restored state's onEnter hook.
@@ -600,6 +596,11 @@ Result<void> Runtime::restoreState(const std::string& stateName,
     script_->setReplayMode(true);
     executeOnEnter(*targetState);
     script_->setReplayMode(false);
+
+    // Always resume unless the user had explicitly paused before the rewind.
+    if (!wasPaused) {
+        resume();
+    }
 
     return Result<void>::ok();
 }
@@ -642,6 +643,7 @@ bool Runtime::tick() {
 
     if (transition) {
         fireTransition(*transition);
+        if (script_) script_->collectGarbage();
         ctx_.variables.clearAllChanged();
         return true;
     }

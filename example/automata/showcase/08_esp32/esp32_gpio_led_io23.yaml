@@ -1,0 +1,53 @@
+version: "0.0.1"
+
+config:
+  name: ESP32 GPIO LED Blink IO23
+  type: inline
+  language: lua
+  description: Blinks a LED on IO23 to verify GPIO output on ESP32 WROOM-32.
+  author: Aetherium Team
+  tags:
+    - showcase
+    - esp32
+    - gpio
+    - led
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: led_on
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Off
+
+  states:
+    Off:
+      on_enter: |
+        gpio.mode(23, "output")
+        gpio.write(23, 0)
+        setOutput("led_on", false)
+
+    On:
+      on_enter: |
+        gpio.write(23, 1)
+        setOutput("led_on", true)
+
+  transitions:
+    turn_on:
+      from: Off
+      to: On
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1000ms
+
+    turn_off:
+      from: On
+      to: Off
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1000ms

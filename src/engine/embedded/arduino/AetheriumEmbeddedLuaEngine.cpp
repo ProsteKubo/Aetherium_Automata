@@ -293,7 +293,7 @@ int luaGpioMode(lua_State* L) {
 }
 
 int luaGpioWrite(lua_State* L) {
-    const bool high = lua_toboolean(L, 2) != 0 || lua_tointeger(L, 2) != 0;
+    const bool high = lua_isboolean(L, 2) ? (lua_toboolean(L, 2) != 0) : (lua_tointeger(L, 2) != 0);
     auto result = requireHardware().gpioWrite(static_cast<int>(luaL_checkinteger(L, 1)), high);
     if (result.isError()) return pushError(L, result.error());
     return 0;
@@ -502,6 +502,7 @@ Result<Value> EmbeddedLuaScriptEngine::execute(const CodeBlock& code) {
     }
 
     syncVariablesToLua();
+    lua_gc(state_, LUA_GCCOLLECT, 0);
     if (luaL_loadstring(state_, code.source.c_str()) != 0) {
         lastError_ = lua_tostring(state_, -1);
         lua_pop(state_, 1);

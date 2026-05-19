@@ -1,0 +1,69 @@
+version: "0.0.1"
+
+config:
+  name: "ESP-NXP 04 - Trio Host Stochastic"
+  type: inline
+  description: "Step 4 (host): Stochastic automata that randomly cycles Idle/Active/Alert. Publishes mode output wired by gateway to both ESP32 and NXP partners."
+  author: Aetherium Team
+  tags: [showcase, host, stochastic, comms]
+
+variables:
+  - name: mode
+    type: string
+    direction: output
+    default: "idle"
+
+automata:
+  initial_state: Idle
+
+  states:
+    Idle:
+      on_enter: |
+        setOutput("mode", "idle")
+
+    Deciding: {}
+
+    Active:
+      on_enter: |
+        setOutput("mode", "active")
+
+    Alert:
+      on_enter: |
+        setOutput("mode", "alert")
+
+  transitions:
+    idle_wait:
+      from: Idle
+      to: Deciding
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 2000ms
+
+    decide_active:
+      from: Deciding
+      to: Active
+      type: probabilistic
+      weight: 65
+
+    decide_alert:
+      from: Deciding
+      to: Alert
+      type: probabilistic
+      weight: 35
+
+    active_back:
+      from: Active
+      to: Idle
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 3000ms
+
+    alert_back:
+      from: Alert
+      to: Idle
+      type: timed
+      timed:
+        mode: after
+        delay_ms: 1500ms

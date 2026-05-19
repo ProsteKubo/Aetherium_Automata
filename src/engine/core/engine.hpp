@@ -24,6 +24,9 @@ struct EngineFrontendLoaderHandle;
 struct EngineInitOptions {
     uint32_t maxTickRate = 10;
     size_t logCapacity = 2048;
+    // Max trace records kept in LocalTraceStore. 0 = unlimited (host default).
+    // Set to a small non-zero value on embedded to prevent heap exhaustion.
+    size_t traceCapacity = 0;
     DeviceId deviceId = 1;
     std::string deviceName = "cpp-engine";
     std::optional<uint64_t> faultRandomSeed = std::nullopt;

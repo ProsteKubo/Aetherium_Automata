@@ -1,0 +1,48 @@
+version: "0.0.1"
+
+config:
+  name: "ESP-NXP 02 - NXP GPIO Read (Buttons)"
+  type: inline
+  language: lua
+  description: "Step 2 (NXP): Reads SW2 (pin 23) and SW3 (pin 6) onboard buttons. SW2 pressed = red LED (pin 10), SW3 pressed = green LED (pin 27), neither = both off. Buttons are active-low with internal pullup."
+  author: Aetherium Team
+  tags: [showcase, mcxn947, gpio, input, button, led]
+  target:
+    profile: mcxn947_lua_v1
+
+variables:
+  - name: sw2_pressed
+    type: bool
+    direction: output
+    default: false
+  - name: sw3_pressed
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Monitor
+
+  states:
+    Monitor:
+      on_enter: |
+        gpio.mode(10, "output")
+        gpio.mode(27, "output")
+        gpio.mode(23, "input_pullup")
+        gpio.mode(6, "input_pullup")
+        gpio.write(10, 0)
+        gpio.write(27, 0)
+      code: |
+        local sw2 = gpio.read(23) == 0
+        local sw3 = gpio.read(6) == 0
+        gpio.write(10, sw2 and 1 or 0)
+        gpio.write(27, sw3 and 1 or 0)
+        setOutput("sw2_pressed", sw2)
+        setOutput("sw3_pressed", sw3)
+
+  transitions:
+    stay:
+      from: Monitor
+      to: Monitor
+      type: classic
+      condition: false

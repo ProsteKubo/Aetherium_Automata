@@ -22,6 +22,12 @@ void LocalTraceStore::clear() {
 }
 
 void LocalTraceStore::push(TraceRecord record) {
+    if (maxRecords_ > 0) {
+        if (records_.size() >= maxRecords_) {
+            // Ring-buffer: evict oldest to stay within limit.
+            records_.erase(records_.begin());
+        }
+    }
     record.seq = nextSeq_++;
     records_.push_back(std::move(record));
 }

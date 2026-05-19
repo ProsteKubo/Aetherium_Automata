@@ -1,0 +1,43 @@
+version: "0.0.1"
+
+config:
+  name: "ESP-NXP 02 - ESP32 GPIO Read (ADC IO34)"
+  type: inline
+  language: lua
+  description: "Step 2: Reads analog sensor on IO34 via ADC. Above 1650mV (half of 3.3V) sets sensor_high=true and lights LED on IO23. Wire sensor signal to IO34, VCC to 3.3V, GND to GND."
+  author: Aetherium Team
+  tags: [showcase, esp32, gpio, input, adc, sensor, led]
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: sensor_mv
+    type: int
+    direction: output
+    default: 0
+  - name: sensor_high
+    type: bool
+    direction: output
+    default: false
+
+automata:
+  initial_state: Sense
+
+  states:
+    Sense:
+      on_enter: |
+        gpio.mode(23, "output")
+        gpio.write(23, 0)
+      code: |
+        local mv = adc.read_mv(34)
+        local high = mv > 1650
+        gpio.write(23, high and 1 or 0)
+        setOutput("sensor_mv", mv)
+        setOutput("sensor_high", high)
+
+  transitions:
+    stay:
+      from: Sense
+      to: Sense
+      type: classic
+      condition: false

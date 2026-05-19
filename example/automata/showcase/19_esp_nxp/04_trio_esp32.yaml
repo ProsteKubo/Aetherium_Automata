@@ -1,0 +1,56 @@
+version: "0.0.1"
+
+config:
+  name: "ESP-NXP 04 - Trio ESP32 Side"
+  type: inline
+  language: lua
+  description: "Step 4 (ESP side): Receives mode from the stochastic host via gateway. LED on IO23: off=idle, slow 1s blink=active, fast 250ms blink=alert."
+  author: Aetherium Team
+  tags: [showcase, esp32, gpio, led, comms, stochastic]
+  target:
+    profile: esp32_lua_v1
+
+variables:
+  - name: mode
+    type: string
+    direction: input
+    default: "idle"
+
+automata:
+  initial_state: Running
+
+  states:
+    Running:
+      on_enter: |
+        gpio.mode(23, "output")
+        gpio.write(23, 0)
+        last_toggle = 0
+        led_state = 0
+      code: |
+        local m = value("mode")
+        local t = now()
+
+        if m == "idle" then
+          gpio.write(23, 0)
+          led_state = 0
+          last_toggle = t
+        elseif m == "active" then
+          if t - last_toggle >= 1000 then
+            led_state = 1 - led_state
+            gpio.write(23, led_state)
+            last_toggle = t
+          end
+        elseif m == "alert" then
+          if t - last_toggle >= 250 then
+            led_state = 1 - led_state
+            gpio.write(23, led_state)
+            last_toggle = t
+          end
+        end
+
+  transitions:
+    stay:
+      from: Running
+      to: Running
+      type: classic
+      condition: false

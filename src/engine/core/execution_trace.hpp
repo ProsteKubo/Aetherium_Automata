@@ -93,6 +93,9 @@ public:
     void clear();
     void push(TraceRecord record);
 
+    // Limit the number of records retained. 0 = unlimited; N>0 = ring buffer keeping newest N.
+    void setMaxRecords(size_t max) { maxRecords_ = max; }
+
     [[nodiscard]] const std::vector<TraceRecord>& records() const { return records_; }
 
     Result<void> writeJsonLines(const std::string& path) const;
@@ -103,6 +106,7 @@ private:
     static std::string escapeJson(const std::string& input);
 
     uint64_t nextSeq_ = 1;
+    size_t maxRecords_ = 0;  // 0 = unlimited
     std::vector<TraceRecord> records_;
 };
 
