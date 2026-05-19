@@ -383,6 +383,9 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
       const incomingState = String(payload.current_state ?? payload.currentState ?? '');
       const useIncomingState = !existing || proposedUpdatedAt >= existing.updatedAt;
       const incomingVars = flattenVariables(cloneRecord(payload.variables));
+      const variables = incomingVars
+        ? { ...(existing?.variables ?? {}), ...incomingVars }
+        : existing?.variables;
       const next: RuntimeDeployment = {
         deploymentId,
         deviceId: deviceId as RuntimeDeployment['deviceId'],
@@ -392,7 +395,7 @@ export const useRuntimeViewStore = create<RuntimeViewStore>((set, get) => ({
           ? mapStatus(payload.status)
           : (existing?.status ?? 'unknown'),
         currentState: (useIncomingState && incomingState) ? incomingState : (existing?.currentState ?? incomingState),
-        variables: incomingVars ?? existing?.variables,
+        variables,
         updatedAt: Math.max(proposedUpdatedAt, existing?.updatedAt ?? 0),
       };
 

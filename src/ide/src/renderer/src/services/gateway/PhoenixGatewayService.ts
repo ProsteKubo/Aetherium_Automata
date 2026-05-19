@@ -1620,6 +1620,10 @@ export class PhoenixGatewayService implements IGatewayService {
       this.handleCommandOutcome(payload);
     });
 
+    this.channel.on('variable_updated', (payload: Record<string, any>) => {
+      this.handleVariableUpdated(payload);
+    });
+
     // Alert events
     this.channel.on('alert', (payload: AlertEvent) => {
       const alertType = payload.type ?? 'unknown';
@@ -1956,6 +1960,26 @@ export class PhoenixGatewayService implements IGatewayService {
         this.emit('onConnectionList', connections);
       });
     }
+  }
+
+  private handleVariableUpdated(payload: Record<string, any>): void {
+    const deviceId = String(payload.device_id ?? payload.deviceId ?? '');
+    const automataId = payload.automata_id ?? payload.automataId;
+    const name = String(payload.name ?? '');
+    if (!deviceId || !name) return;
+
+    const value = payload.value;
+    const deploymentStatus: DeploymentStatusEvent = {
+      deployment_id: payload.deployment_id ?? payload.deploymentId,
+      automata_id: automataId,
+      device_id: payload.device_id ?? payload.deviceId,
+      status: payload.status,
+      current_state: payload.current_state ?? payload.currentState,
+      variables: { [name]: value },
+      timestamp: payload.timestamp ?? Date.now(),
+    };
+
+    this.emit('onDeploymentStatus', deploymentStatus);
   }
   
   // Private: Command Helper

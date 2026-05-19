@@ -27,7 +27,8 @@ Sketch entrypoints:
 ESP32 sketch runtime behavior:
 
 - Sends a unique hello device name (`esp32-<mac_suffix>`) so multiple boards are distinguishable in IDE/device list.
-- Drives `LED_BUILTIN` as runtime status indicator:
+- Drives `LED_BUILTIN` as a runtime status indicator by default. To disable status blink behavior, build with `ESP_STATUS_LED_ENABLED=0`.
+- `LED_BUILTIN` status patterns are:
   - fast blink = running
   - solid on = paused
   - slow blink = loaded/not running
@@ -40,8 +41,8 @@ ESP32 sketch runtime behavior:
 ESP32 built-in components:
 
 - `board_led`
-  - Controls the same visible `LED_BUILTIN` used by the runtime heartbeat.
-  - When an automata calls `component("board_led"):set(...)`, the runtime heartbeat is temporarily overridden so IDE demos can visibly drive the onboard LED.
+  - Controls the visible `LED_BUILTIN`.
+  - When an automata calls `component("board_led"):set(...)`, it temporarily owns the LED over the runtime status pattern.
   - Methods: `set(bool)`, `on()`, `off()`, `clear()`, `status()`
 
 ## Arduino CLI Build Notes

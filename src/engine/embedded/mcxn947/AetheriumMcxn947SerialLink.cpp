@@ -11,7 +11,7 @@ namespace {
 constexpr uint32_t kHelloRetryIntervalMs = 3'000;
 constexpr uint32_t kHelloRefreshIntervalMs = 15'000;
 constexpr uint32_t kKeepAliveIntervalMs = 10'000;
-constexpr uint32_t kEngineEventFlushIntervalMs = 100;
+constexpr uint32_t kEngineEventFlushIntervalMs = 0;
 
 protocol::DeviceCapabilities defaultCapabilities() {
     return mcxn947Capabilities().toProtocol();
@@ -70,7 +70,9 @@ void AetheriumMcxn947SerialLink::maybeFlushEngineEvents() {
     }
 
     const uint32_t now = static_cast<uint32_t>(millis());
-    if (lastEventFlushMs_ != 0 && (now - lastEventFlushMs_) < kEngineEventFlushIntervalMs) {
+    if (kEngineEventFlushIntervalMs > 0 &&
+        lastEventFlushMs_ != 0 &&
+        (now - lastEventFlushMs_) < kEngineEventFlushIntervalMs) {
         return;
     }
 

@@ -27,7 +27,8 @@ ESP_UPLOAD_SPEED ?= 460800
 ESP_FQBN ?= esp32:esp32:$(ESP_BOARD):UploadSpeed=$(ESP_UPLOAD_SPEED)
 ESP_SKETCH ?= engine/embedded/arduino/examples/AetheriumEsp32Node
 ESP_LIBRARY ?= engine/embedded/arduino
-ESP_CPP_FLAGS ?= -std=gnu++17 -DAETHERIUM_RUNTIME_CORE_ONLY=1 -I$(abspath .)
+ESP_STATUS_LED_ENABLED ?= 1
+ESP_CPP_FLAGS ?= -std=gnu++17 -DAETHERIUM_RUNTIME_CORE_ONLY=1 -DAETHERIUM_ESP32_STATUS_LED_ENABLED=$(ESP_STATUS_LED_ENABLED) -I$(abspath .)
 ESP_LUA_ARDUINO_LIB ?= Lua 5.1 for ESP32
 ESP_OLED_ARDUINO_LIB ?= Adafruit SSD1306
 ESP_GFX_ARDUINO_LIB ?= Adafruit GFX Library
@@ -71,6 +72,7 @@ MCXN947_PYOCD_UID_ARG := $(if $(MCXN947_PROBE_UID),-u $(MCXN947_PROBE_UID),)
 MCXN947_SHOWCASE ?= example/automata/showcase/09_mcxn947/mcxn947_gpio_buttons_leds.yaml
 MCXN947_DEVICE_ID ?= mcxn947-core0
 MCXN947_DEPLOY_CHUNK_SIZE ?= 64
+MCXN947_STATUS_LED_ENABLED ?= OFF
 
 .PHONY: help up u up-gateway ug up-blackbox ubb smoke-blackbox sbb down reset nuke restart r restart-gateway rg restart-server3 rs restart-device rd rebuild-blackbox rbb logs l logs0 l0 logs-blackbox lbb build-device bd rebuild-device rb-device ps host-console hc host-console-nxp hc-n hn host-console-nxp-esp hc-ne up-ros2 ur2 up-ros2-demo ur2d down-ros2 dr2 logs-ros2 lr2 logs-ros2-demo lr2d restart-ros2 rr2 up-ts uts logs-ts lts down-ts dts test-ts tts esp-deps edeps esp-boards eb esp-compile ec esp-flash ef esp-server esrv esp-smoke esmoke esp-demo edemo serial-server ssrv hardware-server hsrv serial-smoke ssmoke ports p host-demo hdemo host-smoke hsmoke mcxn947-configure mcfg mcxn947-build mbuild mcxn947-flash mflash mcxn947-reset mreset mcxn947-server msrv mcxn947-smoke msmoke mcxn947-demo mdemo
 
@@ -337,7 +339,7 @@ host-smoke hsmoke:
 	$(MAKE) serial-smoke SERIAL_SERVER_ID=host_demo ENABLE_HOST_RUNTIME_DEVICE=1 SERIAL_PORTS="$(SERIAL_PORTS)"
 
 mcxn947-configure mcfg:
-	$(MCXN947_CMAKE) -S $(MCXN947_FW_DIR) -B $(MCXN947_BUILD_DIR) -DCMAKE_TOOLCHAIN_FILE=$(MCXN947_TOOLCHAIN)
+	$(MCXN947_CMAKE) -S $(MCXN947_FW_DIR) -B $(MCXN947_BUILD_DIR) -DCMAKE_TOOLCHAIN_FILE=$(MCXN947_TOOLCHAIN) -DAETHERIUM_MCXN947_STATUS_LED_ENABLED=$(MCXN947_STATUS_LED_ENABLED)
 
 mcxn947-build mbuild: mcxn947-configure
 	$(MCXN947_CMAKE) --build $(MCXN947_BUILD_DIR)

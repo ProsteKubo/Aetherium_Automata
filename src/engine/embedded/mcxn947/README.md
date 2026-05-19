@@ -49,10 +49,17 @@ These mappings come from the FRDM-MCXN947 MCUX board files bundled in the firmwa
 
 ### Status LED note
 
-The node firmware currently uses the blue LED (`34`) as its own heartbeat/status indicator. For user GPIO tests, start with:
+The node firmware does not drive the blue LED (`34`) for heartbeat/status patterns by default, so automata can own it as a regular GPIO without confusing runtime status blink codes. If firmware status blink is needed for debugging, build with:
+
+```bash
+make mbuild MCXN947_STATUS_LED_ENABLED=ON
+```
+
+For user GPIO tests, the verified board pins are:
 
 - red LED: `10`
 - green LED: `27`
+- blue LED: `34`
 - button input: `23` or `6`
 
 ### Touch component

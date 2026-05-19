@@ -8,6 +8,10 @@ using aeth::embedded::mcxn947::AetheriumMcxn947Node;
 using aeth::embedded::mcxn947::AetheriumMcxn947SerialLink;
 using aeth::embedded::mcxn947::Mcxn947NodeOptions;
 
+#ifndef AETHERIUM_MCXN947_STATUS_LED_ENABLED
+#define AETHERIUM_MCXN947_STATUS_LED_ENABLED 0
+#endif
+
 Mcxn947NodeOptions makeNodeOptions() {
     Mcxn947NodeOptions opts;
     opts.engineInit.maxTickRate = 200;
@@ -21,6 +25,11 @@ Mcxn947NodeOptions makeNodeOptions() {
 }
 
 void applyLedPattern(const aeth::EngineStatus& status, bool helloAcknowledged) {
+#if !AETHERIUM_MCXN947_STATUS_LED_ENABLED
+    (void) status;
+    (void) helloAcknowledged;
+    return;
+#else
     const auto now = aeth::embedded::mcxn947::millis();
     bool on = false;
 
@@ -47,6 +56,7 @@ void applyLedPattern(const aeth::EngineStatus& status, bool helloAcknowledged) {
     }
 
     aeth::embedded::mcxn947::setStatusLed(on);
+#endif
 }
 
 } // namespace

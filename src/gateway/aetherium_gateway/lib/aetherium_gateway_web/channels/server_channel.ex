@@ -181,6 +181,9 @@ defmodule AetheriumGatewayWeb.ServerChannel do
       )
     end
 
+    payload = Map.put(payload, "server_id", socket.assigns.server_id)
+
+    AetheriumGatewayWeb.Endpoint.broadcast!("gateway:control", "variable_updated", payload)
     AetheriumGatewayWeb.Endpoint.broadcast!("automata:control", "variable_updated", payload)
     {:noreply, socket}
   end

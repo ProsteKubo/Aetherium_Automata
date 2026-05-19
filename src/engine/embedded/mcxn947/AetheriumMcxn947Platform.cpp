@@ -20,6 +20,10 @@ constexpr int kStatusLedPort = 1;
 constexpr int kStatusLedPin = 2;
 constexpr size_t kUartRxBufferSize = 2048;
 
+#ifndef AETHERIUM_MCXN947_STATUS_LED_ENABLED
+#define AETHERIUM_MCXN947_STATUS_LED_ENABLED 0
+#endif
+
 volatile Timestamp g_ticksMs = 0;
 bool g_initialized = false;
 bool g_clockConfigured = false;
@@ -110,10 +114,12 @@ void configureDebugUart(uint32_t baudRate) {
 }
 
 void configureStatusLed() {
+#if AETHERIUM_MCXN947_STATUS_LED_ENABLED
     configurePinMux(PORT1, kStatusLedPin, 0U, false, false, false);
     GPIO1->PCOR = (1UL << kStatusLedPin);
     GPIO1->PDDR |= (1UL << kStatusLedPin);
     GPIO1->PSOR = (1UL << kStatusLedPin);
+#endif
 }
 
 #endif
@@ -225,7 +231,7 @@ void uartWrite(const uint8_t* data, size_t len) {
 }
 
 void setStatusLed(bool on) {
-#if defined(AETHERIUM_PLATFORM_MCXN947)
+#if defined(AETHERIUM_PLATFORM_MCXN947) && AETHERIUM_MCXN947_STATUS_LED_ENABLED
     if (on) {
         GPIO1->PCOR = (1UL << kStatusLedPin);
     } else {

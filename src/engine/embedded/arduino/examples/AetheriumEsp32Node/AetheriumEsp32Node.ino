@@ -9,6 +9,10 @@
 #define AETHERIUM_SERIAL_DEBUG 0
 #endif
 
+#ifndef AETHERIUM_ESP32_STATUS_LED_ENABLED
+#define AETHERIUM_ESP32_STATUS_LED_ENABLED 1
+#endif
+
 namespace {
 #if defined(LED_BUILTIN)
 constexpr int kLedPin = LED_BUILTIN;
@@ -51,6 +55,11 @@ void applyLedPattern(const aeth::EngineStatus& status, bool helloAcknowledged) {
     return;
   }
 
+#if !AETHERIUM_ESP32_STATUS_LED_ENABLED
+  (void) status;
+  (void) helloAcknowledged;
+  return;
+#else
   const unsigned long now = millis();
   bool on = false;
 
@@ -82,6 +91,7 @@ void applyLedPattern(const aeth::EngineStatus& status, bool helloAcknowledged) {
   }
 
   digitalWrite(kLedPin, on ? HIGH : LOW);
+#endif
 }
 
 void setup() {
